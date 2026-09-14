@@ -112,8 +112,12 @@ jobs:
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
-          ./staging/package/kilo-local-ui --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          BINARY="$GITHUB_WORKSPACE/staging/package/kilo-local-ui"
+          START_DIR="$PWD"
+          cd /tmp
+          "$BINARY" --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
+          cd "$START_DIR"
           cleanup() {
             kill "$PID" 2>/dev/null || true
             wait "$PID" 2>/dev/null || true
@@ -129,6 +133,7 @@ jobs:
             sleep 0.2
           done
           test -n "$LOCAL_URL"
+          python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
           python3 scripts/check-kilo-v2-contract.py "$LOCAL_URL"
       - name: Package
         shell: bash
