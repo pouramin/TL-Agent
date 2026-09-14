@@ -2,8 +2,13 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+    paths:
+      - VERSION
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -55,6 +60,19 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
+      - name: Resolve release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+          else
+            test -f VERSION
+            VERSION="$(tr -d '[:space:]' < VERSION)"
+            test -n "$VERSION"
+            RELEASE_TAG="v${VERSION}"
+          fi
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
       - name: Test
         run: go test ./...
       - name: Build launcher
@@ -66,7 +84,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p staging/package/bin staging/upstream
-          go build -trimpath -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" -o "staging/package/${{ matrix.launcher }}" ./cmd/launcher
+          go build -trimpath -ldflags "-s -w -X main.version=${RELEASE_TAG}" -o "staging/package/${{ matrix.launcher }}" ./cmd/launcher
       - name: Download pinned Kilo runtime
         shell: bash
         run: |
@@ -88,15 +106,40 @@ jobs:
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp third_party/KILO_LICENSE.txt staging/package/third_party/
+      - name: Smoke test real Kilo runtime
+        if: matrix.name == 'linux-x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG="$(mktemp)"
+          ./staging/package/kilo-local-ui --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          PID=$!
+          cleanup() {
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+            cat "$LOG"
+          }
+          trap cleanup EXIT
+          LOCAL_URL=""
+          for _ in $(seq 1 80); do
+            LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/status" >/dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+          test -n "$LOCAL_URL"
+          curl --fail --silent "$LOCAL_URL/local/status" | tee /tmp/local-status.json
+          curl --fail --silent "$LOCAL_URL/kilo/global/health" | tee /tmp/kilo-health.json
       - name: Package
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            (cd staging/package && zip -qr "../../dist/kilo-local-ui-${GITHUB_REF_NAME}-${{ matrix.name }}.zip" .)
+            (cd staging/package && zip -qr "../../dist/kilo-local-ui-${RELEASE_TAG}-${{ matrix.name }}.zip" .)
           else
-            tar -C staging/package -czf "dist/kilo-local-ui-${GITHUB_REF_NAME}-${{ matrix.name }}.tar.gz" .
+            tar -C staging/package -czf "dist/kilo-local-ui-${RELEASE_TAG}-${{ matrix.name }}.tar.gz" .
           fi
       - uses: actions/upload-artifact@v4
         with:
@@ -109,6 +152,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+          else
+            test -f VERSION
+            VERSION="$(tr -d '[:space:]' < VERSION)"
+            test -n "$VERSION"
+            RELEASE_TAG="v${VERSION}"
+          fi
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -120,6 +176,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "$RELEASE_TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TAG" \
             --generate-notes
