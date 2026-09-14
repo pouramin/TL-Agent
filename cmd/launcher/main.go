@@ -243,6 +243,10 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 	if err != nil {
 		return nil, err
 	}
+	indexHTML, err := fs.ReadFile(assets, "index.html")
+	if err != nil {
+		return nil, fmt.Errorf("read embedded index.html: %w", err)
+	}
 	fileServer := http.FileServer(http.FS(assets))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -250,7 +254,13 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 			return
 		}
 		if r.URL.Path == "/" {
-			r.URL.Path = "/index.html"
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			w.WriteHeader(http.StatusOK)
+			if r.Method == http.MethodGet {
+				_, _ = w.Write(indexHTML)
+			}
+			return
 		}
 		fileServer.ServeHTTP(w, r)
 	})
