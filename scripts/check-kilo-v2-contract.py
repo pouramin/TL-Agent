@@ -38,6 +38,30 @@ def request(base: str, path: str, method: str = "GET", payload=None):
         return json.loads(raw)
 
 
+def first_sse_event(base: str, path: str):
+    req = urllib.request.Request(
+        base.rstrip("/") + path,
+        headers={"Accept": "text/event-stream", "Cache-Control": "no-cache"},
+        method="GET",
+    )
+    with urllib.request.urlopen(req, timeout=10) as res:
+        content_type = res.headers.get("Content-Type", "")
+        require("text/event-stream" in content_type, f"{path}: expected text/event-stream, got {content_type!r}")
+        data_lines = []
+        for _ in range(100):
+            raw = res.readline()
+            if not raw:
+                break
+            line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+            if not line:
+                if data_lines:
+                    return json.loads("\n".join(data_lines))
+                continue
+            if line.startswith("data:"):
+                data_lines.append(line[5:].lstrip())
+        raise ContractError(f"{path}: no SSE data event received")
+
+
 def require(condition: bool, message: str):
     if not condition:
         raise ContractError(message)
@@ -74,6 +98,11 @@ def main() -> int:
     require(isinstance(location.get("directory"), str), "/api/location.directory must be a string")
     require(isinstance(location.get("project"), dict), "/api/location.project must be an object")
 
+    event = first_sse_event(base, "/kilo/api/event")
+    require(isinstance(event, dict), "/api/event: SSE data must decode to an object")
+    require(event.get("type") == "server.connected", f"/api/event: expected server.connected first, got {event!r}")
+    require(isinstance(event.get("data"), dict), "/api/event: event.data must be an object")
+
     agents = require_location_envelope(request(base, "/kilo/api/agent"), "/api/agent")
     for agent in agents:
         require(isinstance(agent.get("id"), str), "Agent.Info.id must be a string")
@@ -101,6 +130,8 @@ def main() -> int:
     # Official provider HttpApi used by Kilo's own clients. TL-Agent uses only
     # connection/default state from this route; model enumeration stays on v2.
     provider_runtime = request(base, "/kilo/provider")
+    if isinstance(provider_runtime, dict) and isinstance(provider_runtime.get("data"), dict):
+        provider_runtime = provider_runtime["data"]
     require(isinstance(provider_runtime, dict), "/provider must return an object")
     require(isinstance(provider_runtime.get("connected"), list), "/provider.connected must be an array")
     require(isinstance(provider_runtime.get("default"), dict), "/provider.default must be an object")
@@ -139,6 +170,7 @@ def main() -> int:
                 "models": len(models),
                 "providers": len(providers),
                 "session": session_id,
+                "sse": event.get("type"),
             },
             indent=2,
         )
