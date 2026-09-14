@@ -24,6 +24,15 @@ jobs:
       - name: Verify browser JavaScript syntax
         run: |
           for file in cmd/launcher/web/*.js; do node --check "$file"; done
+      - name: Enforce Kilo API adapter boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(cmd/launcher/web/core.js cmd/launcher/web/chat.js cmd/launcher/web/attention.js cmd/launcher/web/app.js)
+          if grep -nE 'K\.kilo|/kilo/(api|provider)|K\.request\([^)]*/kilo' "${files[@]}"; then
+            echo "UI modules must access Kilo only through cmd/launcher/web/kilo-api.js" >&2
+            exit 1
+          fi
       - name: Verify Python contract test syntax
         run: python3 -m py_compile scripts/check-kilo-v2-contract.py
       - name: Cross-compile supported launchers
