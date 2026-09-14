@@ -15,7 +15,7 @@
       attentionBody: $("attentionBody"), attentionActions: $("attentionActions"),
     },
     state: {
-      local: null, sessions: [], session: null, messages: [], activeSessions: {}, agents: [], models: [],
+      local: null, sessions: [], session: null, messages: [], activeSessions: {}, agents: [], models: [], providerDefaults: {},
       connectedProviders: new Set(), polling: null, sending: false, revision: 0, authController: null, authURL: "", attentionKey: "",
     },
   };
@@ -116,6 +116,19 @@
     return result.sort((a, b) => `${a.providerName} ${a.name}`.localeCompare(`${b.providerName} ${b.name}`));
   };
 
+  K.modelValue = (model) => model ? `${model.providerID}::${model.id}` : "";
+
+  K.preferredKiloModel = () => {
+    if (!K.state.connectedProviders.has("kilo")) return undefined;
+    const candidates = ["kilo-auto/free", K.state.providerDefaults?.kilo].filter(Boolean);
+    for (const id of candidates) {
+      const match = K.state.models.find((model) => model.providerID === "kilo" && model.id === id);
+      if (match) return { providerID: match.providerID, id: match.id };
+    }
+    const first = K.state.models.find((model) => model.providerID === "kilo");
+    return first ? { providerID: first.providerID, id: first.id } : undefined;
+  };
+
   K.renderAccount = () => {
     const connected = K.state.connectedProviders.has("kilo");
     K.els.accountButton.textContent = connected ? "Kilo signed in" : "Sign in to Kilo";
@@ -140,7 +153,7 @@
 
   K.renderModels = () => {
     const select = K.els.modelSelect, current = select.value;
-    select.innerHTML = '<option value="">Default</option>';
+    select.innerHTML = '<option value="">Backend default</option>';
     let group, last = "";
     for (const model of K.state.models) {
       if (model.providerID !== last) {
@@ -154,7 +167,13 @@
       option.textContent = model.name;
       group.appendChild(option);
     }
-    if ([...select.querySelectorAll("option")].some((o) => o.value === current)) select.value = current;
+    const values = [...select.querySelectorAll("option")].map((o) => o.value);
+    if (current && values.includes(current)) {
+      select.value = current;
+      return;
+    }
+    const preferred = K.modelValue(K.preferredKiloModel());
+    if (preferred && values.includes(preferred)) select.value = preferred;
   };
 
   K.loadAgentsAndModels = async () => {
@@ -168,8 +187,12 @@
       const data = K.unwrap(providers.value);
       K.state.models = K.extractModels(data);
       K.state.connectedProviders = new Set(Array.isArray(data?.connected) ? data.connected : []);
+      K.state.providerDefaults = data?.default && typeof data.default === "object" ? data.default : {};
       K.renderModels();
-    } else K.state.connectedProviders = new Set();
+    } else {
+      K.state.connectedProviders = new Set();
+      K.state.providerDefaults = {};
+    }
     K.renderAccount();
   };
 
