@@ -33,8 +33,13 @@ jobs:
             echo "UI modules must access Kilo only through cmd/launcher/web/kilo-api.js" >&2
             exit 1
           fi
-      - name: Verify Python contract test syntax
-        run: python3 -m py_compile scripts/check-kilo-v2-contract.py scripts/check-kilo-project-routing.py
+      - name: Verify Python test syntax
+        run: |
+          python3 -m py_compile \
+            scripts/check-kilo-v2-contract.py \
+            scripts/check-kilo-project-routing.py \
+            scripts/fake-openai-server.py \
+            scripts/check-kilo-prompt-e2e.py
       - name: Cross-compile supported launchers
         shell: bash
         run: |
@@ -98,3 +103,109 @@ jobs:
           test -n "$LOCAL_URL"
           python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
           python3 scripts/check-kilo-v2-contract.py "$LOCAL_URL"
+
+  kilo-prompt-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Build launcher and download pinned Kilo
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/klu-e2e/bin /tmp/klu-upstream
+          go build -trimpath -o /tmp/klu-e2e/kilo-local-ui ./cmd/launcher
+          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
+          ASSET="kilo-linux-x64.tar.gz"
+          curl --fail --location --retry 3 \
+            "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}" \
+            -o "/tmp/klu-upstream/${ASSET}"
+          tar -xzf "/tmp/klu-upstream/${ASSET}" -C /tmp/klu-upstream
+          KILO_BIN="$(find /tmp/klu-upstream -type f -name kilo | head -n 1)"
+          test -n "$KILO_BIN"
+          cp "$KILO_BIN" /tmp/klu-e2e/bin/kilo
+          chmod +x /tmp/klu-e2e/kilo-local-ui /tmp/klu-e2e/bin/kilo
+      - name: Run prompt to assistant E2E with local fake LLM
+        shell: bash
+        run: |
+          set -euo pipefail
+          FAKE_LOG="$(mktemp)"
+          LAUNCHER_LOG="$(mktemp)"
+
+          python3 scripts/fake-openai-server.py >"$FAKE_LOG" 2>&1 &
+          FAKE_PID=$!
+          LLM_URL=""
+          for _ in $(seq 1 50); do
+            LLM_URL="$(head -n 1 "$FAKE_LOG" || true)"
+            [[ "$LLM_URL" == http://127.0.0.1:* ]] && break
+            sleep 0.1
+          done
+          [[ "$LLM_URL" == http://127.0.0.1:* ]]
+
+          export KILO_CONFIG_CONTENT
+          KILO_CONFIG_CONTENT="$(python3 - "$LLM_URL" <<'PY'
+          import json, sys
+          url = sys.argv[1]
+          print(json.dumps({
+              "$schema": "https://app.kilo.ai/config.json",
+              "model": "test/test-model",
+              "small_model": "test/test-model",
+              "permission": {"edit": "allow"},
+              "provider": {
+                  "test": {
+                      "name": "Test",
+                      "id": "test",
+                      "env": [],
+                      "npm": "@ai-sdk/openai-compatible",
+                      "models": {
+                          "test-model": {
+                              "id": "test-model",
+                              "name": "Test Model",
+                              "attachment": False,
+                              "reasoning": False,
+                              "temperature": False,
+                              "tool_call": True,
+                              "release_date": "2025-01-01",
+                              "limit": {"context": 100000, "output": 10000},
+                              "cost": {"input": 0, "output": 0},
+                              "options": {}
+                          }
+                      },
+                      "options": {"apiKey": "test-key", "baseURL": url}
+                  }
+              }
+          }, separators=(",", ":")))
+          PY
+          )"
+
+          START_DIR="$PWD"
+          cd /tmp
+          /tmp/klu-e2e/kilo-local-ui --no-browser --project "$GITHUB_WORKSPACE" >"$LAUNCHER_LOG" 2>&1 &
+          LAUNCHER_PID=$!
+          cd "$START_DIR"
+
+          cleanup() {
+            kill "$LAUNCHER_PID" 2>/dev/null || true
+            kill "$FAKE_PID" 2>/dev/null || true
+            wait "$LAUNCHER_PID" 2>/dev/null || true
+            wait "$FAKE_PID" 2>/dev/null || true
+            echo "--- launcher log ---"
+            cat "$LAUNCHER_LOG"
+            echo "--- fake LLM log ---"
+            cat "$FAKE_LOG"
+          }
+          trap cleanup EXIT
+
+          LOCAL_URL=""
+          for _ in $(seq 1 100); do
+            LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LAUNCHER_LOG" || true)"
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/kilo/api/health" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+          test -n "$LOCAL_URL"
+          python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
+          python3 scripts/check-kilo-prompt-e2e.py "$LOCAL_URL"
