@@ -1,0 +1,5 @@
+/dist/
+/bin/
+*.log
+.DS_Store
+Thumbs.db
