@@ -68,6 +68,17 @@
   K.kilo = (path, options) => K.request(`/kilo${path}`, options);
   K.unwrap = (input) => input && typeof input === "object" && "data" in input ? input.data : input;
 
+  K.normalizeAgents = (input) => {
+    if (!Array.isArray(input)) return [];
+    return input.flatMap((agent) => {
+      if (!agent || agent.hidden || agent.mode === "subagent") return [];
+      const id = agent.id || agent.name;
+      if (!id) return [];
+      const label = agent.displayName || agent.name || agent.id || id;
+      return [{ ...agent, id: String(id), label: String(label) }];
+    });
+  };
+
   K.loadLocalStatus = async () => {
     const { els, state } = K;
     state.local = await K.request("/local/status");
@@ -116,10 +127,12 @@
     const select = K.els.agentSelect, current = select.value;
     select.innerHTML = '<option value="">Default</option>';
     for (const agent of K.state.agents) {
+      const id = String(agent?.id || "");
+      if (!id) continue;
       const option = document.createElement("option");
-      option.value = agent.id;
-      option.textContent = agent.id.charAt(0).toUpperCase() + agent.id.slice(1);
-      option.title = agent.description || agent.id;
+      option.value = id;
+      option.textContent = agent.label || id;
+      option.title = agent.description || agent.label || id;
       select.appendChild(option);
     }
     if ([...select.options].some((o) => o.value === current)) select.value = current;
@@ -148,7 +161,7 @@
     const [agents, providers] = await Promise.allSettled([K.kilo("/agent"), K.kilo("/provider")]);
     if (agents.status === "fulfilled") {
       const data = K.unwrap(agents.value);
-      K.state.agents = Array.isArray(data) ? data.filter((a) => a && !a.hidden && a.mode !== "subagent") : [];
+      K.state.agents = K.normalizeAgents(data);
       K.renderAgents();
     }
     if (providers.status === "fulfilled") {
