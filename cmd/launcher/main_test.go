@@ -79,6 +79,41 @@ func TestProxyAddsAuthAndProject(t *testing.T) {
 	}
 }
 
+func TestRootServesIndexWithoutRedirect(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer backend.Close()
+
+	state := &appState{project: t.TempDir(), backendURL: backend.URL, frontendURL: "http://127.0.0.1"}
+	handler, err := newServer(state, backend.URL, "kilo", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	frontend := httptest.NewServer(handler)
+	defer frontend.Close()
+
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	res, err := client.Get(frontend.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 at root, got %d", res.StatusCode)
+	}
+	if location := res.Header.Get("Location"); location != "" {
+		t.Fatalf("root must not redirect, got Location %q", location)
+	}
+	if contentType := res.Header.Get("Content-Type"); !strings.Contains(contentType, "text/html") {
+		t.Fatalf("expected HTML root, got %q", contentType)
+	}
+}
+
 func TestLocalProjectEndpoint(t *testing.T) {
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
