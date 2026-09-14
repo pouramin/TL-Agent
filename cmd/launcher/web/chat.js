@@ -73,19 +73,43 @@
     return K.state.messages;
   };
 
-  const assistantText = (message) => (message.content || [])
-    .filter((item) => item?.type === "text").map((item) => item.text || "").join("\n").trim();
+  const partsOf = (message) => Array.isArray(message?.parts)
+    ? message.parts
+    : Array.isArray(message?.content) ? message.content : [];
+
+  const textOf = (message) => {
+    if (typeof message?.text === "string" && message.text) return message.text;
+    return partsOf(message)
+      .filter((item) => item?.type === "text" && !item.ignored)
+      .map((item) => item.text || "")
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  };
+
+  const errorText = (error) => {
+    if (!error) return "";
+    if (typeof error === "string") return error;
+    if (typeof error.message === "string") return error.message;
+    if (typeof error.data?.message === "string") return error.data.message;
+    if (typeof error.error?.message === "string") return error.error.message;
+    try { return JSON.stringify(error); } catch { return String(error); }
+  };
 
   const toolSummary = (item) => {
-    const status = item.state?.status || "pending";
+    const status = item.state?.status || item.status || "pending";
     let detail = "";
     try {
-      const input = item.state?.input;
+      const input = item.state?.input ?? item.input;
       if (typeof input === "string") detail = input;
       else if (input) detail = JSON.stringify(input, null, 2);
       if (!detail && item.state?.structured) detail = JSON.stringify(item.state.structured, null, 2);
-      if (status === "error" && item.state?.error?.message) detail = item.state.error.message;
-      else if (!detail && item.state?.result !== undefined) detail = typeof item.state.result === "string" ? item.state.result : JSON.stringify(item.state.result, null, 2);
+      const failure = item.state?.error ?? item.error;
+      if (status === "error" && failure) detail = errorText(failure);
+      else if (!detail) {
+        const output = item.state?.output ?? item.state?.result ?? item.output ?? item.result;
+        if (output !== undefined) detail = typeof output === "string" ? output : JSON.stringify(output, null, 2);
+      }
     } catch { detail = ""; }
     return { status, detail };
   };
@@ -108,16 +132,42 @@
     return card;
   };
 
+  const appendTools = (node, message) => {
+    for (const item of partsOf(message)) {
+      if (item?.type !== "tool") continue;
+      const tool = toolSummary(item);
+      node.querySelector(".message-content").appendChild(toolNode(item.tool || item.name || "tool", tool.status, tool.detail));
+    }
+  };
+
+  const renderCurrentEnvelope = (view, message) => {
+    if (!message?.info || !Array.isArray(message.parts)) return false;
+    const info = message.info;
+    const role = info.role;
+    const time = info.time?.created ?? info.time?.completed ?? info.createdAt;
+    if (role === "user") {
+      view.appendChild(messageNode("user", "You", textOf(message), time));
+      return true;
+    }
+    if (role === "assistant") {
+      const err = errorText(info.error);
+      const node = messageNode("assistant", info.agent || "Kilo", textOf(message), time, err);
+      appendTools(node, message);
+      view.appendChild(node);
+      return true;
+    }
+    return false;
+  };
+
   K.renderMessages = () => {
     const view = K.els.conversation;
     view.textContent = "";
     for (const message of K.state.messages) {
+      if (renderCurrentEnvelope(view, message)) continue;
       if (message.type === "user") view.appendChild(messageNode("user", "You", message.text || "", message.time?.created));
       else if (message.type === "assistant") {
-        const node = messageNode("assistant", message.agent || "Kilo", assistantText(message), message.time?.created, message.error?.message);
-        for (const item of message.content || []) if (item?.type === "tool") {
-          const tool = toolSummary(item); node.querySelector(".message-content").appendChild(toolNode(item.name || "tool", tool.status, tool.detail));
-        }
+        const node = messageNode("assistant", message.agent || "Kilo", textOf(message), message.time?.created, errorText(message.error));
+        appendTools(node, message);
         view.appendChild(node);
       } else if (message.type === "shell") {
         const node = messageNode("assistant", "Shell", "", message.time?.created);
