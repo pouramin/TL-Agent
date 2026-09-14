@@ -24,6 +24,14 @@
     return source;
   };
 
+  const pageQuery = ({ order, limit, cursor }) => {
+    const query = new URLSearchParams();
+    if (cursor) query.set("cursor", cursor);
+    else if (order) query.set("order", order);
+    if (limit !== undefined) query.set("limit", String(limit));
+    return query;
+  };
+
   K.api = Object.freeze({
     version: "kilo-v7.6.2-protocol-v2",
 
@@ -57,9 +65,8 @@
     },
 
     sessions: {
-      list: async ({ order = "desc", limit = 50, cursor } = {}) => {
-        const query = new URLSearchParams({ order, limit: String(limit) });
-        if (cursor) query.set("cursor", cursor);
+      list: ({ order = "desc", limit = 50, cursor } = {}) => {
+        const query = pageQuery({ order, limit, cursor });
         return request(`/api/session?${query}`);
       },
       active: () => request("/api/session/active"),
@@ -78,8 +85,7 @@
       wait: (sessionID) => request(`/api/session/${enc(sessionID)}/wait`, { method: "POST" }),
       interrupt: (sessionID) => request(`/api/session/${enc(sessionID)}/interrupt`, { method: "POST" }),
       messages: (sessionID, { order = "asc", limit = 200, cursor } = {}) => {
-        const query = new URLSearchParams({ order, limit: String(limit) });
-        if (cursor) query.set("cursor", cursor);
+        const query = pageQuery({ order, limit, cursor });
         return request(`/api/session/${enc(sessionID)}/message?${query}`);
       },
       message: (sessionID, messageID) => request(`/api/session/${enc(sessionID)}/message/${enc(messageID)}`),
@@ -120,8 +126,8 @@
     },
 
     oauth: {
-      authorizeKilo: () => request("/provider/kilo/oauth/authorize", { method: "POST", ...body({ method: 0 }) }),
-      callbackKilo: (signal) => request("/provider/kilo/oauth/callback", { method: "POST", ...body({ method: 0 }), signal }),
+      authorizeKilo: async () => unwrapData(await request("/provider/kilo/oauth/authorize", { method: "POST", ...body({ method: 0 }) })),
+      callbackKilo: async (signal) => unwrapData(await request("/provider/kilo/oauth/callback", { method: "POST", ...body({ method: 0 }), signal })),
     },
 
     events: {
