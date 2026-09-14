@@ -133,6 +133,9 @@ jobs:
           set -euo pipefail
           FAKE_LOG="$(mktemp)"
           LAUNCHER_LOG="$(mktemp)"
+          PROJECT_DIR="/tmp/klu-e2e-project"
+          rm -rf "$PROJECT_DIR"
+          mkdir -p "$PROJECT_DIR"
 
           python3 scripts/fake-openai-server.py >"$FAKE_LOG" 2>&1 &
           FAKE_PID=$!
@@ -144,15 +147,16 @@ jobs:
           done
           [[ "$LLM_URL" == http://127.0.0.1:* ]]
 
-          export KILO_CONFIG_CONTENT
-          KILO_CONFIG_CONTENT="$(python3 - "$LLM_URL" <<'PY'
+          # Mirror Kilo's own provider tests: custom providers live in project
+          # opencode.json. The launcher's own KILO_CONFIG_CONTENT remains only a
+          # small runtime safety overlay and must not be the provider catalog.
+          python3 - "$LLM_URL" "$PROJECT_DIR/opencode.json" <<'PY'
           import json, sys
-          url = sys.argv[1]
-          print(json.dumps({
+          url, output = sys.argv[1], sys.argv[2]
+          config = {
               "$schema": "https://app.kilo.ai/config.json",
               "model": "test/test-model",
               "small_model": "test/test-model",
-              "permission": {"edit": "allow"},
               "provider": {
                   "test": {
                       "name": "Test",
@@ -176,13 +180,15 @@ jobs:
                       "options": {"apiKey": "test-key", "baseURL": url}
                   }
               }
-          }, separators=(",", ":")))
+          }
+          with open(output, "w", encoding="utf-8") as f:
+              json.dump(config, f)
           PY
-          )"
 
+          unset KILO_CONFIG_CONTENT || true
           START_DIR="$PWD"
           cd /tmp
-          /tmp/klu-e2e/kilo-local-ui --no-browser --project "$GITHUB_WORKSPACE" >"$LAUNCHER_LOG" 2>&1 &
+          /tmp/klu-e2e/kilo-local-ui --no-browser --project "$PROJECT_DIR" >"$LAUNCHER_LOG" 2>&1 &
           LAUNCHER_PID=$!
           cd "$START_DIR"
 
@@ -195,6 +201,8 @@ jobs:
             cat "$LAUNCHER_LOG"
             echo "--- fake LLM log ---"
             cat "$FAKE_LOG"
+            echo "--- project config ---"
+            cat "$PROJECT_DIR/opencode.json"
           }
           trap cleanup EXIT
 
