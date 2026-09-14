@@ -82,17 +82,46 @@ def assistant_text(message: dict) -> str:
     )
 
 
+def wait_for_test_model(base: str, timeout: float = 25.0):
+    """Wait for Location plugins/config to finish populating the v2 catalog."""
+    deadline = time.time() + timeout
+    last_models: list[dict] = []
+    while time.time() < deadline:
+        payload = request(base, "/kilo/api/model")
+        last_models = payload.get("data", []) if isinstance(payload, dict) else []
+        match = next(
+            (
+                item
+                for item in last_models
+                if item.get("providerID") == "test" and item.get("id") == "test-model"
+            ),
+            None,
+        )
+        if match is not None:
+            return match
+        time.sleep(0.2)
+
+    summary = [
+        f"{item.get('providerID')}/{item.get('id')}"
+        for item in last_models
+        if isinstance(item, dict)
+    ]
+    raise E2EError(
+        "test/test-model was not exposed by /api/model after waiting for catalog boot; "
+        f"last models={summary[:30]!r}"
+    )
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: check-kilo-prompt-e2e.py <launcher-base-url>", file=sys.stderr)
         return 2
     base = sys.argv[1].rstrip("/")
 
-    models = request(base, "/kilo/api/model").get("data", [])
-    test_model = next(
-        (item for item in models if item.get("providerID") == "test" and item.get("id") == "test-model"),
-        None,
-    )
+    # Kilo's Location plugins populate the catalog asynchronously. Health only
+    # proves that the HTTP server is ready, not that the configured provider has
+    # completed catalog registration.
+    test_model = wait_for_test_model(base)
     require(test_model is not None, "test/test-model was not exposed by /api/model")
 
     agents = request(base, "/kilo/api/agent").get("data", [])
