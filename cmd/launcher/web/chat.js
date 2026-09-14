@@ -52,6 +52,19 @@
     return session;
   };
 
+  K.ensureSessionModel = async () => {
+    const model = K.selectedModel();
+    if (!K.state.session || !model) return;
+    const current = K.state.session.model;
+    if (current?.providerID === model.providerID && current?.id === model.id) return;
+    await K.kilo(`/api/session/${encodeURIComponent(K.state.session.id)}/model`, {
+      method: "POST",
+      body: JSON.stringify({ model }),
+    });
+    K.state.session.model = model;
+    K.renderSessionHeader();
+  };
+
   K.loadMessages = async () => {
     if (!K.state.session) return [];
     const revision = ++K.state.revision;
@@ -127,6 +140,7 @@
     K.showError(""); K.state.sending = true; K.els.sendButton.disabled = true;
     try {
       if (!K.state.session) await K.createSession();
+      await K.ensureSessionModel();
       K.els.prompt.value = ""; K.resizePrompt();
       K.state.messages.push({ type: "user", text, time: { created: Date.now() } }); K.renderMessages();
       await K.kilo(`/api/session/${encodeURIComponent(K.state.session.id)}/prompt`, { method: "POST", body: JSON.stringify({ prompt: { text }, delivery: "queue" }) });
