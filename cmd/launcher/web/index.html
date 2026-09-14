@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="description" content="A local browser interface for Kilo Code." />
+  <title>Kilo Local UI</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-row">
+        <div class="brand-mark">K</div>
+        <div>
+          <strong>Kilo Local UI</strong>
+          <span class="muted tiny">working title</span>
+        </div>
+      </div>
+
+      <section class="project-card">
+        <div class="section-label">PROJECT</div>
+        <button id="pickProject" class="project-button" title="Choose project folder">
+          <span id="projectName">Loading…</span>
+          <small id="projectPath">—</small>
+        </button>
+        <div class="project-actions">
+          <button id="manualProject" class="ghost small">Enter path</button>
+          <span id="backendStatus" class="status-dot"><i></i> Starting</span>
+        </div>
+      </section>
+
+      <div class="sidebar-head">
+        <span class="section-label">SESSIONS</span>
+        <button id="newSession" class="icon-button" aria-label="New session" title="New session">＋</button>
+      </div>
+      <div id="sessions" class="session-list"></div>
+
+      <div class="sidebar-footer">
+        <span id="versionLabel">Local runtime</span>
+        <a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noreferrer">Kilo Code</a>
+      </div>
+    </aside>
+
+    <main class="main-pane">
+      <header class="toolbar">
+        <div class="toolbar-title">
+          <strong id="sessionTitle">New session</strong>
+          <span id="sessionMeta" class="muted">Local agent workspace</span>
+        </div>
+        <div class="toolbar-controls">
+          <label>
+            <span>Agent</span>
+            <select id="agentSelect"><option value="">Default</option></select>
+          </label>
+          <label>
+            <span>Model</span>
+            <select id="modelSelect"><option value="">Default</option></select>
+          </label>
+          <button id="accountButton" class="ghost small">Kilo account</button>
+          <button id="refreshButton" class="ghost small">Refresh</button>
+        </div>
+      </header>
+
+      <section id="emptyState" class="empty-state">
+        <div class="empty-icon">⌁</div>
+        <h1>Your local coding agent, without the IDE.</h1>
+        <p>Kilo runs on this computer. This browser is only the interface.</p>
+        <div class="empty-actions">
+          <button id="emptyNewSession" class="primary">Start a session</button>
+          <button id="emptyPickProject" class="ghost">Choose project</button>
+        </div>
+        <div class="privacy-note">No project files are uploaded by this launcher. Model traffic is handled by the provider configured in Kilo.</div>
+      </section>
+
+      <section id="conversation" class="conversation hidden" aria-live="polite"></section>
+
+      <section class="composer-wrap">
+        <div id="errorBanner" class="error-banner hidden"></div>
+        <div class="composer">
+          <textarea id="prompt" rows="1" placeholder="Ask Kilo to build, debug, review, or explain…" aria-label="Prompt"></textarea>
+          <div class="composer-bottom">
+            <div class="composer-hints">
+              <span>Enter to send</span>
+              <span>Shift+Enter for newline</span>
+            </div>
+            <button id="sendButton" class="send-button" aria-label="Send prompt">↑</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="pathDialog">
+    <form method="dialog" class="dialog-card" id="pathForm">
+      <h2>Open project</h2>
+      <p>Enter an absolute folder path on this computer.</p>
+      <input id="pathInput" autocomplete="off" spellcheck="false" placeholder="C:\\Projects\\my-app" />
+      <div class="dialog-actions">
+        <button value="cancel" class="ghost">Cancel</button>
+        <button id="pathSubmit" value="default" class="primary">Open</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="authDialog">
+    <div class="dialog-card auth-card">
+      <h2>Sign in to Kilo</h2>
+      <p id="authInstructions">Starting secure device authorization…</p>
+      <div id="authCodeWrap" class="auth-code-wrap hidden">
+        <span>Device code</span>
+        <button id="authCode" class="auth-code" type="button" title="Copy code"></button>
+      </div>
+      <div class="dialog-actions split">
+        <button id="authCancel" class="ghost" type="button">Cancel</button>
+        <button id="authOpen" class="primary" type="button" disabled>Open sign-in page</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="attentionDialog">
+    <div class="dialog-card attention-card">
+      <div class="attention-kicker">Kilo needs your input</div>
+      <h2 id="attentionTitle">Permission request</h2>
+      <div id="attentionBody" class="attention-body"></div>
+      <div id="attentionActions" class="dialog-actions"></div>
+    </div>
+  </dialog>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
