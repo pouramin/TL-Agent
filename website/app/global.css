@@ -19,41 +19,72 @@
   background: color-mix(in oklab, var(--color-fd-card) 86%, transparent);
 }
 
+/* Persian typography */
 html[lang='fa'],
+html[lang='fa'] body,
 [lang='fa'] {
-  font-family: var(--font-vazir), Tahoma, 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-vazir), Vazirmatn, Tahoma, 'Segoe UI', Arial, sans-serif;
 }
 
-/* Fumadocs' sidebar ScrollArea is emitted with dir="ltr". Override that only
-   inside the Persian docs so logical padding, icons, chevrons and active rules
-   follow the actual RTL reading direction. */
-[lang='fa'] #nd-sidebar [dir='ltr'],
-[lang='fa'] #nd-sidebar [data-radix-scroll-area-viewport] {
+html[lang='fa'] body {
+  font-feature-settings: 'kern';
+  text-rendering: optimizeLegibility;
+}
+
+/* Persian docs navigation.
+   Fumadocs has a few nested LTR containers inside the sidebar, so explicitly
+   restore RTL at the navigation boundary instead of mirroring the whole UI. */
+html[lang='fa'] #nd-sidebar,
+html[lang='fa'] #nd-sidebar nav,
+html[lang='fa'] #nd-sidebar [data-radix-scroll-area-viewport],
+html[lang='fa'] #nd-sidebar [dir='ltr'] {
+  direction: rtl !important;
+}
+
+html[lang='fa'] #nd-sidebar a,
+html[lang='fa'] #nd-sidebar button {
+  direction: rtl;
+  text-align: right !important;
+  justify-content: flex-start;
+}
+
+html[lang='fa'] #nd-sidebar a > span,
+html[lang='fa'] #nd-sidebar button > span {
+  text-align: right;
+}
+
+/* Group chevrons belong at the far end of the row in RTL. */
+html[lang='fa'] #nd-sidebar button > svg:last-child {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}
+
+/* Keep leading menu icons visually attached to their labels. */
+html[lang='fa'] #nd-sidebar a > svg:first-child,
+html[lang='fa'] #nd-sidebar button > svg:first-child {
+  margin-inline-start: 0;
+  margin-inline-end: 0;
+  flex: 0 0 auto;
+}
+
+html[lang='fa'] #nd-toc {
   direction: rtl;
   text-align: right;
 }
 
-[lang='fa'] #nd-sidebar a,
-[lang='fa'] #nd-sidebar button {
-  text-align: right;
-}
-
-[lang='fa'] #nd-toc {
-  direction: rtl;
-  text-align: right;
-}
-
-[lang='fa'] #toc-title {
+html[lang='fa'] #toc-title {
   font-size: 0;
 }
 
-[lang='fa'] #toc-title::after {
+html[lang='fa'] #toc-title::after {
   content: 'در این صفحه';
   font-size: 0.875rem;
 }
 
+/* Code, commands and paths should remain LTR inside Persian pages. */
 [dir='rtl'] pre,
-[dir='rtl'] pre code {
+[dir='rtl'] pre code,
+[dir='rtl'] kbd {
   direction: ltr;
   text-align: left;
 }
