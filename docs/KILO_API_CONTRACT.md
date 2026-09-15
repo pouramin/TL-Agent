@@ -92,7 +92,6 @@ These calls must remain isolated in `kilo-api.js`.
 - `POST /api/session/:sessionID/agent`
 - `POST /api/session/:sessionID/model`
 - `POST /api/session/:sessionID/prompt`
-- `POST /api/session/:sessionID/wait`
 - `POST /api/session/:sessionID/interrupt`
 - `GET /api/session/:sessionID/context`
 - `GET /api/session/:sessionID/history`
@@ -113,6 +112,12 @@ These calls must remain isolated in `kilo-api.js`.
 - `location`
 - `subpath?`
 - `revert?`
+
+#### Session settlement in v7.6.2
+
+The Protocol exposes `POST /api/session/:sessionID/wait`, but the `v7.6.2` implementation intentionally returns `Session.OperationUnavailableError` for `wait`. TL-Agent therefore does **not** use that route.
+
+After prompt admission, TL-Agent observes execution through the v2 event stream (`session.next.step.started`, `session.next.step.ended`, `session.next.step.failed`, text/reasoning/tool events), uses `/api/session/active` for current-process activity state, and reloads projected messages as the reconnect-safe source of truth.
 
 ### Prompt admission
 
@@ -315,7 +320,9 @@ This isolates future Kilo upgrades to one integration boundary.
 
 `scripts/check-kilo-v2-contract.py` is run by CI against the actual pinned Kilo binary downloaded from the official Kilo GitHub release. It verifies the core runtime response shapes used by the UI.
 
-A Protocol v2 refactor must not be merged if the real-runtime contract job fails.
+`scripts/check-kilo-prompt-e2e.py` additionally exercises real prompt admission and execution against the pinned Kilo runtime with a local OpenAI-compatible fake provider. It validates the v2 catalog config path, Session execution, live SSE text/step events, and projected assistant messages without requiring a paid API key.
+
+A Protocol v2 refactor must not be merged if the real-runtime contract or prompt E2E job fails.
 
 ## Upgrade checklist
 
@@ -325,5 +332,5 @@ Before changing `/KILO_VERSION`:
 2. compare `packages/schema/src/session*.ts`, `agent.ts`, `model.ts`, `provider.ts`, `permission.ts`, and `question.ts`;
 3. review `specs/v2/schema-changelog.md`;
 4. update adapter tests and fixtures;
-5. run the real-runtime contract and smoke tests;
+5. run the real-runtime contract and prompt E2E tests;
 6. only then publish a release with the new Kilo binary.
