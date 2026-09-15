@@ -30,5 +30,10 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
-      - name: Build
+      - name: Build GitHub Pages export
+        env:
+          DEPLOY_TARGET: static
+          NEXT_PUBLIC_BASE_PATH: /TL-Agent
         run: npm run build
+      - name: Verify static output
+        run: test -f out/index.html && test -f out/docs/index.html && test -f out/llms.txt
