@@ -97,6 +97,9 @@ def main() -> int:
     require(isinstance(providers.get("connected"), list), "/provider.connected must be an array")
     require(isinstance(providers.get("default"), dict), "/provider.default must be an object")
 
+    auth_removed = unwrap(request(base, "/kilo/auth/kilo", method="DELETE"))
+    require(auth_removed is True, f"auth.remove mismatch: {auth_removed!r}")
+
     created = unwrap(request(base, f"/kilo/session?{query}", method="POST", payload={}))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session.create mismatch: {created!r}")
     sid = created["id"]
@@ -141,6 +144,7 @@ def main() -> int:
         "project": project,
         "agents": names,
         "providers": len(providers["all"]),
+        "auth_remove": True,
         "session_lifecycle": "create/update/diff/delete",
         "event": event_payload.get("type"),
     }, indent=2))
