@@ -154,8 +154,6 @@ def main() -> int:
     else:
         raise E2EError(f"test provider models have invalid shape: {models!r}")
 
-    # Match the official product flow: create the Session independently, then
-    # select the effective agent/model on prompt_async.
     created = unwrap(request(
         base,
         routed("/kilo/session", project),
@@ -198,10 +196,6 @@ def main() -> int:
         if isinstance(status, dict) and status.get("type") != "idle":
             saw_running = True
 
-        # The launcher deliberately configures edits as ask-by-default. Exercise
-        # the same production permission API the browser UI uses and approve the
-        # expected write exactly once, so the E2E validates the safety boundary
-        # rather than bypassing it with an allow-all test config.
         pending = unwrap(request(base, routed("/kilo/permission", project)))
         pending = pending if isinstance(pending, list) else []
         for permission in pending:
@@ -259,6 +253,15 @@ def main() -> int:
         actual = handle.read()
     require(actual == FILE_CONTENT, f"file content mismatch: {actual!r}")
 
+    diffs = unwrap(request(base, routed(f"/kilo/session/{sid}/diff", project)))
+    require(isinstance(diffs, list), f"session diff must be an array: {diffs!r}")
+    hello_diff = next(
+        (item for item in diffs if isinstance(item, dict) and str(item.get("file") or "").replace("\\", "/").endswith("/hello.txt")),
+        None,
+    )
+    require(hello_diff is not None, f"hello.txt missing from session diff: {diffs!r}")
+    require((int(hello_diff.get("additions") or 0)) >= 1, f"hello.txt diff additions missing: {hello_diff!r}")
+
     interesting = []
     for envelope in events:
         payload = envelope.get("payload", envelope) if isinstance(envelope, dict) else {}
@@ -283,6 +286,7 @@ def main() -> int:
         "saw_running": saw_running,
         "permission": "edit/once",
         "file": target,
+        "diff_files": [item.get("file") for item in diffs if isinstance(item, dict)],
         "reply": EXPECTED,
     }, indent=2))
     return 0
