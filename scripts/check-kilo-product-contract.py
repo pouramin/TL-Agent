@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Runtime contract check for the Kilo v7.6.2 product HttpApi used by official clients."""
+"""Runtime contract check for the Kilo v7.6.2 product HttpApi used by TL Agent."""
 
 from __future__ import annotations
 
@@ -97,12 +97,7 @@ def main() -> int:
     require(isinstance(providers.get("connected"), list), "/provider.connected must be an array")
     require(isinstance(providers.get("default"), dict), "/provider.default must be an object")
 
-    created = unwrap(request(
-        base,
-        f"/kilo/session?{query}",
-        method="POST",
-        payload={"agent": "code"},
-    ))
+    created = unwrap(request(base, f"/kilo/session?{query}", method="POST", payload={}))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session.create mismatch: {created!r}")
     sid = created["id"]
     sidq = urllib.parse.quote(sid, safe="")
@@ -111,11 +106,17 @@ def main() -> int:
     require(isinstance(sessions, list), "session.list must be an array")
     require(any(isinstance(s, dict) and s.get("id") == sid for s in sessions), "created session missing from list")
 
+    renamed = unwrap(request(base, f"/kilo/session/{sidq}?{query}", method="PATCH", payload={"title": "TL Agent contract"}))
+    require(isinstance(renamed, dict) and renamed.get("title") == "TL Agent contract", f"session.update mismatch: {renamed!r}")
+
     messages = unwrap(request(base, f"/kilo/session/{sidq}/message?{directory_query(project, {'limit': 10})}"))
     require(isinstance(messages, list), "session messages must be an array")
     for item in messages:
         require(isinstance(item, dict) and isinstance(item.get("info"), dict) and isinstance(item.get("parts"), list),
                 f"production message must be {{info, parts}}: {item!r}")
+
+    diffs = unwrap(request(base, f"/kilo/session/{sidq}/diff?{query}"))
+    require(isinstance(diffs, list), "session.diff must be an array")
 
     statuses = unwrap(request(base, f"/kilo/session/status?{query}"))
     require(isinstance(statuses, dict), "session/status must be an object")
@@ -127,16 +128,21 @@ def main() -> int:
 
     event = first_global_event(base, project)
     require(isinstance(event, dict), "global event must be an object")
-    payload = event.get("payload", event)
-    require(isinstance(payload, dict) and isinstance(payload.get("type"), str), f"global event payload mismatch: {event!r}")
+    event_payload = event.get("payload", event)
+    require(isinstance(event_payload, dict) and isinstance(event_payload.get("type"), str), f"global event payload mismatch: {event!r}")
+
+    removed = unwrap(request(base, f"/kilo/session/{sidq}?{query}", method="DELETE"))
+    require(removed is True, f"session.delete mismatch: {removed!r}")
+    sessions_after = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50})}"))
+    require(not any(isinstance(s, dict) and s.get("id") == sid for s in sessions_after), "deleted session still present")
 
     print(json.dumps({
         "ok": True,
         "project": project,
         "agents": names,
         "providers": len(providers["all"]),
-        "session": sid,
-        "event": payload.get("type"),
+        "session_lifecycle": "create/update/diff/delete",
+        "event": event_payload.get("type"),
     }, indent=2))
     return 0
 
