@@ -277,6 +277,27 @@
 
   const sessionStamp = (session) => String(session?.time?.updated || session?.time?.created || "");
 
+  const normalizePath = (value) => {
+    let path = String(value || "").replace(/[\\/]+$/, "").replace(/\\/g, "/");
+    if (K.state.local?.platform === "windows") path = path.toLowerCase();
+    return path;
+  };
+
+  const samePath = (a, b) => normalizePath(a) === normalizePath(b);
+  const sessionDirectory = (session) => session?.directory || session?.path || "";
+
+  const activeProjectSessions = () => {
+    const sessions = Array.isArray(K.state.sessions) ? K.state.sessions : [];
+    const activeDirectory = K.state.local?.project || "";
+    const currentID = K.state.session?.id || "";
+    return sessions.filter((session) => {
+      if (!session?.id) return false;
+      const directory = sessionDirectory(session);
+      if (!directory) return session.id === currentID;
+      return !!activeDirectory && samePath(directory, activeDirectory);
+    });
+  };
+
   const mergeUsage = (target, source) => {
     target.tokens += Number(source.tokens || 0);
     target.requests += Number(source.requests || 0);
@@ -287,13 +308,12 @@
 
   const projectUsageSnapshot = () => {
     const total = { tokens: 0, requests: 0, duration: 0, breakdown: emptyTokens() };
-    const sessions = Array.isArray(K.state.sessions) ? K.state.sessions : [];
+    const sessions = activeProjectSessions();
     const currentID = K.state.session?.id;
     let complete = true;
     let countedCurrent = false;
 
     for (const session of sessions) {
-      if (!session?.id) continue;
       if (session.id === currentID) {
         const running = K.state.sending || K.isSessionRunning(session.id);
         mergeUsage(total, usageForMessages(K.state.messages, { running }));
@@ -342,7 +362,7 @@
 
   const refreshProjectUsage = async () => {
     if (projectUsageLoading) return;
-    const sessions = (Array.isArray(K.state.sessions) ? K.state.sessions : []).filter((session) => session?.id && session.id !== K.state.session?.id);
+    const sessions = activeProjectSessions().filter((session) => session.id !== K.state.session?.id);
     const pending = sessions.filter((session) => projectUsageCache.get(session.id)?.stamp !== sessionStamp(session));
     if (!pending.length) return;
 
@@ -352,7 +372,8 @@
       while (cursor < pending.length) {
         const session = pending[cursor++];
         try {
-          const payload = await K.api.sessions.messages(session.id, { limit: PROJECT_MESSAGE_LIMIT });
+          const directory = sessionDirectory(session) || K.state.local?.project || undefined;
+          const payload = await K.api.sessions.messages(session.id, { limit: PROJECT_MESSAGE_LIMIT, directory });
           const messages = Array.isArray(payload?.data) ? payload.data : [];
           projectUsageCache.set(session.id, {
             stamp: sessionStamp(session),
@@ -378,18 +399,36 @@
     }, 120);
   };
 
+  const timeoutKind = (text) => {
+    const value = String(text || "");
+    if (/upstream idle timeout exceeded/i.test(value)) return "idle";
+    if (/upstream provider timed out while sending the response/i.test(value)) return "provider";
+    if (/"type"\s*:\s*"timeout"/i.test(value) && /timed out/i.test(value)) return "provider";
+    if (/"code"\s*:\s*503/i.test(value) && /timed out/i.test(value)) return "provider";
+    return "";
+  };
+
   const addTimeoutRecovery = () => {
     const rows = K.els.conversation?.querySelectorAll(".message.error") || [];
     for (const row of rows) {
       const error = row.querySelector(".message-error-text");
-      if (!error || !/upstream idle timeout exceeded/i.test(error.textContent || "")) continue;
+      const raw = String(error?.textContent || "").trim();
+      const kind = timeoutKind(raw);
+      if (!error || !kind) continue;
       const content = row.querySelector(".message-content");
       if (!content || content.querySelector(".timeout-recovery")) continue;
 
+      error.dataset.rawError = raw;
+      error.title = raw;
+      error.textContent = kind === "provider" ? "Upstream provider timeout" : "Upstream model idle timeout";
+
       const recovery = document.createElement("div");
       recovery.className = "timeout-recovery";
+      recovery.title = raw;
       const copy = document.createElement("span");
-      copy.textContent = "The upstream model stopped responding. Existing file changes are preserved.";
+      copy.textContent = kind === "provider"
+        ? "The upstream provider stopped responding before the turn completed. Existing file changes are preserved."
+        : "The upstream model stopped responding. Existing file changes are preserved.";
       const button = document.createElement("button");
       button.type = "button";
       button.className = "timeout-resume-button";
