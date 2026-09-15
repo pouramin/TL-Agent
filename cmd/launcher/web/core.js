@@ -16,7 +16,6 @@
     },
     state: {
       local: null,
-      location: null,
       sessions: [],
       session: null,
       messages: [],
@@ -33,7 +32,6 @@
       authController: null,
       authURL: "",
       attentionKey: "",
-      live: { text: "", reasoning: "", assistantMessageID: "" },
     },
   };
 
@@ -75,12 +73,46 @@
     const type = response.headers.get("content-type") || "";
     const payload = type.includes("application/json") ? await response.json().catch(() => null) : await response.text().catch(() => "");
     if (!response.ok) {
-      const message = payload && typeof payload === "object"
+      const detail = payload && typeof payload === "object"
         ? payload.error || payload.message || payload.data?.message || payload.data?.data?.message || JSON.stringify(payload)
         : String(payload || `${response.status} ${response.statusText}`);
-      throw new Error(message);
+      const ref = payload && typeof payload === "object" ? payload.ref || payload.data?.ref || payload.data?.data?.ref : "";
+      throw new Error(ref && !String(detail).includes(ref) ? `${detail} [${ref}]` : detail);
     }
     return payload;
+  };
+
+  K.normalizeAgents = (input) => {
+    if (!Array.isArray(input)) return [];
+    return input.flatMap((agent) => {
+      if (!agent || agent.hidden || agent.mode === "subagent") return [];
+      const id = agent.id || agent.name;
+      if (!id) return [];
+      const label = agent.displayName || agent.name || agent.id || id;
+      return [{ ...agent, id: String(id), label: String(label) }];
+    });
+  };
+
+  K.extractModels = (providers) => {
+    const result = [];
+    for (const provider of Array.isArray(providers) ? providers : []) {
+      if (!provider?.id) continue;
+      const models = provider.models || {};
+      const entries = Array.isArray(models)
+        ? models.map((model) => [model?.id || model?.modelID || model?.name, model])
+        : Object.entries(models);
+      for (const [id, model] of entries) {
+        if (!id || model?.enabled === false) continue;
+        result.push({
+          providerID: provider.id,
+          id: String(id),
+          name: model?.name || String(id),
+          providerName: provider.name || provider.id,
+          ...(model?.variant ? { variant: model.variant } : {}),
+        });
+      }
+    }
+    return result.sort((a, b) => `${a.providerName} ${a.name}`.localeCompare(`${b.providerName} ${b.name}`));
   };
 
   K.loadLocalStatus = async () => {
@@ -96,7 +128,6 @@
     try {
       const health = await K.api.health();
       if (health?.healthy !== true) throw new Error("Kilo health check did not report healthy");
-      K.state.location = await K.api.location().catch(() => null);
       K.els.backendStatus.className = "status-dot ok";
       K.els.backendStatus.innerHTML = "<i></i> Local";
       return true;
@@ -114,10 +145,10 @@
     if (!K.state.connectedProviders.has("kilo")) return undefined;
     const candidates = ["kilo-auto/free", K.state.providerDefaults?.kilo].filter(Boolean);
     for (const id of candidates) {
-      const match = K.state.models.find((model) => model.providerID === "kilo" && model.id === id && model.enabled !== false);
+      const match = K.state.models.find((model) => model.providerID === "kilo" && model.id === id);
       if (match) return { providerID: match.providerID, id: match.id };
     }
-    const first = K.state.models.find((model) => model.providerID === "kilo" && model.enabled !== false);
+    const first = K.state.models.find((model) => model.providerID === "kilo");
     return first ? { providerID: first.providerID, id: first.id } : undefined;
   };
 
@@ -135,39 +166,33 @@
     for (const agent of K.state.agents) {
       const option = document.createElement("option");
       option.value = agent.id;
-      option.textContent = agent.id;
-      option.title = agent.description || agent.id;
+      option.textContent = agent.label || agent.id;
+      option.title = agent.description || agent.label || agent.id;
       select.appendChild(option);
     }
-    if ([...select.options].some((o) => o.value === current)) select.value = current;
+    if ([...select.options].some((option) => option.value === current)) select.value = current;
   };
 
   K.renderModels = () => {
     const select = K.els.modelSelect;
     const current = select.value;
     select.innerHTML = '<option value="">Backend default</option>';
-    const providerNames = new Map(K.state.providers.map((provider) => [provider.id, provider.name || provider.id]));
-    const grouped = new Map();
+    let group = null;
+    let last = "";
     for (const model of K.state.models) {
-      if (model.enabled === false) continue;
-      const key = model.providerID;
-      if (!grouped.has(key)) grouped.set(key, []);
-      grouped.get(key).push(model);
-    }
-    for (const [providerID, models] of [...grouped.entries()].sort(([a], [b]) => (providerNames.get(a) || a).localeCompare(providerNames.get(b) || b))) {
-      const group = document.createElement("optgroup");
-      group.label = providerNames.get(providerID) || providerID;
-      models.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
-      for (const model of models) {
-        const option = document.createElement("option");
-        option.value = K.modelValue(model);
-        option.textContent = model.name || model.id;
-        option.title = `${providerID}/${model.id}`;
-        group.appendChild(option);
+      if (model.providerID !== last) {
+        group = document.createElement("optgroup");
+        group.label = model.providerName || model.providerID;
+        select.appendChild(group);
+        last = model.providerID;
       }
-      select.appendChild(group);
+      const option = document.createElement("option");
+      option.value = K.modelValue(model);
+      option.textContent = model.name || model.id;
+      option.title = `${model.providerID}/${model.id}`;
+      group.appendChild(option);
     }
-    const values = [...select.querySelectorAll("option")].map((o) => o.value);
+    const values = [...select.querySelectorAll("option")].map((option) => option.value);
     if (current && values.includes(current)) {
       select.value = current;
       return;
@@ -177,27 +202,24 @@
   };
 
   K.loadCatalog = async () => {
-    const [agents, models, providers, runtime] = await Promise.allSettled([
-      K.api.agents(),
-      K.api.models(),
-      K.api.providers(),
-      K.api.providerRuntimeState(),
-    ]);
-
+    const [agents, providers] = await Promise.allSettled([K.api.agents(), K.api.providerState()]);
     if (agents.status === "fulfilled") {
-      K.state.agents = agents.value.filter((agent) => agent && !agent.hidden && agent.mode !== "subagent" && typeof agent.id === "string");
+      K.state.agents = K.normalizeAgents(agents.value);
       K.renderAgents();
     }
-    if (models.status === "fulfilled") K.state.models = models.value.filter((model) => model && typeof model.id === "string" && typeof model.providerID === "string");
-    if (providers.status === "fulfilled") K.state.providers = providers.value.filter((provider) => provider && typeof provider.id === "string");
-    if (runtime.status === "fulfilled") {
-      K.state.connectedProviders = runtime.value.connected;
-      K.state.providerDefaults = runtime.value.defaults;
+    if (providers.status === "fulfilled") {
+      K.state.providers = providers.value.all;
+      K.state.models = K.extractModels(providers.value.all);
+      K.state.connectedProviders = providers.value.connected;
+      K.state.providerDefaults = providers.value.defaults;
+      K.renderModels();
     } else {
+      K.state.providers = [];
+      K.state.models = [];
       K.state.connectedProviders = new Set();
       K.state.providerDefaults = {};
+      K.renderModels();
     }
-    K.renderModels();
     K.renderAccount();
   };
 
@@ -210,15 +232,20 @@
   };
 
   K.loadSessions = async () => {
-    const payload = await K.api.sessions.list({ order: "desc", limit: 50 });
+    const payload = await K.api.sessions.list({ limit: 50 });
     K.state.sessions = Array.isArray(payload?.data) ? payload.data : [];
     K.renderSessions();
     return K.state.sessions;
   };
 
   K.loadActiveSessions = async () => {
-    try { K.state.activeSessions = (await K.api.sessions.active())?.data || {}; }
+    try { K.state.activeSessions = (await K.api.sessions.status())?.data || {}; }
     catch { K.state.activeSessions = {}; }
+  };
+
+  K.isSessionRunning = (sessionID) => {
+    const status = sessionID ? K.state.activeSessions?.[sessionID] : undefined;
+    return !!status && status.type !== "idle";
   };
 
   K.renderSessions = () => {
@@ -245,24 +272,26 @@
   };
 
   K.renderSessionHeader = () => {
-    const s = K.state.session;
-    if (!s) {
+    const session = K.state.session;
+    if (!session) {
       K.els.sessionTitle.textContent = "New session";
       K.els.sessionMeta.textContent = "Local agent workspace";
       return;
     }
-    K.els.sessionTitle.textContent = s.title || "Untitled session";
-    const model = s.model ? `${s.model.providerID}/${s.model.id}` : "default model";
-    K.els.sessionMeta.textContent = `${s.agent || "default agent"} · ${model}`;
+    K.els.sessionTitle.textContent = session.title || "Untitled session";
+    const model = session.model ? `${session.model.providerID}/${session.model.id || session.model.modelID}` : "default model";
+    K.els.sessionMeta.textContent = `${session.agent || "default agent"} · ${model}`;
   };
 
   K.syncSelectors = () => {
-    const s = K.state.session;
-    if (!s) return;
-    K.els.agentSelect.value = s.agent && [...K.els.agentSelect.options].some((o) => o.value === s.agent) ? s.agent : "";
-    if (s.model) {
-      const value = K.modelValue(s.model);
-      K.els.modelSelect.value = [...K.els.modelSelect.querySelectorAll("option")].some((o) => o.value === value) ? value : "";
+    const session = K.state.session;
+    if (!session) return;
+    K.els.agentSelect.value = session.agent && [...K.els.agentSelect.options].some((option) => option.value === session.agent)
+      ? session.agent
+      : "";
+    if (session.model) {
+      const value = K.modelValue({ ...session.model, id: session.model.id || session.model.modelID });
+      K.els.modelSelect.value = [...K.els.modelSelect.querySelectorAll("option")].some((option) => option.value === value) ? value : "";
     }
   };
 })();

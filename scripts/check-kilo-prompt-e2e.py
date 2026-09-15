@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
-"""Exercise Kilo's real v2 agent loop against the local fake LLM fixture."""
+"""Exercise Kilo v7.6.2's production coding path against a local fake LLM."""
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
-EXPECTED = "E2E_PROTOCOL_OK"
+EXPECTED = "E2E_PRODUCT_OK"
+FILE_CONTENT = "KILO_LOCAL_UI_OK"
 
 
 class E2EError(RuntimeError):
@@ -22,6 +25,12 @@ def require(condition: bool, message: str):
         raise E2EError(message)
 
 
+def unwrap(value):
+    if isinstance(value, dict) and "data" in value:
+        return value["data"]
+    return value
+
+
 def request(base: str, path: str, method: str = "GET", payload=None, timeout=30):
     data = None
     headers = {"Accept": "application/json"}
@@ -29,20 +38,29 @@ def request(base: str, path: str, method: str = "GET", payload=None, timeout=30)
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(base.rstrip("/") + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=timeout) as res:
-        raw = res.read()
-        if not raw:
-            return None
-        content_type = res.headers.get("Content-Type", "")
-        if "json" not in content_type:
-            raise E2EError(f"{method} {path}: expected JSON, got {content_type!r}")
-        return json.loads(raw)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            raw = res.read()
+            if not raw:
+                return None
+            ctype = res.headers.get("Content-Type", "")
+            if "json" not in ctype:
+                raise E2EError(f"{method} {path}: expected JSON, got {ctype!r}")
+            return json.loads(raw)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise E2EError(f"{method} {path}: HTTP {error.code}: {detail}") from error
 
 
-def sse_events(base: str, sink: list[dict], ready: threading.Event, stop: threading.Event):
+def routed(path: str, project: str, **params) -> str:
+    query = {"directory": project, **params}
+    return f"{path}?{urllib.parse.urlencode(query)}"
+
+
+def sse_events(base: str, project: str, sink: list[dict], ready: threading.Event, stop: threading.Event):
     try:
         req = urllib.request.Request(
-            base.rstrip("/") + "/kilo/api/event",
+            base.rstrip("/") + routed("/kilo/global/event", project),
             headers={"Accept": "text/event-stream", "Cache-Control": "no-cache"},
         )
         with urllib.request.urlopen(req, timeout=60) as res:
@@ -56,10 +74,11 @@ def sse_events(base: str, sink: list[dict], ready: threading.Event, stop: thread
                     if not data_lines:
                         continue
                     try:
-                        event = json.loads("\n".join(data_lines))
-                        if isinstance(event, dict):
-                            sink.append(event)
-                            if event.get("type") == "server.connected":
+                        envelope = json.loads("\n".join(data_lines))
+                        if isinstance(envelope, dict):
+                            sink.append(envelope)
+                            payload = envelope.get("payload", envelope)
+                            if isinstance(payload, dict) and payload.get("type") == "server.connected":
                                 ready.set()
                     finally:
                         data_lines = []
@@ -67,61 +86,37 @@ def sse_events(base: str, sink: list[dict], ready: threading.Event, stop: thread
                 if line.startswith("data:"):
                     data_lines.append(line[5:].lstrip())
     except Exception as error:
-        sink.append({"type": "test.sse.error", "data": {"message": str(error)}})
+        sink.append({"type": "test.sse.error", "message": str(error)})
         ready.set()
 
 
-def assistant_text(message: dict) -> str:
-    content = message.get("content")
-    if not isinstance(content, list):
+def assistant_text(envelope: dict) -> str:
+    if not isinstance(envelope, dict):
+        return ""
+    info = envelope.get("info")
+    if not isinstance(info, dict) or info.get("role") != "assistant":
+        return ""
+    parts = envelope.get("parts")
+    if not isinstance(parts, list):
         return ""
     return "\n".join(
-        item.get("text", "")
-        for item in content
-        if isinstance(item, dict) and item.get("type") == "text" and isinstance(item.get("text"), str)
+        part.get("text", "")
+        for part in parts
+        if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str)
     )
 
 
-def wait_for_test_model(base: str, timeout: float = 25.0):
-    """Wait for Location plugins/config to finish populating the v2 catalog."""
-    deadline = time.time() + timeout
-    last_models: list[dict] = []
-    while time.time() < deadline:
-        payload = request(base, "/kilo/api/model")
-        last_models = payload.get("data", []) if isinstance(payload, dict) else []
-        match = next(
-            (
-                item
-                for item in last_models
-                if item.get("providerID") == "test" and item.get("id") == "test-model"
-            ),
-            None,
-        )
-        if match is not None:
-            return match
-        time.sleep(0.2)
-
-    summary = [
-        f"{item.get('providerID')}/{item.get('id')}"
-        for item in last_models
-        if isinstance(item, dict)
-    ]
-    raise E2EError(
-        "test/test-model was not exposed by /api/model after waiting for catalog boot; "
-        f"last models={summary[:30]!r}"
-    )
-
-
-def event_for_session(events: list[dict], session_id: str, event_type: str):
-    return next(
-        (
-            event
-            for event in events
-            if event.get("type") == event_type
-            and isinstance(event.get("data"), dict)
-            and event["data"].get("sessionID") == session_id
-        ),
-        None,
+def has_completed_write(envelope: dict) -> bool:
+    parts = envelope.get("parts") if isinstance(envelope, dict) else None
+    if not isinstance(parts, list):
+        return False
+    return any(
+        isinstance(part, dict)
+        and part.get("type") == "tool"
+        and part.get("tool") == "write"
+        and isinstance(part.get("state"), dict)
+        and part["state"].get("status") == "completed"
+        for part in parts
     )
 
 
@@ -131,139 +126,165 @@ def main() -> int:
         return 2
     base = sys.argv[1].rstrip("/")
 
-    # Kilo's Location plugins populate the catalog asynchronously. Health only
-    # proves that the HTTP server is ready, not that the configured provider has
-    # completed catalog registration.
-    test_model = wait_for_test_model(base)
-    require(test_model is not None, "test/test-model was not exposed by /api/model")
+    local = request(base, "/local/status")
+    project = local.get("project") if isinstance(local, dict) else None
+    require(isinstance(project, str) and project, f"local project missing: {local!r}")
 
-    agents = request(base, "/kilo/api/agent").get("data", [])
-    visible = [item for item in agents if not item.get("hidden") and item.get("mode") != "subagent"]
-    agent = next((item for item in visible if item.get("id") == "code"), visible[0] if visible else None)
-    require(agent is not None and isinstance(agent.get("id"), str), "no usable Kilo agent found")
+    agents = unwrap(request(base, routed("/kilo/agent", project)))
+    require(isinstance(agents, list), f"agent response mismatch: {agents!r}")
+    visible = [a for a in agents if isinstance(a, dict) and not a.get("hidden") and a.get("mode") != "subagent"]
+    names = [str(a.get("name") or a.get("id") or "") for a in visible]
+    require("code" in names, f"product code agent missing: {names!r}")
+    require("build" not in names, f"raw build agent leaked through product API: {names!r}")
 
-    created = request(
+    provider_state = unwrap(request(base, routed("/kilo/provider", project)))
+    require(isinstance(provider_state, dict), f"provider response mismatch: {provider_state!r}")
+    providers = provider_state.get("all")
+    require(isinstance(providers, list), "provider.all missing")
+    test_provider = next((p for p in providers if isinstance(p, dict) and p.get("id") == "test"), None)
+    require(test_provider is not None, f"test provider missing: {[p.get('id') for p in providers if isinstance(p, dict)]!r}")
+    models = test_provider.get("models")
+    if isinstance(models, dict):
+        require("test-model" in models, f"test-model missing from provider: {models!r}")
+    elif isinstance(models, list):
+        require(
+            any(isinstance(m, dict) and (m.get("id") == "test-model" or m.get("modelID") == "test-model") for m in models),
+            f"test-model missing from provider: {models!r}",
+        )
+    else:
+        raise E2EError(f"test provider models have invalid shape: {models!r}")
+
+    # Match the official product flow: create the Session independently, then
+    # select the effective agent/model on prompt_async.
+    created = unwrap(request(
         base,
-        "/kilo/api/session",
+        routed("/kilo/session", project),
         method="POST",
-        payload={
-            "agent": agent["id"],
-            "model": {"providerID": "test", "id": "test-model"},
-        },
-    )
-    session = created.get("data", {})
-    session_id = session.get("id")
-    require(isinstance(session_id, str) and session_id, "session creation did not return an ID")
+        payload={},
+    ))
+    require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session creation failed: {created!r}")
+    session_id = created["id"]
     sid = urllib.parse.quote(session_id, safe="")
 
     events: list[dict] = []
     ready = threading.Event()
     stop = threading.Event()
-    thread = threading.Thread(target=sse_events, args=(base, events, ready, stop), daemon=True)
+    thread = threading.Thread(target=sse_events, args=(base, project, events, ready, stop), daemon=True)
     thread.start()
-    require(ready.wait(5), "global SSE did not connect before prompt")
+    require(ready.wait(5), f"global SSE did not connect: {events!r}")
     require(not any(event.get("type") == "test.sse.error" for event in events), f"SSE failed: {events!r}")
 
-    admitted = request(
+    request(
         base,
-        f"/kilo/api/session/{sid}/prompt",
+        routed(f"/kilo/session/{sid}/prompt_async", project),
         method="POST",
         payload={
-            "prompt": {"text": "Reply with the CI fixture response."},
-            "delivery": "queue",
+            "agent": "code",
+            "model": {"providerID": "test", "modelID": "test-model"},
+            "parts": [{"type": "text", "text": "Create the requested fixture file, then confirm completion."}],
         },
     )
-    receipt = admitted.get("data", {})
-    require(receipt.get("sessionID") == session_id, "prompt admission returned the wrong session")
-    require(isinstance(receipt.get("id"), str), "prompt admission did not return a message ID")
 
-    # v7.6.2 intentionally exposes /session/:id/wait as an unavailable operation.
-    # Synchronize using the public v2 live stream plus projected messages instead:
-    # prompt() wakes SessionExecution asynchronously, step.failed/step.ended report
-    # settlement, and /message remains the reconnect-safe source of truth.
     deadline = time.time() + 45
     messages: list[dict] = []
-    saw_active = False
-    last_active: dict = {}
-    while time.time() < deadline:
-        active_payload = request(base, "/kilo/api/session/active")
-        last_active = active_payload.get("data", {}) if isinstance(active_payload, dict) else {}
-        if session_id in last_active:
-            saw_active = True
+    saw_running = False
+    approved_permissions: set[str] = set()
+    saw_edit_permission = False
 
-        page = request(base, f"/kilo/api/session/{sid}/message?order=asc&limit=200")
-        messages = page.get("data", []) if isinstance(page, dict) else []
-        if any(message.get("type") == "assistant" and EXPECTED in assistant_text(message) for message in messages):
+    while time.time() < deadline:
+        statuses = unwrap(request(base, routed("/kilo/session/status", project)))
+        statuses = statuses if isinstance(statuses, dict) else {}
+        status = statuses.get(session_id)
+        if isinstance(status, dict) and status.get("type") != "idle":
+            saw_running = True
+
+        # The launcher deliberately configures edits as ask-by-default. Exercise
+        # the same production permission API the browser UI uses and approve the
+        # expected write exactly once, so the E2E validates the safety boundary
+        # rather than bypassing it with an allow-all test config.
+        pending = unwrap(request(base, routed("/kilo/permission", project)))
+        pending = pending if isinstance(pending, list) else []
+        for permission in pending:
+            if not isinstance(permission, dict) or permission.get("sessionID") != session_id:
+                continue
+            permission_id = permission.get("id")
+            if not isinstance(permission_id, str) or permission_id in approved_permissions:
+                continue
+            require(permission.get("permission") == "edit", f"unexpected permission request: {permission!r}")
+            patterns = permission.get("patterns")
+            require(isinstance(patterns, list) and any("hello.txt" in str(item) for item in patterns),
+                    f"edit permission did not target hello.txt: {permission!r}")
+            request(
+                base,
+                routed(f"/kilo/permission/{urllib.parse.quote(permission_id, safe='')}/reply", project),
+                method="POST",
+                payload={"reply": "once"},
+            )
+            approved_permissions.add(permission_id)
+            saw_edit_permission = True
+
+        messages = unwrap(request(base, routed(f"/kilo/session/{sid}/message", project, limit=200)))
+        messages = messages if isinstance(messages, list) else []
+        if any(EXPECTED in assistant_text(message) for message in messages):
             break
 
-        failed = event_for_session(events, session_id, "session.next.step.failed")
-        if failed is not None:
-            raise E2EError(f"Kilo agent step failed before fixture reply: {failed!r}; messages={messages!r}")
+        for message in messages:
+            info = message.get("info") if isinstance(message, dict) else None
+            if isinstance(info, dict) and info.get("role") == "assistant" and info.get("error"):
+                raise E2EError(f"assistant failed before fixture reply: {info.get('error')!r}; messages={messages!r}")
 
         sse_error = next((event for event in events if event.get("type") == "test.sse.error"), None)
-        if sse_error is not None:
-            raise E2EError(f"SSE failed while waiting for agent completion: {sse_error!r}")
-
+        if sse_error:
+            raise E2EError(f"SSE failed while waiting for completion: {sse_error!r}")
         time.sleep(0.1)
     else:
         raise E2EError(
-            "timed out waiting for projected assistant reply; "
-            f"saw_active={saw_active!r} active={last_active!r} messages={messages!r} events={events!r}"
+            f"timed out waiting for assistant reply; saw_running={saw_running!r} "
+            f"saw_edit_permission={saw_edit_permission!r} messages={messages!r} events={events!r}"
         )
 
     stop.set()
 
-    users = [message for message in messages if message.get("type") == "user"]
-    assistants = [message for message in messages if message.get("type") == "assistant"]
-    require(users, f"no projected user message found: {messages!r}")
-    require(assistants, f"no projected assistant message found: {messages!r}")
-    require(any(EXPECTED in assistant_text(message) for message in assistants), f"fixture reply missing: {assistants!r}")
+    users = [m for m in messages if isinstance(m, dict) and isinstance(m.get("info"), dict) and m["info"].get("role") == "user"]
+    assistants = [m for m in messages if isinstance(m, dict) and isinstance(m.get("info"), dict) and m["info"].get("role") == "assistant"]
+    require(users, f"no projected user message: {messages!r}")
+    require(assistants, f"no projected assistant message: {messages!r}")
+    require(saw_edit_permission, "write tool never requested edit permission")
+    require(any(EXPECTED in assistant_text(m) for m in assistants), f"fixture reply missing: {assistants!r}")
+    require(any(has_completed_write(m) for m in assistants), f"completed write tool part missing: {assistants!r}")
 
-    for message in messages:
-        require("info" not in message and "parts" not in message, "public v2 messages unexpectedly exposed info/parts")
+    target = os.path.join(project, "hello.txt")
+    require(os.path.isfile(target), f"Kilo did not create {target}")
+    with open(target, "r", encoding="utf-8") as handle:
+        actual = handle.read()
+    require(actual == FILE_CONTENT, f"file content mismatch: {actual!r}")
 
-    matching = next(message for message in assistants if EXPECTED in assistant_text(message))
-    model = matching.get("model")
-    require(isinstance(model, dict), "assistant.model must be a Model.Ref")
-    require(model.get("providerID") == "test" and model.get("id") == "test-model", f"assistant model mismatch: {model!r}")
-    require(isinstance(matching.get("content"), list), "assistant.content must be an array")
+    interesting = []
+    for envelope in events:
+        payload = envelope.get("payload", envelope) if isinstance(envelope, dict) else {}
+        if isinstance(payload, dict):
+            props = payload.get("properties") if isinstance(payload.get("properties"), dict) else {}
+            info = props.get("info") if isinstance(props.get("info"), dict) else {}
+            part = props.get("part") if isinstance(props.get("part"), dict) else {}
+            sid_from_event = props.get("sessionID") or info.get("sessionID") or part.get("sessionID")
+            if sid_from_event == session_id:
+                interesting.append(payload.get("type"))
+    require(any(t in {"message.updated", "message.part.updated", "session.status", "session.idle"} for t in interesting),
+            f"no production session/message event observed for session: {interesting!r}")
+    require("permission.asked" in interesting, f"permission.asked event missing: {interesting!r}")
 
-    # Verify the same provider response was observable as live v2 stream deltas,
-    # not only after projection/reload.
-    event_deadline = time.time() + 5
-    while time.time() < event_deadline:
-        streamed = "".join(
-            str(event.get("data", {}).get("delta", ""))
-            for event in events
-            if event.get("type") == "session.next.text.delta"
-            and event.get("data", {}).get("sessionID") == session_id
-        )
-        if EXPECTED in streamed:
-            break
-        time.sleep(0.05)
-    else:
-        raise E2EError(f"live session.next.text.delta did not contain {EXPECTED!r}; events={events!r}")
-
-    require(
-        event_for_session(events, session_id, "session.next.step.ended") is not None,
-        "live SSE did not publish session.next.step.ended",
-    )
-
-    print(
-        json.dumps(
-            {
-                "ok": True,
-                "session": session_id,
-                "agent": agent["id"],
-                "model": "test/test-model",
-                "messages": len(messages),
-                "live_events": len(events),
-                "saw_active": saw_active,
-                "reply": EXPECTED,
-            },
-            indent=2,
-        )
-    )
+    print(json.dumps({
+        "ok": True,
+        "session": session_id,
+        "agent": "code",
+        "model": "test/test-model",
+        "messages": len(messages),
+        "events": interesting,
+        "saw_running": saw_running,
+        "permission": "edit/once",
+        "file": target,
+        "reply": EXPECTED,
+    }, indent=2))
     return 0
 
 
@@ -271,5 +292,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except E2EError as error:
-        print(f"E2E FAILURE: {error}", file=sys.stderr)
+        print(f"PRODUCT E2E FAILURE: {error}", file=sys.stderr)
         raise SystemExit(1)

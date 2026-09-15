@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
 """Tiny OpenAI-compatible streaming fixture used by TL-Agent CI.
 
-It intentionally implements only the endpoints needed by Kilo's test provider.
-The first stdout line is the base URL suitable for provider.options.baseURL.
+When FAKE_WRITE_PATH is set, the first provider turn calls Kilo's `write` tool
+for that exact path. After Kilo sends the tool result back, the fixture emits
+the final E2E marker. This exercises the real production agent loop and a real
+workspace mutation without an external API key.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-REPLY = "E2E_PROTOCOL_OK"
+REPLY = "E2E_PRODUCT_OK"
+WRITE_CONTENT = "KILO_LOCAL_UI_OK"
+WRITE_PATH = os.environ.get("FAKE_WRITE_PATH", "")
 
 
 def chat_chunk(delta=None, finish=None, usage=None):
@@ -27,17 +32,51 @@ def chat_chunk(delta=None, finish=None, usage=None):
     return item
 
 
+def has_tool_result(body: dict) -> bool:
+    messages = body.get("messages") if isinstance(body, dict) else None
+    if not isinstance(messages, list):
+        return False
+    return any(isinstance(message, dict) and message.get("role") == "tool" for message in messages)
+
+
+def chat_events(body: dict):
+    if WRITE_PATH and not has_tool_result(body):
+        arguments = json.dumps({"filePath": WRITE_PATH, "content": WRITE_CONTENT}, separators=(",", ":"))
+        return [
+            chat_chunk({"role": "assistant"}),
+            chat_chunk({
+                "tool_calls": [{
+                    "index": 0,
+                    "id": "call_tl_agent_write",
+                    "type": "function",
+                    "function": {"name": "write", "arguments": arguments},
+                }]
+            }),
+            chat_chunk({}, "tool_calls", {
+                "prompt_tokens": 8,
+                "completion_tokens": 4,
+                "total_tokens": 12,
+            }),
+        ]
+    return [
+        chat_chunk({"role": "assistant"}),
+        chat_chunk({"content": REPLY}),
+        chat_chunk({}, "stop", {
+            "prompt_tokens": 8,
+            "completion_tokens": 4,
+            "total_tokens": 12,
+        }),
+    ]
+
+
 def response_events(model: str):
+    # Kept for providers that use the Responses endpoint. The production E2E
+    # fixture uses @ai-sdk/openai-compatible and therefore chat/completions.
     return [
         {
             "type": "response.created",
             "sequence_number": 1,
-            "response": {
-                "id": "resp_tl_agent",
-                "created_at": 0,
-                "model": model,
-                "service_tier": None,
-            },
+            "response": {"id": "resp_tl_agent", "created_at": 0, "model": model, "service_tier": None},
         },
         {
             "type": "response.output_item.added",
@@ -108,15 +147,7 @@ class Handler(BaseHTTPRequestHandler):
         model = model if isinstance(model, str) else "test-model"
 
         if self.path.endswith("/chat/completions"):
-            self._sse([
-                chat_chunk({"role": "assistant"}),
-                chat_chunk({"content": REPLY}),
-                chat_chunk({}, "stop", {
-                    "prompt_tokens": 8,
-                    "completion_tokens": 4,
-                    "total_tokens": 12,
-                }),
-            ])
+            self._sse(chat_events(body if isinstance(body, dict) else {}))
             return
 
         if self.path.endswith("/responses"):

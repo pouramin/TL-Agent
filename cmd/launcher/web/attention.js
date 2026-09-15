@@ -89,11 +89,14 @@
 
     const text = document.createElement("div");
     const meta = document.createElement("div");
-    text.textContent = `Kilo wants permission to ${item.action || "perform an action"}.`;
+    text.textContent = `Kilo wants permission to ${item.permission || item.action || "perform an action"}.`;
     meta.className = "attention-meta";
+    const patterns = Array.isArray(item.patterns) ? item.patterns : Array.isArray(item.resources) ? item.resources : [];
+    const always = Array.isArray(item.always) && item.always.length ? `Can save as always allowed:\n${item.always.join("\n")}` : "";
     meta.textContent = [
-      Array.isArray(item.resources) ? item.resources.join("\n") : "",
-      item.metadata ? JSON.stringify(item.metadata, null, 2) : "",
+      patterns.length ? patterns.join("\n") : "",
+      item.metadata && Object.keys(item.metadata).length ? JSON.stringify(item.metadata, null, 2) : "",
+      always,
     ].filter(Boolean).join("\n\n") || "No additional details.";
     K.els.attentionBody.append(text, meta);
     K.els.attentionActions.append(
@@ -140,6 +143,7 @@
         input.type = question.multiple ? "checkbox" : "radio";
         input.name = name;
         input.value = option.label;
+        if (!question.multiple && question.default && option.label === question.default) input.checked = true;
         span.textContent = option.description ? `${option.label} — ${option.description}` : option.label;
         label.append(input, span);
         block.appendChild(label);
