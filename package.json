@@ -1,0 +1,21 @@
+{
+  "name": "tl-agent",
+  "version": "0.0.0-github",
+  "private": true,
+  "description": "GitHub-backed quick launcher for TL Agent",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pouramin/TL-Agent.git"
+  },
+  "homepage": "https://github.com/pouramin/TL-Agent",
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "tl-agent": "scripts/npx-launch.cjs"
+  },
+  "files": [
+    "scripts/npx-launch.cjs"
+  ]
+}
