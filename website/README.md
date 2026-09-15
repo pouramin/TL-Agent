@@ -9,6 +9,7 @@ This directory is the public documentation/product site for Kilo Local UI. It is
 - Tailwind CSS 4
 - Static search
 - GitHub Pages deployment
+- per-page Markdown export plus `llms.txt` / `llms-full.txt`
 
 ## Local development
 
