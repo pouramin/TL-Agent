@@ -3,3 +3,13 @@
   color: #d8b96f;
   font-size: 10px;
 }
+
+.activity-card[data-status="retrying"] {
+  border-color: color-mix(in srgb, var(--warning), var(--line) 68%);
+}
+.activity-card[data-status="retrying"] .activity-icon {
+  color: var(--warning);
+}
+.activity-card[data-status="retrying"] .activity-status {
+  color: #d8b96f;
+}
