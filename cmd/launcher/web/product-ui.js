@@ -97,7 +97,10 @@
     if (!session?.id) return;
     if (!window.confirm(`Delete “${session.title || "Untitled session"}” permanently?`)) return;
     try {
-      if (K.isSessionRunning(session.id)) await K.api.sessions.abort(session.id, { scope: "tree" }).catch(() => {});
+      const selectedSending = K.state.session?.id === session.id && K.state.sending;
+      if (K.isSessionRunning(session.id) || selectedSending) {
+        await K.api.sessions.abort(session.id, { scope: "tree" }).catch(() => {});
+      }
       await K.api.sessions.remove(session.id);
       if (K.state.session?.id === session.id) {
         K.state.changes = [];
