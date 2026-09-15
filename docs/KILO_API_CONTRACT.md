@@ -9,15 +9,20 @@ This document pins the browser client in this repository to the public Kilo Prot
 
 ## Rule
 
-The UI and launcher must integrate against the public Protocol v2 routes and schemas for the pinned Kilo version. Internal storage structures, legacy routes, implementation-only objects, and undocumented compatibility shapes are not part of this contract.
+The UI and launcher must integrate against the public Protocol v2 routes and schemas for the pinned Kilo version. Internal storage structures and undocumented compatibility shapes are not part of this contract.
+
+The only non-`/api/*` routes intentionally used are Kilo's official Provider HttpApi routes for provider connection state and OAuth. Those routes are used by Kilo's own current clients and are isolated inside the browser adapter.
 
 If Kilo is upgraded, this document and the adapter tests must be reviewed before the bundled runtime version is changed.
 
 ## Canonical public routes used by TL-Agent
 
-### Health
+### Health and location
 
-- `GET /global/health`
+- `GET /api/health`
+- `GET /api/location`
+
+`/api/health` must return `{ "healthy": true }` when the v2 API is ready.
 
 ### Agents
 
@@ -62,22 +67,31 @@ A selected model is represented as a `Model.Ref`:
 
 ### Providers
 
+Protocol v2 provider metadata:
+
 - `GET /api/provider`
 - `GET /api/provider/:providerID`
-- Response type: `Provider.Info`
+- Response type: location-wrapped `Provider.Info`
 
 Provider data is used for availability/configuration display only. Model enumeration comes from `/api/model`, not from provider-internal model maps.
 
+Kilo's official Provider HttpApi is used only where Protocol v2 does not currently expose equivalent state:
+
+- `GET /provider` — connected-provider and provider-default state
+- `POST /provider/kilo/oauth/authorize` — start Kilo device authorization
+- `POST /provider/kilo/oauth/callback` — wait for/complete Kilo device authorization
+
+These calls must remain isolated in `kilo-api.js`.
+
 ### Sessions
 
-- `GET /api/session?directory=...&order=desc&limit=...`
+- `GET /api/session?order=desc&limit=...`
 - `POST /api/session`
 - `GET /api/session/active`
 - `GET /api/session/:sessionID`
 - `POST /api/session/:sessionID/agent`
 - `POST /api/session/:sessionID/model`
 - `POST /api/session/:sessionID/prompt`
-- `POST /api/session/:sessionID/wait`
 - `POST /api/session/:sessionID/interrupt`
 - `GET /api/session/:sessionID/context`
 - `GET /api/session/:sessionID/history`
@@ -98,6 +112,12 @@ Provider data is used for availability/configuration display only. Model enumera
 - `location`
 - `subpath?`
 - `revert?`
+
+#### Session settlement in v7.6.2
+
+The Protocol exposes `POST /api/session/:sessionID/wait`, but the `v7.6.2` implementation intentionally returns `Session.OperationUnavailableError` for `wait`. TL-Agent therefore does **not** use that route.
+
+After prompt admission, TL-Agent observes execution through the v2 event stream (`session.next.step.started`, `session.next.step.ended`, `session.next.step.failed`, text/reasoning/tool events), uses `/api/session/active` for current-process activity state, and reloads projected messages as the reconnect-safe source of truth.
 
 ### Prompt admission
 
@@ -165,7 +185,7 @@ Tool states:
 - `completed`
 - `error`
 
-Do not use the old/internal `info + parts` representation in the browser adapter.
+Do not use the internal/legacy `info + parts` representation in the browser adapter.
 
 ### Streaming and durable events
 
@@ -275,26 +295,34 @@ The official Kilo clients use provider OAuth for provider `kilo`, method `0`:
 3. wait on callback
 4. refresh Kilo/profile/provider state
 
-TL-Agent should match the official client flow rather than infer sign-in from unrelated provider structures.
+TL-Agent matches this client flow through the adapter and does not infer OAuth completion from model responses.
 
 ## Browser adapter policy
 
-All browser-side Kilo calls must go through one adapter module. UI modules must not construct Kilo endpoint paths directly.
+All browser-side Kilo calls must go through `cmd/launcher/web/kilo-api.js`. UI modules must not construct Kilo endpoint paths directly.
 
 The adapter owns:
 
-- response unwrapping
+- response envelope handling
 - query construction
-- schema-shape normalization limited to documented v7.6.2 API envelopes
 - model refs
 - session CRUD and switching
 - prompt admission
 - message pagination
 - SSE connection/reconnection
 - permission/question replies
+- provider connection state
 - Kilo OAuth calls
 
 This isolates future Kilo upgrades to one integration boundary.
+
+## Contract enforcement
+
+`scripts/check-kilo-v2-contract.py` is run by CI against the actual pinned Kilo binary downloaded from the official Kilo GitHub release. It verifies the core runtime response shapes used by the UI.
+
+`scripts/check-kilo-prompt-e2e.py` additionally exercises real prompt admission and execution against the pinned Kilo runtime with a local OpenAI-compatible fake provider. It validates the v2 catalog config path, Session execution, live SSE text/step events, and projected assistant messages without requiring a paid API key.
+
+A Protocol v2 refactor must not be merged if the real-runtime contract or prompt E2E job fails.
 
 ## Upgrade checklist
 
@@ -304,5 +332,5 @@ Before changing `/KILO_VERSION`:
 2. compare `packages/schema/src/session*.ts`, `agent.ts`, `model.ts`, `provider.ts`, `permission.ts`, and `question.ts`;
 3. review `specs/v2/schema-changelog.md`;
 4. update adapter tests and fixtures;
-5. run the real-runtime smoke test;
+5. run the real-runtime contract and prompt E2E tests;
 6. only then publish a release with the new Kilo binary.

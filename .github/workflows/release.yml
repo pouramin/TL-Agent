@@ -106,14 +106,18 @@ jobs:
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp third_party/KILO_LICENSE.txt staging/package/third_party/
-      - name: Smoke test real Kilo runtime
+      - name: Real Kilo Protocol v2 contract test
         if: matrix.name == 'linux-x64'
         shell: bash
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
-          ./staging/package/kilo-local-ui --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          BINARY="$GITHUB_WORKSPACE/staging/package/kilo-local-ui"
+          START_DIR="$PWD"
+          cd /tmp
+          "$BINARY" --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
+          cd "$START_DIR"
           cleanup() {
             kill "$PID" 2>/dev/null || true
             wait "$PID" 2>/dev/null || true
@@ -121,16 +125,16 @@ jobs:
           }
           trap cleanup EXIT
           LOCAL_URL=""
-          for _ in $(seq 1 80); do
+          for _ in $(seq 1 100); do
             LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
             if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/status" >/dev/null; then
               break
             fi
-            sleep 0.25
+            sleep 0.2
           done
           test -n "$LOCAL_URL"
-          curl --fail --silent "$LOCAL_URL/local/status" | tee /tmp/local-status.json
-          curl --fail --silent "$LOCAL_URL/kilo/global/health" | tee /tmp/kilo-health.json
+          python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
+          python3 scripts/check-kilo-v2-contract.py "$LOCAL_URL"
       - name: Package
         shell: bash
         run: |
