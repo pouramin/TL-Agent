@@ -120,6 +120,62 @@ def has_completed_write(envelope: dict) -> bool:
     )
 
 
+def projected_changes(messages: list[dict]) -> list[dict]:
+    """Mirror TL Agent's fallback when Kilo's aggregate session diff is empty."""
+    summary_diffs: list[dict] = []
+    for message in messages:
+        info = message.get("info") if isinstance(message, dict) else None
+        summary = info.get("summary") if isinstance(info, dict) else None
+        diffs = summary.get("diffs") if isinstance(summary, dict) else None
+        if isinstance(diffs, list):
+            summary_diffs.extend(item for item in diffs if isinstance(item, dict))
+    if summary_diffs:
+        return summary_diffs
+
+    changes: list[dict] = []
+    for message in messages:
+        parts = message.get("parts") if isinstance(message, dict) else None
+        if not isinstance(parts, list):
+            continue
+        for part in parts:
+            if not isinstance(part, dict) or part.get("type") != "tool":
+                continue
+            state = part.get("state") if isinstance(part.get("state"), dict) else {}
+            metadata = state.get("metadata") if isinstance(state.get("metadata"), dict) else {}
+            input_data = state.get("input") if isinstance(state.get("input"), dict) else {}
+            output = state.get("output") if state.get("output") is not None else state.get("result")
+            if output is None:
+                output = part.get("output") if part.get("output") is not None else part.get("result")
+            fallback_path = (
+                input_data.get("filePath")
+                or input_data.get("path")
+                or input_data.get("file")
+                or metadata.get("filepath")
+                or metadata.get("path")
+                or ""
+            )
+            candidates = [
+                metadata.get("filediff"),
+                metadata.get("fileDiff"),
+                output.get("filediff") if isinstance(output, dict) else None,
+                output.get("fileDiff") if isinstance(output, dict) else None,
+                output if isinstance(output, dict) and any(key in output for key in ("patch", "additions", "deletions")) else None,
+            ]
+            candidate = next((value for value in candidates if isinstance(value, dict)), None)
+            if not candidate:
+                continue
+            file_name = candidate.get("file") or candidate.get("filePath") or candidate.get("path") or fallback_path
+            if not file_name:
+                continue
+            changes.append({
+                "file": str(file_name),
+                "additions": int(candidate.get("additions") or 0),
+                "deletions": int(candidate.get("deletions") or 0),
+                "patch": candidate.get("patch") if isinstance(candidate.get("patch"), str) else "",
+            })
+    return changes
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: check-kilo-prompt-e2e.py <launcher-base-url>", file=sys.stderr)
@@ -154,12 +210,7 @@ def main() -> int:
     else:
         raise E2EError(f"test provider models have invalid shape: {models!r}")
 
-    created = unwrap(request(
-        base,
-        routed("/kilo/session", project),
-        method="POST",
-        payload={},
-    ))
+    created = unwrap(request(base, routed("/kilo/session", project), method="POST", payload={}))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session creation failed: {created!r}")
     session_id = created["id"]
     sid = urllib.parse.quote(session_id, safe="")
@@ -253,14 +304,16 @@ def main() -> int:
         actual = handle.read()
     require(actual == FILE_CONTENT, f"file content mismatch: {actual!r}")
 
-    diffs = unwrap(request(base, routed(f"/kilo/session/{sid}/diff", project)))
-    require(isinstance(diffs, list), f"session diff must be an array: {diffs!r}")
+    aggregate_diffs = unwrap(request(base, routed(f"/kilo/session/{sid}/diff", project)))
+    require(isinstance(aggregate_diffs, list), f"session diff must be an array: {aggregate_diffs!r}")
+    visible_changes = aggregate_diffs if aggregate_diffs else projected_changes(messages)
+    change_source = "session.diff" if aggregate_diffs else "tool-metadata"
     hello_diff = next(
-        (item for item in diffs if isinstance(item, dict) and str(item.get("file") or "").replace("\\", "/").endswith("/hello.txt")),
+        (item for item in visible_changes if isinstance(item, dict) and str(item.get("file") or "").replace("\\", "/").endswith("/hello.txt")),
         None,
     )
-    require(hello_diff is not None, f"hello.txt missing from session diff: {diffs!r}")
-    require((int(hello_diff.get("additions") or 0)) >= 1, f"hello.txt diff additions missing: {hello_diff!r}")
+    require(hello_diff is not None, f"hello.txt missing from TL Agent change projection: {visible_changes!r}")
+    require(int(hello_diff.get("additions") or 0) >= 1, f"hello.txt change additions missing: {hello_diff!r}")
 
     interesting = []
     for envelope in events:
@@ -286,7 +339,8 @@ def main() -> int:
         "saw_running": saw_running,
         "permission": "edit/once",
         "file": target,
-        "diff_files": [item.get("file") for item in diffs if isinstance(item, dict)],
+        "changes_source": change_source,
+        "change_files": [item.get("file") for item in visible_changes if isinstance(item, dict)],
         "reply": EXPECTED,
     }, indent=2))
     return 0
