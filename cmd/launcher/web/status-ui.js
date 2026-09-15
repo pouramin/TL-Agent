@@ -3,6 +3,10 @@
   const K = window.KLU;
   const baseRenderMessages = K.renderMessages;
   const RESUME_PROMPT = "Continue the current task from the existing workspace state. Inspect what is already complete, do not repeat finished work, and finish the user's latest request.";
+  const PROJECT_MESSAGE_LIMIT = 1000;
+  const projectUsageCache = new Map();
+  let projectUsageLoading = false;
+  let projectUsageTimer = null;
 
   const partsOf = (message) => Array.isArray(message?.parts)
     ? message.parts
@@ -121,6 +125,8 @@
     });
   };
 
+  const emptyTokens = () => ({ input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 });
+
   const tokenShape = (value) => {
     const tokens = value && typeof value === "object" ? value : {};
     const cache = tokens.cache && typeof tokens.cache === "object" ? tokens.cache : {};
@@ -133,21 +139,25 @@
     };
   };
 
+  const addTokens = (target, source) => {
+    target.input += Number(source.input || 0);
+    target.output += Number(source.output || 0);
+    target.reasoning += Number(source.reasoning || 0);
+    target.cacheRead += Number(source.cacheRead || 0);
+    target.cacheWrite += Number(source.cacheWrite || 0);
+    return target;
+  };
+
   const tokenTotal = (tokens) => tokens.input + tokens.output + tokens.reasoning + tokens.cacheRead + tokens.cacheWrite;
 
   const assistantTokens = (message) => {
     const direct = tokenShape(message?.info?.tokens || message?.tokens);
     if (tokenTotal(direct) > 0) return direct;
 
-    const total = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 };
+    const total = emptyTokens();
     for (const part of partsOf(message)) {
       if (part?.type !== "step-finish") continue;
-      const next = tokenShape(part.tokens);
-      total.input += next.input;
-      total.output += next.output;
-      total.reasoning += next.reasoning;
-      total.cacheRead += next.cacheRead;
-      total.cacheWrite += next.cacheWrite;
+      addTokens(total, tokenShape(part.tokens));
     }
     return total;
   };
@@ -164,7 +174,7 @@
     return end;
   };
 
-  const activeWorkMs = (messages) => {
+  const activeWorkMs = (messages, { running = false } = {}) => {
     let total = 0;
     for (let index = 0; index < messages.length; index++) {
       if (messageRole(messages[index]) !== "user") continue;
@@ -179,12 +189,26 @@
       }
 
       const isLastTurn = cursor >= messages.length;
-      if (isLastTurn && K.state.session && (K.state.sending || K.isSessionRunning(K.state.session.id))) {
-        end = Math.max(end, Date.now());
-      }
+      if (isLastTurn && running) end = Math.max(end, Date.now());
       if (end > start) total += end - start;
     }
     return total;
+  };
+
+  const usageForMessages = (messages, { running = false } = {}) => {
+    const totals = emptyTokens();
+    let requests = 0;
+    for (const message of messages) {
+      if (messageRole(message) !== "assistant") continue;
+      requests++;
+      addTokens(totals, assistantTokens(message));
+    }
+    return {
+      tokens: tokenTotal(totals),
+      requests,
+      duration: activeWorkMs(messages, { running }),
+      breakdown: totals,
+    };
   };
 
   const compactNumber = (value) => {
@@ -204,68 +228,154 @@
     return `${hours}h ${minutes % 60}m`;
   };
 
-  const sessionStats = () => {
-    const totals = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 };
-    let requests = 0;
+  const usageTitle = (breakdown) => `Input ${compactNumber(breakdown.input)} · Output ${compactNumber(breakdown.output)} · Reasoning ${compactNumber(breakdown.reasoning)} · Cache read ${compactNumber(breakdown.cacheRead)} · Cache write ${compactNumber(breakdown.cacheWrite)}`;
+
+  const turnGroups = () => {
+    const turns = [];
+    let current = null;
     for (const message of K.state.messages) {
-      if (messageRole(message) !== "assistant") continue;
-      requests++;
-      const next = assistantTokens(message);
-      totals.input += next.input;
-      totals.output += next.output;
-      totals.reasoning += next.reasoning;
-      totals.cacheRead += next.cacheRead;
-      totals.cacheWrite += next.cacheWrite;
+      if (messageRole(message) === "user") {
+        if (current) turns.push(current);
+        current = [message];
+        continue;
+      }
+      if (current) current.push(message);
     }
-    return {
-      tokens: tokenTotal(totals),
-      requests,
-      duration: activeWorkMs(K.state.messages),
-      breakdown: totals,
-    };
+    if (current) turns.push(current);
+    return turns;
   };
 
-  const statItem = (label, value, title = "") => {
-    const item = document.createElement("div");
-    const strong = document.createElement("strong");
-    const span = document.createElement("span");
-    item.className = "session-stat-item";
-    strong.textContent = value;
-    span.textContent = label;
-    if (title) item.title = title;
-    item.append(strong, span);
-    return item;
+  const turnUsageLine = (stats) => {
+    const line = document.createElement("div");
+    line.className = "turn-usage";
+    line.title = usageTitle(stats.breakdown);
+    line.textContent = `Usage · ${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    return line;
   };
 
-  const renderSessionStats = () => {
-    if (!K.state.session || !K.state.messages.length) return;
+  const renderTurnUsage = () => {
     const view = K.els.conversation;
-    if (!view || view.querySelector(".session-stats")) return;
-    const stats = sessionStats();
-    if (!stats.requests && !stats.tokens) return;
+    if (!view) return;
+    const userRows = [...view.querySelectorAll(".message.user")];
+    const turns = turnGroups();
+    const running = !!K.state.session && (K.state.sending || K.isSessionRunning(K.state.session.id));
 
-    const card = document.createElement("section");
-    card.className = "session-stats";
-    card.setAttribute("aria-label", "Session statistics");
+    turns.forEach((messages, index) => {
+      const stats = usageForMessages(messages, { running: running && index === turns.length - 1 });
+      if (!stats.requests && !stats.tokens) return;
+      const line = turnUsageLine(stats);
+      const nextUser = userRows[index + 1];
+      if (nextUser) {
+        view.insertBefore(line, nextUser);
+        return;
+      }
+      const working = view.querySelector(".working-message");
+      if (working) view.insertBefore(line, working);
+      else view.appendChild(line);
+    });
+  };
 
-    const heading = document.createElement("div");
-    heading.className = "session-stats-heading";
-    heading.textContent = "Session stats";
+  const sessionStamp = (session) => String(session?.time?.updated || session?.time?.created || "");
 
-    const values = document.createElement("div");
-    values.className = "session-stats-values";
-    const breakdown = stats.breakdown;
-    values.append(
-      statItem(
-        "Tokens",
-        compactNumber(stats.tokens),
-        `Input ${compactNumber(breakdown.input)} · Output ${compactNumber(breakdown.output)} · Reasoning ${compactNumber(breakdown.reasoning)} · Cache read ${compactNumber(breakdown.cacheRead)} · Cache write ${compactNumber(breakdown.cacheWrite)}`,
-      ),
-      statItem("Requests", String(stats.requests), "Model requests recorded in this session"),
-      statItem("Work time", formatDuration(stats.duration), "Time spent processing user turns; idle time between prompts is excluded"),
-    );
-    card.append(heading, values);
-    view.appendChild(card);
+  const mergeUsage = (target, source) => {
+    target.tokens += Number(source.tokens || 0);
+    target.requests += Number(source.requests || 0);
+    target.duration += Number(source.duration || 0);
+    addTokens(target.breakdown, source.breakdown || emptyTokens());
+    return target;
+  };
+
+  const projectUsageSnapshot = () => {
+    const total = { tokens: 0, requests: 0, duration: 0, breakdown: emptyTokens() };
+    const sessions = Array.isArray(K.state.sessions) ? K.state.sessions : [];
+    const currentID = K.state.session?.id;
+    let complete = true;
+    let countedCurrent = false;
+
+    for (const session of sessions) {
+      if (!session?.id) continue;
+      if (session.id === currentID) {
+        const running = K.state.sending || K.isSessionRunning(session.id);
+        mergeUsage(total, usageForMessages(K.state.messages, { running }));
+        countedCurrent = true;
+        continue;
+      }
+
+      const cached = projectUsageCache.get(session.id);
+      if (cached?.stamp === sessionStamp(session)) mergeUsage(total, cached.usage);
+      else {
+        complete = false;
+        if (cached?.usage) mergeUsage(total, cached.usage);
+      }
+    }
+
+    if (currentID && !countedCurrent) {
+      const running = K.state.sending || K.isSessionRunning(currentID);
+      mergeUsage(total, usageForMessages(K.state.messages, { running }));
+    }
+
+    return { ...total, complete };
+  };
+
+  const renderProjectUsage = () => {
+    const view = K.els.conversation;
+    if (!view || !K.state.session || !K.state.messages.length) return;
+    view.querySelector(".project-usage")?.remove();
+
+    const stats = projectUsageSnapshot();
+    const footer = document.createElement("section");
+    footer.className = "project-usage";
+    footer.setAttribute("aria-label", "Project usage totals");
+    footer.title = usageTitle(stats.breakdown);
+
+    const label = document.createElement("span");
+    label.className = "project-usage-label";
+    label.textContent = stats.complete ? "Project total" : "Project total · updating";
+
+    const value = document.createElement("span");
+    value.className = "project-usage-value";
+    value.textContent = `${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+
+    footer.append(label, value);
+    view.appendChild(footer);
+  };
+
+  const refreshProjectUsage = async () => {
+    if (projectUsageLoading) return;
+    const sessions = (Array.isArray(K.state.sessions) ? K.state.sessions : []).filter((session) => session?.id && session.id !== K.state.session?.id);
+    const pending = sessions.filter((session) => projectUsageCache.get(session.id)?.stamp !== sessionStamp(session));
+    if (!pending.length) return;
+
+    projectUsageLoading = true;
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < pending.length) {
+        const session = pending[cursor++];
+        try {
+          const payload = await K.api.sessions.messages(session.id, { limit: PROJECT_MESSAGE_LIMIT });
+          const messages = Array.isArray(payload?.data) ? payload.data : [];
+          projectUsageCache.set(session.id, {
+            stamp: sessionStamp(session),
+            usage: usageForMessages(messages),
+          });
+        } catch (error) {
+          console.warn("[TL Agent] Could not load project usage for session", session.id, error);
+        }
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(4, pending.length) }, () => worker());
+    await Promise.all(workers);
+    projectUsageLoading = false;
+    renderProjectUsage();
+  };
+
+  const scheduleProjectUsageRefresh = () => {
+    if (projectUsageTimer) window.clearTimeout(projectUsageTimer);
+    projectUsageTimer = window.setTimeout(() => {
+      projectUsageTimer = null;
+      refreshProjectUsage().catch((error) => console.warn("[TL Agent] Project usage refresh failed", error));
+    }, 120);
   };
 
   const addTimeoutRecovery = () => {
@@ -302,7 +412,9 @@
     normalizeRetryableToolErrors();
     addPromptCopyButtons();
     addTimeoutRecovery();
-    renderSessionStats();
+    renderTurnUsage();
+    renderProjectUsage();
+    scheduleProjectUsageRefresh();
     return result;
   };
 })();
