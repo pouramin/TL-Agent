@@ -1,0 +1,19 @@
+---
+title: Models and agents
+description: Choose the coding agent and models available through TL Agent.
+icon: Bot
+---
+
+TL Agent presents the agents, providers, and models exposed by its bundled runtime. It does not create a second model router of its own.
+
+## Agents
+
+The primary coding workflow uses the product-facing `code` agent exposed by the pinned runtime. Agent selection belongs to the TL Agent workspace; execution is handled underneath by the runtime.
+
+## Models and providers
+
+Available models come from providers configured through the runtime. TL Agent shows that state in the workspace and sends the selected provider/model reference when starting work.
+
+## Account login
+
+Where a provider requires sign-in, TL Agent can surface the runtime's normal device authorization flow. Credentials and model inference are not routed through TL Agent-owned cloud infrastructure.

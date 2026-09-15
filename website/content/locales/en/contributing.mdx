@@ -1,0 +1,30 @@
+---
+title: Contributing
+description: Contribute to TL Agent while keeping product, runtime compatibility, and documentation boundaries clear.
+icon: GitPullRequest
+---
+
+TL Agent application code and public documentation intentionally use separate build paths.
+
+## Product development
+
+The Go launcher lives under `cmd/launcher/`. Embedded browser assets live under `cmd/launcher/web/`. Internal engineering notes live under `docs/`.
+
+## Public documentation
+
+The public Fumadocs site lives under `website/` and has its own CI and GitHub Pages workflow.
+
+```bash
+cd website
+npm install
+npm run dev
+```
+
+Before proposing documentation changes:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+Keep user-facing wording centered on TL Agent. Mention Kilo where the upstream runtime or compatibility details genuinely matter rather than presenting TL Agent as a Kilo UI wrapper.

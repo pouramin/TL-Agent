@@ -1,0 +1,23 @@
+---
+title: Security model
+description: Understand TL Agent's local-only network boundary and remaining trust assumptions.
+icon: ShieldCheck
+---
+
+TL Agent is designed as a local application, not a remotely exposed coding-agent service.
+
+## Local-only listeners
+
+The browser-facing server accepts loopback addresses only, and the bundled runtime is also started on loopback.
+
+## Per-run backend credential
+
+Each launch generates a fresh random backend password. TL Agent keeps it on the local server side and injects authentication into proxied requests; browser JavaScript does not need to know it.
+
+## Browser protections
+
+TL Agent checks the request host/origin and serves restrictive security headers, including a Content Security Policy.
+
+## Remaining trust boundary
+
+A coding agent can read/write project files and execute commands when permissions allow it. Localhost isolation reduces network exposure but does not make every approved tool action safe. Review sensitive permission requests before allowing them.

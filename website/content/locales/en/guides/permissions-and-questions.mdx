@@ -1,0 +1,23 @@
+---
+title: Permissions and questions
+description: Handle permission requests and interactive questions safely inside TL Agent.
+icon: ShieldCheck
+---
+
+Coding agents may need approval before executing a sensitive action or may need an answer before continuing.
+
+## Permission replies
+
+TL Agent currently exposes three choices:
+
+- `once` — allow this request once;
+- `always` — allow and persist the applicable rule according to runtime behavior;
+- `reject` — deny the request.
+
+Always read the requested action before approving command execution or file changes.
+
+## Questions
+
+Interactive questions can be answered directly inside TL Agent. Depending on the request, the interface can present option lists, single or multiple selection, and custom answers.
+
+Localhost isolation protects the network surface, but safe use still depends on the permissions you grant to the coding agent.

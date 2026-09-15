@@ -1,0 +1,29 @@
+---
+title: Troubleshooting
+description: Diagnose common TL Agent startup, project, browser, and provider problems.
+icon: Wrench
+---
+
+## TL Agent does not open a browser
+
+The local server can still be running. Copy the `Local:` URL printed in the terminal and open it manually. If you used `--no-browser`, this is expected.
+
+## Project picker does not accept a folder
+
+Choose an existing directory. TL Agent normalizes and validates the selected local path before switching project context.
+
+## Runtime not found
+
+Official TL Agent release archives bundle the supported runtime. This error is more likely when running from source or overriding the runtime manually.
+
+## Models or providers are missing
+
+Provider/model availability comes from the configured runtime/provider account. Complete the required sign-in flow and refresh provider state.
+
+## Agent is waiting
+
+Check TL Agent for a pending permission request or interactive question.
+
+## Reporting a bug
+
+Include your operating system, TL Agent version, selected runtime version, reproduction steps, and non-secret error output. Never publish API keys or provider tokens.

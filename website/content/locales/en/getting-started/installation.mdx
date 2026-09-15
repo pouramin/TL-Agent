@@ -1,0 +1,39 @@
+---
+title: Installation
+description: Install TL Agent with the one-command launcher or a portable release build.
+icon: Download
+---
+
+## One-command launch
+
+If Node.js/npm is installed, open a terminal in the project directory you want to work on and run:
+
+```bash
+npx --yes github:pouramin/TL-Agent
+```
+
+The small launcher detects your operating system and architecture, downloads the matching TL Agent release, verifies its SHA-256 checksum, caches it locally, and starts TL Agent with the current directory selected.
+
+## Portable release
+
+For normal portable use, Node.js is not required. Download the archive for your platform from GitHub Releases, extract it, and run:
+
+```text
+Windows:  tl-agent.exe
+Linux:    ./tl-agent
+macOS:    ./tl-agent
+```
+
+Release archives bundle the pinned agent runtime, so users do not need to install Kilo separately.
+
+## Supported builds
+
+- Windows x64
+- Linux x64
+- Linux ARM64
+- macOS Intel x64
+- macOS Apple Silicon ARM64
+
+## Verify a download
+
+Each release includes `SHA256SUMS.txt`. You can compare the archive checksum with the published value before running it.

@@ -1,0 +1,42 @@
+---
+title: اولین اجرا
+description: اجرای TL Agent، انتخاب پروژه و آشنایی با Startup flow.
+icon: Play
+---
+
+## اجرای TL Agent
+
+نسخه Portable را اجرا کنید یا از Launcher یک‌دستوری استفاده کنید. TL Agent سرویس‌های خودش را به‌صورت Local روی loopback بالا می‌آورد و Workspace را در مرورگر باز می‌کند.
+
+## انتخاب پروژه
+
+روش معمول کاملاً گرافیکی است: داخل TL Agent روی انتخاب پروژه بزنید و پوشه را مستقیم با Folder Picker سیستم‌عامل انتخاب کنید. برای این کار لازم نیست هیچ دستور Kilo اجرا کنید.
+
+اگر می‌خواهید پروژه را از قبل از طریق Terminal مشخص کنید، از CLI خود TL Agent استفاده کنید:
+
+```bash
+tl-agent --project /path/to/project
+```
+
+در Windows:
+
+```powershell
+tl-agent.exe --project "C:\Users\you\Projects\my-project"
+```
+
+اگر Launcher یک‌دستوری را از داخل پوشه پروژه اجرا کنید، همان پوشه به‌صورت خودکار انتخاب می‌شود:
+
+```bash
+npx --yes github:pouramin/TL-Agent
+```
+
+## پشت صحنه چه اتفاقی می‌افتد؟
+
+1. TL Agent پروژه و Runtime همراه برنامه را پیدا می‌کند.
+2. پورت‌های آزاد روی loopback انتخاب می‌شوند.
+3. یک Password تصادفی مخصوص همان اجرا ساخته می‌شود.
+4. Agent Runtime روی `127.0.0.1` اجرا می‌شود.
+5. Local Server و Reverse Proxy مربوط به TL Agent بالا می‌آیند.
+6. Workspace در مرورگر باز می‌شود.
+
+با بستن TL Agent، Process مربوط به Runtime هم متوقف می‌شود.

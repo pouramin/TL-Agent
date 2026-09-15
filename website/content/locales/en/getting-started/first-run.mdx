@@ -1,0 +1,42 @@
+---
+title: First run
+description: Start TL Agent, choose a local project, and understand the local startup flow.
+icon: Play
+---
+
+## Start TL Agent
+
+Run the portable executable or use the one-command launcher. TL Agent starts its local services on loopback and opens the browser workspace automatically.
+
+## Choose a project
+
+The normal workflow is **local and graphical**: use TL Agent's project picker and choose a folder directly from your operating system. You do not need a Kilo command for this.
+
+If you intentionally want to preselect a project from a terminal, TL Agent also accepts its own CLI option:
+
+```bash
+tl-agent --project /path/to/project
+```
+
+On Windows:
+
+```powershell
+tl-agent.exe --project "C:\Users\you\Projects\my-project"
+```
+
+When using the one-command launcher from inside a project directory, that directory is selected automatically:
+
+```bash
+npx --yes github:pouramin/TL-Agent
+```
+
+## What happens locally
+
+1. TL Agent resolves the selected project and bundled runtime.
+2. It chooses free loopback ports.
+3. It creates a fresh per-run backend password.
+4. It starts the bundled agent runtime on `127.0.0.1`.
+5. It starts the TL Agent browser server and local reverse proxy.
+6. It opens the workspace in your default browser.
+
+Stopping TL Agent also stops the child runtime process.

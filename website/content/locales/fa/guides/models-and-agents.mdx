@@ -1,0 +1,19 @@
+---
+title: Modelها و Agentها
+description: انتخاب Coding Agent و Modelهای قابل استفاده در TL Agent.
+icon: Bot
+---
+
+TL Agent، Agentها، Providerها و Modelهایی را نشان می‌دهد که Runtime محلی در اختیارش می‌گذارد. TL Agent یک Model Router جداگانه روی آن نمی‌سازد.
+
+## Agentها
+
+مسیر اصلی Coding از Agent محصولی `code` استفاده می‌کند. انتخاب Agent داخل TL Agent انجام می‌شود و اجرای واقعی در Runtime زیرین صورت می‌گیرد.
+
+## Model و Provider
+
+Modelهای قابل استفاده از Providerهایی می‌آیند که Runtime به آن‌ها متصل است. TL Agent وضعیت آن‌ها را در UI نشان می‌دهد و Model انتخاب‌شده را برای اجرا می‌فرستد.
+
+## ورود به حساب
+
+اگر Provider نیاز به Login داشته باشد، TL Agent می‌تواند Device Authorization خود Runtime را نمایش دهد. Credentialها و Model Inference از زیرساخت ابری متعلق به TL Agent عبور نمی‌کنند.

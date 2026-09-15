@@ -1,0 +1,41 @@
+---
+title: TL Agent CLI
+description: Reference TL Agent command-line options for advanced and scripted launches.
+icon: Terminal
+---
+
+Most users can launch TL Agent normally and choose a project from the graphical folder picker. The CLI is useful for automation, debugging, or preselecting a project.
+
+## `--project`
+
+```bash
+tl-agent --project /path/to/project
+```
+
+Windows:
+
+```powershell
+tl-agent.exe --project "C:\path\to\project"
+```
+
+## `--no-browser`
+
+Start TL Agent without automatically opening the browser:
+
+```bash
+tl-agent --no-browser
+```
+
+## `--listen`
+
+The default is `127.0.0.1`. TL Agent intentionally accepts loopback addresses only.
+
+## `--kilo` — advanced runtime override
+
+TL Agent releases already include the supported runtime. Developers can override it explicitly when testing compatibility:
+
+```bash
+tl-agent --kilo /path/to/kilo
+```
+
+This option is for advanced/debug use and is not part of the normal user workflow.

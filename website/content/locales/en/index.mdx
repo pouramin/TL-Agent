@@ -1,0 +1,46 @@
+---
+title: TL Agent
+description: Learn what TL Agent is, what it owns as a product, and where the Kilo runtime fits underneath.
+icon: House
+---
+
+TL Agent is a **local, standalone coding-agent workspace**. It gives you a dedicated browser environment for working with local projects, sessions, agents, models, tools, permissions, file changes, and project files without requiring an IDE.
+
+## Product identity
+
+TL Agent is the product you install and interact with. Kilo Code is an upstream runtime dependency used underneath TL Agent for agent execution, tools, sessions, and provider integrations.
+
+```text
+You
+  ↓
+TL Agent
+  ├─ browser workspace
+  ├─ project picker
+  ├─ sessions and changes
+  ├─ local security boundary
+  └─ launcher + packaging
+       ↓
+Agent runtime (Kilo)
+       ↓
+Models / providers / project tools
+```
+
+This separation is intentional: normal TL Agent usage should feel like using TL Agent, not like operating a Kilo command-line wrapper.
+
+## What you can do
+
+- choose a local project from the operating-system folder picker;
+- create, rename, and delete sessions;
+- choose an agent and available model;
+- send prompts and follow live reasoning/tool activity;
+- approve or reject permission requests;
+- answer interactive questions from the agent;
+- inspect project files and file changes;
+- interrupt an active run;
+- use the application without VS Code, JetBrains, Cursor, Docker, or a TL Agent cloud backend.
+
+## Start here
+
+Go to [Installation](./getting-started/installation), then [First run](./getting-started/first-run).
+
+> TL Agent is an independent open-source project. It uses Kilo Code as its local agent runtime but is not an official Kilo Code product.
