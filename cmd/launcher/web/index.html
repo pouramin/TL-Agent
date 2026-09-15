@@ -4,26 +4,23 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
-  <meta name="description" content="A local browser interface for Kilo Code." />
-  <title>Kilo Local UI</title>
+  <meta name="description" content="TL Agent is a local browser workspace powered by Kilo Code." />
+  <title>TL Agent</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/polish.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
     <aside class="sidebar">
       <div class="brand-row">
-        <div class="brand-mark">K</div>
-        <div>
-          <strong>Kilo Local UI</strong>
-          <span class="muted tiny">working title</span>
-        </div>
+        <div class="brand-mark">TL</div>
+        <div><strong>TL Agent</strong><span class="muted tiny">Local coding workspace</span></div>
       </div>
 
       <section class="project-card">
         <div class="section-label">PROJECT</div>
         <button id="pickProject" class="project-button" title="Choose project folder">
-          <span id="projectName">Loading…</span>
-          <small id="projectPath">—</small>
+          <span id="projectName">Loading…</span><small id="projectPath">—</small>
         </button>
         <div class="project-actions">
           <button id="manualProject" class="ghost small">Enter path</button>
@@ -39,7 +36,7 @@
 
       <div class="sidebar-footer">
         <span id="versionLabel">Local runtime</span>
-        <a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noreferrer">Kilo Code</a>
+        <a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noreferrer">Powered by Kilo</a>
       </div>
     </aside>
 
@@ -50,42 +47,46 @@
           <span id="sessionMeta" class="muted">Local agent workspace</span>
         </div>
         <div class="toolbar-controls">
-          <label>
-            <span>Agent</span>
-            <select id="agentSelect"><option value="">Default</option></select>
-          </label>
-          <label>
-            <span>Model</span>
-            <select id="modelSelect"><option value="">Default</option></select>
-          </label>
+          <label><span>Agent</span><select id="agentSelect"><option value="">Default</option></select></label>
+          <label><span>Model</span><select id="modelSelect"><option value="">Default</option></select></label>
+          <button id="changesButton" class="ghost small hidden" title="Show files changed in this session">Changes <span id="changesCount">0</span></button>
+          <button id="sessionMenuButton" class="ghost small hidden" title="Session options" aria-label="Session options">•••</button>
           <button id="accountButton" class="ghost small">Kilo account</button>
           <button id="refreshButton" class="ghost small">Refresh</button>
         </div>
       </header>
 
       <section id="emptyState" class="empty-state">
-        <div class="empty-icon">⌁</div>
+        <div class="empty-icon">TL</div>
         <h1>Your local coding agent, without the IDE.</h1>
-        <p>Kilo runs on this computer. This browser is only the interface.</p>
+        <p>TL Agent runs Kilo on this computer. The browser is your workspace.</p>
         <div class="empty-actions">
           <button id="emptyNewSession" class="primary">Start a session</button>
           <button id="emptyPickProject" class="ghost">Choose project</button>
         </div>
-        <div class="privacy-note">No project files are uploaded by this launcher. Model traffic is handled by the provider configured in Kilo.</div>
+        <div class="privacy-note">Project files stay on this computer. Model traffic is handled by the provider configured in Kilo.</div>
       </section>
 
       <section id="conversation" class="conversation hidden" aria-live="polite"></section>
 
+      <aside id="changesPanel" class="changes-panel hidden" aria-label="Changed files">
+        <div class="changes-head">
+          <div><span class="section-label">SESSION CHANGES</span><strong id="changesSummary">No changes yet</strong></div>
+          <button id="closeChanges" class="icon-button" aria-label="Close changes">×</button>
+        </div>
+        <div id="changesList" class="changes-list"></div>
+      </aside>
+
       <section class="composer-wrap">
         <div id="errorBanner" class="error-banner hidden"></div>
         <div class="composer">
-          <textarea id="prompt" rows="1" placeholder="Ask Kilo to build, debug, review, or explain…" aria-label="Prompt"></textarea>
+          <textarea id="prompt" rows="1" placeholder="Ask TL Agent to build, debug, review, or explain…" aria-label="Prompt"></textarea>
           <div class="composer-bottom">
-            <div class="composer-hints">
-              <span>Enter to send</span>
-              <span>Shift+Enter for newline</span>
+            <div class="composer-hints"><span>Enter to send</span><span>Shift+Enter for newline</span></div>
+            <div class="composer-actions">
+              <button id="stopButton" class="stop-button hidden" type="button">Stop</button>
+              <button id="sendButton" class="send-button" aria-label="Send prompt">↑</button>
             </div>
-            <button id="sendButton" class="send-button" aria-label="Send prompt">↑</button>
           </div>
         </div>
       </section>
@@ -94,44 +95,44 @@
 
   <dialog id="pathDialog">
     <form method="dialog" class="dialog-card" id="pathForm">
-      <h2>Open project</h2>
-      <p>Enter an absolute folder path on this computer.</p>
+      <h2>Open project</h2><p>Enter an absolute folder path on this computer.</p>
       <input id="pathInput" autocomplete="off" spellcheck="false" placeholder="C:\\Projects\\my-app" />
-      <div class="dialog-actions">
-        <button value="cancel" class="ghost">Cancel</button>
-        <button id="pathSubmit" value="default" class="primary">Open</button>
-      </div>
+      <div class="dialog-actions"><button value="cancel" class="ghost">Cancel</button><button id="pathSubmit" value="default" class="primary">Open</button></div>
     </form>
+  </dialog>
+
+  <dialog id="sessionDialog">
+    <div class="dialog-card session-card">
+      <h2>Session</h2><p>Rename the current session or permanently delete it.</p>
+      <input id="sessionTitleInput" autocomplete="off" spellcheck="false" placeholder="Session title" />
+      <div class="dialog-actions split">
+        <button id="sessionDelete" class="danger-button" type="button">Delete session</button>
+        <div class="dialog-actions-inline"><button id="sessionCancel" class="ghost" type="button">Cancel</button><button id="sessionSave" class="primary" type="button">Save</button></div>
+      </div>
+    </div>
   </dialog>
 
   <dialog id="authDialog">
     <div class="dialog-card auth-card">
-      <h2>Sign in to Kilo</h2>
-      <p id="authInstructions">Starting secure device authorization…</p>
-      <div id="authCodeWrap" class="auth-code-wrap hidden">
-        <span>Device code</span>
-        <button id="authCode" class="auth-code" type="button" title="Copy code"></button>
-      </div>
-      <div class="dialog-actions split">
-        <button id="authCancel" class="ghost" type="button">Cancel</button>
-        <button id="authOpen" class="primary" type="button" disabled>Open sign-in page</button>
-      </div>
+      <h2>Sign in to Kilo</h2><p id="authInstructions">Starting secure device authorization…</p>
+      <div id="authCodeWrap" class="auth-code-wrap hidden"><span>Device code</span><button id="authCode" class="auth-code" type="button" title="Copy code"></button></div>
+      <div class="dialog-actions split"><button id="authCancel" class="ghost" type="button">Cancel</button><button id="authOpen" class="primary" type="button" disabled>Open sign-in page</button></div>
     </div>
   </dialog>
 
   <dialog id="attentionDialog">
     <div class="dialog-card attention-card">
-      <div class="attention-kicker">Kilo needs your input</div>
-      <h2 id="attentionTitle">Permission request</h2>
-      <div id="attentionBody" class="attention-body"></div>
-      <div id="attentionActions" class="dialog-actions"></div>
+      <div class="attention-kicker">Agent needs your input</div><h2 id="attentionTitle">Permission request</h2>
+      <div id="attentionBody" class="attention-body"></div><div id="attentionActions" class="dialog-actions"></div>
     </div>
   </dialog>
 
   <script src="/core.js" defer></script>
   <script src="/kilo-api.js" defer></script>
   <script src="/chat.js" defer></script>
+  <script src="/presentation.js" defer></script>
   <script src="/attention.js" defer></script>
+  <script src="/workspace.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>

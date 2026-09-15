@@ -154,7 +154,7 @@ func main() {
 		_ = httpServer.Shutdown(shutdownCtx)
 	}()
 
-	fmt.Printf("Kilo Local UI %s\n", version)
+	fmt.Printf("TL Agent %s\n", version)
 	fmt.Printf("  Project: %s\n", project)
 	fmt.Printf("  Local:   %s\n", frontendURL)
 	fmt.Printf("  Backend: %s\n", backendURL)

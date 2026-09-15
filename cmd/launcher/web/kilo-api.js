@@ -31,7 +31,7 @@
       const decoded = JSON.parse(event.data);
       handler(decoded?.payload || decoded);
     } catch (error) {
-      console.warn("[Kilo Local UI] Ignoring invalid SSE payload", error);
+      console.warn("[TL Agent] Ignoring invalid SSE payload", error);
     }
   };
 
@@ -44,9 +44,6 @@
   };
 
   K.api = Object.freeze({
-    // Kilo's generated @kilocode/sdk/v2/client exposes both the production
-    // HttpApi and the experimental /api Protocol v2 surface. The official
-    // VS Code client in v7.6.2 uses the production routes below for coding.
     version: "kilo-v7.6.2-production-httpapi",
 
     health: () => request("/global/health"),
@@ -78,13 +75,18 @@
       },
       get: async (sessionID) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`)))),
       create: async (input = {}) => {
-        // Match the official VS Code client: Session creation is independent of
-        // effective agent/model selection. Agent and model are supplied on
-        // prompt_async, where they belong to the coding turn.
         const payload = {};
         if (input.parentID) payload.parentID = input.parentID;
         if (input.title) payload.title = input.title;
         return wrapData(unwrapData(await request(route("/session"), { method: "POST", ...body(payload) })));
+      },
+      update: async (sessionID, input = {}) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`), {
+        method: "PATCH", ...body(input),
+      }))),
+      remove: async (sessionID) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`), { method: "DELETE" }))),
+      diff: async (sessionID, { messageID, full, file } = {}) => {
+        const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/diff`, { messageID, full, file })));
+        return wrapData(Array.isArray(payload) ? payload : []);
       },
       messages: async (sessionID, { limit = 200 } = {}) => {
         const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/message`, { limit })));
@@ -100,7 +102,7 @@
         };
         return request(route(`/session/${enc(sessionID)}/prompt_async`), { method: "POST", ...body(payload) });
       },
-      abort: (sessionID) => request(route(`/session/${enc(sessionID)}/abort`), { method: "POST" }),
+      abort: (sessionID, { scope } = {}) => request(route(`/session/${enc(sessionID)}/abort`, { scope }), { method: "POST" }),
     },
 
     permissions: {
