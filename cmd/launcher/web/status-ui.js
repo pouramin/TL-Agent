@@ -24,6 +24,17 @@
       .join("\n");
   };
 
+  const isResumeMessage = (message) => messageRole(message) === "user"
+    && exactUserText(message).trim() === RESUME_PROMPT;
+
+  const hideResumeMessages = () => {
+    const rows = [...(K.els.conversation?.querySelectorAll(".message.user") || [])];
+    const messages = K.state.messages.filter((message) => messageRole(message) === "user");
+    rows.forEach((row, index) => {
+      if (isResumeMessage(messages[index])) row.remove();
+    });
+  };
+
   const normalizeCancellation = () => {
     const rows = K.els.conversation?.querySelectorAll(".message.error") || [];
     for (const row of rows) {
@@ -104,7 +115,7 @@
 
   const addPromptCopyButtons = () => {
     const prompts = K.state.messages
-      .filter((message) => messageRole(message) === "user")
+      .filter((message) => messageRole(message) === "user" && !isResumeMessage(message))
       .map(exactUserText);
     const rows = K.els.conversation?.querySelectorAll(".message.user") || [];
     rows.forEach((row, index) => {
@@ -235,6 +246,11 @@
     let current = null;
     for (const message of K.state.messages) {
       if (messageRole(message) === "user") {
+        if (isResumeMessage(message)) {
+          if (!current) current = [message];
+          else current.push(message);
+          continue;
+        }
         if (current) turns.push(current);
         current = [message];
         continue;
@@ -275,6 +291,87 @@
     });
   };
 
+  const routedModelSteps = (message) => partsOf(message)
+    .filter((part) => part?.type === "step-finish" && part?.model?.modelID)
+    .map((part) => ({
+      providerID: String(part.model.providerID || ""),
+      modelID: String(part.model.modelID || ""),
+      elapsed: Number(part?.time?.elapsed || 0),
+    }));
+
+  const modelLabel = (model) => {
+    const modelID = String(model?.modelID || "").trim();
+    const providerID = String(model?.providerID || "").trim();
+    if (!modelID) return "";
+    if (!providerID || providerID === "kilo" || modelID.includes("/")) return modelID;
+    return `${providerID}/${modelID}`;
+  };
+
+  const modelRouteSummary = (message) => {
+    const steps = routedModelSteps(message);
+    const groups = [];
+    for (const step of steps) {
+      const label = modelLabel(step);
+      if (!label) continue;
+      const previous = groups[groups.length - 1];
+      if (previous?.label === label) previous.count += 1;
+      else groups.push({ label, count: 1 });
+    }
+    return groups.map((item) => item.count > 1 ? `${item.label} ×${item.count}` : item.label).join(" → ");
+  };
+
+  const attemptNumberAt = (targetIndex) => {
+    let attempt = 1;
+    let seenTurn = false;
+    for (let index = 0; index <= targetIndex && index < K.state.messages.length; index++) {
+      const message = K.state.messages[index];
+      if (messageRole(message) !== "user") continue;
+      if (isResumeMessage(message)) {
+        if (seenTurn) attempt += 1;
+        else seenTurn = true;
+        continue;
+      }
+      seenTurn = true;
+      attempt = 1;
+    }
+    return attempt;
+  };
+
+  const lastRecordedModelBefore = (targetIndex) => {
+    for (let index = Math.min(targetIndex, K.state.messages.length - 1); index >= 0; index--) {
+      const steps = routedModelSteps(K.state.messages[index]);
+      if (!steps.length) continue;
+      const model = steps[steps.length - 1];
+      const label = modelLabel(model);
+      if (label) return { ...model, label, messageIndex: index };
+    }
+    return null;
+  };
+
+  const assistantEntries = () => K.state.messages
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => messageRole(message) === "assistant");
+
+  const renderRoutedModels = () => {
+    const view = K.els.conversation;
+    if (!view) return;
+    const rows = [...view.querySelectorAll(".message.assistant:not(.working-message)")];
+    const entries = assistantEntries();
+    rows.forEach((row, rowIndex) => {
+      const entry = entries[rowIndex];
+      if (!entry) return;
+      const summary = modelRouteSummary(entry.message);
+      if (!summary) return;
+      const content = row.querySelector(".message-content");
+      if (!content || content.querySelector(".routed-model-meta")) return;
+      const meta = document.createElement("div");
+      meta.className = "routed-model-meta";
+      meta.textContent = `Attempt ${attemptNumberAt(entry.index)} · Model route · ${summary}`;
+      meta.title = "Routed model IDs recorded by Kilo for completed LLM steps in this attempt";
+      content.appendChild(meta);
+    });
+  };
+
   const sessionStamp = (session) => String(session?.time?.updated || session?.time?.created || "");
 
   const normalizePath = (value) => {
@@ -285,6 +382,7 @@
 
   const samePath = (a, b) => normalizePath(a) === normalizePath(b);
   const sessionDirectory = (session) => session?.directory || session?.path || "";
+  const usageCacheKey = (session) => `${normalizePath(sessionDirectory(session) || K.state.local?.project || "")}\n${session?.id || ""}`;
 
   const activeProjectSessions = () => {
     const sessions = Array.isArray(K.state.sessions) ? K.state.sessions : [];
@@ -321,7 +419,7 @@
         continue;
       }
 
-      const cached = projectUsageCache.get(session.id);
+      const cached = projectUsageCache.get(usageCacheKey(session));
       if (cached?.stamp === sessionStamp(session)) mergeUsage(total, cached.usage);
       else {
         complete = false;
@@ -363,7 +461,7 @@
   const refreshProjectUsage = async () => {
     if (projectUsageLoading) return;
     const sessions = activeProjectSessions().filter((session) => session.id !== K.state.session?.id);
-    const pending = sessions.filter((session) => projectUsageCache.get(session.id)?.stamp !== sessionStamp(session));
+    const pending = sessions.filter((session) => projectUsageCache.get(usageCacheKey(session))?.stamp !== sessionStamp(session));
     if (!pending.length) return;
 
     projectUsageLoading = true;
@@ -375,7 +473,7 @@
           const directory = sessionDirectory(session) || K.state.local?.project || undefined;
           const payload = await K.api.sessions.messages(session.id, { limit: PROJECT_MESSAGE_LIMIT, directory });
           const messages = Array.isArray(payload?.data) ? payload.data : [];
-          projectUsageCache.set(session.id, {
+          projectUsageCache.set(usageCacheKey(session), {
             stamp: sessionStamp(session),
             usage: usageForMessages(messages),
           });
@@ -409,7 +507,11 @@
   };
 
   const addTimeoutRecovery = () => {
-    const rows = K.els.conversation?.querySelectorAll(".message.error") || [];
+    const view = K.els.conversation;
+    const rows = [...(view?.querySelectorAll(".message.error") || [])];
+    const assistantRows = [...(view?.querySelectorAll(".message.assistant:not(.working-message)") || [])];
+    const entries = assistantEntries();
+
     for (const row of rows) {
       const error = row.querySelector(".message-error-text");
       const raw = String(error?.textContent || "").trim();
@@ -418,6 +520,11 @@
       const content = row.querySelector(".message-content");
       if (!content || content.querySelector(".timeout-recovery")) continue;
 
+      const assistantIndex = assistantRows.indexOf(row);
+      const entry = assistantIndex >= 0 ? entries[assistantIndex] : null;
+      const attempt = entry ? attemptNumberAt(entry.index) : 1;
+      const routed = entry ? lastRecordedModelBefore(entry.index) : null;
+
       error.dataset.rawError = raw;
       error.title = raw;
       error.textContent = kind === "provider" ? "Upstream provider timeout" : "Upstream model idle timeout";
@@ -425,10 +532,20 @@
       const recovery = document.createElement("div");
       recovery.className = "timeout-recovery";
       recovery.title = raw;
-      const copy = document.createElement("span");
-      copy.textContent = kind === "provider"
+
+      const copy = document.createElement("div");
+      copy.className = "timeout-recovery-copy";
+      const summary = document.createElement("span");
+      summary.textContent = kind === "provider"
         ? "The upstream provider stopped responding before the turn completed. Existing file changes are preserved."
         : "The upstream model stopped responding. Existing file changes are preserved.";
+      const meta = document.createElement("span");
+      meta.className = "timeout-recovery-meta";
+      meta.textContent = routed
+        ? `Attempt ${attempt} · Last recorded model · ${routed.label}`
+        : `Attempt ${attempt} · Routed model was not recorded before the timeout`;
+      copy.append(summary, meta);
+
       const button = document.createElement("button");
       button.type = "button";
       button.className = "timeout-resume-button";
@@ -447,9 +564,11 @@
 
   K.renderMessages = (...args) => {
     const result = baseRenderMessages(...args);
+    hideResumeMessages();
     normalizeCancellation();
     normalizeRetryableToolErrors();
     addPromptCopyButtons();
+    renderRoutedModels();
     addTimeoutRecovery();
     renderTurnUsage();
     renderProjectUsage();

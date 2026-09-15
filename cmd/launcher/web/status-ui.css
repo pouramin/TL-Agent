@@ -52,6 +52,16 @@
   height: 14px;
 }
 
+.routed-model-meta {
+  margin-top: 7px;
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: .005em;
+  user-select: text;
+}
+
 .turn-usage {
   margin: -11px 0 20px 44px;
   color: var(--muted-2);
@@ -99,6 +109,17 @@
   color: var(--muted);
   font-size: 10px;
   line-height: 1.45;
+}
+.timeout-recovery-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.timeout-recovery-meta {
+  color: var(--muted-2);
+  font-size: 9px;
+  user-select: text;
 }
 .timeout-resume-button {
   flex: none;
