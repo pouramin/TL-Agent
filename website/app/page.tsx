@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { ArrowRight, Download, FolderCode2, LockKeyhole, ServerOff, SquareTerminal } from 'lucide-react';
+import { ArrowRight, Download, FolderCode, LockKeyhole, ServerOff, SquareTerminal } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { site } from '@/lib/site';
 
@@ -18,7 +18,7 @@ const features = [
   {
     title: 'Project-aware sessions',
     description: 'Choose a local project, create or reopen Kilo sessions, switch models and agents, and keep the agent scoped to the project you selected.',
-    icon: FolderCode2,
+    icon: FolderCode,
   },
   {
     title: 'Local security boundary',
