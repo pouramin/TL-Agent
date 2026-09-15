@@ -1,0 +1,36 @@
+name: Docs CI
+
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - '.github/workflows/docs-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/docs-ci.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: website
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package.json
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
