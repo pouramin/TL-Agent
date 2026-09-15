@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
+import tempfile
 import urllib.parse
 import urllib.request
 
@@ -117,9 +119,34 @@ def main() -> int:
     sid = created["id"]
     sidq = urllib.parse.quote(sid, safe="")
 
-    sessions = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50})}"))
+    sessions = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
     require(isinstance(sessions, list), "session.list must be an array")
-    require(any(isinstance(s, dict) and s.get("id") == sid for s in sessions), "created session missing from list")
+    require(any(isinstance(s, dict) and s.get("id") == sid for s in sessions), "created session missing from project list")
+
+    # TL Agent's sidebar is intentionally global. Prove the same Kilo endpoint can
+    # list root sessions from two different directories without a directory query.
+    alt_project = tempfile.mkdtemp(prefix="tl-agent-contract-project-")
+    alt_sid = None
+    try:
+        switched = request(base, "/local/project", method="POST", payload={"path": alt_project})
+        require(isinstance(switched, dict) and switched.get("project") == alt_project,
+                f"local project switch mismatch: {switched!r}")
+        alt_query = directory_query(alt_project)
+        created_alt = unwrap(request(base, f"/kilo/session?{alt_query}", method="POST", payload={"title": "TL Agent cross-project"}))
+        require(isinstance(created_alt, dict) and isinstance(created_alt.get("id"), str),
+                f"second project session.create mismatch: {created_alt!r}")
+        alt_sid = created_alt["id"]
+
+        global_sessions = unwrap(request(base, "/kilo/session?roots=true&limit=100"))
+        require(isinstance(global_sessions, list), "global session.list must be an array")
+        global_ids = {s.get("id") for s in global_sessions if isinstance(s, dict)}
+        require(sid in global_ids and alt_sid in global_ids,
+                f"cross-project list did not include both sessions: expected={sid, alt_sid!r}")
+        alt_record = next((s for s in global_sessions if isinstance(s, dict) and s.get("id") == alt_sid), None)
+        require(isinstance(alt_record, dict) and alt_record.get("directory") == alt_project,
+                f"global session must expose its directory: {alt_record!r}")
+    finally:
+        request(base, "/local/project", method="POST", payload={"path": project})
 
     renamed = unwrap(request(base, f"/kilo/session/{sidq}?{query}", method="PATCH", payload={"title": "TL Agent contract"}))
     require(isinstance(renamed, dict) and renamed.get("title") == "TL Agent contract", f"session.update mismatch: {renamed!r}")
@@ -148,8 +175,15 @@ def main() -> int:
 
     removed = unwrap(request(base, f"/kilo/session/{sidq}?{query}", method="DELETE"))
     require(removed is True, f"session.delete mismatch: {removed!r}")
-    sessions_after = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50})}"))
+    sessions_after = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
     require(not any(isinstance(s, dict) and s.get("id") == sid for s in sessions_after), "deleted session still present")
+
+    if alt_sid:
+        alt_query = directory_query(alt_project)
+        alt_sidq = urllib.parse.quote(alt_sid, safe="")
+        removed_alt = unwrap(request(base, f"/kilo/session/{alt_sidq}?{alt_query}", method="DELETE"))
+        require(removed_alt is True, f"second project session.delete mismatch: {removed_alt!r}")
+    shutil.rmtree(alt_project, ignore_errors=True)
 
     print(json.dumps({
         "ok": True,
@@ -161,6 +195,7 @@ def main() -> int:
         "global_dispose": True,
         "kilo_auth_after": kilo_auth_after.get("authenticated"),
         "session_lifecycle": "create/update/diff/delete",
+        "cross_project_sessions": True,
         "event": event_payload.get("type"),
     }, indent=2))
     return 0
