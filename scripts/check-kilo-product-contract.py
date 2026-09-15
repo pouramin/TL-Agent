@@ -69,6 +69,10 @@ def first_global_event(base: str, project: str):
     raise ContractError("global/event did not yield an SSE event")
 
 
+def session_ids(value):
+    return {item.get("id") for item in value if isinstance(item, dict) and isinstance(item.get("id"), str)}
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: check-kilo-product-contract.py <launcher-base-url>", file=sys.stderr)
@@ -79,6 +83,10 @@ def main() -> int:
     require(isinstance(local, dict) and isinstance(local.get("project"), str), "local/status.project missing")
     project = local["project"]
     query = directory_query(project)
+
+    history = request(base, "/local/projects")
+    require(isinstance(history, dict) and isinstance(history.get("projects"), list), "/local/projects shape mismatch")
+    require(project in history["projects"], "current project was not remembered")
 
     health = unwrap(request(base, "/kilo/global/health"))
     require(isinstance(health, dict) and health.get("healthy") is True, f"global health mismatch: {health!r}")
@@ -121,30 +129,44 @@ def main() -> int:
 
     sessions = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
     require(isinstance(sessions, list), "session.list must be an array")
-    require(any(isinstance(s, dict) and s.get("id") == sid for s in sessions), "created session missing from project list")
+    require(sid in session_ids(sessions), "created session missing from project list")
 
-    # TL Agent's sidebar is intentionally global. Prove the same Kilo endpoint can
-    # list root sessions from two different directories without a directory query.
+    # Kilo serve scopes its useful root-session listing to a directory. TL Agent
+    # persists only recent project paths, queries each directory explicitly, and
+    # merges the authoritative Kilo session records in the UI.
     alt_project = tempfile.mkdtemp(prefix="tl-agent-contract-project-")
     alt_sid = None
     try:
         switched = request(base, "/local/project", method="POST", payload={"path": alt_project})
         require(isinstance(switched, dict) and switched.get("project") == alt_project,
                 f"local project switch mismatch: {switched!r}")
+
+        history = request(base, "/local/projects")
+        require(isinstance(history, dict) and isinstance(history.get("projects"), list), "project history missing after switch")
+        require(project in history["projects"] and alt_project in history["projects"],
+                f"recent project history did not keep both projects: {history!r}")
+
         alt_query = directory_query(alt_project)
         created_alt = unwrap(request(base, f"/kilo/session?{alt_query}", method="POST", payload={"title": "TL Agent cross-project"}))
         require(isinstance(created_alt, dict) and isinstance(created_alt.get("id"), str),
                 f"second project session.create mismatch: {created_alt!r}")
         alt_sid = created_alt["id"]
 
-        global_sessions = unwrap(request(base, "/kilo/session?roots=true&limit=100"))
-        require(isinstance(global_sessions, list), "global session.list must be an array")
-        global_ids = {s.get("id") for s in global_sessions if isinstance(s, dict)}
-        require(sid in global_ids and alt_sid in global_ids,
-                f"cross-project list did not include both sessions: expected={(sid, alt_sid)!r}")
-        alt_record = next((s for s in global_sessions if isinstance(s, dict) and s.get("id") == alt_sid), None)
+        # Return to the original project, then prove explicit-directory queries
+        # can still retrieve both histories while the launcher's active project is
+        # the original one. This mirrors TL Agent's sidebar aggregation.
+        request(base, "/local/project", method="POST", payload={"path": project})
+        original_sessions = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
+        alt_sessions = unwrap(request(base, f"/kilo/session?{directory_query(alt_project, {'limit': 50, 'roots': 'true'})}"))
+        require(isinstance(original_sessions, list) and isinstance(alt_sessions, list), "per-project session list must be arrays")
+        require(sid in session_ids(original_sessions), "original project session disappeared")
+        require(alt_sid in session_ids(alt_sessions), "alternate project session could not be read by explicit directory")
+        merged_ids = session_ids(original_sessions) | session_ids(alt_sessions)
+        require(sid in merged_ids and alt_sid in merged_ids, "merged project histories did not contain both sessions")
+
+        alt_record = next((s for s in alt_sessions if isinstance(s, dict) and s.get("id") == alt_sid), None)
         require(isinstance(alt_record, dict) and alt_record.get("directory") == alt_project,
-                f"global session must expose its directory: {alt_record!r}")
+                f"session must expose its own directory: {alt_record!r}")
     finally:
         request(base, "/local/project", method="POST", payload={"path": project})
 
@@ -195,7 +217,7 @@ def main() -> int:
         "global_dispose": True,
         "kilo_auth_after": kilo_auth_after.get("authenticated"),
         "session_lifecycle": "create/update/diff/delete",
-        "cross_project_sessions": True,
+        "recent_project_session_aggregation": True,
         "event": event_payload.get("type"),
     }, indent=2))
     return 0
