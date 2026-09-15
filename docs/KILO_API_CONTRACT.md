@@ -1,336 +1,297 @@
 # Kilo API Contract
 
-This document pins the browser client in this repository to the public Kilo Protocol v2 contract shipped with **Kilo Code v7.6.2**.
+This repository bundles **Kilo Code v7.6.2** and intentionally follows the same product-facing HTTP API used by Kilo's official VS Code client for local coding sessions.
 
 - Upstream repository: `Kilo-Org/kilocode`
 - Upstream tag: `v7.6.2`
 - Upstream commit: `3d04228b6a642acb3daf68a649269618b6018250`
 - Bundled runtime version: see `/KILO_VERSION`
+- Browser adapter: `cmd/launcher/web/kilo-api.js`
 
-## Rule
+## Why this contract exists
 
-The UI and launcher must integrate against the public Protocol v2 routes and schemas for the pinned Kilo version. Internal storage structures and undocumented compatibility shapes are not part of this contract.
+`@kilocode/sdk/v2/client` in Kilo v7.6.2 exposes more than one API generation at the same time:
 
-The only non-`/api/*` routes intentionally used are Kilo's official Provider HttpApi routes for provider connection state and OAuth. Those routes are used by Kilo's own current clients and are isolated inside the browser adapter.
+1. the **product/current HttpApi**, used by Kilo's official VS Code client for coding;
+2. the experimental **Protocol v2 `/api/*`** surface.
 
-If Kilo is upgraded, this document and the adapter tests must be reviewed before the bundled runtime version is changed.
+The package name alone therefore does not mean every `/api/*` route is the product runtime used by the official UI.
 
-## Canonical public routes used by TL-Agent
+TL-Agent originally migrated its main chat path to the experimental Protocol v2 surface. Real Windows testing exposed the mismatch: `/api/agent` returned the core `build` and `plan` agents, while the product agent layer in Kilo patches `build` into `code` and adds Kilo's product agents. The experimental Session runner also has documented parity gaps in v7.6.2.
 
-### Health and location
+**Rule:** TL-Agent's primary coding path must follow the same generated SDK methods actually invoked by the official Kilo client for the pinned version. Experimental `/api/*` routes are not used for the primary chat runtime unless upstream itself migrates the official client and runtime parity is verified.
 
-- `GET /api/health`
-- `GET /api/location`
+## Project routing
 
-`/api/health` must return `{ "healthy": true }` when the v2 API is ready.
+Every project-scoped product request carries the selected project explicitly as the `directory` query parameter. The launcher additionally injects `x-kilo-directory` at the reverse-proxy boundary.
+
+This dual routing is deliberate:
+
+- it matches how the official SDK/client supplies `directory`;
+- it prevents a server CWD from silently becoming the active project;
+- changing the project in TL-Agent must also change agents, providers, sessions, messages, permissions, questions, events, and tool filesystem operations.
+
+`GET /path?directory=...` is the runtime routing assertion used by CI.
+
+## Product routes used by TL-Agent
+
+### Runtime health and path
+
+- `GET /global/health`
+- `GET /path?directory=...`
 
 ### Agents
 
-- `GET /api/agent`
-- Response payload: location-wrapped `Agent.Info[]`
-- `Agent.Info` fields used by the UI:
-  - `id: string`
-  - `model?: Model.Ref`
-  - `description?: string`
-  - `mode: "subagent" | "primary" | "all"`
-  - `hidden: boolean`
-  - `color?`
-  - `permissions`
+- `GET /agent?directory=...`
 
-The client must not rely on legacy `name` or `displayName` fields.
+The product agent response uses fields such as:
 
-### Models
+- `name`
+- `displayName?`
+- `description?`
+- `mode`
+- `hidden`
+- `permission`
+- `model?`
 
-- `GET /api/model`
-- Response payload: location-wrapped `Model.Info[]`
-- `Model.Info` fields used by the UI:
-  - `id`
-  - `providerID`
-  - `name`
-  - `capabilities`
-  - `variants`
-  - `time.released`
-  - `cost`
-  - `status`
-  - `enabled`
-  - `limit`
+Kilo v7.6.2 constructs base agents including `build` and `plan`, then its Kilo product patch renames `build` to **`code`** and adds/patches product agents. The contract test therefore requires a visible `code` agent and rejects an exposed raw `build` agent on the product route.
 
-A selected model is represented as a `Model.Ref`:
+TL-Agent normalizes `name` as the stable selection value and uses `displayName` when available for display.
+
+### Providers and models
+
+- `GET /provider?directory=...`
+
+The product provider response is:
 
 ```json
 {
-  "id": "model-id",
-  "providerID": "provider-id",
-  "variant": "optional-variant"
+  "all": [],
+  "default": {},
+  "connected": [],
+  "failed": []
 }
 ```
 
-### Providers
+Models are enumerated from each provider's `models` collection because this is the provider surface used by the official product client in v7.6.2.
 
-Protocol v2 provider metadata:
+Kilo's authenticated free default remains:
 
-- `GET /api/provider`
-- `GET /api/provider/:providerID`
-- Response type: location-wrapped `Provider.Info`
+```text
+providerID: kilo
+modelID: kilo-auto/free
+```
 
-Provider data is used for availability/configuration display only. Model enumeration comes from `/api/model`, not from provider-internal model maps.
-
-Kilo's official Provider HttpApi is used only where Protocol v2 does not currently expose equivalent state:
-
-- `GET /provider` — connected-provider and provider-default state
-- `POST /provider/kilo/oauth/authorize` — start Kilo device authorization
-- `POST /provider/kilo/oauth/callback` — wait for/complete Kilo device authorization
-
-These calls must remain isolated in `kilo-api.js`.
+TL-Agent keeps an internal browser selection as `{ providerID, id, variant? }` and converts it at the adapter boundary to the product SDK model reference `{ providerID, modelID }`.
 
 ### Sessions
 
-- `GET /api/session?order=desc&limit=...`
-- `POST /api/session`
-- `GET /api/session/active`
-- `GET /api/session/:sessionID`
-- `POST /api/session/:sessionID/agent`
-- `POST /api/session/:sessionID/model`
-- `POST /api/session/:sessionID/prompt`
-- `POST /api/session/:sessionID/interrupt`
-- `GET /api/session/:sessionID/context`
-- `GET /api/session/:sessionID/history`
-- `GET /api/session/:sessionID/event`
-- `GET /api/session/:sessionID/message/:messageID`
+- `GET /session?directory=...`
+- `POST /session?directory=...`
+- `GET /session/status?directory=...`
+- `GET /session/:sessionID?directory=...`
+- `GET /session/:sessionID/message?directory=...`
+- `POST /session/:sessionID/prompt_async?directory=...`
+- `POST /session/:sessionID/abort?directory=...`
 
-`Session.Info` fields used by the UI:
+The official VS Code client in Kilo v7.6.2 sends normal coding messages through `client.session.promptAsync(...)`. TL-Agent mirrors that path.
 
-- `id`
-- `projectID`
-- `agent?`
-- `model?`
-- `cost`
-- `tokens`
-- `time.created`
-- `time.updated`
-- `title`
-- `location`
-- `subpath?`
-- `revert?`
-
-#### Session settlement in v7.6.2
-
-The Protocol exposes `POST /api/session/:sessionID/wait`, but the `v7.6.2` implementation intentionally returns `Session.OperationUnavailableError` for `wait`. TL-Agent therefore does **not** use that route.
-
-After prompt admission, TL-Agent observes execution through the v2 event stream (`session.next.step.started`, `session.next.step.ended`, `session.next.step.failed`, text/reasoning/tool events), uses `/api/session/active` for current-process activity state, and reloads projected messages as the reconnect-safe source of truth.
-
-### Prompt admission
-
-`POST /api/session/:sessionID/prompt`
-
-Payload:
+A text prompt is sent as:
 
 ```json
 {
-  "prompt": {
-    "text": "...",
-    "files": [],
-    "agents": []
+  "agent": "code",
+  "model": {
+    "providerID": "kilo",
+    "modelID": "kilo-auto/free"
   },
-  "delivery": "steer",
-  "resume": true
+  "parts": [
+    {
+      "type": "text",
+      "text": "..."
+    }
+  ]
 }
 ```
 
-`delivery` is optional and is one of:
+Agent and model are sent explicitly with each prompt. TL-Agent does not depend on the experimental `/api/session/:id/agent`, `/model`, or `/prompt` routes for the product chat path.
 
-- `steer`
-- `queue`
+### Messages
 
-The response contains a durable admission receipt (`SessionInput.Admitted`). Prompt admission and provider execution are separate concepts; the UI must not treat the HTTP response as the assistant reply.
+Production Session messages are returned as:
 
-### Session messages
+```json
+[
+  {
+    "info": { "role": "user" },
+    "parts": []
+  },
+  {
+    "info": { "role": "assistant" },
+    "parts": []
+  }
+]
+```
 
-- `GET /api/session/:sessionID/message?order=asc&limit=...`
-- Response: `{ data: SessionMessage.Message[], cursor: { previous?, next? } }`
+This `info + parts` envelope is the canonical message representation for the product route in v7.6.2.
 
-This is the canonical projected conversation model for non-streaming/reconnect rendering.
-
-Supported message variants in v7.6.2:
-
-- `agent-switched`
-- `model-switched`
-- `user`
-- `synthetic`
-- `system`
-- `shell`
-- `assistant`
-- `compaction`
-
-Assistant message content is stored in `assistant.content[]`, with these variants:
+Relevant Part variants include:
 
 - `text`
-  - `id`
-  - `text`
 - `reasoning`
-  - `id`
-  - `text`
-  - optional provider metadata/time
 - `tool`
-  - `id`
-  - `name`
-  - `state`
-  - optional provider metadata
-  - time information
+- `subtask`
+- file-related parts
 
-Tool states:
+A tool part contains its tool name and state. Tool state can be pending/running/completed/error and includes input/output/error metadata as appropriate.
 
-- `pending`
-- `running`
-- `completed`
-- `error`
+Projected messages remain the reconnect-safe rendering source of truth.
 
-Do not use the internal/legacy `info + parts` representation in the browser adapter.
+### Events
 
-### Streaming and durable events
+- `GET /global/event?directory=...` (SSE)
 
-Global server event stream:
+The global event stream is wrapped with project/location metadata. The event itself is under `payload` and uses product event names such as:
 
-- `GET /api/event` (SSE)
+- `message.updated`
+- `message.part.updated`
+- `session.updated`
+- `session.status`
+- `session.idle`
+- permission/question events
+- file edit events
 
-Per-session durable replay/tail stream:
+The adapter unwraps the outer global-event envelope before UI dispatch.
 
-- `GET /api/session/:sessionID/event?after=...` (SSE)
-
-The Session v2 event family contains, among others:
-
-- `session.next.agent.switched`
-- `session.next.model.switched`
-- `session.next.prompt.admitted`
-- `session.next.prompted`
-- `session.next.context.updated`
-- `session.next.synthetic`
-- `session.next.shell.started`
-- `session.next.shell.ended`
-- `session.next.step.started`
-- `session.next.step.ended`
-- `session.next.step.failed`
-- `session.next.text.started`
-- `session.next.text.delta` (live-only)
-- `session.next.text.ended`
-- `session.next.reasoning.started`
-- `session.next.reasoning.delta` (live-only)
-- `session.next.reasoning.ended`
-- `session.next.tool.input.started`
-- `session.next.tool.input.delta` (live-only)
-- `session.next.tool.input.ended`
-- `session.next.tool.called`
-- `session.next.tool.progress`
-- `session.next.tool.success`
-- `session.next.tool.failed`
-- `session.next.retried`
-- compaction events
-- revert events
-
-For reconnect safety, projected messages are the source of truth. Live SSE deltas are presentation events and must not be treated as durable history.
+TL-Agent uses events for responsive refresh and also polls Session status/messages after a prompt as a conservative fallback. It does not treat an SSE delta as durable conversation history.
 
 ### Permissions
 
-- `GET /api/session/:sessionID/permission`
-- `GET /api/session/:sessionID/permission/:requestID`
-- `POST /api/session/:sessionID/permission/:requestID/reply`
+- `GET /permission?directory=...`
+- `POST /permission/:requestID/reply?directory=...`
 
-Permission reply payload:
+Pending permission requests are filtered by `sessionID` in the adapter.
 
-```json
-{
-  "reply": "once"
-}
-```
+Production `PermissionRequest` fields used by the UI:
 
-Allowed replies:
+- `id`
+- `sessionID`
+- `permission`
+- `patterns[]`
+- `metadata`
+- `always[]`
+- optional tool source
+
+Reply values are exactly:
 
 - `once`
 - `always`
 - `reject`
 
-A pending `Permission.Request` includes:
-
-- `id`
-- `sessionID`
-- `action`
-- `resources[]`
-- optional `save[]`
-- optional `metadata`
-- optional tool `source`
-
 ### Questions
 
-- `GET /api/session/:sessionID/question`
-- `POST /api/session/:sessionID/question/:requestID/reply`
-- `POST /api/session/:sessionID/question/:requestID/reject`
+- `GET /question?directory=...`
+- `POST /question/:requestID/reply?directory=...`
+- `POST /question/:requestID/reject?directory=...`
 
-A question request may contain multiple questions. Each question can expose:
+Requests are filtered by `sessionID` in the adapter. Questions support option lists, single/multiple selection, optional custom answers, and an optional default single-select label.
 
-- `header`
-- `question`
-- `options[]`
-- `multiple?`
-- `custom?`
+### Kilo account OAuth
 
-Reply shape:
+- `POST /provider/kilo/oauth/authorize`
+- `POST /provider/kilo/oauth/callback`
 
-```json
-{
-  "answers": [
-    ["Selected label"],
-    ["One", "Two"]
-  ]
-}
-```
-
-The outer array follows question order; each inner array contains selected/custom answer strings for that question.
-
-## Kilo account OAuth
-
-The official Kilo clients use provider OAuth for provider `kilo`, method `0`:
-
-1. authorize
-2. display verification URL and device code/instructions
-3. wait on callback
-4. refresh Kilo/profile/provider state
-
-TL-Agent matches this client flow through the adapter and does not infer OAuth completion from model responses.
+TL-Agent uses Kilo's normal device authorization flow and refreshes product provider state afterward.
 
 ## Browser adapter policy
 
-All browser-side Kilo calls must go through `cmd/launcher/web/kilo-api.js`. UI modules must not construct Kilo endpoint paths directly.
+All browser-side Kilo calls must go through:
 
-The adapter owns:
+`cmd/launcher/web/kilo-api.js`
 
-- response envelope handling
-- query construction
-- model refs
-- session CRUD and switching
-- prompt admission
-- message pagination
-- SSE connection/reconnection
-- permission/question replies
-- provider connection state
-- Kilo OAuth calls
+UI modules must not construct Kilo endpoint paths directly. The adapter owns:
 
-This isolates future Kilo upgrades to one integration boundary.
+- directory routing
+- response unwrapping
+- model reference conversion (`id` ↔ `modelID`)
+- Agent/provider/session endpoints
+- `prompt_async`
+- Session status/messages
+- global SSE envelope unwrapping
+- Permission/Question routes
+- Kilo OAuth
 
-## Contract enforcement
+This makes an upstream Kilo upgrade an explicit adapter/contract change rather than a scattered UI change.
 
-`scripts/check-kilo-v2-contract.py` is run by CI against the actual pinned Kilo binary downloaded from the official Kilo GitHub release. It verifies the core runtime response shapes used by the UI.
+## Automated contract gates
 
-`scripts/check-kilo-prompt-e2e.py` additionally exercises real prompt admission and execution against the pinned Kilo runtime with a local OpenAI-compatible fake provider. It validates the v2 catalog config path, Session execution, live SSE text/step events, and projected assistant messages without requiring a paid API key.
+### Product contract
 
-A Protocol v2 refactor must not be merged if the real-runtime contract or prompt E2E job fails.
+`scripts/check-kilo-product-contract.py`
+
+CI downloads the exact official Kilo binary pinned in `KILO_VERSION`, starts it through the TL-Agent launcher, and verifies:
+
+- product health
+- selected-project routing
+- product Agent list contains `code`, not raw `build`
+- Provider response shape
+- production Session creation/list/messages/status
+- production message envelope is `info + parts`
+- Permission/Question list shapes
+- `/global/event` SSE is available
+
+### Prompt + real write-tool E2E
+
+`scripts/check-kilo-prompt-e2e.py`
+
+CI also starts a local fake OpenAI-compatible LLM with no external API key or cost. The project config mirrors Kilo v7.6.2's own `testProviderConfig` format (`provider`, singular).
+
+The E2E must pass this chain:
+
+```text
+TL-Agent launcher
+→ real bundled Kilo 7.6.2
+→ GET /agent returns code
+→ production custom provider discovery
+→ POST /session
+→ POST /session/:id/prompt_async
+→ fake LLM requests Kilo's real write tool
+→ Kilo writes hello.txt inside the selected project
+→ provider receives tool result
+→ final assistant reply
+→ GET /session/:id/message returns info + parts
+→ global product events observed
+```
+
+The test asserts both:
+
+```text
+hello.txt == KILO_LOCAL_UI_OK
+```
+
+and the final assistant marker:
+
+```text
+E2E_PRODUCT_OK
+```
+
+A release must not be cut if this product-path E2E fails.
+
+## Protocol v2 status
+
+The experimental `/api/*` Protocol v2 remains valuable and may eventually replace more of the current HttpApi. In Kilo v7.6.2 it is **not** the primary TL-Agent coding contract because the official product client has not migrated its main coding flow to that surface and upstream parity documentation still lists incomplete runtime behavior.
+
+Do not mix product and experimental Session models opportunistically. Any future migration must be version-pinned and validated against the official Kilo client plus real-runtime E2E.
 
 ## Upgrade checklist
 
-Before changing `/KILO_VERSION`:
+Before changing `KILO_VERSION`:
 
-1. compare upstream `packages/protocol/src/groups/*` against this contract;
-2. compare `packages/schema/src/session*.ts`, `agent.ts`, `model.ts`, `provider.ts`, `permission.ts`, and `question.ts`;
-3. review `specs/v2/schema-changelog.md`;
-4. update adapter tests and fixtures;
-5. run the real-runtime contract and prompt E2E tests;
-6. only then publish a release with the new Kilo binary.
+1. inspect the generated `@kilocode/sdk/v2/client` routes for the new tag;
+2. inspect the official VS Code client and identify which SDK methods it actually invokes for Agent, Provider, Session, Prompt, Permission, Question, and events;
+3. inspect Kilo's product Agent patching behavior;
+4. compare message/part schemas;
+5. review Protocol v2 parity only as a separate potential migration;
+6. update this document and `kilo-api.js`;
+7. run product contract + production Prompt/write-tool E2E against the exact new binary;
+8. only then publish a release.
