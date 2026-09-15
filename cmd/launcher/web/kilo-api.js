@@ -78,13 +78,12 @@
       },
       get: async (sessionID) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`)))),
       create: async (input = {}) => {
-        // Product Session creation and prompt selection are separate concerns.
-        // Official clients send the effective model again on promptAsync; doing
-        // so also avoids validating a custom/test model before the first prompt.
+        // Match the official VS Code client: Session creation is independent of
+        // effective agent/model selection. Agent and model are supplied on
+        // prompt_async, where they belong to the coding turn.
         const payload = {};
         if (input.parentID) payload.parentID = input.parentID;
         if (input.title) payload.title = input.title;
-        if (input.agent) payload.agent = input.agent;
         return wrapData(unwrapData(await request(route("/session"), { method: "POST", ...body(payload) })));
       },
       messages: async (sessionID, { limit = 200 } = {}) => {
