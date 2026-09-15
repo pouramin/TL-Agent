@@ -147,8 +147,10 @@ def main() -> int:
     if isinstance(models, dict):
         require("test-model" in models, f"test-model missing from provider: {models!r}")
     elif isinstance(models, list):
-        require(any(isinstance(m, dict) and (m.get("id") == "test-model" or m.get("modelID") == "test-model") for m in models),
-                f"test-model missing from provider: {models!r}")
+        require(
+            any(isinstance(m, dict) and (m.get("id") == "test-model" or m.get("modelID") == "test-model") for m in models),
+            f"test-model missing from provider: {models!r}",
+        )
     else:
         raise E2EError(f"test provider models have invalid shape: {models!r}")
 
@@ -158,7 +160,7 @@ def main() -> int:
         base,
         routed("/kilo/session", project),
         method="POST",
-        payload={"agent": "code"},
+        payload={},
     ))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session creation failed: {created!r}")
     session_id = created["id"]
@@ -186,12 +188,40 @@ def main() -> int:
     deadline = time.time() + 45
     messages: list[dict] = []
     saw_running = False
+    approved_permissions: set[str] = set()
+    saw_edit_permission = False
+
     while time.time() < deadline:
         statuses = unwrap(request(base, routed("/kilo/session/status", project)))
         statuses = statuses if isinstance(statuses, dict) else {}
         status = statuses.get(session_id)
         if isinstance(status, dict) and status.get("type") != "idle":
             saw_running = True
+
+        # The launcher deliberately configures edits as ask-by-default. Exercise
+        # the same production permission API the browser UI uses and approve the
+        # expected write exactly once, so the E2E validates the safety boundary
+        # rather than bypassing it with an allow-all test config.
+        pending = unwrap(request(base, routed("/kilo/permission", project)))
+        pending = pending if isinstance(pending, list) else []
+        for permission in pending:
+            if not isinstance(permission, dict) or permission.get("sessionID") != session_id:
+                continue
+            permission_id = permission.get("id")
+            if not isinstance(permission_id, str) or permission_id in approved_permissions:
+                continue
+            require(permission.get("permission") == "edit", f"unexpected permission request: {permission!r}")
+            patterns = permission.get("patterns")
+            require(isinstance(patterns, list) and any("hello.txt" in str(item) for item in patterns),
+                    f"edit permission did not target hello.txt: {permission!r}")
+            request(
+                base,
+                routed(f"/kilo/permission/{urllib.parse.quote(permission_id, safe='')}/reply", project),
+                method="POST",
+                payload={"reply": "once"},
+            )
+            approved_permissions.add(permission_id)
+            saw_edit_permission = True
 
         messages = unwrap(request(base, routed(f"/kilo/session/{sid}/message", project, limit=200)))
         messages = messages if isinstance(messages, list) else []
@@ -208,7 +238,10 @@ def main() -> int:
             raise E2EError(f"SSE failed while waiting for completion: {sse_error!r}")
         time.sleep(0.1)
     else:
-        raise E2EError(f"timed out waiting for assistant reply; saw_running={saw_running!r} messages={messages!r} events={events!r}")
+        raise E2EError(
+            f"timed out waiting for assistant reply; saw_running={saw_running!r} "
+            f"saw_edit_permission={saw_edit_permission!r} messages={messages!r} events={events!r}"
+        )
 
     stop.set()
 
@@ -216,6 +249,7 @@ def main() -> int:
     assistants = [m for m in messages if isinstance(m, dict) and isinstance(m.get("info"), dict) and m["info"].get("role") == "assistant"]
     require(users, f"no projected user message: {messages!r}")
     require(assistants, f"no projected assistant message: {messages!r}")
+    require(saw_edit_permission, "write tool never requested edit permission")
     require(any(EXPECTED in assistant_text(m) for m in assistants), f"fixture reply missing: {assistants!r}")
     require(any(has_completed_write(m) for m in assistants), f"completed write tool part missing: {assistants!r}")
 
@@ -237,6 +271,7 @@ def main() -> int:
                 interesting.append(payload.get("type"))
     require(any(t in {"message.updated", "message.part.updated", "session.status", "session.idle"} for t in interesting),
             f"no production session/message event observed for session: {interesting!r}")
+    require("permission.asked" in interesting, f"permission.asked event missing: {interesting!r}")
 
     print(json.dumps({
         "ok": True,
@@ -246,6 +281,7 @@ def main() -> int:
         "messages": len(messages),
         "events": interesting,
         "saw_running": saw_running,
+        "permission": "edit/once",
         "file": target,
         "reply": EXPECTED,
     }, indent=2))
