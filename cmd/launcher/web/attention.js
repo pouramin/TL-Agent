@@ -5,9 +5,32 @@
   const parseDeviceCode = (input) => input?.match(/code:\s*([A-Z0-9-]+)/i)?.[1]?.toUpperCase()
     || input?.match(/\b[A-Z0-9]{4,}(?:-[A-Z0-9]{3,})+\b/i)?.[0]?.toUpperCase() || "";
 
+  K.applyKiloAuthStatus = (status) => {
+    const normalized = {
+      authenticated: status?.authenticated === true,
+      type: status?.type || "",
+      organizationId: status?.organizationId || "",
+    };
+    K.state.kiloAuth = normalized;
+    if (normalized.authenticated) K.state.connectedProviders.add("kilo");
+    else K.state.connectedProviders.delete("kilo");
+    K.renderAccount?.();
+    return normalized;
+  };
+
+  K.refreshKiloAuthStatus = async () => K.applyKiloAuthStatus(await K.api.oauth.kiloStatus());
+
   K.signInKilo = async () => {
-    if (K.state.connectedProviders.has("kilo")) return K.showError("Kilo is already connected on this computer.");
     K.showError("");
+    let status;
+    try {
+      status = await K.refreshKiloAuthStatus();
+    } catch (err) {
+      K.showError(`Unable to verify Kilo account state: ${err.message || String(err)}`);
+      return;
+    }
+    if (status.authenticated) return K.showError("Kilo is already connected on this computer.");
+
     K.state.authController?.abort();
     K.state.authController = new AbortController();
     K.state.authURL = "";
@@ -32,7 +55,13 @@
       await K.api.oauth.callbackKilo(K.state.authController.signal);
       K.state.authController = null;
       K.els.authInstructions.textContent = "Signed in successfully.";
+
+      // Kilo's official clients dispose the in-memory instance after auth changes.
+      // Without this, /provider can keep reporting the pre-auth provider state.
+      await K.api.runtime.dispose();
       await K.loadCatalog();
+      await K.refreshKiloAuthStatus();
+
       window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
     } catch (err) {
       if (err?.name !== "AbortError") K.els.authInstructions.textContent = `Sign-in failed: ${err.message || String(err)}`;
