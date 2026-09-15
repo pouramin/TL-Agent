@@ -8,6 +8,7 @@ import os
 import sys
 import threading
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -37,14 +38,18 @@ def request(base: str, path: str, method: str = "GET", payload=None, timeout=30)
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
     req = urllib.request.Request(base.rstrip("/") + path, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=timeout) as res:
-        raw = res.read()
-        if not raw:
-            return None
-        ctype = res.headers.get("Content-Type", "")
-        if "json" not in ctype:
-            raise E2EError(f"{method} {path}: expected JSON, got {ctype!r}")
-        return json.loads(raw)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            raw = res.read()
+            if not raw:
+                return None
+            ctype = res.headers.get("Content-Type", "")
+            if "json" not in ctype:
+                raise E2EError(f"{method} {path}: expected JSON, got {ctype!r}")
+            return json.loads(raw)
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise E2EError(f"{method} {path}: HTTP {error.code}: {detail}") from error
 
 
 def routed(path: str, project: str, **params) -> str:
@@ -147,11 +152,13 @@ def main() -> int:
     else:
         raise E2EError(f"test provider models have invalid shape: {models!r}")
 
+    # Match the official product flow: create the Session independently, then
+    # select the effective agent/model on prompt_async.
     created = unwrap(request(
         base,
         routed("/kilo/session", project),
         method="POST",
-        payload={"agent": "code", "model": {"providerID": "test", "modelID": "test-model"}},
+        payload={"agent": "code"},
     ))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session creation failed: {created!r}")
     session_id = created["id"]
@@ -223,7 +230,9 @@ def main() -> int:
         payload = envelope.get("payload", envelope) if isinstance(envelope, dict) else {}
         if isinstance(payload, dict):
             props = payload.get("properties") if isinstance(payload.get("properties"), dict) else {}
-            sid_from_event = props.get("sessionID") or (props.get("info") or {}).get("sessionID")
+            info = props.get("info") if isinstance(props.get("info"), dict) else {}
+            part = props.get("part") if isinstance(props.get("part"), dict) else {}
+            sid_from_event = props.get("sessionID") or info.get("sessionID") or part.get("sessionID")
             if sid_from_event == session_id:
                 interesting.append(payload.get("type"))
     require(any(t in {"message.updated", "message.part.updated", "session.status", "session.idle"} for t in interesting),
