@@ -67,6 +67,168 @@
     return blocks;
   };
 
+  const safeLink = (href) => {
+    try {
+      const url = new URL(href, window.location.href);
+      return ["http:", "https:"].includes(url.protocol) ? url.href : "";
+    } catch { return ""; }
+  };
+
+  const appendInlineMarkdown = (parent, input) => {
+    let text = String(input || "");
+    while (text) {
+      const codeAt = text.indexOf("`");
+      const boldAt = text.indexOf("**");
+      const linkAt = text.indexOf("[");
+      const candidates = [codeAt, boldAt, linkAt].filter((value) => value >= 0);
+      const next = candidates.length ? Math.min(...candidates) : -1;
+      if (next < 0) {
+        parent.appendChild(document.createTextNode(text));
+        break;
+      }
+      if (next > 0) {
+        parent.appendChild(document.createTextNode(text.slice(0, next)));
+        text = text.slice(next);
+        continue;
+      }
+
+      if (text.startsWith("**")) {
+        const end = text.indexOf("**", 2);
+        if (end > 2) {
+          const strong = document.createElement("strong");
+          appendInlineMarkdown(strong, text.slice(2, end));
+          parent.appendChild(strong);
+          text = text.slice(end + 2);
+          continue;
+        }
+      }
+
+      if (text.startsWith("`")) {
+        const end = text.indexOf("`", 1);
+        if (end > 1) {
+          const code = document.createElement("code");
+          code.textContent = text.slice(1, end);
+          parent.appendChild(code);
+          text = text.slice(end + 1);
+          continue;
+        }
+      }
+
+      if (text.startsWith("[")) {
+        const labelEnd = text.indexOf("](", 1);
+        const hrefEnd = labelEnd > 0 ? text.indexOf(")", labelEnd + 2) : -1;
+        if (labelEnd > 1 && hrefEnd > labelEnd + 2) {
+          const label = text.slice(1, labelEnd);
+          const href = safeLink(text.slice(labelEnd + 2, hrefEnd));
+          if (href) {
+            const anchor = document.createElement("a");
+            anchor.href = href;
+            anchor.target = "_blank";
+            anchor.rel = "noreferrer noopener";
+            appendInlineMarkdown(anchor, label);
+            parent.appendChild(anchor);
+            text = text.slice(hrefEnd + 1);
+            continue;
+          }
+        }
+      }
+
+      parent.appendChild(document.createTextNode(text[0]));
+      text = text.slice(1);
+    }
+  };
+
+  const renderMarkdown = (container, input) => {
+    const lines = String(input || "").replace(/\r\n?/g, "\n").split("\n");
+    let index = 0;
+    const paragraph = [];
+
+    const flushParagraph = () => {
+      if (!paragraph.length) return;
+      const p = document.createElement("p");
+      appendInlineMarkdown(p, paragraph.join(" ").trim());
+      container.appendChild(p);
+      paragraph.length = 0;
+    };
+
+    while (index < lines.length) {
+      const line = lines[index];
+      if (!line.trim()) {
+        flushParagraph();
+        index++;
+        continue;
+      }
+
+      const fence = line.match(/^\s*```([^`]*)$/);
+      if (fence) {
+        flushParagraph();
+        const language = fence[1].trim();
+        const body = [];
+        index++;
+        while (index < lines.length && !/^\s*```\s*$/.test(lines[index])) body.push(lines[index++]);
+        if (index < lines.length) index++;
+        const pre = document.createElement("pre");
+        pre.className = "markdown-code";
+        const code = document.createElement("code");
+        if (language) code.dataset.language = language;
+        code.textContent = body.join("\n");
+        pre.appendChild(code);
+        container.appendChild(pre);
+        continue;
+      }
+
+      const heading = line.match(/^(#{1,4})\s+(.+)$/);
+      if (heading) {
+        flushParagraph();
+        const h = document.createElement(`h${Math.min(4, heading[1].length + 1)}`);
+        appendInlineMarkdown(h, heading[2]);
+        container.appendChild(h);
+        index++;
+        continue;
+      }
+
+      const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+      const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+      if (unordered || ordered) {
+        flushParagraph();
+        const orderedList = !!ordered;
+        const list = document.createElement(orderedList ? "ol" : "ul");
+        while (index < lines.length) {
+          const match = orderedList
+            ? lines[index].match(/^\s*\d+[.)]\s+(.+)$/)
+            : lines[index].match(/^\s*[-*]\s+(.+)$/);
+          if (!match) break;
+          const li = document.createElement("li");
+          appendInlineMarkdown(li, match[1]);
+          list.appendChild(li);
+          index++;
+        }
+        container.appendChild(list);
+        continue;
+      }
+
+      const quote = line.match(/^\s*>\s?(.*)$/);
+      if (quote) {
+        flushParagraph();
+        const blockquote = document.createElement("blockquote");
+        const values = [];
+        while (index < lines.length) {
+          const match = lines[index].match(/^\s*>\s?(.*)$/);
+          if (!match) break;
+          values.push(match[1]);
+          index++;
+        }
+        appendInlineMarkdown(blockquote, values.join(" "));
+        container.appendChild(blockquote);
+        continue;
+      }
+
+      paragraph.push(line.trim());
+      index++;
+    }
+    flushParagraph();
+  };
+
   const messageNode = (kind, author, text, time, error) => {
     const row = document.createElement("article");
     row.className = `message ${kind}${error ? " error" : ""}`;
@@ -85,11 +247,15 @@
     const stamp = document.createElement("span");
     stamp.textContent = K.formatTime(time);
     head.append(strong, stamp);
+    content.appendChild(head);
 
-    const body = document.createElement("div");
-    body.className = "message-text";
-    body.textContent = error ? `${text}${text ? "\n\n" : ""}${error}` : text;
-    content.append(head, body);
+    if (text || error) {
+      const body = document.createElement("div");
+      body.className = "message-text";
+      body.textContent = error ? `${text}${text ? "\n\n" : ""}${error}` : text;
+      content.appendChild(body);
+    }
+
     row.append(avatar, content);
     return row;
   };
@@ -137,39 +303,68 @@
     return details;
   };
 
-  const appendParts = (node, message) => {
+  const activityNode = (item) => {
+    if (item?.type === "reasoning" && item.text) {
+      return activityCard({
+        title: "Reasoning",
+        status: item.time?.end || item.time?.completed ? "completed" : item.status || "completed",
+        blocks: [["Thought process", item.text]],
+        reasoning: true,
+      });
+    }
+
+    if (item?.type === "tool") {
+      const state = item.state || {};
+      const meta = [fileHint(item), diffHint(item)].filter(Boolean).join(" · ");
+      return activityCard({
+        title: item.tool || item.name || "Tool",
+        status: state.status || item.status || "pending",
+        meta,
+        blocks: toolDetails(item),
+      });
+    }
+
+    if (item?.type === "subtask") {
+      return activityCard({
+        title: "Subtask",
+        status: item.status || "created",
+        meta: item.agent || "",
+        blocks: [["Task", item.description || item.prompt || ""]],
+      });
+    }
+    return null;
+  };
+
+  const appendAssistantContent = (node, message, error = "") => {
     const content = node.querySelector(".message-content");
-    for (const item of partsOf(message)) {
-      if (item?.type === "reasoning" && item.text) {
-        content.appendChild(activityCard({
-          title: "Reasoning",
-          status: item.time?.end || item.time?.completed ? "completed" : item.status || "completed",
-          blocks: [["Thought process", item.text]],
-          reasoning: true,
-        }));
-        continue;
-      }
+    const parts = partsOf(message);
 
-      if (item?.type === "tool") {
-        const state = item.state || {};
-        const meta = [fileHint(item), diffHint(item)].filter(Boolean).join(" · ");
-        content.appendChild(activityCard({
-          title: item.tool || item.name || "Tool",
-          status: state.status || item.status || "pending",
-          meta,
-          blocks: toolDetails(item),
-        }));
-        continue;
-      }
+    // Keep operational activity above the user-facing answer. Some providers
+    // append reasoning after text in the raw part array even though it belongs
+    // to the work phase; presenting it first produces a stable coding-agent UX.
+    for (const item of parts) {
+      const activity = activityNode(item);
+      if (activity) content.appendChild(activity);
+    }
 
-      if (item?.type === "subtask") {
-        content.appendChild(activityCard({
-          title: "Subtask",
-          status: item.status || "created",
-          meta: item.agent || "",
-          blocks: [["Task", item.description || item.prompt || ""]],
-        }));
-      }
+    const text = parts
+      .filter((part) => part?.type === "text" && !part.ignored && part.text)
+      .map((part) => part.text)
+      .join("\n")
+      .trim() || textOf(message);
+
+    if (text) {
+      const body = document.createElement("div");
+      body.className = "message-text markdown-body";
+      renderMarkdown(body, text);
+      content.appendChild(body);
+    }
+
+    if (error) {
+      const body = document.createElement("div");
+      body.className = "message-text message-error-text";
+      body.textContent = error;
+      content.appendChild(body);
     }
   };
 
@@ -182,8 +377,10 @@
       return true;
     }
     if (info.role === "assistant") {
-      const node = messageNode("assistant", info.agent || "Agent", textOf(message), time, errorText(info.error));
-      appendParts(node, message);
+      const error = errorText(info.error);
+      const node = messageNode("assistant", info.agent || "Agent", "", time, "");
+      if (error) node.classList.add("error");
+      appendAssistantContent(node, message, error);
       view.appendChild(node);
       return true;
     }
@@ -200,8 +397,10 @@
       if (message?.type === "user") {
         view.appendChild(messageNode("user", "You", message.text || textOf(message), message.time?.created));
       } else if (message?.type === "assistant") {
-        const node = messageNode("assistant", message.agent || "Agent", textOf(message), message.time?.created, errorText(message.error));
-        appendParts(node, message);
+        const error = errorText(message.error);
+        const node = messageNode("assistant", message.agent || "Agent", "", message.time?.created, "");
+        if (error) node.classList.add("error");
+        appendAssistantContent(node, message, error);
         view.appendChild(node);
       } else if (message?.type === "shell") {
         const node = messageNode("assistant", "Shell", "", message.time?.created);
@@ -219,7 +418,14 @@
     if (K.state.session && (K.isSessionRunning(K.state.session.id) || K.state.sending)) {
       const row = messageNode("assistant", K.state.session.agent || "Agent", "", Date.now());
       row.classList.add("working-message");
-      row.querySelector(".message-text").innerHTML = 'Working <span class="typing"><i></i><i></i><i></i></span>';
+      const working = document.createElement("div");
+      working.className = "message-text";
+      working.append("Working ");
+      const typing = document.createElement("span");
+      typing.className = "typing";
+      typing.append(document.createElement("i"), document.createElement("i"), document.createElement("i"));
+      working.appendChild(typing);
+      row.querySelector(".message-content").appendChild(working);
       view.appendChild(row);
     }
 
@@ -227,5 +433,5 @@
     requestAnimationFrame(() => { view.scrollTop = view.scrollHeight; });
   };
 
-  K.presentation = Object.freeze({ partsOf, textOf });
+  K.presentation = Object.freeze({ partsOf, textOf, renderMarkdown });
 })();
