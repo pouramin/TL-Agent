@@ -1,0 +1,30 @@
+---
+title: Projects and sessions
+description: Understand project scoping and how Kilo sessions are exposed through the local UI.
+icon: FolderCode
+---
+
+## Project scoping
+
+The selected local directory is owned by the launcher state. Browser calls to Kilo go through the launcher proxy, which adds the selected directory to proxied requests using Kilo's directory header.
+
+That design has two useful properties:
+
+- the browser does not need direct filesystem privileges;
+- changing the selected project changes the Kilo request context without exposing Kilo credentials to browser code.
+
+## Sessions
+
+Kilo remains the source of truth for session state. Kilo Local UI uses the public Kilo Protocol v2 session endpoints to create, list, inspect, and control sessions.
+
+A session can carry its selected agent and model, token/cost metadata, timestamps, title, project information, and conversation history as exposed by Kilo.
+
+## Messages and execution
+
+Prompt admission is separate from model execution. A successful prompt request means Kilo accepted the prompt; it does **not** mean the HTTP response itself is the assistant's final answer.
+
+The UI projects Kilo session messages and execution activity into the browser, including user messages, assistant text, reasoning when exposed by the provider, and tool states such as pending, running, completed, or error.
+
+## Reconnect-safe state
+
+Projected Kilo messages are treated as durable conversation state. Live execution events can improve responsiveness, but they are not a replacement for reloading the canonical session history after reconnects.

@@ -1,0 +1,27 @@
+---
+title: Models and agents
+description: Learn how Kilo Local UI discovers and switches models, providers, and Kilo agents.
+icon: Bot
+---
+
+Kilo Local UI does not implement its own model router. It asks the local Kilo runtime which agents, models, and providers are available and displays that state in the UI.
+
+## Agents
+
+Agents come from Kilo's public Protocol v2 agent metadata. An agent can define a default model, description, operating mode, visibility, color, and permissions.
+
+Changing the active agent is a Kilo session operation. The launcher does not emulate or replace agent behavior.
+
+## Models
+
+Model discovery comes from Kilo's model API. A model belongs to a provider and can expose capabilities, variants, release information, limits, cost metadata, and enabled/status information.
+
+A selected model is represented by Kilo as a model reference containing a model ID, provider ID, and optional variant.
+
+## Providers and login
+
+Provider configuration belongs to Kilo. Kilo Local UI can expose provider availability and Kilo's own device authorization flow, but provider credentials and model execution remain Kilo/provider concerns rather than a cloud service operated by this project.
+
+## Why this boundary matters
+
+Keeping provider and model logic inside Kilo means Kilo Local UI can focus on a stable local UX while avoiding a second provider abstraction that would drift away from the runtime it controls.

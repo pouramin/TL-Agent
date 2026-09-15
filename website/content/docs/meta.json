@@ -1,0 +1,11 @@
+{
+  "title": "Kilo Local UI",
+  "pages": [
+    "index",
+    "getting-started",
+    "guides",
+    "reference",
+    "troubleshooting",
+    "contributing"
+  ]
+}

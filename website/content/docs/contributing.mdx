@@ -1,0 +1,36 @@
+---
+title: Contributing
+description: Work on the launcher, browser UI, or documentation without mixing product and documentation build systems.
+icon: GitPullRequest
+---
+
+Contributions should preserve the project's core boundary: the product remains local-first and the documentation site remains isolated from the runtime.
+
+## Product development
+
+The application lives primarily under `cmd/launcher/` and is built and tested as Go code. Browser assets served by the launcher live under `cmd/launcher/web/` and are embedded into the Go binary.
+
+The internal engineering notes under the repository's `docs/` directory document architecture and the pinned Kilo API contract.
+
+## Public documentation development
+
+This public site lives under `website/` and has its own Node/Fumadocs toolchain.
+
+```bash
+cd website
+npm install
+npm run dev
+```
+
+Before proposing documentation changes:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+The Docs CI workflow is path-filtered to `website/**`, so documentation work does not add Node dependencies to the Go application or release packages.
+
+## Keep claims tied to the code
+
+When behavior changes, update the relevant public page together with the code or protocol notes. Avoid documenting planned functionality as if it already exists; label roadmap behavior clearly.

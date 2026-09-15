@@ -1,0 +1,52 @@
+---
+title: Architecture
+description: See the launcher, browser, proxy, and Kilo runtime architecture and the boundary between each component.
+icon: Network
+---
+
+Kilo Local UI is intentionally small: a Go launcher, embedded static browser assets, and a locally spawned Kilo runtime.
+
+## Components
+
+### Launcher
+
+The launcher is a single Go binary built with the Go standard library. It owns:
+
+- the lifecycle of the Kilo child process;
+- ephemeral local port selection;
+- project-directory state;
+- serving embedded browser assets;
+- the authenticated reverse proxy to Kilo;
+- local-only and cross-origin protections.
+
+### Kilo runtime
+
+The launcher executes:
+
+```text
+kilo serve --hostname 127.0.0.1 --port <ephemeral-port>
+```
+
+Kilo remains responsible for sessions, agents, tools, filesystem access, provider integrations, and model execution.
+
+### Browser UI
+
+HTML, CSS, and JavaScript are embedded into the launcher at build time. The browser talks only to the launcher origin and never receives the generated Kilo server password.
+
+## Request flow
+
+```text
+Browser
+  │  GET/POST http://127.0.0.1:<ui-port>/kilo/...
+  ▼
+Launcher reverse proxy
+  │  strips /kilo
+  │  injects Basic Auth
+  │  injects x-kilo-directory
+  ▼
+Kilo HTTP API on 127.0.0.1:<backend-port>
+```
+
+## No cloud control plane
+
+There is no application server or database operated by this project. Runtime state and project access stay on the user's machine. External provider traffic is initiated by Kilo or by flows the user explicitly configures.

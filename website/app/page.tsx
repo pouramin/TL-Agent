@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { ArrowRight, Download, FolderCode2, LockKeyhole, ServerOff, TerminalSquare } from 'lucide-react';
+import { ArrowRight, Download, FolderCode2, LockKeyhole, ServerOff, SquareTerminal } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { site } from '@/lib/site';
 
@@ -13,7 +13,7 @@ const features = [
   {
     title: 'No IDE required',
     description: 'Use Kilo as a coding agent from a standalone browser interface instead of tying the workflow to VS Code, JetBrains, or Cursor.',
-    icon: TerminalSquare,
+    icon: SquareTerminal,
   },
   {
     title: 'Project-aware sessions',
@@ -34,7 +34,7 @@ export default function HomePage() {
         <div className="hero-grid pointer-events-none absolute inset-0 -z-10 opacity-60" />
         <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-20 pt-24 text-center md:pt-32">
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
-            Early alpha · Local-first · Zero project infrastructure
+            Early alpha · Local-first · Zero project runtime infrastructure
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
             Kilo Code, without living inside an IDE.
@@ -57,7 +57,7 @@ export default function HomePage() {
               {['Browser UI', 'Go launcher + proxy', 'kilo serve', 'AI providers + project tools'].map((label, index) => (
                 <div key={label} className="relative">
                   <div className="arch-line rounded-xl px-4 py-5 text-center font-medium">{label}</div>
-                  {index < 3 ? <div className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 text-fd-muted-foreground">→</div> : null}
+                  {index < 3 ? <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-fd-muted-foreground md:block">→</div> : null}
                 </div>
               ))}
             </div>

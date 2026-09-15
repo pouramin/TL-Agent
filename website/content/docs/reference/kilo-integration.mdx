@@ -1,0 +1,27 @@
+---
+title: Kilo integration contract
+description: Learn how the browser adapter is pinned to Kilo Protocol v2 and why undocumented internal shapes are avoided.
+icon: Cable
+---
+
+The browser client is intentionally pinned to the **public Kilo Protocol v2 contract** for the Kilo version bundled by this project.
+
+The current repository pins Kilo Code `v7.6.2`. When that runtime is upgraded, the integration contract and adapter tests must be reviewed before the pinned version changes.
+
+## Public API first
+
+The UI uses Kilo's public Protocol v2 routes for health, agents, models, providers, sessions, messages, execution state, permissions, and questions.
+
+The adapter must not depend on Kilo's internal storage layouts or undocumented legacy compatibility shapes.
+
+## Provider exception
+
+Where Protocol v2 does not currently expose equivalent provider connection/OAuth state, the client uses Kilo's official provider HTTP API. Those calls are isolated in the browser adapter rather than spread across the UI.
+
+## Prompt admission
+
+A prompt request returns an admission receipt. Model execution continues through Kilo after that admission, so the UI must observe session state/events and conversation messages rather than interpreting the prompt HTTP response as the generated answer.
+
+## Durable vs live state
+
+Kilo's projected session messages are the reconnect-safe source of truth. Event streams can carry live execution detail, including step, text, reasoning, and tool activity, but transient deltas are presentation events rather than durable history.

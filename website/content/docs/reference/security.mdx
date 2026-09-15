@@ -1,0 +1,38 @@
+---
+title: Security model
+description: Understand the local network boundary, Kilo credential handling, browser protections, and remaining trust assumptions.
+icon: ShieldCheck
+---
+
+Kilo Local UI is designed around a local-only boundary rather than exposing a coding agent as a network service.
+
+## Loopback-only listeners
+
+The browser-facing launcher only accepts `localhost` or loopback IP addresses. Kilo itself is started on `127.0.0.1` with an ephemeral port.
+
+This prevents the normal launcher configuration from listening on LAN or public interfaces.
+
+## Per-run Kilo credentials
+
+On each launch, the Go process creates a random Kilo server password. The password is kept in launcher memory and is injected into proxied requests using HTTP Basic Authentication.
+
+The browser never needs to know that password.
+
+## Origin checks
+
+Requests are rejected when the host is not loopback. Browser requests carrying an `Origin` header are also checked so a different origin cannot silently drive the local agent endpoint through the user's browser.
+
+## Response hardening
+
+The launcher adds security headers including:
+
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: no-referrer`
+- `X-Frame-Options: DENY`
+- a restrictive Content Security Policy
+
+## Trust boundary that remains
+
+Kilo is still a coding agent with access to the local project and, when allowed, command execution. Localhost isolation protects the network surface; it does not replace careful permission decisions or normal operating-system security.
+
+Only run the application on machines and projects you trust.

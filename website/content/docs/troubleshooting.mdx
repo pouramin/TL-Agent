@@ -1,0 +1,47 @@
+---
+title: Troubleshooting
+description: Diagnose common startup, Kilo binary, browser, project-path, and provider issues.
+icon: Wrench
+---
+
+## `Kilo binary not found`
+
+The launcher could not locate a usable Kilo executable. Try one of these:
+
+```bash
+kilo-local-ui --kilo /absolute/path/to/kilo
+```
+
+or set `KILO_BIN`, place Kilo under the bundled `bin/` location, or install `kilo` in `PATH`.
+
+Packaged project releases are intended to include Kilo already.
+
+## `... is not a directory`
+
+The value supplied as the project path does not point to an existing directory. Pass an existing folder or use the directory picker in the UI.
+
+## Browser did not open
+
+The launcher can still be running even if the operating system failed to open a browser. Copy the `Local:` URL printed in the terminal and open it manually.
+
+If you intentionally used `--no-browser`, this is expected.
+
+## `localhost only` / listen failure
+
+The launcher deliberately refuses non-loopback addresses. Do not use `0.0.0.0`, a LAN address, or a public interface. The local UI is not designed to be exposed as a remote service.
+
+## Kilo backend did not start
+
+Possible causes include an incompatible or broken Kilo executable, operating-system execution restrictions, or a runtime that exits during startup. Run the launcher from a terminal and inspect the Kilo stderr printed there.
+
+## Models or providers are missing
+
+Model/provider availability comes from Kilo. Verify the provider configuration in Kilo and complete any required provider/device login. Kilo Local UI does not maintain a separate provider catalog.
+
+## Agent is waiting for input
+
+Check the UI for pending permission requests or questions. A session can pause until the required approval or answer is returned to Kilo.
+
+## Still stuck?
+
+When reporting a reproducible problem, include your operating system, Kilo Local UI version, bundled/selected Kilo version, startup command, and relevant non-secret error output. Never post API keys, provider tokens, or generated Kilo server credentials.

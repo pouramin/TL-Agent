@@ -1,0 +1,63 @@
+---
+title: Installation
+description: Download a packaged Kilo Local UI release or run the launcher from source.
+icon: Download
+---
+
+## Packaged releases
+
+The easiest path is a release archive from the project's GitHub Releases page. Builds are produced for:
+
+- Windows x64
+- Linux x64
+- Linux ARM64
+- macOS Intel
+- macOS Apple Silicon
+
+A release archive is designed to look like this:
+
+```text
+kilo-local-ui/
+├─ kilo-local-ui[.exe]
+├─ bin/
+│  └─ kilo[.exe]
+├─ LICENSE
+└─ THIRD_PARTY_NOTICES.md
+```
+
+The launcher looks for the bundled Kilo binary automatically, so a normal release does not require a separate Kilo installation.
+
+### Verify a download
+
+Releases also publish `SHA256SUMS.txt`. If you want to verify the archive before running it, compare its SHA-256 digest with the value in that file using your operating system's standard checksum tool.
+
+## Run from source
+
+Source development currently requires:
+
+- Go 1.23 or newer
+- a compatible Kilo binary, either in `PATH`, under `./bin/kilo` (`bin\\kilo.exe` on Windows), or supplied with `--kilo`
+
+From the repository root:
+
+```bash
+go run ./cmd/launcher
+```
+
+To open a particular project immediately:
+
+```bash
+go run ./cmd/launcher --project /path/to/project
+```
+
+To select an explicit Kilo binary:
+
+```bash
+go run ./cmd/launcher --kilo /path/to/kilo
+```
+
+## Kilo binary lookup order
+
+The launcher accepts an explicit path with `--kilo`, supports the `KILO_BIN` environment variable, checks for a bundled binary beside the launcher, and can finally use `kilo` from `PATH`.
+
+If none can be found, the launcher exits instead of silently downloading or substituting a runtime.
