@@ -62,20 +62,46 @@
     if (readSetting(THEME_KEY, "system") === "system") applyAppearance("system");
   });
 
-  // Keep the sidebar as a TL Agent-wide history rather than a view scoped to the
-  // currently selected directory. Kilo stores each root session with its own
-  // directory, so no parallel TL Agent session database is required.
+  // Kilo's product server scopes session listing to a directory. TL Agent keeps
+  // only a small persistent history of project paths, then asks Kilo for the
+  // authoritative root sessions in every known project and merges the results.
+  // Session content itself never lives in TL Agent's history file.
   const scopedLoadSessions = K.loadSessions;
   K.loadSessions = async () => {
-    let payload;
+    let history;
     try {
-      payload = await K.api.sessions.listGlobal({ limit: 100 });
+      history = await K.request("/local/projects");
     } catch (error) {
-      console.warn("[TL Agent] Global session list unavailable; falling back to current project", error);
+      console.warn("[TL Agent] Recent-project history unavailable; falling back to current project", error);
       return scopedLoadSessions();
     }
-    const sessions = Array.isArray(payload?.data) ? payload.data : [];
-    sessions.sort((a, b) => Number(b?.time?.updated || b?.time?.created || 0) - Number(a?.time?.updated || a?.time?.created || 0));
+
+    const projects = Array.isArray(history?.projects) ? history.projects.filter(Boolean) : [];
+    if (!projects.length && K.state.local?.project) projects.push(K.state.local.project);
+    const results = await Promise.allSettled(
+      projects.map((directory) => K.api.sessions.list({ limit: 50, directory })),
+    );
+
+    const merged = new Map();
+    results.forEach((result, index) => {
+      const directory = projects[index];
+      if (result.status !== "fulfilled") {
+        console.warn(`[TL Agent] Could not read sessions for ${directory}`, result.reason);
+        return;
+      }
+      for (const raw of Array.isArray(result.value?.data) ? result.value.data : []) {
+        if (!raw?.id) continue;
+        const session = { ...raw, directory: raw.directory || directory };
+        const previous = merged.get(session.id);
+        const updated = Number(session.time?.updated || session.time?.created || 0);
+        const previousUpdated = Number(previous?.time?.updated || previous?.time?.created || 0);
+        if (!previous || updated >= previousUpdated) merged.set(session.id, session);
+      }
+    });
+
+    const sessions = [...merged.values()]
+      .sort((a, b) => Number(b?.time?.updated || b?.time?.created || 0) - Number(a?.time?.updated || a?.time?.created || 0))
+      .slice(0, 150);
     K.state.sessions = sessions;
     K.renderSessions();
     return sessions;
