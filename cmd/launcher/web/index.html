@@ -49,6 +49,7 @@
         <div class="toolbar-controls">
           <label><span>Agent</span><select id="agentSelect"><option value="">Default</option></select></label>
           <label><span>Model</span><select id="modelSelect"><option value="">Default</option></select></label>
+          <button id="filesButton" class="ghost small" title="Browse project files">Files</button>
           <button id="changesButton" class="ghost small hidden" title="Show files changed in this session">Changes <span id="changesCount">0</span></button>
           <button id="sessionMenuButton" class="ghost small hidden" title="Session options" aria-label="Session options">•••</button>
           <button id="accountButton" class="ghost small">Kilo account</button>
@@ -75,6 +76,38 @@
           <button id="closeChanges" class="icon-button" aria-label="Close changes">×</button>
         </div>
         <div id="changesList" class="changes-list"></div>
+      </aside>
+
+      <aside id="filesPanel" class="files-panel hidden" aria-label="Project files">
+        <div class="files-head">
+          <div>
+            <span class="section-label">PROJECT FILES</span>
+            <strong id="filesBreadcrumb">Project root</strong>
+          </div>
+          <div class="files-head-actions">
+            <button id="refreshFiles" class="ghost small" type="button">Refresh</button>
+            <button id="closeFiles" class="icon-button" aria-label="Close files">×</button>
+          </div>
+        </div>
+        <div class="files-workspace">
+          <section class="files-browser" aria-label="File explorer">
+            <div class="files-browser-head">
+              <button id="filesUp" class="ghost small" type="button">↑ Up</button>
+              <span>Read-only</span>
+            </div>
+            <div id="filesList" class="files-list"></div>
+          </section>
+          <section class="file-preview" aria-label="File preview">
+            <div class="file-preview-head">
+              <div>
+                <strong id="filePreviewTitle">Select a file</strong>
+                <span id="filePreviewPath">Read-only preview</span>
+              </div>
+              <span id="filePreviewMeta"></span>
+            </div>
+            <div id="filePreviewBody" class="file-preview-body"></div>
+          </section>
+        </div>
       </aside>
 
       <section class="composer-wrap">
@@ -133,6 +166,7 @@
   <script src="/presentation.js" defer></script>
   <script src="/attention.js" defer></script>
   <script src="/workspace.js" defer></script>
+  <script src="/files.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
