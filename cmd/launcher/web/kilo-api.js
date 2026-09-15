@@ -23,7 +23,6 @@
   const wireModel = (model) => model ? {
     providerID: model.providerID,
     modelID: model.modelID || model.id,
-    ...(model.variant ? { variant: model.variant } : {}),
   } : undefined;
 
   const parseSSE = (handler) => (event) => {
@@ -79,8 +78,13 @@
       },
       get: async (sessionID) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`)))),
       create: async (input = {}) => {
-        const payload = { ...input };
-        if (input.model) payload.model = wireModel(input.model);
+        // Product Session creation and prompt selection are separate concerns.
+        // Official clients send the effective model again on promptAsync; doing
+        // so also avoids validating a custom/test model before the first prompt.
+        const payload = {};
+        if (input.parentID) payload.parentID = input.parentID;
+        if (input.title) payload.title = input.title;
+        if (input.agent) payload.agent = input.agent;
         return wrapData(unwrapData(await request(route("/session"), { method: "POST", ...body(payload) })));
       },
       messages: async (sessionID, { limit = 200 } = {}) => {
