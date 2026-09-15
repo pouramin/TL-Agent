@@ -6,7 +6,7 @@ on:
       - 'website/**'
       - '.github/workflows/docs-ci.yml'
   push:
-    branches: [main]
+    branches: [main, docs-site]
     paths:
       - 'website/**'
       - '.github/workflows/docs-ci.yml'
