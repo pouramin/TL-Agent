@@ -130,6 +130,7 @@
     oauth: {
       authorizeKilo: async () => unwrapData(await request(route("/provider/kilo/oauth/authorize"), { method: "POST", ...body({ method: 0 }) })),
       callbackKilo: async (signal) => unwrapData(await request(route("/provider/kilo/oauth/callback"), { method: "POST", ...body({ method: 0 }), signal })),
+      disconnectKilo: async () => unwrapData(await request("/auth/kilo", { method: "DELETE" })),
     },
 
     events: {
