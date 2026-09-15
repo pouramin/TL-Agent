@@ -141,7 +141,7 @@ def main() -> int:
         require(isinstance(global_sessions, list), "global session.list must be an array")
         global_ids = {s.get("id") for s in global_sessions if isinstance(s, dict)}
         require(sid in global_ids and alt_sid in global_ids,
-                f"cross-project list did not include both sessions: expected={sid, alt_sid!r}")
+                f"cross-project list did not include both sessions: expected={(sid, alt_sid)!r}")
         alt_record = next((s for s in global_sessions if isinstance(s, dict) and s.get("id") == alt_sid), None)
         require(isinstance(alt_record, dict) and alt_record.get("directory") == alt_project,
                 f"global session must expose its directory: {alt_record!r}")
