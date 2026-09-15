@@ -1,30 +1,50 @@
 ---
 title: Projects and sessions
-description: Understand project scoping and how Kilo sessions are exposed through the local UI.
+description: Understand project routing and how production Kilo sessions are exposed through the local UI.
 icon: FolderCode
 ---
 
-## Project scoping
+## Project routing
 
-The selected local directory is owned by the launcher state. Browser calls to Kilo go through the launcher proxy, which adds the selected directory to proxied requests using Kilo's directory header.
+Project-scoped requests carry the selected directory explicitly as Kilo's `directory` query parameter. At the proxy boundary the launcher also injects `x-kilo-directory`.
 
-That design has two useful properties:
+This dual routing is deliberate:
 
-- the browser does not need direct filesystem privileges;
-- changing the selected project changes the Kilo request context without exposing Kilo credentials to browser code.
+- it matches the product-facing Kilo client behavior for the pinned runtime;
+- it prevents the Kilo server's own working directory from silently becoming the active project;
+- changing projects also changes the context for agents, providers, sessions, messages, permissions, questions, events, and filesystem tools.
+
+The browser still does not need direct filesystem privileges or Kilo server credentials.
 
 ## Sessions
 
-Kilo remains the source of truth for session state. Kilo Local UI uses the public Kilo Protocol v2 session endpoints to create, list, inspect, and control sessions.
+Kilo remains the source of truth for session state. On Kilo `7.6.2`, Kilo Local UI follows the product session routes used by the official client for its primary coding flow, including session list/create, status, messages, asynchronous prompts, and abort.
 
-A session can carry its selected agent and model, token/cost metadata, timestamps, title, project information, and conversation history as exposed by Kilo.
+## Sending a prompt
 
-## Messages and execution
+The production coding path sends prompts with Kilo's asynchronous prompt operation. Agent and model are supplied explicitly with the prompt. Conceptually:
 
-Prompt admission is separate from model execution. A successful prompt request means Kilo accepted the prompt; it does **not** mean the HTTP response itself is the assistant's final answer.
+```json
+{
+  "agent": "code",
+  "model": {
+    "providerID": "kilo",
+    "modelID": "kilo-auto/free"
+  },
+  "parts": [
+    { "type": "text", "text": "..." }
+  ]
+}
+```
 
-The UI projects Kilo session messages and execution activity into the browser, including user messages, assistant text, reasoning when exposed by the provider, and tool states such as pending, running, completed, or error.
+Prompt acceptance and model execution are separate stages. The UI observes session status, messages, and events rather than treating the prompt HTTP response as the assistant's final answer.
 
-## Reconnect-safe state
+## Messages
 
-Projected Kilo messages are treated as durable conversation state. Live execution events can improve responsiveness, but they are not a replacement for reloading the canonical session history after reconnects.
+For the product API in the pinned runtime, conversation messages use Kilo's `info + parts` representation. Parts can include text, reasoning, tools, subtasks, and file-related content.
+
+Tool activity can move through pending, running, completed, and error states. The projected message list remains the reconnect-safe rendering source of truth.
+
+## Live activity and fallback polling
+
+Kilo Local UI can consume Kilo's project-scoped global SSE stream for responsive updates. It also polls session status/messages after a prompt as a conservative fallback. Transient SSE updates improve presentation, but durable conversation rendering comes from the projected session messages.

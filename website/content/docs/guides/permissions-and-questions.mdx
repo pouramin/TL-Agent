@@ -4,21 +4,23 @@ description: Handle Kilo permission requests and interactive questions safely fr
 icon: ShieldQuestion
 ---
 
-Coding agents sometimes need explicit approval before performing an action or need an answer before they can continue. Kilo Local UI surfaces those requests from the local Kilo session.
+Coding agents sometimes need explicit approval before performing an action or need an answer before they can continue. Kilo Local UI surfaces those requests from the selected local project and filters them to the active session.
 
 ## Permission replies
 
-The current Kilo contract supports three replies:
+The current Kilo product contract supports three replies:
 
 - `once` — allow this request once;
-- `always` — allow and persist the applicable permission according to Kilo's rules;
+- `always` — allow it and persist the applicable rule according to Kilo's permission behavior;
 - `reject` — deny the request.
 
-A request may include an action, affected resources, metadata, and tool-source information. Read the request before approving it, especially when a tool can execute commands or modify files.
+Production permission requests can include fields such as the permission name, matching patterns, metadata, rules that can be saved as always allowed, and optional tool-source information.
+
+Read the request before approving it, especially when a tool can execute commands or modify files.
 
 ## Questions
 
-When Kilo raises an interactive question, the browser UI can present it and send the answer back to the current session. This keeps interactive agent workflows usable without returning to an IDE.
+Kilo's product question flow can present option lists, single or multiple selection, optional custom answers, and an optional default selection. The browser adapter sends answers or rejections back to the matching Kilo request.
 
 ## Security responsibility
 
