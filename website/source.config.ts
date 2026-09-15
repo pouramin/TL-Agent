@@ -8,6 +8,9 @@ export const docs = defineDocs({
     schema: pageSchema.extend({
       description: z.string().min(1, 'Every public documentation page needs a description.'),
     }),
+    postprocess: {
+      includeProcessedMarkdown: true,
+    },
   },
   meta: {
     schema: metaSchema,

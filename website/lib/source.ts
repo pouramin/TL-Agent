@@ -7,3 +7,18 @@ export const source = loader({
   source: docs.toFumadocsSource(),
   plugins: [lucideIconsPlugin()],
 });
+
+export function getPageMarkdownUrl(page: (typeof source)['$inferPage']) {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+  const segments = [...page.slugs, 'content.md'];
+
+  return {
+    segments,
+    url: `${basePath}/llms.mdx/docs/${segments.join('/')}`,
+  };
+}
+
+export async function getLLMText(page: (typeof source)['$inferPage']) {
+  const processed = await page.data.getText('processed');
+  return `# ${page.data.title} (${page.url})\n\n${processed}`;
+}
