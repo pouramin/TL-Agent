@@ -38,6 +38,8 @@ type localFilePreview struct {
 }
 
 func registerLocalFileRoutes(mux *http.ServeMux, state *appState) {
+	registerProjectHistoryRoute(mux, state)
+
 	mux.HandleFunc("GET /local/files", func(w http.ResponseWriter, r *http.Request) {
 		project := state.projectPath()
 		target, rel, err := resolveProjectEntry(project, r.URL.Query().Get("path"))
