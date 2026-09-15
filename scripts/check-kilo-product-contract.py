@@ -97,8 +97,20 @@ def main() -> int:
     require(isinstance(providers.get("connected"), list), "/provider.connected must be an array")
     require(isinstance(providers.get("default"), dict), "/provider.default must be an object")
 
+    kilo_auth_before = unwrap(request(base, f"/kilo/kilo/auth-status?{query}"))
+    require(isinstance(kilo_auth_before, dict), "/kilo/auth-status must return an object")
+    require(isinstance(kilo_auth_before.get("authenticated"), bool), "/kilo/auth-status.authenticated must be boolean")
+
     auth_removed = unwrap(request(base, "/kilo/auth/kilo", method="DELETE"))
     require(auth_removed is True, f"auth.remove mismatch: {auth_removed!r}")
+
+    disposed = unwrap(request(base, "/kilo/global/dispose", method="POST"))
+    require(disposed is True, f"global.dispose mismatch: {disposed!r}")
+
+    kilo_auth_after = unwrap(request(base, f"/kilo/kilo/auth-status?{query}"))
+    require(isinstance(kilo_auth_after, dict), "post-dispose /kilo/auth-status must return an object")
+    require(kilo_auth_after.get("authenticated") is False,
+            f"Kilo auth should be signed out after auth.remove + global.dispose: {kilo_auth_after!r}")
 
     created = unwrap(request(base, f"/kilo/session?{query}", method="POST", payload={}))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session.create mismatch: {created!r}")
@@ -144,7 +156,10 @@ def main() -> int:
         "project": project,
         "agents": names,
         "providers": len(providers["all"]),
+        "kilo_auth_before": kilo_auth_before.get("authenticated"),
         "auth_remove": True,
+        "global_dispose": True,
+        "kilo_auth_after": kilo_auth_after.get("authenticated"),
         "session_lifecycle": "create/update/diff/delete",
         "event": event_payload.get("type"),
     }, indent=2))

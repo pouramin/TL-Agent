@@ -19,6 +19,7 @@
   const THEME_KEY = "tl-agent.appearance";
   const FONT_KEY = "tl-agent.font-size";
   const systemTheme = window.matchMedia?.("(prefers-color-scheme: light)");
+  const kiloConnected = () => K.state.kiloAuth?.authenticated ?? K.state.connectedProviders.has("kilo");
 
   const readSetting = (key, fallback) => {
     try { return window.localStorage.getItem(key) || fallback; }
@@ -116,7 +117,7 @@
 
   const originalRenderAccount = K.renderAccount;
   K.renderAccount = () => {
-    const connected = K.state.connectedProviders.has("kilo");
+    const connected = kiloConnected();
     const button = K.els.accountButton;
     if (!button) return originalRenderAccount?.();
     button.textContent = "Account";
@@ -125,7 +126,7 @@
   };
 
   const renderAccountDialog = () => {
-    const connected = K.state.connectedProviders.has("kilo");
+    const connected = kiloConnected();
     if (ui.accountStatus) {
       ui.accountStatus.textContent = connected
         ? "Your Kilo account is connected on this computer."
@@ -137,6 +138,11 @@
 
   const originalSignInKilo = K.signInKilo;
   K.signInKilo = async () => {
+    try {
+      await K.refreshKiloAuthStatus?.();
+    } catch (error) {
+      K.showError(`Unable to verify Kilo account state: ${error.message || String(error)}`);
+    }
     renderAccountDialog();
     ui.accountDialog?.showModal();
   };
@@ -147,18 +153,35 @@
   };
 
   const signOut = async () => {
-    if (!K.state.connectedProviders.has("kilo")) return;
+    if (!kiloConnected()) return;
     if (!window.confirm("Sign out of the Kilo account on this computer?")) return;
     ui.accountSignOut.disabled = true;
+    K.showError("");
     try {
+      K.state.authController?.abort();
+      K.state.authController = null;
+
       await K.api.oauth.disconnectKilo();
+
+      // Update the visible account state immediately instead of waiting for a reload.
+      K.applyKiloAuthStatus?.({ authenticated: false });
+      renderAccountDialog();
+
+      // Match Kilo's official disconnect flow: clear the in-memory provider instance,
+      // then rebuild the provider catalog from the now-empty auth store.
+      await K.api.runtime.dispose();
+      await K.loadCatalog();
+      const status = await K.refreshKiloAuthStatus();
+      if (status.authenticated) throw new Error("Kilo still reports an authenticated account after sign-out.");
+
       if (K.state.session?.model?.providerID === "kilo") K.state.session.model = undefined;
       if (K.els.modelSelect) K.els.modelSelect.value = "";
-      await K.loadCatalog();
       K.renderSessionHeader?.();
       renderAccountDialog();
     } catch (error) {
       K.showError(error.message || String(error));
+      try { await K.refreshKiloAuthStatus?.(); } catch {}
+      renderAccountDialog();
     } finally {
       ui.accountSignOut.disabled = false;
     }

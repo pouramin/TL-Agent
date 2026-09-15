@@ -49,6 +49,10 @@
     health: () => request("/global/health"),
     path: () => request(route("/path")),
 
+    runtime: {
+      dispose: async () => unwrapData(await request("/global/dispose", { method: "POST" })),
+    },
+
     agents: async () => {
       const payload = unwrapData(await request(route("/agent")));
       return Array.isArray(payload) ? payload : [];
@@ -128,6 +132,14 @@
     },
 
     oauth: {
+      kiloStatus: async () => {
+        const payload = unwrapData(await request(route("/kilo/auth-status"))) || {};
+        return {
+          authenticated: payload.authenticated === true,
+          type: payload.type || "",
+          organizationId: payload.organizationId || "",
+        };
+      },
       authorizeKilo: async () => unwrapData(await request(route("/provider/kilo/oauth/authorize"), { method: "POST", ...body({ method: 0 }) })),
       callbackKilo: async (signal) => unwrapData(await request(route("/provider/kilo/oauth/callback"), { method: "POST", ...body({ method: 0 }), signal })),
       disconnectKilo: async () => unwrapData(await request("/auth/kilo", { method: "DELETE" })),
