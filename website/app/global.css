@@ -21,7 +21,35 @@
 
 html[lang='fa'],
 [lang='fa'] {
-  font-family: Tahoma, 'Segoe UI', Arial, sans-serif;
+  font-family: var(--font-vazir), Tahoma, 'Segoe UI', Arial, sans-serif;
+}
+
+/* Fumadocs' sidebar ScrollArea is emitted with dir="ltr". Override that only
+   inside the Persian docs so logical padding, icons, chevrons and active rules
+   follow the actual RTL reading direction. */
+[lang='fa'] #nd-sidebar [dir='ltr'],
+[lang='fa'] #nd-sidebar [data-radix-scroll-area-viewport] {
+  direction: rtl;
+  text-align: right;
+}
+
+[lang='fa'] #nd-sidebar a,
+[lang='fa'] #nd-sidebar button {
+  text-align: right;
+}
+
+[lang='fa'] #nd-toc {
+  direction: rtl;
+  text-align: right;
+}
+
+[lang='fa'] #toc-title {
+  font-size: 0;
+}
+
+[lang='fa'] #toc-title::after {
+  content: 'در این صفحه';
+  font-size: 0.875rem;
 }
 
 [dir='rtl'] pre,
