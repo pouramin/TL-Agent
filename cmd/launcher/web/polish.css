@@ -1,0 +1,100 @@
+:root {
+  --tl-surface: #0d0f12;
+  --tl-surface-raised: #14171c;
+  --tl-border: #272c34;
+  --tl-accent: #c9ff62;
+  --tl-positive: #8eea74;
+  --tl-danger: #ff717d;
+}
+
+.brand-row {
+  height: 72px;
+  padding-inline: 17px;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  font-size: 12px;
+  letter-spacing: -.03em;
+}
+
+.brand-row strong {
+  font-size: 14px;
+  letter-spacing: -.015em;
+}
+
+.project-card {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.toolbar {
+  height: 72px;
+  padding-right: 18px;
+}
+
+.toolbar-title strong {
+  font-size: 14px;
+}
+
+.main-pane {
+  background:
+    radial-gradient(circle at 72% -8%, rgba(201,255,98,.055), transparent 28%),
+    linear-gradient(180deg, #0b0c0f 0%, var(--bg) 30%);
+}
+
+.empty-icon {
+  width: 56px;
+  height: 56px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -.04em;
+}
+
+.empty-state h1 {
+  max-width: 720px;
+  font-size: clamp(28px,3.25vw,42px);
+}
+
+.composer {
+  border-color: #343b46;
+  background: rgba(18,21,26,.96);
+  box-shadow: 0 20px 65px rgba(0,0,0,.48);
+}
+
+.composer:focus-within {
+  border-color: #56616f;
+  box-shadow: 0 20px 65px rgba(0,0,0,.48), 0 0 0 1px rgba(201,255,98,.05);
+}
+
+.session-item {
+  transition: background .12s ease, box-shadow .12s ease, transform .12s ease;
+}
+
+.session-item:hover {
+  transform: translateX(1px);
+}
+
+.primary,
+.ghost,
+.icon-button,
+.send-button,
+.project-button {
+  transition: background .12s ease, border-color .12s ease, color .12s ease, opacity .12s ease, transform .12s ease;
+}
+
+.primary:active,
+.send-button:active {
+  transform: translateY(1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
