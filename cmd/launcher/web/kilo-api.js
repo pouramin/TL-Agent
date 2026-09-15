@@ -21,7 +21,6 @@
     ...(directory ? { directory } : {}),
     ...params,
   });
-  const globalRoute = (path, params = {}) => withQuery(path, params);
 
   const wireModel = (model) => model ? {
     providerID: model.providerID,
@@ -72,12 +71,8 @@
     },
 
     sessions: {
-      list: async ({ limit = 50 } = {}) => {
-        const payload = unwrapData(await request(route("/session", { limit, roots: true })));
-        return wrapData(Array.isArray(payload) ? payload : []);
-      },
-      listGlobal: async ({ limit = 100, search } = {}) => {
-        const payload = unwrapData(await request(globalRoute("/session", { limit, roots: true, search })));
+      list: async ({ limit = 50, directory = projectDirectory() } = {}) => {
+        const payload = unwrapData(await request(route("/session", { limit, roots: true }, directory)));
         return wrapData(Array.isArray(payload) ? payload : []);
       },
       status: async () => {
