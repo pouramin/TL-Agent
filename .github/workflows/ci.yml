@@ -24,6 +24,10 @@ jobs:
       - name: Verify browser JavaScript syntax
         run: |
           for file in cmd/launcher/web/*.js; do node --check "$file"; done
+      - name: Verify npx quick launcher
+        run: |
+          node --check scripts/npx-launch.cjs
+          npm pack --dry-run --ignore-scripts
       - name: Enforce Kilo API adapter boundary
         shell: bash
         run: |
