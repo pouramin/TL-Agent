@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify that TL-Agent routes Kilo requests to the selected project, not server cwd."""
+"""Verify that TL-Agent routes Kilo's production HttpApi to the selected project."""
 
 from __future__ import annotations
 
@@ -26,18 +26,24 @@ def main() -> int:
 
     base = sys.argv[1]
     local = get_json(base, "/local/status")
-    location = get_json(base, "/kilo/api/location")
-
     selected = local.get("project")
-    routed = location.get("directory")
-    if not isinstance(selected, str) or not isinstance(routed, str):
-        print(f"invalid project/location response: selected={selected!r} routed={routed!r}", file=sys.stderr)
-        return 1
-    if canonical(selected) != canonical(routed):
-        print(f"project routing mismatch: selected={selected!r} routed={routed!r}", file=sys.stderr)
+    if not isinstance(selected, str):
+        print(f"invalid local project response: {selected!r}", file=sys.stderr)
         return 1
 
-    print(json.dumps({"ok": True, "selected": selected, "routed": routed}, indent=2))
+    quoted = urllib.parse.quote(selected, safe="")
+    routed = get_json(base, f"/kilo/path?directory={quoted}")
+    if isinstance(routed, dict) and isinstance(routed.get("data"), dict):
+        routed = routed["data"]
+    directory = routed.get("directory") if isinstance(routed, dict) else None
+    if not isinstance(directory, str):
+        print(f"invalid /path response: {routed!r}", file=sys.stderr)
+        return 1
+    if canonical(selected) != canonical(directory):
+        print(f"project routing mismatch: selected={selected!r} routed={directory!r}", file=sys.stderr)
+        return 1
+
+    print(json.dumps({"ok": True, "selected": selected, "routed": directory}, indent=2))
     return 0
 
 
