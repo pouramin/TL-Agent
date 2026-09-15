@@ -4,18 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
-  <meta name="description" content="A local browser interface for Kilo Code." />
-  <title>Kilo Local UI</title>
+  <meta name="description" content="TL Agent is a local browser workspace powered by Kilo Code." />
+  <title>TL Agent</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
     <aside class="sidebar">
       <div class="brand-row">
-        <div class="brand-mark">K</div>
+        <div class="brand-mark">TL</div>
         <div>
-          <strong>Kilo Local UI</strong>
-          <span class="muted tiny">working title</span>
+          <strong>TL Agent</strong>
+          <span class="muted tiny">Local coding workspace</span>
         </div>
       </div>
 
@@ -39,7 +39,7 @@
 
       <div class="sidebar-footer">
         <span id="versionLabel">Local runtime</span>
-        <a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noreferrer">Kilo Code</a>
+        <a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noreferrer">Powered by Kilo</a>
       </div>
     </aside>
 
@@ -64,14 +64,14 @@
       </header>
 
       <section id="emptyState" class="empty-state">
-        <div class="empty-icon">⌁</div>
+        <div class="empty-icon">TL</div>
         <h1>Your local coding agent, without the IDE.</h1>
-        <p>Kilo runs on this computer. This browser is only the interface.</p>
+        <p>TL Agent runs Kilo on this computer. The browser is your workspace.</p>
         <div class="empty-actions">
           <button id="emptyNewSession" class="primary">Start a session</button>
           <button id="emptyPickProject" class="ghost">Choose project</button>
         </div>
-        <div class="privacy-note">No project files are uploaded by this launcher. Model traffic is handled by the provider configured in Kilo.</div>
+        <div class="privacy-note">Project files stay on this computer. Model traffic is handled by the provider configured in Kilo.</div>
       </section>
 
       <section id="conversation" class="conversation hidden" aria-live="polite"></section>
@@ -79,7 +79,7 @@
       <section class="composer-wrap">
         <div id="errorBanner" class="error-banner hidden"></div>
         <div class="composer">
-          <textarea id="prompt" rows="1" placeholder="Ask Kilo to build, debug, review, or explain…" aria-label="Prompt"></textarea>
+          <textarea id="prompt" rows="1" placeholder="Ask TL Agent to build, debug, review, or explain…" aria-label="Prompt"></textarea>
           <div class="composer-bottom">
             <div class="composer-hints">
               <span>Enter to send</span>
@@ -121,7 +121,7 @@
 
   <dialog id="attentionDialog">
     <div class="dialog-card attention-card">
-      <div class="attention-kicker">Kilo needs your input</div>
+      <div class="attention-kicker">Agent needs your input</div>
       <h2 id="attentionTitle">Permission request</h2>
       <div id="attentionBody" class="attention-body"></div>
       <div id="attentionActions" class="dialog-actions"></div>
