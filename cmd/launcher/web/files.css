@@ -1,0 +1,65 @@
+.files-panel {
+  position: absolute;
+  z-index: 7;
+  top: 72px;
+  right: 0;
+  bottom: 0;
+  width: min(760px, calc(100vw - 300px));
+  display: flex;
+  flex-direction: column;
+  background: rgba(13,15,18,.985);
+  border-left: 1px solid var(--line);
+  box-shadow: -24px 0 60px rgba(0,0,0,.34);
+  backdrop-filter: blur(14px);
+}
+
+.files-head {
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 13px 11px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.files-head > div:first-child { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.files-head strong { max-width: 470px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.files-head-actions { display: flex; align-items: center; gap: 7px; }
+
+.files-workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0,1fr); }
+.files-browser { min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line-soft); background: #0c0e11; }
+.files-browser-head { min-height: 43px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border-bottom: 1px solid var(--line-soft); }
+.files-browser-head > span { color: var(--muted-2); font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
+.files-list { flex: 1; min-height: 0; overflow: auto; padding: 7px; }
+.files-empty { padding: 20px 10px; color: var(--muted-2); font-size: 10px; line-height: 1.55; text-align: center; }
+.file-row { width: 100%; display: grid; grid-template-columns: 20px minmax(0,1fr); align-items: center; gap: 7px; min-height: 38px; margin: 0 0 2px; padding: 6px 7px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.file-row:hover { background: var(--panel); border-color: var(--line-soft); }
+.file-row:focus-visible { outline: 1px solid #586574; outline-offset: 1px; }
+.file-icon { display: grid; place-items: center; width: 18px; height: 18px; color: var(--muted); font: 11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.file-directory .file-icon { color: var(--accent); }
+.file-symlink .file-icon { color: #a9d6ff; }
+.file-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.file-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 600; }
+.file-copy small { color: var(--muted-2); font-size: 8px; }
+
+.file-preview { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #0a0c0f; }
+.file-preview-head { min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+.file-preview-head > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.file-preview-head strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.file-preview-head div > span { max-width: 440px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-2); font: 8px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+#filePreviewMeta { flex: none; color: var(--muted-2); font-size: 8px; text-transform: uppercase; }
+.file-preview-body { flex: 1; min-height: 0; overflow: auto; }
+.file-preview-empty { min-height: 100%; display: grid; place-items: center; padding: 30px; color: var(--muted-2); font-size: 10px; line-height: 1.6; text-align: center; }
+.file-code { min-height: 100%; margin: 0; padding: 14px 16px 40px; color: #c7d0db; background: #090b0e; white-space: pre; tab-size: 2; font: 10px/1.58 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+.file-code code { font: inherit; }
+
+@media (max-width: 1100px) {
+  .files-panel { width: min(680px, calc(100vw - 220px)); }
+  .files-workspace { grid-template-columns: 190px minmax(0,1fr); }
+}
+
+@media (max-width: 760px) {
+  #filesButton { display: none; }
+  .files-panel { top: 72px; width: 100%; }
+  .files-workspace { grid-template-columns: 150px minmax(0,1fr); }
+}
