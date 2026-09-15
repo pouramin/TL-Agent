@@ -45,7 +45,7 @@ def sse_events(base: str, sink: list[dict], ready: threading.Event, stop: thread
             base.rstrip("/") + "/kilo/api/event",
             headers={"Accept": "text/event-stream", "Cache-Control": "no-cache"},
         )
-        with urllib.request.urlopen(req, timeout=30) as res:
+        with urllib.request.urlopen(req, timeout=60) as res:
             data_lines: list[str] = []
             while not stop.is_set():
                 raw = res.readline()
@@ -112,6 +112,19 @@ def wait_for_test_model(base: str, timeout: float = 25.0):
     )
 
 
+def event_for_session(events: list[dict], session_id: str, event_type: str):
+    return next(
+        (
+            event
+            for event in events
+            if event.get("type") == event_type
+            and isinstance(event.get("data"), dict)
+            and event["data"].get("sessionID") == session_id
+        ),
+        None,
+    )
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: check-kilo-prompt-e2e.py <launcher-base-url>", file=sys.stderr)
@@ -164,18 +177,39 @@ def main() -> int:
     require(receipt.get("sessionID") == session_id, "prompt admission returned the wrong session")
     require(isinstance(receipt.get("id"), str), "prompt admission did not return a message ID")
 
-    # This endpoint joins the foreground drain and returns only when the provider
-    # turn settles, so the following projection read is deterministic.
-    request(base, f"/kilo/api/session/{sid}/wait", method="POST", timeout=45)
-
-    deadline = time.time() + 10
+    # v7.6.2 intentionally exposes /session/:id/wait as an unavailable operation.
+    # Synchronize using the public v2 live stream plus projected messages instead:
+    # prompt() wakes SessionExecution asynchronously, step.failed/step.ended report
+    # settlement, and /message remains the reconnect-safe source of truth.
+    deadline = time.time() + 45
     messages: list[dict] = []
+    saw_active = False
+    last_active: dict = {}
     while time.time() < deadline:
+        active_payload = request(base, "/kilo/api/session/active")
+        last_active = active_payload.get("data", {}) if isinstance(active_payload, dict) else {}
+        if session_id in last_active:
+            saw_active = True
+
         page = request(base, f"/kilo/api/session/{sid}/message?order=asc&limit=200")
         messages = page.get("data", []) if isinstance(page, dict) else []
         if any(message.get("type") == "assistant" and EXPECTED in assistant_text(message) for message in messages):
             break
+
+        failed = event_for_session(events, session_id, "session.next.step.failed")
+        if failed is not None:
+            raise E2EError(f"Kilo agent step failed before fixture reply: {failed!r}; messages={messages!r}")
+
+        sse_error = next((event for event in events if event.get("type") == "test.sse.error"), None)
+        if sse_error is not None:
+            raise E2EError(f"SSE failed while waiting for agent completion: {sse_error!r}")
+
         time.sleep(0.1)
+    else:
+        raise E2EError(
+            "timed out waiting for projected assistant reply; "
+            f"saw_active={saw_active!r} active={last_active!r} messages={messages!r} events={events!r}"
+        )
 
     stop.set()
 
@@ -211,11 +245,7 @@ def main() -> int:
         raise E2EError(f"live session.next.text.delta did not contain {EXPECTED!r}; events={events!r}")
 
     require(
-        any(
-            event.get("type") == "session.next.step.ended"
-            and event.get("data", {}).get("sessionID") == session_id
-            for event in events
-        ),
+        event_for_session(events, session_id, "session.next.step.ended") is not None,
         "live SSE did not publish session.next.step.ended",
     )
 
@@ -228,6 +258,7 @@ def main() -> int:
                 "model": "test/test-model",
                 "messages": len(messages),
                 "live_events": len(events),
+                "saw_active": saw_active,
                 "reply": EXPECTED,
             },
             indent=2,
