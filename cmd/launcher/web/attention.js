@@ -43,15 +43,18 @@
     try {
       const info = await K.api.oauth.authorizeKilo() || {};
       K.state.authURL = info.url || "";
-      K.els.authInstructions.textContent = info.instructions || "Complete the Kilo sign-in in your browser.";
+      K.els.authInstructions.textContent = info.instructions || "Authorization is ready. Open the Kilo sign-in page to continue.";
       const code = parseDeviceCode(info.instructions);
       if (code) {
         K.els.authCode.textContent = code;
         K.els.authCodeWrap.classList.remove("hidden");
       }
       K.els.authOpen.disabled = !K.state.authURL;
-      if (K.state.authURL) window.open(K.state.authURL, "_blank", "noopener,noreferrer");
 
+      // Do not auto-open the external authorization URL here. The previous flow
+      // could produce duplicate authorization tabs on some Windows/browser
+      // combinations. The single Open sign-in page button is now the only place
+      // that navigates to the Kilo authorization URL.
       await K.api.oauth.callbackKilo(K.state.authController.signal);
       K.state.authController = null;
       K.els.authInstructions.textContent = "Signed in successfully.";

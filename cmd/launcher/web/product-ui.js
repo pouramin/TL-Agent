@@ -7,6 +7,9 @@
     settingsButton: $("settingsButton"),
     settingsDialog: $("settingsDialog"),
     settingsClose: $("settingsClose"),
+    settingsCloseIcon: $("settingsCloseIcon"),
+    settingsNavItems: [...document.querySelectorAll("[data-settings-section]")],
+    settingsPanels: [...document.querySelectorAll("[data-settings-panel]")],
     appearanceSelect: $("appearanceSelect"),
     fontSizeSelect: $("fontSizeSelect"),
     accountDialog: $("accountDialog"),
@@ -30,6 +33,14 @@
     catch {}
   };
 
+  const normalizePath = (value) => {
+    let path = String(value || "").replace(/[\\/]+$/, "").replace(/\\/g, "/");
+    if (K.state.local?.platform === "windows") path = path.toLowerCase();
+    return path;
+  };
+  const samePath = (a, b) => normalizePath(a) === normalizePath(b);
+  const sessionDirectory = (session) => session?.directory || session?.path || "";
+
   const applyAppearance = (value) => {
     const preference = ["system", "dark", "light"].includes(value) ? value : "system";
     const resolved = preference === "system" ? (systemTheme?.matches ? "light" : "dark") : preference;
@@ -51,15 +62,81 @@
     if (readSetting(THEME_KEY, "system") === "system") applyAppearance("system");
   });
 
-  const originalRenderSessions = K.renderSessions;
+  // Kilo's product server scopes session listing to a directory. TL Agent keeps
+  // only a small persistent history of project paths, then asks Kilo for the
+  // authoritative root sessions in every known project and merges the results.
+  // Session content itself never lives in TL Agent's history file.
+  const scopedLoadSessions = K.loadSessions;
+  K.loadSessions = async () => {
+    let history;
+    try {
+      history = await K.request("/local/projects");
+    } catch (error) {
+      console.warn("[TL Agent] Recent-project history unavailable; falling back to current project", error);
+      return scopedLoadSessions();
+    }
+
+    const projects = Array.isArray(history?.projects) ? history.projects.filter(Boolean) : [];
+    if (!projects.length && K.state.local?.project) projects.push(K.state.local.project);
+    const results = await Promise.allSettled(
+      projects.map((directory) => K.api.sessions.list({ limit: 50, directory })),
+    );
+
+    const merged = new Map();
+    results.forEach((result, index) => {
+      const directory = projects[index];
+      if (result.status !== "fulfilled") {
+        console.warn(`[TL Agent] Could not read sessions for ${directory}`, result.reason);
+        return;
+      }
+      for (const raw of Array.isArray(result.value?.data) ? result.value.data : []) {
+        if (!raw?.id) continue;
+        const session = { ...raw, directory: raw.directory || directory };
+        const previous = merged.get(session.id);
+        const updated = Number(session.time?.updated || session.time?.created || 0);
+        const previousUpdated = Number(previous?.time?.updated || previous?.time?.created || 0);
+        if (!previous || updated >= previousUpdated) merged.set(session.id, session);
+      }
+    });
+
+    const sessions = [...merged.values()]
+      .sort((a, b) => Number(b?.time?.updated || b?.time?.created || 0) - Number(a?.time?.updated || a?.time?.created || 0))
+      .slice(0, 150);
+    K.state.sessions = sessions;
+    K.renderSessions();
+    return sessions;
+  };
+
+  const selectSessionInCurrentProject = K.selectSession;
+  K.selectSession = async (session) => {
+    if (!session?.id) return;
+    const directory = sessionDirectory(session);
+    const current = K.state.local?.project || "";
+    if (directory && !samePath(directory, current)) {
+      K.showError("");
+      try {
+        K.state.local = await K.request("/local/project", {
+          method: "POST",
+          body: JSON.stringify({ path: directory }),
+        });
+        await K.afterProjectChange();
+        session = K.state.sessions.find((item) => item.id === session.id) || session;
+      } catch (error) {
+        K.showError(`Could not switch to this session's project: ${error.message || String(error)}`);
+        return;
+      }
+    }
+    return selectSessionInCurrentProject(session);
+  };
+
   K.renderSessions = () => {
     const list = K.els.sessions;
-    if (!list) return originalRenderSessions?.();
+    if (!list) return;
     list.textContent = "";
     if (!K.state.sessions.length) {
       const empty = document.createElement("div");
       empty.className = "sidebar-empty";
-      empty.textContent = "No sessions in this project yet.";
+      empty.textContent = "No sessions yet.";
       list.appendChild(empty);
       return;
     }
@@ -70,12 +147,16 @@
       const remove = document.createElement("button");
       const title = document.createElement("strong");
       const meta = document.createElement("span");
+      const directory = sessionDirectory(session);
+      const project = directory ? K.basename(directory) : "Unknown project";
+      const age = K.relativeTime(session.time?.updated || session.time?.created);
 
       row.className = "session-row";
       open.className = `session-item session-main${K.state.session?.id === session.id ? " active" : ""}`;
       open.type = "button";
+      open.title = directory || session.title || "Session";
       title.textContent = session.title || "Untitled session";
-      meta.textContent = `${session.agent || "default"} · ${K.relativeTime(session.time?.updated || session.time?.created)}`;
+      meta.textContent = `${project} · ${session.agent || "default"}${age ? ` · ${age}` : ""}`;
       open.append(title, meta);
       open.addEventListener("click", () => K.selectSession(session));
 
@@ -97,12 +178,12 @@
   K.deleteSessionFromSidebar = async (session) => {
     if (!session?.id) return;
     if (!window.confirm(`Delete “${session.title || "Untitled session"}” permanently?`)) return;
+    const directory = sessionDirectory(session) || undefined;
     try {
-      const selectedSending = K.state.session?.id === session.id && K.state.sending;
-      if (K.isSessionRunning(session.id) || selectedSending) {
-        await K.api.sessions.abort(session.id, { scope: "tree" }).catch(() => {});
-      }
-      await K.api.sessions.remove(session.id);
+      // Abort defensively even when the session belongs to a different project;
+      // active-session status is scoped to the currently open directory.
+      await K.api.sessions.abort(session.id, { scope: "tree", directory }).catch(() => {});
+      await K.api.sessions.remove(session.id, { directory });
       if (K.state.session?.id === session.id) {
         K.state.changes = [];
         K.newSession();
@@ -162,13 +243,8 @@
       K.state.authController = null;
 
       await K.api.oauth.disconnectKilo();
-
-      // Update the visible account state immediately instead of waiting for a reload.
       K.applyKiloAuthStatus?.({ authenticated: false });
-      renderAccountDialog();
 
-      // Match Kilo's official disconnect flow: clear the in-memory provider instance,
-      // then rebuild the provider catalog from the now-empty auth store.
       await K.api.runtime.dispose();
       await K.loadCatalog();
       const status = await K.refreshKiloAuthStatus();
@@ -178,6 +254,7 @@
       if (K.els.modelSelect) K.els.modelSelect.value = "";
       K.renderSessionHeader?.();
       renderAccountDialog();
+      if (ui.accountDialog?.open) ui.accountDialog.close();
     } catch (error) {
       K.showError(error.message || String(error));
       try { await K.refreshKiloAuthStatus?.(); } catch {}
@@ -187,14 +264,33 @@
     }
   };
 
+  const activateSettingsSection = (name = "general") => {
+    for (const button of ui.settingsNavItems) {
+      const active = button.dataset.settingsSection === name;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    }
+    for (const panel of ui.settingsPanels) {
+      panel.classList.toggle("hidden", panel.dataset.settingsPanel !== name);
+    }
+  };
+
   const openSettings = () => {
     applyAppearance(readSetting(THEME_KEY, "system"));
     applyFontSize(readSetting(FONT_KEY, "default"));
+    activateSettingsSection("general");
     ui.settingsDialog?.showModal();
   };
 
+  const closeSettings = () => ui.settingsDialog?.close();
+
   ui.settingsButton?.addEventListener("click", openSettings);
-  ui.settingsClose?.addEventListener("click", () => ui.settingsDialog.close());
+  ui.settingsClose?.addEventListener("click", closeSettings);
+  ui.settingsCloseIcon?.addEventListener("click", closeSettings);
+  for (const button of ui.settingsNavItems) {
+    button.addEventListener("click", () => activateSettingsSection(button.dataset.settingsSection));
+  }
   ui.appearanceSelect?.addEventListener("change", () => {
     writeSetting(THEME_KEY, ui.appearanceSelect.value);
     applyAppearance(ui.appearanceSelect.value);

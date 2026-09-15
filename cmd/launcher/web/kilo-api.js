@@ -10,15 +10,17 @@
   const wrapData = (data) => ({ data });
 
   const projectDirectory = () => K.state?.local?.project || "";
-  const route = (path, params = {}) => {
+  const withQuery = (path, params = {}) => {
     const query = new URLSearchParams();
-    const directory = projectDirectory();
-    if (directory) query.set("directory", directory);
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== "") query.set(key, String(value));
     }
     return query.size ? `${path}?${query}` : path;
   };
+  const route = (path, params = {}, directory = projectDirectory()) => withQuery(path, {
+    ...(directory ? { directory } : {}),
+    ...params,
+  });
 
   const wireModel = (model) => model ? {
     providerID: model.providerID,
@@ -69,34 +71,34 @@
     },
 
     sessions: {
-      list: async ({ limit = 50 } = {}) => {
-        const payload = unwrapData(await request(route("/session", { limit })));
+      list: async ({ limit = 50, directory = projectDirectory() } = {}) => {
+        const payload = unwrapData(await request(route("/session", { limit, roots: true }, directory)));
         return wrapData(Array.isArray(payload) ? payload : []);
       },
       status: async () => {
         const payload = unwrapData(await request(route("/session/status")));
         return wrapData(payload && typeof payload === "object" ? payload : {});
       },
-      get: async (sessionID) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`)))),
+      get: async (sessionID, { directory } = {}) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`, {}, directory)))),
       create: async (input = {}) => {
         const payload = {};
         if (input.parentID) payload.parentID = input.parentID;
         if (input.title) payload.title = input.title;
         return wrapData(unwrapData(await request(route("/session"), { method: "POST", ...body(payload) })));
       },
-      update: async (sessionID, input = {}) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`), {
+      update: async (sessionID, input = {}, { directory } = {}) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`, {}, directory), {
         method: "PATCH", ...body(input),
       }))),
-      remove: async (sessionID) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`), { method: "DELETE" }))),
-      diff: async (sessionID, { messageID, full, file } = {}) => {
-        const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/diff`, { messageID, full, file })));
+      remove: async (sessionID, { directory } = {}) => wrapData(unwrapData(await request(route(`/session/${enc(sessionID)}`, {}, directory), { method: "DELETE" }))),
+      diff: async (sessionID, { messageID, full, file, directory } = {}) => {
+        const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/diff`, { messageID, full, file }, directory)));
         return wrapData(Array.isArray(payload) ? payload : []);
       },
-      messages: async (sessionID, { limit = 200 } = {}) => {
-        const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/message`, { limit })));
+      messages: async (sessionID, { limit = 200, directory } = {}) => {
+        const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/message`, { limit }, directory)));
         return wrapData(Array.isArray(payload) ? payload : []);
       },
-      promptAsync: (sessionID, { text, agent, model, variant, messageID } = {}) => {
+      promptAsync: (sessionID, { text, agent, model, variant, messageID, directory } = {}) => {
         const payload = {
           parts: [{ type: "text", text: text || "" }],
           ...(messageID ? { messageID } : {}),
@@ -104,9 +106,9 @@
           ...(model ? { model: wireModel(model) } : {}),
           ...(variant ? { variant } : {}),
         };
-        return request(route(`/session/${enc(sessionID)}/prompt_async`), { method: "POST", ...body(payload) });
+        return request(route(`/session/${enc(sessionID)}/prompt_async`, {}, directory), { method: "POST", ...body(payload) });
       },
-      abort: (sessionID, { scope } = {}) => request(route(`/session/${enc(sessionID)}/abort`, { scope }), { method: "POST" }),
+      abort: (sessionID, { scope, directory } = {}) => request(route(`/session/${enc(sessionID)}/abort`, { scope }, directory), { method: "POST" }),
     },
 
     permissions: {
