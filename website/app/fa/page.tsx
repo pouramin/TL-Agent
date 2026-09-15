@@ -22,7 +22,7 @@ const features = [
   },
   {
     title: 'Local Security',
-    description: 'TL Agent فقط روی loopback اجرا می‌شود، اطلاعات Runtime را داخل همان سیستم نگه می‌دارد و برای عملیات حساس Agent از شما Permission می‌گیرد.',
+    description: 'TL Agent فقط روی loopback اجرا می‌شود، اطلاعات Runtime را روی همان سیستم نگه می‌دارد و برای عملیات حساس Agent از شما Permission می‌گیرد.',
     icon: LockKeyhole,
   },
 ];
@@ -37,7 +37,7 @@ export default function PersianHomePage() {
             Early Alpha · Local-first · Open Source
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
-            Local Workspace برای Coding Agentها، بدون IDE.
+            یک Workspace مستقل برای Coding Agentها، بدون IDE.
           </h1>
           <p className="mt-7 max-w-2xl text-balance text-lg leading-8 text-fd-muted-foreground md:text-xl">
             TL Agent یک Workspace مستقل و Local برای کار با پروژه‌ها، Agentها، Modelها، Toolها، Sessionها و Changes فایل‌هاست؛ همه از داخل مرورگر.
@@ -77,9 +77,9 @@ export default function PersianHomePage() {
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-16">
             <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Upstream runtime</p>
-            <h2 className="mt-2 text-3xl font-semibold">TL Agent محصول مستقله؛ Kilo Runtime زیرِ کاپوته.</h2>
+            <h2 className="mt-2 text-3xl font-semibold">TL Agent محصول مستقله؛ Kilo Runtime فقط زیرِ کاپوته.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              Product UX، انتخاب پروژه، Local Security، Packaging و Releaseها متعلق به TL Agent هستند. Kilo در لایه زیرین نقش Agent Runtime را دارد.
+              UX، انتخاب پروژه، Local Security، Packaging و Releaseها متعلق به TL Agent هستند. Kilo در لایه زیرین فقط نقش Agent Runtime را دارد.
             </p>
           </div>
         </section>
