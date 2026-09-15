@@ -82,7 +82,6 @@
         method: "POST",
         ...body({ prompt, ...(options.delivery ? { delivery: options.delivery } : {}), ...(options.resume === undefined ? {} : { resume: options.resume }) }),
       }),
-      wait: (sessionID) => request(`/api/session/${enc(sessionID)}/wait`, { method: "POST" }),
       interrupt: (sessionID) => request(`/api/session/${enc(sessionID)}/interrupt`, { method: "POST" }),
       messages: (sessionID, { order = "asc", limit = 200, cursor } = {}) => {
         const query = pageQuery({ order, limit, cursor });
