@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/polish.css" />
   <link rel="stylesheet" href="/files.css" />
   <link rel="stylesheet" href="/status-ui.css" />
+  <link rel="stylesheet" href="/settings.css" />
 </head>
 <body>
   <div id="app" class="app-shell">
@@ -37,8 +38,10 @@
       <div id="sessions" class="session-list"></div>
 
       <div class="sidebar-footer">
-        <span id="versionLabel">Local runtime</span>
-        <a href="https://github.com/Kilo-Org/kilocode" target="_blank" rel="noreferrer">Powered by Kilo</a>
+        <button id="settingsButton" class="sidebar-settings-button" type="button">
+          <span class="sidebar-settings-icon" aria-hidden="true">⚙</span>
+          <span>Settings</span>
+        </button>
       </div>
     </aside>
 
@@ -49,12 +52,10 @@
           <span id="sessionMeta" class="muted">Local agent workspace</span>
         </div>
         <div class="toolbar-controls">
-          <label><span>Agent</span><select id="agentSelect"><option value="">Default</option></select></label>
-          <label><span>Model</span><select id="modelSelect"><option value="">Default</option></select></label>
           <button id="filesButton" class="ghost small" title="Browse project files">Files</button>
           <button id="changesButton" class="ghost small hidden" title="Show files changed in this session">Changes <span id="changesCount">0</span></button>
           <button id="sessionMenuButton" class="ghost small hidden" title="Session options" aria-label="Session options">•••</button>
-          <button id="accountButton" class="ghost small">Kilo account</button>
+          <button id="accountButton" class="ghost small">Account</button>
           <button id="refreshButton" class="ghost small">Refresh</button>
         </div>
       </header>
@@ -117,6 +118,10 @@
         <div class="composer">
           <textarea id="prompt" rows="1" placeholder="Ask TL Agent to build, debug, review, or explain…" aria-label="Prompt"></textarea>
           <div class="composer-bottom">
+            <div class="composer-context-controls">
+              <label><span>Agent</span><select id="agentSelect" aria-label="Agent"><option value="">Default</option></select></label>
+              <label><span>Model</span><select id="modelSelect" aria-label="Model"><option value="">Backend default</option></select></label>
+            </div>
             <div class="composer-hints"><span>Enter to send</span><span>Shift+Enter for newline</span></div>
             <div class="composer-actions">
               <button id="stopButton" class="stop-button hidden" type="button">Stop</button>
@@ -147,6 +152,50 @@
     </div>
   </dialog>
 
+  <dialog id="settingsDialog">
+    <div class="dialog-card settings-card">
+      <h2>Settings</h2><p>Personalize the TL Agent interface on this browser.</p>
+      <section class="settings-section">
+        <div class="settings-section-title">Appearance</div>
+        <div class="settings-row">
+          <div class="settings-copy"><strong>Theme</strong><span>Follow your system or choose a fixed theme.</span></div>
+          <select id="appearanceSelect" aria-label="Appearance theme">
+            <option value="system">System</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <div class="settings-copy"><strong>Font size</strong><span>Adjust chat, controls, and code preview text.</span></div>
+          <select id="fontSizeSelect" aria-label="Font size">
+            <option value="small">Small</option>
+            <option value="default">Default</option>
+            <option value="large">Large</option>
+          </select>
+        </div>
+      </section>
+      <section class="settings-section">
+        <div class="settings-section-title">About</div>
+        <div class="settings-about"><strong>TL Agent</strong><span id="versionLabel">Local runtime</span></div>
+      </section>
+      <div class="dialog-actions"><button id="settingsClose" class="primary" type="button">Done</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="accountDialog">
+    <div class="dialog-card account-card">
+      <h2>Kilo account</h2><p>Manage the Kilo account used for hosted models.</p>
+      <div id="accountStatus" class="account-state">Checking account status…</div>
+      <div class="dialog-actions split">
+        <button id="accountClose" class="ghost" type="button">Close</button>
+        <div class="dialog-actions-inline">
+          <button id="accountSignOut" class="danger-button hidden" type="button">Sign out</button>
+          <button id="accountSignIn" class="primary hidden" type="button">Sign in</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="authDialog">
     <div class="dialog-card auth-card">
       <h2>Sign in to Kilo</h2><p id="authInstructions">Starting secure device authorization…</p>
@@ -170,6 +219,7 @@
   <script src="/workspace.js" defer></script>
   <script src="/files.js" defer></script>
   <script src="/status-ui.js" defer></script>
+  <script src="/product-ui.js" defer></script>
   <script src="/app.js" defer></script>
 </body>
 </html>
