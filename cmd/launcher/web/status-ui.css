@@ -13,3 +13,133 @@
 .activity-card[data-status="retrying"] .activity-status {
   color: #d8b96f;
 }
+
+.user-message-actions {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+}
+.prompt-copy-button {
+  width: 24px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-2);
+  cursor: pointer;
+  opacity: .56;
+  transition: opacity .12s ease, color .12s ease, background .12s ease, border-color .12s ease;
+}
+.message.user:hover .prompt-copy-button,
+.prompt-copy-button:focus-visible {
+  opacity: 1;
+}
+.prompt-copy-button:hover {
+  color: var(--text);
+  border-color: var(--line);
+  background: var(--panel-2);
+}
+.prompt-copy-button.copied {
+  color: var(--accent);
+  opacity: 1;
+}
+.prompt-copy-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.session-stats {
+  margin: 44px 0 22px 44px;
+  padding: 13px 15px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+.session-stats-heading {
+  margin-bottom: 10px;
+  color: var(--muted-2);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.session-stats-values {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+}
+.session-stat-item {
+  min-width: 118px;
+  padding: 1px 22px 1px 0;
+}
+.session-stat-item + .session-stat-item {
+  padding-left: 22px;
+  border-left: 1px solid var(--line-soft);
+}
+.session-stat-item strong,
+.session-stat-item span {
+  display: block;
+}
+.session-stat-item strong {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 680;
+  letter-spacing: -.02em;
+}
+.session-stat-item span {
+  margin-top: 3px;
+  color: var(--muted-2);
+  font-size: 9px;
+}
+
+.timeout-recovery {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--danger), var(--line) 68%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger), transparent 94%);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.timeout-resume-button {
+  flex: none;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+}
+.timeout-resume-button:hover {
+  border-color: color-mix(in srgb, var(--accent), var(--line) 55%);
+  background: var(--panel-3);
+}
+
+html[data-resolved-theme="light"] .timeout-recovery {
+  background: color-mix(in srgb, var(--danger), white 96%);
+}
+
+@media (max-width: 760px) {
+  .session-stats {
+    margin-left: 40px;
+  }
+  .session-stats-values {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+  .session-stat-item {
+    min-width: 105px;
+  }
+}
