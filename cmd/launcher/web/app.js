@@ -22,7 +22,9 @@
     const e = K.els;
     e.pickProject.addEventListener("click", K.pickProject);
     e.emptyPickProject.addEventListener("click", K.pickProject);
-    e.manualProject.addEventListener("click", K.openManualProject);
+    e.manualProject.textContent = "Browse…";
+    e.manualProject.title = "Choose a project folder";
+    e.manualProject.addEventListener("click", K.pickProject);
     e.pathForm.addEventListener("submit", K.setManualProject);
     e.newSession.addEventListener("click", K.newSession);
     e.emptyNewSession.addEventListener("click", K.newSession);
