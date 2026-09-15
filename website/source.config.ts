@@ -3,7 +3,7 @@ import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
 import { z } from 'zod';
 
 export const docs = defineDocs({
-  dir: 'content/docs',
+  dir: 'content/locales',
   docs: {
     schema: pageSchema.extend({
       description: z.string().min(1, 'Every public documentation page needs a description.'),

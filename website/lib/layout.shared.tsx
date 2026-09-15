@@ -1,23 +1,33 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { LanguageSwitcher } from '@/components/language-switcher';
 import { site } from './site';
+import { getSiteMessages } from './site-i18n';
 
-export function baseOptions(): BaseLayoutProps {
+export function baseOptions(lang: 'en' | 'fa' = 'en'): BaseLayoutProps {
+  const prefix = lang === 'fa' ? '/fa' : '';
+  const m = getSiteMessages(lang);
+
   return {
     nav: {
       title: site.name,
-      url: '/',
+      url: `${prefix}/`,
     },
     githubUrl: site.repoUrl,
     links: [
       {
-        text: 'Documentation',
-        url: '/docs',
+        text: m.documentation,
+        url: `${prefix}/docs`,
         active: 'nested-url',
       },
       {
-        text: 'Releases',
+        text: m.releases,
         url: site.releasesUrl,
         external: true,
+      },
+      {
+        type: 'custom',
+        secondary: true,
+        children: <LanguageSwitcher />,
       },
     ],
   };

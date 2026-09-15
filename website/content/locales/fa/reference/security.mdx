@@ -1,0 +1,23 @@
+---
+title: مدل امنیتی
+description: مرز شبکه محلی TL Agent و Trust Boundary باقی‌مانده.
+icon: ShieldCheck
+---
+
+TL Agent به‌عنوان یک برنامه محلی طراحی شده، نه یک Coding Agent Service که روی شبکه عمومی باز باشد.
+
+## فقط loopback
+
+Server سمت مرورگر فقط آدرس‌های loopback را قبول می‌کند و Runtime همراه برنامه هم روی loopback اجرا می‌شود.
+
+## Credential موقت در هر اجرا
+
+در هر Launch یک Password تصادفی جدید برای Backend ساخته می‌شود. TL Agent آن را سمت Server محلی نگه می‌دارد و Browser JavaScript نیازی به دانستن آن ندارد.
+
+## محافظت مرورگر
+
+TL Agent Host و Origin درخواست را بررسی می‌کند و Security Headerهای محدودکننده، از جمله Content Security Policy، می‌فرستد.
+
+## مرز اعتماد
+
+Coding Agent در صورت داشتن Permission می‌تواند فایل‌ها را بخواند یا تغییر دهد و Command اجرا کند. Localhost سطح حمله شبکه را کم می‌کند، اما جای بررسی Permissionها را نمی‌گیرد.

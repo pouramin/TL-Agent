@@ -1,0 +1,41 @@
+---
+title: CLI در TL Agent
+description: گزینه‌های خط فرمان TL Agent برای استفاده پیشرفته و اجرای Scripted.
+icon: Terminal
+---
+
+بیشتر کاربران فقط TL Agent را اجرا می‌کنند و پروژه را با Folder Picker انتخاب می‌کنند. CLI بیشتر برای Automation، Debug یا مشخص کردن پروژه از قبل است.
+
+## `--project`
+
+```bash
+tl-agent --project /path/to/project
+```
+
+در Windows:
+
+```powershell
+tl-agent.exe --project "C:\path\to\project"
+```
+
+## `--no-browser`
+
+اجرای TL Agent بدون باز کردن خودکار مرورگر:
+
+```bash
+tl-agent --no-browser
+```
+
+## `--listen`
+
+مقدار پیش‌فرض `127.0.0.1` است و TL Agent عمداً فقط loopback را قبول می‌کند.
+
+## `--kilo` — تغییر Runtime برای حالت پیشرفته
+
+Release عادی TL Agent خودش Runtime سازگار را دارد. Developerها برای تست Compatibility می‌توانند مسیر Runtime دیگری را مشخص کنند:
+
+```bash
+tl-agent --kilo /path/to/kilo
+```
+
+این گزینه برای Debug و توسعه است و بخشی از Workflow معمول کاربر نیست.

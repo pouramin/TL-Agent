@@ -11,16 +11,13 @@ import {
 import { getMDXComponents } from '@/components/mdx';
 import { getPageMarkdownUrl, source } from '@/lib/source';
 
-export default async function Page(props: {
-  params: Promise<{ slug?: string[] }>;
-}) {
+export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await props.params;
-  const page = source.getPage(slug);
+  const page = source.getPage(slug, 'en');
   if (!page) notFound();
-
   const MDX = page.data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
-  const editUrl = `https://github.com/pouramin/TL-Agent/blob/main/website/content/docs/${page.path}`;
+  const editUrl = `https://github.com/pouramin/TL-Agent/blob/docs-site/website/content/locales/${page.path}`;
 
   return (
     <DocsPage toc={page.data.toc}>
@@ -30,26 +27,18 @@ export default async function Page(props: {
         <MarkdownCopyButton markdownUrl={markdownUrl} />
         <ViewOptionsPopover markdownUrl={markdownUrl} githubUrl={editUrl} />
       </div>
-      <DocsBody>
-        <MDX components={getMDXComponents()} />
-      </DocsBody>
+      <DocsBody><MDX components={getMDXComponents()} /></DocsBody>
     </DocsPage>
   );
 }
 
 export function generateStaticParams() {
-  return source.generateParams();
+  return source.getPages('en').map((page) => ({ slug: page.slugs }));
 }
 
-export async function generateMetadata(props: {
-  params: Promise<{ slug?: string[] }>;
-}): Promise<Metadata> {
+export async function generateMetadata(props: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
   const { slug } = await props.params;
-  const page = source.getPage(slug);
+  const page = source.getPage(slug, 'en');
   if (!page) notFound();
-
-  return {
-    title: page.data.title,
-    description: page.data.description,
-  };
+  return { title: page.data.title, description: page.data.description };
 }

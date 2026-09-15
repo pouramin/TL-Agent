@@ -1,0 +1,22 @@
+---
+title: Releases and bundled runtime
+description: Understand TL Agent release archives and the bundled Kilo runtime.
+icon: PackageCheck
+---
+
+TL Agent ships its own launcher/UI together with a pinned upstream runtime so users can download one archive and run it directly.
+
+```text
+tl-agent/
+├─ tl-agent[.exe]
+├─ bin/
+│  └─ kilo[.exe]
+├─ LICENSE
+├─ THIRD_PARTY_NOTICES.md
+└─ third_party/
+   └─ KILO_LICENSE.txt
+```
+
+The repository's `VERSION` tracks TL Agent. `KILO_VERSION` tracks the compatible upstream runtime.
+
+Release CI tests the product, downloads the exact pinned runtime, builds TL Agent for supported operating systems, packages the result, and publishes checksums.

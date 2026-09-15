@@ -6,38 +6,38 @@ import { site } from '@/lib/site';
 
 const features = [
   {
-    title: 'Runs on your machine',
-    description: 'The launcher, Kilo runtime, selected project, and browser UI stay local. There is no project-owned backend or database.',
+    title: 'Local-first by design',
+    description: 'TL Agent runs on your computer and works with your local project. There is no TL Agent cloud backend or database in the middle.',
     icon: ServerOff,
   },
   {
-    title: 'No IDE required',
-    description: 'Use Kilo as a coding agent from a standalone browser interface instead of tying the workflow to VS Code, JetBrains, or Cursor.',
+    title: 'A workspace of its own',
+    description: 'Work with a coding agent from a dedicated browser workspace instead of living inside VS Code, JetBrains, Cursor, or another IDE.',
     icon: SquareTerminal,
   },
   {
-    title: 'Project-aware sessions',
-    description: 'Choose a local project, create or reopen Kilo sessions, switch models and agents, and keep the agent scoped to the project you selected.',
+    title: 'Project-aware workflow',
+    description: 'Pick a local folder, create sessions, choose agents and models, inspect file changes, and keep each conversation scoped to the selected project.',
     icon: FolderCode,
   },
   {
     title: 'Local security boundary',
-    description: 'Both the launcher and Kilo backend bind to loopback. Kilo credentials remain server-side and cross-origin browser requests are rejected.',
+    description: 'The product binds to loopback, keeps runtime credentials server-side, rejects cross-origin requests, and asks for permission before sensitive agent actions.',
     icon: LockKeyhole,
   },
 ];
 
 export default function HomePage() {
   return (
-    <HomeLayout {...baseOptions()}>
+    <HomeLayout {...baseOptions('en')}>
       <main className="relative overflow-hidden">
         <div className="hero-grid pointer-events-none absolute inset-0 -z-10 opacity-60" />
         <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-20 pt-24 text-center md:pt-32">
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
-            Early alpha · Local-first · Zero project runtime infrastructure
+            Early alpha · Local-first · Open source
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
-            Kilo Code, without living inside an IDE.
+            Your local coding-agent workspace.
           </h1>
           <p className="mt-7 max-w-2xl text-balance text-lg leading-8 text-fd-muted-foreground md:text-xl">
             {site.description}
@@ -52,9 +52,9 @@ export default function HomePage() {
           </div>
 
           <div className="mt-16 w-full max-w-4xl rounded-2xl border bg-fd-card/80 p-5 text-left shadow-sm md:p-8">
-            <div className="mb-5 text-sm font-medium text-fd-muted-foreground">How the pieces fit together</div>
+            <div className="mb-5 text-sm font-medium text-fd-muted-foreground">How TL Agent works</div>
             <div className="grid gap-3 md:grid-cols-4">
-              {['Browser UI', 'Go launcher + proxy', 'kilo serve', 'AI providers + project tools'].map((label, index) => (
+              {['Browser workspace', 'TL Agent local layer', 'Agent runtime', 'Models + project tools'].map((label, index) => (
                 <div key={label} className="relative">
                   <div className="arch-line rounded-xl px-4 py-5 text-center font-medium">{label}</div>
                   {index < 3 ? <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-fd-muted-foreground md:block">→</div> : null}
@@ -76,18 +76,11 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-16">
-            <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-              <div>
-                <p className="text-sm font-medium text-fd-muted-foreground">Current direction</p>
-                <h2 className="mt-2 text-3xl font-semibold">A thin local product layer over Kilo, not a fork of Kilo.</h2>
-                <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-                  Kilo remains the agent runtime. This project focuses on launch, local security, browser UX, packaging, and a stable bridge to Kilo's headless server API.
-                </p>
-              </div>
-              <a className="inline-flex shrink-0 items-center gap-2 font-medium" href={site.repoUrl} target="_blank" rel="noreferrer">
-                View source on GitHub <ArrowRight className="size-4" />
-              </a>
-            </div>
+            <p className="text-sm font-medium text-fd-muted-foreground">Independent product, upstream runtime</p>
+            <h2 className="mt-2 text-3xl font-semibold">TL Agent owns the workspace. Kilo powers the agent runtime underneath.</h2>
+            <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
+              Kilo is an upstream runtime dependency, not TL Agent's product identity. User-facing workflows, packaging, local security, project selection, browser UX, and releases belong to TL Agent.
+            </p>
           </div>
         </section>
       </main>

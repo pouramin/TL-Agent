@@ -5,8 +5,10 @@ import { baseOptions } from '@/lib/layout.shared';
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <DocsLayout tree={source.getPageTree('en')} {...baseOptions('en')}>
-      {children}
-    </DocsLayout>
+    <div dir="rtl" lang="fa" className="w-full text-right">
+      <DocsLayout tree={source.getPageTree('fa')} {...baseOptions('fa')}>
+        {children}
+      </DocsLayout>
+    </div>
   );
 }

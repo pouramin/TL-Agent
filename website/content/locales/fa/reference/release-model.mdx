@@ -1,0 +1,22 @@
+---
+title: Release و Runtime همراه
+description: ساختار Releaseهای TL Agent و Runtime بالادستی همراه برنامه.
+icon: PackageCheck
+---
+
+TL Agent، Launcher و UI خودش را همراه یک Runtime Pin‌شده منتشر می‌کند تا کاربر فقط یک Archive بگیرد و مستقیم اجرا کند.
+
+```text
+tl-agent/
+├─ tl-agent[.exe]
+├─ bin/
+│  └─ kilo[.exe]
+├─ LICENSE
+├─ THIRD_PARTY_NOTICES.md
+└─ third_party/
+   └─ KILO_LICENSE.txt
+```
+
+فایل `VERSION` نسخه TL Agent را مشخص می‌کند و `KILO_VERSION` نسخه Runtime سازگار را.
+
+Release CI برنامه را تست می‌کند، Runtime دقیق را می‌گیرد، TL Agent را برای سیستم‌عامل‌های پشتیبانی‌شده Build می‌کند و Archive و Checksum منتشر می‌کند.

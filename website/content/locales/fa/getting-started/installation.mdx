@@ -1,0 +1,35 @@
+---
+title: نصب
+description: نصب TL Agent با Launcher یک‌دستوری یا نسخه Portable.
+icon: Download
+---
+
+## اجرای یک‌دستوری
+
+اگر Node.js و npm روی سیستم نصب است، داخل پوشه پروژه‌ای که می‌خواهید روی آن کار کنید Terminal را باز کنید و بزنید:
+
+```bash
+npx --yes github:pouramin/TL-Agent
+```
+
+Launcher سبک، سیستم‌عامل و معماری دستگاه را تشخیص می‌دهد، نسخه مناسب TL Agent را از GitHub می‌گیرد، SHA-256 را بررسی می‌کند، آن را Cache می‌کند و همان پوشه را به‌عنوان پروژه باز می‌کند.
+
+## نسخه Portable
+
+برای استفاده عادی از نسخه Portable نیازی به Node.js نیست. فایل مناسب سیستم‌عامل را از GitHub Releases بگیرید، Extract کنید و اجرا کنید:
+
+```text
+Windows:  tl-agent.exe
+Linux:    ./tl-agent
+macOS:    ./tl-agent
+```
+
+Releaseهای TL Agent، Runtime سازگار را داخل خودشان دارند؛ بنابراین کاربر لازم نیست Kilo را جداگانه نصب کند.
+
+## نسخه‌های پشتیبانی‌شده
+
+- Windows x64
+- Linux x64
+- Linux ARM64
+- macOS Intel x64
+- macOS Apple Silicon ARM64

@@ -1,0 +1,30 @@
+---
+title: مشارکت در پروژه
+description: مشارکت در TL Agent با حفظ مرز بین محصول، Runtime و Documentation.
+icon: GitPullRequest
+---
+
+کد محصول و Documentation عمومی TL Agent عمداً Build Path جدا دارند.
+
+## توسعه محصول
+
+Go launcher در `cmd/launcher/` است. فایل‌های Browser در `cmd/launcher/web/` قرار دارند و اسناد فنی داخلی در `docs/` نگهداری می‌شوند.
+
+## توسعه Documentation
+
+سایت عمومی Fumadocs داخل `website/` قرار دارد و CI و GitHub Pages مستقل خودش را دارد.
+
+```bash
+cd website
+npm install
+npm run dev
+```
+
+قبل از ارسال تغییرات Documentation:
+
+```bash
+npm run typecheck
+npm run build
+```
+
+در متن‌های User-facing، TL Agent را محور قرار دهید. Kilo فقط جایی ذکر شود که Runtime بالادستی یا Compatibility واقعاً موضوع بحث است.

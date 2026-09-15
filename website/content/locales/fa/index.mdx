@@ -1,0 +1,46 @@
+---
+title: TL Agent
+description: آشنایی با TL Agent به‌عنوان یک محصول مستقل و جایگاه Kilo به‌عنوان Runtime زیرین.
+icon: House
+---
+
+TL Agent یک **محیط مستقل و محلی برای کار با Coding Agent** است. از داخل مرورگر می‌توانید با پروژه‌های محلی، Sessionها، Agentها، Modelها، ابزارها، Permissionها و تغییرات فایل کار کنید؛ بدون اینکه مجبور باشید داخل یک IDE بمانید.
+
+## هویت محصول
+
+محصولی که نصب و استفاده می‌کنید **TL Agent** است. Kilo Code یک Runtime بالادستی است که در لایه زیرین برای اجرای Agent، ابزارها، Sessionها و اتصال به Providerها استفاده می‌شود.
+
+```text
+شما
+ ↓
+TL Agent
+ ├─ محیط مرورگر
+ ├─ انتخاب پروژه
+ ├─ Sessionها و Changes
+ ├─ مرز امنیتی محلی
+ └─ Launcher و Packaging
+      ↓
+Agent Runtime (Kilo)
+      ↓
+Models / Providers / Project Tools
+```
+
+این جداسازی عمدی است: استفاده عادی باید حس کار با TL Agent را داشته باشد، نه کار با یک Wrapper خط فرمان برای Kilo.
+
+## چه کارهایی می‌توانید انجام دهید؟
+
+- انتخاب پوشه پروژه از Folder Picker سیستم‌عامل؛
+- ساخت، تغییر نام و حذف Session؛
+- انتخاب Agent و Model؛
+- ارسال Prompt و مشاهده فعالیت زنده Agent و Toolها؛
+- تأیید یا رد Permissionها؛
+- پاسخ به سؤال‌های تعاملی Agent؛
+- مشاهده فایل‌های پروژه و Changes؛
+- متوقف کردن اجرای فعال؛
+- استفاده بدون VS Code، JetBrains، Cursor، Docker یا بک‌اند ابری TL Agent.
+
+## از کجا شروع کنم؟
+
+ابتدا [نصب](./getting-started/installation) و بعد [اولین اجرا](./getting-started/first-run) را ببینید.
+
+> TL Agent یک پروژه متن‌باز مستقل است. از Kilo Code به‌عنوان Runtime محلی استفاده می‌کند، اما محصول رسمی Kilo Code نیست.
