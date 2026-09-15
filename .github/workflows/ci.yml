@@ -147,37 +147,36 @@ jobs:
           done
           [[ "$LLM_URL" == http://127.0.0.1:* ]]
 
-          # Mirror Kilo's own provider tests: custom providers live in project
-          # opencode.json. The launcher's own KILO_CONFIG_CONTENT remains only a
-          # small runtime safety overlay and must not be the provider catalog.
+          # Define the fixture through Kilo's public Protocol v2 config schema.
+          # A custom provider with no Integration is available directly from the
+          # Location catalog; its model inherits the provider's AISDK route.
           python3 - "$LLM_URL" "$PROJECT_DIR/opencode.json" <<'PY'
           import json, sys
           url, output = sys.argv[1], sys.argv[2]
           config = {
               "$schema": "https://app.kilo.ai/config.json",
               "model": "test/test-model",
-              "small_model": "test/test-model",
-              "provider": {
+              "providers": {
                   "test": {
                       "name": "Test",
-                      "id": "test",
-                      "env": [],
-                      "npm": "@ai-sdk/openai-compatible",
+                      "api": {
+                          "type": "aisdk",
+                          "package": "@ai-sdk/openai-compatible",
+                          "url": url,
+                          "settings": {"apiKey": "test-key"}
+                      },
                       "models": {
                           "test-model": {
-                              "id": "test-model",
                               "name": "Test Model",
-                              "attachment": False,
-                              "reasoning": False,
-                              "temperature": False,
-                              "tool_call": True,
-                              "release_date": "2025-01-01",
-                              "limit": {"context": 100000, "output": 10000},
+                              "capabilities": {
+                                  "tools": True,
+                                  "input": ["text"],
+                                  "output": ["text"]
+                              },
                               "cost": {"input": 0, "output": 0},
-                              "options": {}
+                              "limit": {"context": 100000, "output": 10000}
                           }
-                      },
-                      "options": {"apiKey": "test-key", "baseURL": url}
+                      }
                   }
               }
           }
