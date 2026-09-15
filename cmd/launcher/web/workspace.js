@@ -29,6 +29,80 @@
     return bits[bits.length - 1] || escapeText(path) || "Unknown file";
   };
 
+  const normalizeChange = (candidate, fallbackPath = "") => {
+    if (!candidate || typeof candidate !== "object") return null;
+    const file = candidate.file || candidate.filePath || candidate.path || fallbackPath;
+    if (!file) return null;
+    return {
+      file: String(file),
+      additions: Number(candidate.additions) || 0,
+      deletions: Number(candidate.deletions) || 0,
+      patch: typeof candidate.patch === "string" ? candidate.patch : "",
+    };
+  };
+
+  const mergeChanges = (items) => {
+    const merged = new Map();
+    for (const raw of Array.isArray(items) ? items : []) {
+      const item = normalizeChange(raw);
+      if (!item) continue;
+      const key = item.file.replace(/\\/g, "/").toLowerCase();
+      const previous = merged.get(key);
+      if (!previous) {
+        merged.set(key, item);
+        continue;
+      }
+      merged.set(key, {
+        file: item.file || previous.file,
+        additions: previous.additions + item.additions,
+        deletions: previous.deletions + item.deletions,
+        patch: item.patch || previous.patch,
+      });
+    }
+    return [...merged.values()];
+  };
+
+  const changesFromMessages = () => {
+    const messages = Array.isArray(K.state.messages) ? K.state.messages : [];
+
+    // Prefer Kilo's projected per-turn summaries when present. They already
+    // represent a file-diff shape and avoid reinterpreting tool metadata.
+    const projected = [];
+    for (const message of messages) {
+      const diffs = message?.info?.summary?.diffs;
+      if (Array.isArray(diffs)) projected.push(...diffs);
+    }
+    if (projected.length) return mergeChanges(projected);
+
+    // Fresh/non-git projects can legitimately have an empty aggregate
+    // /session/:id/diff even though write/edit tools expose authoritative diff
+    // metadata. Fall back to those completed tool parts so Changes still works.
+    const toolChanges = [];
+    for (const message of messages) {
+      const parts = Array.isArray(message?.parts) ? message.parts : [];
+      for (const part of parts) {
+        if (part?.type !== "tool") continue;
+        const state = part.state || {};
+        const metadata = state.metadata || {};
+        const input = state.input || {};
+        const output = state.output ?? state.result ?? part.output ?? part.result;
+        const fallbackPath = input.filePath || input.path || input.file || metadata.filepath || metadata.path || "";
+
+        const candidates = [
+          metadata.filediff,
+          metadata.fileDiff,
+          output?.filediff,
+          output?.fileDiff,
+          output && typeof output === "object" && ("patch" in output || "additions" in output || "deletions" in output) ? output : null,
+        ];
+        const candidate = candidates.find((value) => value && typeof value === "object");
+        const change = normalizeChange(candidate, fallbackPath);
+        if (change) toolChanges.push(change);
+      }
+    }
+    return mergeChanges(toolChanges);
+  };
+
   K.refreshWorkspaceControls = () => {
     const session = K.state.session;
     const running = !!session && (K.state.sending || K.isSessionRunning(session.id));
@@ -92,17 +166,17 @@
     }
     K.state.changesLoading = true;
     K.renderChanges();
+    let aggregate = [];
     try {
       const payload = await K.api.sessions.diff(K.state.session.id);
-      K.state.changes = Array.isArray(payload?.data) ? payload.data : [];
+      aggregate = Array.isArray(payload?.data) ? payload.data : [];
     } catch (error) {
-      console.warn("[TL Agent] Could not load session changes", error);
-      K.state.changes = [];
-    } finally {
-      K.state.changesLoading = false;
-      K.renderChanges();
-      K.refreshWorkspaceControls();
+      console.warn("[TL Agent] Could not load aggregate session diff", error);
     }
+    K.state.changes = aggregate.length ? mergeChanges(aggregate) : changesFromMessages();
+    K.state.changesLoading = false;
+    K.renderChanges();
+    K.refreshWorkspaceControls();
     return K.state.changes;
   };
 
@@ -117,8 +191,8 @@
         K.loadSessions().catch(() => []),
         K.loadActiveSessions().catch(() => {}),
         K.loadAttention?.().catch(() => {}),
-        K.loadChanges().catch(() => []),
       ]);
+      await K.loadChanges().catch(() => []);
       const fresh = K.state.sessions.find((item) => item.id === K.state.session?.id);
       if (fresh) K.state.session = fresh;
       K.renderMessages();
