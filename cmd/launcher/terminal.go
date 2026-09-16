@@ -1,11 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os/exec"
 	"runtime"
@@ -14,7 +12,10 @@ import (
 	"time"
 )
 
-const terminalOutputLimit = 1 << 20
+const (
+	terminalOutputLimit = 1 << 20
+	terminalRetention   = 10 * time.Minute
+)
 
 type processManager struct {
 	mu        sync.RWMutex
@@ -46,6 +47,13 @@ type processSnapshot struct {
 	Output    string     `json:"output"`
 }
 
+type processOutputWriter struct{ process *managedProcess }
+
+func (w processOutputWriter) Write(data []byte) (int, error) {
+	w.process.appendOutput(data)
+	return len(data), nil
+}
+
 func newProcessManager(projectFn func() string) *processManager {
 	return &processManager{projectFn: projectFn, processes: make(map[string]*managedProcess)}
 }
@@ -59,31 +67,33 @@ func (m *processManager) start(command string) (*managedProcess, error) {
 	if cwd == "" {
 		return nil, errors.New("open a project before running commands")
 	}
-	cmd := shellCommand(command)
-	configureManagedCommand(cmd)
-	cmd.Dir = cwd
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("capture stdout: %w", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, fmt.Errorf("capture stderr: %w", err)
-	}
 	id, err := randomSecret(8)
 	if err != nil {
 		return nil, err
 	}
-	p := &managedProcess{id: id, command: command, cwd: cwd, startedAt: time.Now().UTC(), running: true, cmd: cmd}
+	p := &managedProcess{id: id, command: command, cwd: cwd, startedAt: time.Now().UTC(), running: true}
+	cmd := shellCommand(command)
+	configureManagedCommand(cmd)
+	cmd.Dir = cwd
+	cmd.Stdout = processOutputWriter{process: p}
+	cmd.Stderr = processOutputWriter{process: p}
+	p.cmd = cmd
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start command: %w", err)
 	}
 	m.mu.Lock()
 	m.processes[id] = p
 	m.mu.Unlock()
-	go p.copyOutput(stdout)
-	go p.copyOutput(stderr)
-	go p.wait()
+	go func() {
+		p.wait()
+		time.AfterFunc(terminalRetention, func() {
+			m.mu.Lock()
+			if current, ok := m.processes[id]; ok && current == p && !current.snapshot().Running {
+				delete(m.processes, id)
+			}
+			m.mu.Unlock()
+		})
+	}()
 	return p, nil
 }
 
@@ -94,22 +104,10 @@ func shellCommand(command string) *exec.Cmd {
 	return exec.Command("/bin/sh", "-lc", command)
 }
 
-func (p *managedProcess) copyOutput(reader io.Reader) {
-	scanner := bufio.NewScanner(reader)
-	buffer := make([]byte, 0, 64*1024)
-	scanner.Buffer(buffer, 1024*1024)
-	for scanner.Scan() {
-		p.appendOutput(scanner.Text() + "\n")
-	}
-	if err := scanner.Err(); err != nil {
-		p.appendOutput("[TL Agent] output error: " + err.Error() + "\n")
-	}
-}
-
-func (p *managedProcess) appendOutput(text string) {
+func (p *managedProcess) appendOutput(data []byte) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.output = append(p.output, text...)
+	p.output = append(p.output, data...)
 	if len(p.output) > terminalOutputLimit {
 		p.output = append([]byte(nil), p.output[len(p.output)-terminalOutputLimit:]...)
 	}
@@ -124,9 +122,8 @@ func (p *managedProcess) wait() {
 			code = exitErr.ExitCode()
 		} else {
 			code = -1
-			p.appendOutput("[TL Agent] process error: " + err.Error() + "\n")
+			p.appendOutput([]byte("[TL Agent] process error: " + err.Error() + "\n"))
 		}
-	}
 	now := time.Now().UTC()
 	p.mu.Lock()
 	p.running = false
@@ -168,7 +165,9 @@ func (m *processManager) stop(id string) error {
 func registerLocalProcessRoutes(mux *http.ServeMux, state *appState) {
 	manager := newProcessManager(state.projectPath)
 	mux.HandleFunc("POST /local/process", func(w http.ResponseWriter, r *http.Request) {
-		var body struct { Command string `json:"command"` }
+		var body struct {
+			Command string `json:"command"`
+		}
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
 		if err := decoder.Decode(&body); err != nil {
 			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid JSON body"})
