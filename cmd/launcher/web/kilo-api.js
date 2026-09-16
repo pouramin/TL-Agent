@@ -142,9 +142,12 @@
         const payload = unwrapData(await request(route("/permission")));
         return (Array.isArray(payload) ? payload : []).filter((item) => !sessionID || item?.sessionID === sessionID);
       },
+      // Every reply through this browser adapter is the result of an explicit human click.
+      // Kilo 7.6.2 requires `interactive: true` for sensitive permission classes such as
+      // skill-shell and sandbox-escalation requests; otherwise an approval is intentionally ignored.
       reply: (sessionID, requestID, reply, message) => request(route(`/permission/${enc(requestID)}/reply`), {
         method: "POST",
-        ...body({ reply, ...(message ? { message } : {}) }),
+        ...body({ reply, interactive: true, ...(message ? { message } : {}) }),
       }),
     },
 
