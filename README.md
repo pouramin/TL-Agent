@@ -1,7 +1,7 @@
 [English](./README.md) | [فارسی](./README.fa_IR.md)
 
 <p align="center">
-  <img src="./media/tunnellab-logo.jpg" width="300" alt="TunnelLab">
+  <img src="./media/tl-agent-logo.svg" width="300" alt="TL Agent">
 </p>
 
 <h1 align="center">TL Agent</h1>
