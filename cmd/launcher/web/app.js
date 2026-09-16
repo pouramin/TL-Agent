@@ -89,6 +89,11 @@
       () => K.__providersUiInstalled,
       "[TL Agent] Custom provider settings UI failed to load",
     );
+    await loadScript(
+      "/providers-settings-bridge.js",
+      () => K.__providersSettingsBridgeInstalled,
+      "[TL Agent] Custom provider settings bridge failed to load",
+    );
   };
 
   loadExtensions().finally(init);
