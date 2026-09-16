@@ -236,29 +236,6 @@
     K.addAttachments(files);
   });
 
-  const wireModel = (model) => model ? {
-    providerID: model.providerID,
-    modelID: model.modelID || model.id,
-  } : undefined;
-
-  K.api.sessions.promptAsync = (sessionID, { text, parts, agent, model, variant, messageID, directory } = {}) => {
-    const payload = {
-      parts: Array.isArray(parts) && parts.length ? parts : [{ type: "text", text: text || "" }],
-      ...(messageID ? { messageID } : {}),
-      ...(agent ? { agent } : {}),
-      ...(model ? { model: wireModel(model) } : {}),
-      ...(variant ? { variant } : {}),
-    };
-    const query = new URLSearchParams();
-    const project = directory || K.state.local?.project || "";
-    if (project) query.set("directory", project);
-    const suffix = query.size ? `?${query}` : "";
-    return K.request(`/kilo/session/${encodeURIComponent(sessionID)}/prompt_async${suffix}`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-  };
-
   const messageParts = (message) => Array.isArray(message?.parts)
     ? message.parts
     : Array.isArray(message?.content) ? message.content : [];
