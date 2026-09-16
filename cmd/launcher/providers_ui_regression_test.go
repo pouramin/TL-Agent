@@ -10,7 +10,7 @@ import (
 func TestProvidersUIRegressions(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
-		t.Skip("node is not available; custom provider UI regression harness skipped")
+		t.Skip("node is not available; custom provider regression harness skipped")
 	}
 
 	_, thisFile, _, ok := runtime.Caller(0)
@@ -18,12 +18,14 @@ func TestProvidersUIRegressions(t *testing.T) {
 		t.Fatal("could not resolve test file path")
 	}
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
-	script := filepath.Join(repoRoot, "scripts", "check-providers-ui.cjs")
 
-	cmd := exec.Command(node, script)
-	cmd.Dir = repoRoot
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("custom provider UI regression harness failed: %v\n%s", err, output)
+	for _, name := range []string{"check-providers-ui.cjs", "check-provider-api.cjs"} {
+		script := filepath.Join(repoRoot, "scripts", name)
+		cmd := exec.Command(node, script)
+		cmd.Dir = repoRoot
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s regression harness failed: %v\n%s", name, err, output)
+		}
 	}
 }
