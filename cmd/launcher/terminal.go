@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,7 +32,6 @@ type managedProcess struct {
 	exitCode  *int
 	running   bool
 	output    []byte
-	cancel    context.CancelFunc
 	cmd       *exec.Cmd
 }
 
@@ -61,27 +59,23 @@ func (m *processManager) start(command string) (*managedProcess, error) {
 	if cwd == "" {
 		return nil, errors.New("open a project before running commands")
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cmd := shellCommand(ctx, command)
+	cmd := shellCommand(command)
+	configureManagedCommand(cmd)
 	cmd.Dir = cwd
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("capture stdout: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		cancel()
 		return nil, fmt.Errorf("capture stderr: %w", err)
 	}
 	id, err := randomSecret(8)
 	if err != nil {
-		cancel()
 		return nil, err
 	}
-	p := &managedProcess{id: id, command: command, cwd: cwd, startedAt: time.Now().UTC(), running: true, cancel: cancel, cmd: cmd}
+	p := &managedProcess{id: id, command: command, cwd: cwd, startedAt: time.Now().UTC(), running: true, cmd: cmd}
 	if err := cmd.Start(); err != nil {
-		cancel()
 		return nil, fmt.Errorf("start command: %w", err)
 	}
 	m.mu.Lock()
@@ -93,11 +87,11 @@ func (m *processManager) start(command string) (*managedProcess, error) {
 	return p, nil
 }
 
-func shellCommand(ctx context.Context, command string) *exec.Cmd {
+func shellCommand(command string) *exec.Cmd {
 	if runtime.GOOS == "windows" {
-		return exec.CommandContext(ctx, "cmd.exe", "/d", "/s", "/c", command)
+		return exec.Command("cmd.exe", "/d", "/s", "/c", command)
 	}
-	return exec.CommandContext(ctx, "/bin/sh", "-lc", command)
+	return exec.Command("/bin/sh", "-lc", command)
 }
 
 func (p *managedProcess) copyOutput(reader io.Reader) {
@@ -161,10 +155,12 @@ func (m *processManager) stop(id string) error {
 	}
 	p.mu.RLock()
 	running := p.running
-	cancel := p.cancel
+	cmd := p.cmd
 	p.mu.RUnlock()
-	if running && cancel != nil {
-		cancel()
+	if running {
+		if err := terminateManagedProcess(cmd); err != nil {
+			return fmt.Errorf("stop process: %w", err)
+		}
 	}
 	return nil
 }
