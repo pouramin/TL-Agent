@@ -60,18 +60,31 @@
     } catch (err) { K.showError(err.message || String(err)); }
   };
 
-  const loadDiagnostics = () => new Promise((resolve) => {
-    if (K.__diagnosticsUiInstalled) return resolve();
+  const loadScript = (src, ready, warning) => new Promise((resolve) => {
+    if (ready?.()) return resolve();
     const script = document.createElement("script");
-    script.src = "/diagnostics-ui.js";
+    script.src = src;
     script.async = false;
     script.onload = resolve;
     script.onerror = () => {
-      console.warn("[TL Agent] Session diagnostics UI failed to load");
+      console.warn(warning);
       resolve();
     };
     document.head.appendChild(script);
   });
+
+  const loadDiagnostics = async () => {
+    await loadScript(
+      "/diagnostics-ui.js",
+      () => K.__diagnosticsUiInstalled,
+      "[TL Agent] Session diagnostics UI failed to load",
+    );
+    await loadScript(
+      "/provider-recovery-ui.js",
+      () => K.__providerRecoveryInstalled,
+      "[TL Agent] Provider recovery UI failed to load",
+    );
+  };
 
   loadDiagnostics().finally(init);
 })();
