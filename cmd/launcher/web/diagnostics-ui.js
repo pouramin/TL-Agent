@@ -182,6 +182,63 @@
     };
   };
 
+  let recovering = false;
+
+  const waitForSessionIdle = async (sessionID, timeoutMs = 7000) => {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      try { await K.loadActiveSessions?.(); } catch {}
+      if (!K.isSessionRunning?.(sessionID)) return true;
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    }
+    try { await K.loadActiveSessions?.(); } catch {}
+    return !K.isSessionRunning?.(sessionID);
+  };
+
+  const recoverStalledSession = async (button) => {
+    const session = K.state.session;
+    const snapshot = workingStatusSnapshot();
+    if (!session || recovering || snapshot.type !== "busy" || !snapshot.stale) return false;
+
+    recovering = true;
+    const previousLabel = button?.textContent || "Recover";
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Recovering…";
+    }
+    K.showError?.("");
+
+    try {
+      await K.api.sessions.abort(session.id, { scope: "session" });
+      K.state.sending = false;
+      K.stopSessionPolling?.();
+
+      const idle = await waitForSessionIdle(session.id);
+      if (!idle) throw new Error("Kilo still reports this session as busy after interrupt.");
+
+      const reloads = [];
+      if (K.loadMessages) reloads.push(K.loadMessages().catch(() => []));
+      if (K.loadAttention) reloads.push(K.loadAttention().catch(() => {}));
+      if (reloads.length) await Promise.all(reloads);
+      K.renderMessages?.();
+
+      if (!K.els.prompt) throw new Error("Prompt editor is unavailable.");
+      K.els.prompt.value = RESUME_PROMPT;
+      K.resizePrompt?.();
+      await K.sendPrompt?.();
+      return true;
+    } catch (error) {
+      K.showError?.(`Recovery failed: ${error.message || String(error)}`);
+      return false;
+    } finally {
+      recovering = false;
+      if (button?.isConnected) {
+        button.disabled = false;
+        button.textContent = previousLabel;
+      }
+    }
+  };
+
   const timeoutEntries = () => K.state.messages
     .map((message, index) => ({ message, index }))
     .filter(({ message }) => messageRole(message) === "assistant");
@@ -234,6 +291,7 @@
     }
 
     content.querySelector(".session-live-meta")?.remove();
+    content.querySelector(".session-recovery-actions")?.remove();
     const meta = document.createElement("div");
     meta.className = "session-live-meta";
     const lines = [snapshot.meta];
@@ -242,6 +300,19 @@
     else lines.push("No completed routed model recorded in this attempt yet");
     meta.textContent = lines.filter(Boolean).join("\n");
     content.appendChild(meta);
+
+    if (snapshot.type === "busy" && snapshot.stale) {
+      const actions = document.createElement("div");
+      actions.className = "session-recovery-actions";
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "timeout-resume-button session-recover-button";
+      button.textContent = "Recover";
+      button.title = "Interrupt the stuck turn and resume from the preserved workspace state";
+      button.addEventListener("click", () => recoverStalledSession(button));
+      actions.appendChild(button);
+      content.appendChild(actions);
+    }
   };
 
   const installStyles = () => {
@@ -253,6 +324,8 @@
       .session-live-meta { margin-top: 5px; white-space: pre-line; color: var(--muted-2); font-size: 9px; line-height: 1.5; }
       .working-message[data-session-status="retry"] .session-live-title { color: #d8b96f; }
       .working-message.stalled .session-live-title { color: #d8b96f; }
+      .session-recovery-actions { margin-top: 10px; display: flex; justify-content: flex-start; }
+      .session-recover-button { min-width: 76px; }
     `;
     document.head.appendChild(style);
   };
@@ -271,6 +344,8 @@
     lastActivityAt,
     retryMessage,
     workingStatusSnapshot,
+    waitForSessionIdle,
+    recoverStalledSession,
   };
 
   installStyles();
