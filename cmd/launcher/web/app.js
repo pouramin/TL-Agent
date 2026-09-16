@@ -73,7 +73,7 @@
     document.head.appendChild(script);
   });
 
-  const loadDiagnostics = async () => {
+  const loadExtensions = async () => {
     await loadScript(
       "/diagnostics-ui.js",
       () => K.__diagnosticsUiInstalled,
@@ -84,7 +84,17 @@
       () => K.__providerRecoveryInstalled,
       "[TL Agent] Provider recovery UI failed to load",
     );
+    await loadScript(
+      "/providers-ui.js",
+      () => K.__providersUiInstalled,
+      "[TL Agent] Custom provider settings UI failed to load",
+    );
+    await loadScript(
+      "/providers-settings-bridge.js",
+      () => K.__providersSettingsBridgeInstalled,
+      "[TL Agent] Custom provider settings bridge failed to load",
+    );
   };
 
-  loadDiagnostics().finally(init);
+  loadExtensions().finally(init);
 })();
