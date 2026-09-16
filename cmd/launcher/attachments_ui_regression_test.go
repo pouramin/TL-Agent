@@ -21,15 +21,28 @@ func TestComposerAttachmentsAreEmbeddedAndWired(t *testing.T) {
 	text := string(js)
 	for _, expected := range []string{
 		`type: "file"`,
-		`/prompt_async`,
 		`readAsDataURL`,
 		`MAX_FILE_BYTES`,
 		`attachmentInput.multiple = true`,
 		`K.sendPrompt = async () =>`,
+		`K.api.sessions.promptAsync`,
 	} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("attachments.js is missing expected behavior %q", expected)
 		}
+	}
+	if strings.Contains(text, "K.request(") || strings.Contains(text, "/kilo/session/") {
+		t.Fatal("attachments UI bypasses the Kilo API adapter")
+	}
+
+	adapter, err := webFS.ReadFile("web/kilo-api.js")
+	if err != nil {
+		t.Fatalf("read embedded kilo-api.js: %v", err)
+	}
+	adapterText := string(adapter)
+	if !strings.Contains(adapterText, "{ text, parts, agent, model") ||
+		!strings.Contains(adapterText, "Array.isArray(parts) && parts.length ? parts") {
+		t.Fatal("Kilo API adapter does not preserve structured prompt parts")
 	}
 
 	css, err := webFS.ReadFile("web/attachments.css")
