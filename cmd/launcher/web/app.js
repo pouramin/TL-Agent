@@ -80,6 +80,11 @@
       "[TL Agent] Browser IDE reconciliation extension failed to load",
     );
     await loadScript(
+      "/terminal.js",
+      () => K.__terminalInstalled,
+      "[TL Agent] Integrated terminal failed to load",
+    );
+    await loadScript(
       "/attachments.js",
       () => K.__attachmentsInstalled,
       "[TL Agent] Composer attachments failed to load",
