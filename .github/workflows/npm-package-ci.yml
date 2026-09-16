@@ -1,0 +1,55 @@
+name: npm Package Contract
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'VERSION'
+      - 'scripts/npx-launch.cjs'
+      - 'packaging/npm/**'
+      - '.github/workflows/npm-package-ci.yml'
+      - '.github/workflows/publish-npm.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'VERSION'
+      - 'scripts/npx-launch.cjs'
+      - 'packaging/npm/**'
+      - '.github/workflows/npm-package-ci.yml'
+      - '.github/workflows/publish-npm.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  package-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: false
+
+      - name: Build isolated package
+        run: node packaging/npm/build.cjs
+
+      - name: Verify launcher syntax
+        run: node --check packaging/npm/dist/tl-agent.cjs
+
+      - name: Verify package metadata and contents
+        working-directory: packaging/npm/dist
+        run: |
+          set -euo pipefail
+          EXPECTED_VERSION="$(tr -d '[:space:]' < ../../../VERSION)"
+          ACTUAL_VERSION="$(node -p "require('./package.json').version")"
+          PACKAGE_NAME="$(node -p "require('./package.json').name")"
+          BIN_TARGET="$(node -p "require('./package.json').bin['tl-agent']")"
+
+          test "$EXPECTED_VERSION" = "$ACTUAL_VERSION"
+          test "$PACKAGE_NAME" = "tl-agent"
+          test "$BIN_TARGET" = "tl-agent.cjs"
+          test -f tl-agent.cjs
+          test -f README.md
+
+          npm pack --dry-run --ignore-scripts
