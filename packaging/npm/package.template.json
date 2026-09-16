@@ -9,6 +9,7 @@
   },
   "files": [
     "tl-agent.cjs",
+    "launcher.cjs",
     "README.md"
   ],
   "engines": {
