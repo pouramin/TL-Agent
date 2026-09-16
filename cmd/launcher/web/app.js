@@ -75,6 +75,11 @@
 
   const loadExtensions = async () => {
     await loadScript(
+      "/ide-foundation.js",
+      () => K.__ideFoundationInstalled,
+      "[TL Agent] Browser IDE reconciliation extension failed to load",
+    );
+    await loadScript(
       "/attachments.js",
       () => K.__attachmentsInstalled,
       "[TL Agent] Composer attachments failed to load",
