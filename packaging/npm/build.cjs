@@ -23,7 +23,10 @@ manifest.version = version;
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(path.join(out, "package.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-fs.copyFileSync(launcherFile, path.join(out, "tl-agent.cjs"));
+fs.copyFileSync(launcherFile, path.join(out, "launcher.cjs"));
 fs.copyFileSync(readmeFile, path.join(out, "README.md"));
 
-console.log(`Prepared ${manifest.name}@${manifest.version} in ${out}`);
+const wrapper = `#!/usr/bin/env node\n"use strict";\n\n// Pin this npm package to the matching TL Agent GitHub Release.\n// Users can still override it explicitly with TL_AGENT_VERSION.\nif (!process.env.TL_AGENT_VERSION) process.env.TL_AGENT_VERSION = "v${version}";\nrequire("./launcher.cjs");\n`;
+fs.writeFileSync(path.join(out, "tl-agent.cjs"), wrapper, { mode: 0o755 });
+
+console.log(`Prepared ${manifest.name}@${manifest.version} -> v${version} in ${out}`);
