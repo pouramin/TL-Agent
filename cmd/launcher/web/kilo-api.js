@@ -124,9 +124,9 @@
         const payload = unwrapData(await request(route(`/session/${enc(sessionID)}/message`, { limit }, directory)));
         return wrapData(Array.isArray(payload) ? payload : []);
       },
-      promptAsync: (sessionID, { text, agent, model, variant, messageID, directory } = {}) => {
+      promptAsync: (sessionID, { text, parts, agent, model, variant, messageID, directory } = {}) => {
         const payload = {
-          parts: [{ type: "text", text: text || "" }],
+          parts: Array.isArray(parts) && parts.length ? parts : [{ type: "text", text: text || "" }],
           ...(messageID ? { messageID } : {}),
           ...(agent ? { agent } : {}),
           ...(model ? { model: wireModel(model) } : {}),
