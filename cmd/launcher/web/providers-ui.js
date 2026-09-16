@@ -13,18 +13,6 @@
   const PACKAGE_PROTOCOL = Object.fromEntries(Object.entries(PACKAGES).map(([protocol, npm]) => [npm, protocol]));
   const PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/;
   const SUPPORTED_PACKAGES = new Set(Object.values(PACKAGES));
-  const AGENTROUTER_PRESET = Object.freeze({
-    providerID: "agentrouter",
-    name: "AgentRouter",
-    protocol: "openai-compatible",
-    baseURL: "https://co.agentrouter.org/v1",
-    modelID: "deepseek-v4-flash",
-    modelName: "DeepSeek V4 Flash",
-    toolCall: true,
-    reasoning: true,
-    contextLimit: "",
-    outputLimit: "",
-  });
 
   const clean = (value) => String(value ?? "").trim();
   const positiveInt = (value) => {
@@ -102,7 +90,6 @@
 
   K.__providersUi = {
     PACKAGES,
-    AGENTROUTER_PRESET,
     validateDraft,
     buildProviderConfig,
     customProviderEntries,
@@ -133,13 +120,6 @@
       <button id="providerAddButton" class="primary provider-add-button" type="button">Add provider</button>
     </div>
     <div id="providerNotice" class="provider-notice hidden" role="status"></div>
-    <div class="provider-preset-card">
-      <div>
-        <strong>AgentRouter · DeepSeek V4 Flash</strong>
-        <span>Preset: OpenAI Compatible · https://co.agentrouter.org/v1</span>
-      </div>
-      <button id="agentRouterPresetButton" class="ghost small" type="button">Use preset</button>
-    </div>
     <div id="providerList" class="provider-list"></div>
     <form id="providerForm" class="provider-form hidden">
       <div class="provider-form-head">
@@ -147,13 +127,13 @@
         <button id="providerFormCancelTop" class="icon-button" type="button" aria-label="Close provider form">×</button>
       </div>
       <div class="provider-form-grid">
-        <label><span>Provider ID</span><input id="providerIdInput" autocomplete="off" spellcheck="false" placeholder="agentrouter" /></label>
-        <label><span>Display name</span><input id="providerNameInput" autocomplete="off" placeholder="AgentRouter" /></label>
+        <label><span>Provider ID</span><input id="providerIdInput" autocomplete="off" spellcheck="false" placeholder="my-provider" /></label>
+        <label><span>Display name</span><input id="providerNameInput" autocomplete="off" placeholder="My Provider" /></label>
         <label><span>Provider API</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI Compatible</option><option value="openai-responses">OpenAI Responses</option><option value="anthropic-messages">Anthropic Messages</option></select></label>
         <label class="provider-field-wide"><span>Base URL</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
         <label class="provider-field-wide"><span>API key</span><input id="providerApiKeyInput" type="password" autocomplete="new-password" spellcheck="false" placeholder="Leave blank to keep an existing key" /></label>
-        <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="deepseek-v4-flash" /></label>
-        <label><span>Model name</span><input id="providerModelNameInput" autocomplete="off" placeholder="DeepSeek V4 Flash" /></label>
+        <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="model-id" /></label>
+        <label><span>Model name</span><input id="providerModelNameInput" autocomplete="off" placeholder="Model name" /></label>
         <label><span>Context limit</span><input id="providerContextInput" inputmode="numeric" autocomplete="off" placeholder="Optional" /></label>
         <label><span>Max output</span><input id="providerOutputInput" inputmode="numeric" autocomplete="off" placeholder="Optional" /></label>
       </div>
@@ -174,16 +154,15 @@
   style.textContent = `
     .providers-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.provider-add-button{flex:none}
     .provider-notice{margin:-8px 0 14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);font-size:10px;line-height:1.45}.provider-notice.error{border-color:color-mix(in srgb,var(--danger),var(--line) 55%);color:var(--danger)}
-    .provider-preset-card{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;padding:11px 12px;border:1px solid color-mix(in srgb,var(--accent),var(--line) 68%);border-radius:10px;background:color-mix(in srgb,var(--accent),transparent 94%)}.provider-preset-card strong,.provider-preset-card span{display:block}.provider-preset-card strong{font-size:11px}.provider-preset-card span{margin-top:3px;color:var(--muted);font-size:9px}
     .provider-list{display:grid;gap:8px}.provider-empty{padding:24px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:10px;text-align:center}.provider-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.provider-item-title{display:flex;align-items:center;gap:7px}.provider-item-title strong{font-size:11px}.provider-status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted-2)}.provider-status-dot.ok{background:var(--accent)}.provider-item-meta{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}.provider-item-actions{display:flex;gap:6px}.provider-delete{color:var(--danger)}
     .provider-form{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2)}.provider-form-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}.provider-form-head strong,.provider-form-head span{display:block}.provider-form-head strong{font-size:12px}.provider-form-head span{margin-top:3px;color:var(--muted);font-size:9px}.provider-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.provider-form-grid label>span{display:block;margin:0 0 5px;color:var(--muted);font-size:9px;font-weight:650}.provider-form-grid input,.provider-form-grid select{box-sizing:border-box;width:100%;height:34px}.provider-field-wide{grid-column:1/-1}.provider-toggles{display:flex;gap:18px;margin-top:12px;color:var(--text);font-size:10px}.provider-toggles label{display:flex;align-items:center;gap:5px}.provider-security-note,.provider-limit-note{margin-top:11px;color:var(--muted);font-size:9px;line-height:1.5}.provider-security-note{color:color-mix(in srgb,var(--accent),var(--text) 45%)}.provider-form-actions{padding:13px 0 0}.providers-settings-panel.busy{opacity:.72;pointer-events:none}
-    @media(max-width:760px){.providers-panel-head{display:block}.provider-add-button{margin-top:10px}.provider-preset-card{align-items:flex-start;flex-direction:column}.provider-form-grid{grid-template-columns:1fr}.provider-field-wide{grid-column:auto}.provider-item{grid-template-columns:1fr}.provider-item-actions{justify-content:flex-end}}
+    @media(max-width:760px){.providers-panel-head{display:block}.provider-add-button{margin-top:10px}.provider-form-grid{grid-template-columns:1fr}.provider-field-wide{grid-column:auto}.provider-item{grid-template-columns:1fr}.provider-item-actions{justify-content:flex-end}}
   `;
   document.head.appendChild(style);
 
   const $ = (id) => document.getElementById(id);
   const els = {
-    add: $("providerAddButton"), preset: $("agentRouterPresetButton"), notice: $("providerNotice"), list: $("providerList"), form: $("providerForm"),
+    add: $("providerAddButton"), notice: $("providerNotice"), list: $("providerList"), form: $("providerForm"),
     title: $("providerFormTitle"), cancel: $("providerFormCancel"), cancelTop: $("providerFormCancelTop"), save: $("providerFormSave"),
     id: $("providerIdInput"), name: $("providerNameInput"), protocol: $("providerProtocolSelect"), baseURL: $("providerBaseUrlInput"), apiKey: $("providerApiKeyInput"),
     modelID: $("providerModelIdInput"), modelName: $("providerModelNameInput"), context: $("providerContextInput"), output: $("providerOutputInput"),
@@ -264,7 +243,7 @@
     if (!entries.length) {
       const empty = document.createElement("div");
       empty.className = "provider-empty";
-      empty.textContent = "No custom providers yet. Use the AgentRouter preset or add any compatible endpoint.";
+      empty.textContent = "No custom providers yet. Add any compatible endpoint to get started.";
       els.list.appendChild(empty);
       return;
     }
@@ -341,9 +320,6 @@
     const value = draft();
     const error = validateDraft(value);
     if (error) return notice(error, true);
-    if (value.providerID === "agentrouter" && !clean(value.apiKey) && !K.state.connectedProviders.has("agentrouter")) {
-      return notice("Enter your AgentRouter API key before saving the preset.", true);
-    }
 
     setBusy(true);
     notice("");
@@ -401,7 +377,6 @@
 
   navButton.addEventListener("click", () => { activate(); load(); });
   els.add.addEventListener("click", () => { notice(""); fillForm({ toolCall: true }); });
-  els.preset.addEventListener("click", () => { notice(""); fillForm(AGENTROUTER_PRESET); });
   els.cancel.addEventListener("click", clearForm);
   els.cancelTop.addEventListener("click", clearForm);
   els.form.addEventListener("submit", save);
