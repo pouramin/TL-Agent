@@ -1,6 +1,6 @@
 ---
 title: نصب
-description: نصب TL Agent با Launcher یک‌دستوری یا نسخه Portable.
+description: نصب TL Agent با Launcher پایدار npm یا نسخه Portable.
 icon: Download
 ---
 
@@ -9,14 +9,26 @@ icon: Download
 اگر Node.js و npm روی سیستم نصب است، داخل پوشه پروژه‌ای که می‌خواهید روی آن کار کنید Terminal را باز کنید و بزنید:
 
 ```bash
-npx --yes github:pouramin/TL-Agent
+npx --yes tl-agent
 ```
 
-Launcher سبک، سیستم‌عامل و معماری دستگاه را تشخیص می‌دهد، نسخه مناسب TL Agent را از GitHub می‌گیرد، SHA-256 را بررسی می‌کند، آن را Cache می‌کند و همان پوشه را به‌عنوان پروژه باز می‌کند.
+پکیج npm فقط یک Launcher سبک است. سیستم‌عامل و معماری دستگاه را تشخیص می‌دهد، Release رسمی و متناظر TL Agent را از GitHub می‌گیرد، SHA-256 را بررسی می‌کند، فایل را Local Cache می‌کند و همان پوشه را به‌عنوان Project باز می‌کند.
+
+برای جلوگیری از بازشدن خودکار Browser:
+
+```bash
+npx --yes tl-agent --no-browser
+```
+
+مسیر پیش‌فرض npm روی Stable Channel است. اگر Prerelease فعالی وجود داشته باشد، می‌توانید Channel را صریح مشخص کنید؛ مثلاً:
+
+```bash
+npx --yes tl-agent@alpha
+```
 
 ## نسخه Portable
 
-برای استفاده عادی از نسخه Portable نیازی به Node.js نیست. فایل مناسب سیستم‌عامل را از GitHub Releases بگیرید، Extract کنید و اجرا کنید:
+برای استفاده از نسخه Portable نیازی به Node.js نیست. فایل مناسب سیستم‌عامل را از GitHub Releases بگیرید، Extract کنید و اجرا کنید:
 
 ```text
 Windows:  tl-agent.exe

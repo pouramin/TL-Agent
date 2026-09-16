@@ -47,7 +47,7 @@ export default function PersianHomePage() {
             <img src={site.logoUrl} alt="TL Agent — Code. Reason. Act." />
           </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
-            Early Alpha · Local-first · Open Source
+            Stable v0.1.0 · Local-first · Open Source
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
             یک Workspace مستقل و Local برای Coding Agentها، بدون IDE.

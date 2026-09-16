@@ -1,10 +1,28 @@
 ---
 title: Release و Runtime همراه
-description: ساختار Releaseهای TL Agent و مدل Runtime همراه برنامه.
+description: ساختار Releaseهای TL Agent، توزیع npm و مدل Runtime همراه برنامه.
 icon: PackageCheck
 ---
 
 TL Agent، Launcher و UI خودش را همراه یک Runtime Pin‌شده منتشر می‌کند تا کاربر فقط یک Archive بگیرد و مستقیم اجرا کند.
+
+## Stable و Prerelease Channelها
+
+**v0.1.0 اولین baseline پایدار TL Agent است.** نسخه پکیج npm با GitHub Release متناظر Pin می‌شود و دستور پیش‌فرض روی Stable Channel با dist-tag `latest` قرار دارد:
+
+```bash
+npx --yes tl-agent
+```
+
+اگر Build آزمایشی فعال باشد، با Channel صریح مثل `alpha` اجرا می‌شود:
+
+```bash
+npx --yes tl-agent@alpha
+```
+
+پکیج npm فقط یک Launcher سبک است؛ Release رسمی مناسب سیستم را دانلود می‌کند، SHA-256 را بررسی می‌کند و همان نسخه را اجرا می‌کند.
+
+## محتویات نسخه Portable
 
 هر Release شامل این بخش‌هاست:
 

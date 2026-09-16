@@ -1,10 +1,28 @@
 ---
 title: Releases and bundled runtime
-description: Understand TL Agent release archives and the bundled runtime model.
+description: Understand TL Agent release archives, npm distribution, and the bundled runtime model.
 icon: PackageCheck
 ---
 
 TL Agent ships its own launcher/UI together with a pinned runtime so users can download one archive and run it directly.
+
+## Stable and prerelease channels
+
+**v0.1.0 is the first stable TL Agent baseline.** The npm package version is pinned to the matching GitHub Release, so the default command follows the stable `latest` channel:
+
+```bash
+npx --yes tl-agent
+```
+
+When prerelease builds are available, they use explicit dist-tags such as `alpha`:
+
+```bash
+npx --yes tl-agent@alpha
+```
+
+The npm package is only a lightweight launcher; it downloads and verifies the matching official release for the current platform.
+
+## Portable release contents
 
 A release archive contains:
 
