@@ -30,12 +30,4 @@ tl-agent --no-browser
 
 مقدار پیش‌فرض `127.0.0.1` است و TL Agent عمداً فقط loopback را قبول می‌کند.
 
-## `--kilo` — تغییر Runtime برای حالت پیشرفته
-
-Release عادی TL Agent خودش Runtime سازگار را دارد. Developerها برای تست Compatibility می‌توانند مسیر Runtime دیگری را مشخص کنند:
-
-```bash
-tl-agent --kilo /path/to/kilo
-```
-
-این گزینه برای Debug و توسعه است و بخشی از Workflow معمول کاربر نیست.
+جزئیات Runtime Override عمداً از CLI Guide معمولی جدا نگه داشته شده است. Maintainerها برای تست Compatibility می‌توانند [Runtime Integration](./runtime-integration) را ببینند.

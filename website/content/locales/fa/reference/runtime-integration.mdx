@@ -12,13 +12,7 @@ TL Agent جزئیات Runtime را پشت یک Adapter Boundary نگه می‌د
 
 ## Adapter Boundary
 
-فراخوانی‌های Browser به Runtime در این Adapter متمرکز شده‌اند:
-
-```text
-cmd/launcher/web/kilo-api.js
-```
-
-بخش‌های UI نباید Endpointهای Runtime را مستقیم بسازند. این مرزبندی Upgrade Runtime را قابل بررسی و تست نگه می‌دارد.
+فراخوانی‌های Browser به Runtime داخل یک Adapter اختصاصی در `cmd/launcher/web/` متمرکز شده‌اند. بخش‌های UI نباید Endpointهای Runtime را مستقیم بسازند. این مرزبندی Upgrade Runtime را قابل بررسی و تست نگه می‌دارد.
 
 ## قانون Upgrade
 

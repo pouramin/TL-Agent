@@ -30,12 +30,4 @@ tl-agent --no-browser
 
 The default is `127.0.0.1`. TL Agent intentionally accepts loopback addresses only.
 
-## `--kilo` — advanced runtime override
-
-TL Agent releases already include the supported runtime. Developers can override it explicitly when testing compatibility:
-
-```bash
-tl-agent --kilo /path/to/kilo
-```
-
-This option is for advanced/debug use and is not part of the normal user workflow.
+Runtime override details are intentionally kept out of the normal CLI guide. Maintainers can use [Runtime integration](./runtime-integration) for compatibility testing details.

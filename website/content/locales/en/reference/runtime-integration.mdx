@@ -12,13 +12,7 @@ The bundled runtime version is pinned and CI validates the product-facing HTTP c
 
 ## Adapter boundary
 
-Browser-side runtime calls are centralized in:
-
-```text
-cmd/launcher/web/kilo-api.js
-```
-
-UI modules should not build runtime endpoint paths directly. Keeping compatibility logic in one adapter makes runtime upgrades reviewable and testable.
+Browser-side runtime calls are centralized in a dedicated adapter under `cmd/launcher/web/`. UI modules should not build runtime endpoint paths directly. Keeping compatibility logic behind one boundary makes runtime upgrades reviewable and testable.
 
 ## Upgrade rule
 
