@@ -124,6 +124,7 @@ func (p *managedProcess) wait() {
 			code = -1
 			p.appendOutput([]byte("[TL Agent] process error: " + err.Error() + "\n"))
 		}
+	}
 	now := time.Now().UTC()
 	p.mu.Lock()
 	p.running = false
