@@ -13,8 +13,12 @@ class FakeElement {
     this.textContent = "";
     this.dataset = {};
     this.children = [];
+    this.disabled = false;
+    this.isConnected = true;
   }
   appendChild(child) { this.children.push(child); return child; }
+  append(...children) { this.children.push(...children); }
+  addEventListener() {}
 }
 
 const repoRoot = path.resolve(__dirname, "..");
@@ -51,7 +55,7 @@ const K = {
     messages: [],
     sending: false,
   },
-  els: { conversation: null },
+  els: { conversation: null, prompt: { value: "" } },
 };
 
 const document = {
@@ -61,11 +65,13 @@ const document = {
 };
 
 const context = vm.createContext({
-  window: { KLU: K },
+  window: { KLU: K, setTimeout },
   document,
   console,
   Date,
   JSON,
+  Promise,
+  setTimeout,
 });
 vm.runInContext(source, context, { filename: "diagnostics-ui.js" });
 
@@ -121,4 +127,45 @@ assert.equal(snapshot.stale, true);
 assert.match(snapshot.title, /Still busy/);
 assert.match(snapshot.meta, /no new session activity for 5m/);
 
-console.log("status diagnostics regressions: ok");
+async function testRecovery() {
+  let abortCalls = 0;
+  let sendCalls = 0;
+  let errorMessage = "";
+
+  K.state.messages = staleMessages;
+  K.state.activeSessions["session-1"] = { type: "busy" };
+  K.api = {
+    sessions: {
+      abort: async (sessionID, options) => {
+        abortCalls += 1;
+        assert.equal(sessionID, "session-1");
+        assert.equal(options.scope, "session");
+        K.state.activeSessions[sessionID] = { type: "idle" };
+      },
+    },
+  };
+  K.loadActiveSessions = async () => {};
+  K.isSessionRunning = (sessionID) => K.state.activeSessions[sessionID]?.type !== "idle";
+  K.stopSessionPolling = () => {};
+  K.loadMessages = async () => [];
+  K.loadAttention = async () => {};
+  K.resizePrompt = () => {};
+  K.showError = (message) => { errorMessage = message || ""; };
+  K.sendPrompt = async () => {
+    sendCalls += 1;
+    assert.equal(K.els.prompt.value, RESUME_PROMPT);
+  };
+
+  const recovered = await hooks.recoverStalledSession();
+  assert.equal(recovered, true);
+  assert.equal(abortCalls, 1, "recovery should interrupt the stuck Kilo session exactly once");
+  assert.equal(sendCalls, 1, "recovery should resume the task exactly once after Kilo becomes idle");
+  assert.equal(errorMessage, "");
+}
+
+testRecovery()
+  .then(() => console.log("status diagnostics regressions: ok"))
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
