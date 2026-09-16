@@ -22,35 +22,35 @@ jobs:
           - name: windows-x64
             goos: windows
             goarch: amd64
-            launcher: kilo-local-ui.exe
+            launcher: tl-agent.exe
             kilo_asset: kilo-windows-x64.zip
             kilo_binary: kilo.exe
             kind: zip
           - name: linux-x64
             goos: linux
             goarch: amd64
-            launcher: kilo-local-ui
+            launcher: tl-agent
             kilo_asset: kilo-linux-x64.tar.gz
             kilo_binary: kilo
             kind: tar
           - name: linux-arm64
             goos: linux
             goarch: arm64
-            launcher: kilo-local-ui
+            launcher: tl-agent
             kilo_asset: kilo-linux-arm64.tar.gz
             kilo_binary: kilo
             kind: tar
           - name: macos-x64
             goos: darwin
             goarch: amd64
-            launcher: kilo-local-ui
+            launcher: tl-agent
             kilo_asset: kilo-darwin-x64.zip
             kilo_binary: kilo
             kind: zip
           - name: macos-arm64
             goos: darwin
             goarch: arm64
-            launcher: kilo-local-ui
+            launcher: tl-agent
             kilo_asset: kilo-darwin-arm64.zip
             kilo_binary: kilo
             kind: zip
@@ -106,13 +106,13 @@ jobs:
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp third_party/KILO_LICENSE.txt staging/package/third_party/
-      - name: Real Kilo Protocol v2 contract test
+      - name: Real Kilo product API contract test
         if: matrix.name == 'linux-x64'
         shell: bash
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
-          BINARY="$GITHUB_WORKSPACE/staging/package/kilo-local-ui"
+          BINARY="$GITHUB_WORKSPACE/staging/package/tl-agent"
           START_DIR="$PWD"
           cd /tmp
           "$BINARY" --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
@@ -127,23 +127,23 @@ jobs:
           LOCAL_URL=""
           for _ in $(seq 1 100); do
             LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
-            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/status" >/dev/null; then
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/kilo/global/health" >/dev/null; then
               break
             fi
             sleep 0.2
           done
           test -n "$LOCAL_URL"
           python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
-          python3 scripts/check-kilo-v2-contract.py "$LOCAL_URL"
+          python3 scripts/check-kilo-product-contract.py "$LOCAL_URL"
       - name: Package
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
           if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            (cd staging/package && zip -qr "../../dist/kilo-local-ui-${RELEASE_TAG}-${{ matrix.name }}.zip" .)
+            (cd staging/package && zip -qr "../../dist/tl-agent-${RELEASE_TAG}-${{ matrix.name }}.zip" .)
           else
-            tar -C staging/package -czf "dist/kilo-local-ui-${RELEASE_TAG}-${{ matrix.name }}.tar.gz" .
+            tar -C staging/package -czf "dist/tl-agent-${RELEASE_TAG}-${{ matrix.name }}.tar.gz" .
           fi
       - uses: actions/upload-artifact@v4
         with:
@@ -180,7 +180,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          PRERELEASE=""
+          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc) ]]; then PRERELEASE="--prerelease"; fi
           gh release create "$RELEASE_TAG" dist/* \
             --target "$GITHUB_SHA" \
             --title "$RELEASE_TAG" \
-            --generate-notes
+            --generate-notes \
+            $PRERELEASE

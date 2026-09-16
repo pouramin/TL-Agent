@@ -7,118 +7,42 @@
     catch { return String(value); }
   };
 
-  K.showConversation = () => {
-    K.els.emptyState.classList.add("hidden");
-    K.els.conversation.classList.remove("hidden");
-  };
-
-  K.stopEvents = () => {
-    if (K.state.eventSource) K.state.eventSource.close();
-    K.state.eventSource = null;
-    if (K.state.fallbackPolling) window.clearInterval(K.state.fallbackPolling);
-    K.state.fallbackPolling = null;
-  };
-
-  K.newSession = () => {
-    Object.assign(K.state, {
-      session: null,
-      messages: [],
-      sending: false,
-      attentionKey: "",
-      live: { text: "", reasoning: "", assistantMessageID: "" },
-    });
-    K.showError("");
-    K.renderSessions();
-    K.renderSessionHeader();
-    K.els.conversation.textContent = "";
-    K.els.conversation.classList.add("hidden");
-    K.els.emptyState.classList.remove("hidden");
-    K.els.prompt.focus();
-  };
-
-  K.selectSession = async (session) => {
-    K.state.session = session;
-    K.state.messages = [];
-    K.state.live = { text: "", reasoning: "", assistantMessageID: "" };
-    K.renderSessions();
-    K.renderSessionHeader();
-    K.showConversation();
-    K.showError("");
-    K.syncSelectors();
-    await Promise.all([K.loadMessages(), K.loadActiveSessions(), K.loadAttention?.()]);
-    K.renderMessages();
-  };
-
-  K.createSession = async () => {
-    const input = {};
-    if (K.els.agentSelect.value) input.agent = K.els.agentSelect.value;
-    const model = K.selectedModel();
-    if (model) input.model = model;
-    const session = (await K.api.sessions.create(input))?.data;
-    if (!session?.id) throw new Error("Kilo did not return a session ID");
-    K.state.session = session;
-    K.showConversation();
-    K.renderSessionHeader();
-    await K.loadSessions().catch(() => {});
-    return session;
-  };
-
-  K.ensureSessionSelection = async () => {
-    const session = K.state.session;
-    if (!session) return;
-
-    const agent = K.els.agentSelect.value || undefined;
-    if (agent && session.agent !== agent) {
-      await K.api.sessions.switchAgent(session.id, agent);
-      session.agent = agent;
-    }
-
-    const model = K.selectedModel();
-    if (model && (session.model?.providerID !== model.providerID || session.model?.id !== model.id || session.model?.variant !== model.variant)) {
-      await K.api.sessions.switchModel(session.id, model);
-      session.model = model;
-    }
-    K.renderSessionHeader();
-  };
-
-  K.loadMessages = async () => {
-    if (!K.state.session) return [];
-    const revision = ++K.state.revision;
-    const payload = await K.api.sessions.messages(K.state.session.id, { order: "asc", limit: 200 });
-    if (revision === K.state.revision) K.state.messages = Array.isArray(payload?.data) ? payload.data : [];
-    return K.state.messages;
-  };
-
   const errorText = (error) => {
     if (!error) return "";
     if (typeof error === "string") return error;
-    if (typeof error.message === "string") return error.message;
+    const message = error.message || error.data?.message || error.error?.message || "";
+    const ref = error.ref || error.data?.ref || error.error?.ref || "";
+    if (message) return ref && !String(message).includes(ref) ? `${message} [${ref}]` : String(message);
     return safeJSON(error);
   };
 
-  const toolContentText = (content) => {
-    if (!Array.isArray(content)) return "";
-    return content.map((item) => {
-      if (!item) return "";
-      if (item.type === "text") return item.text || "";
-      if (item.type === "file") return item.name || item.filename || item.url || item.uri || safeJSON(item);
-      return safeJSON(item);
-    }).filter(Boolean).join("\n");
+  const partsOf = (message) => Array.isArray(message?.parts)
+    ? message.parts
+    : Array.isArray(message?.content) ? message.content : [];
+
+  const textOf = (message) => {
+    if (typeof message?.text === "string" && message.text) return message.text;
+    return partsOf(message)
+      .filter((item) => item?.type === "text" && !item.ignored)
+      .map((item) => item.text || "")
+      .filter(Boolean)
+      .join("\n")
+      .trim();
   };
 
   const toolSummary = (item) => {
     const state = item?.state || {};
-    const status = state.status || "pending";
-    if (status === "pending") return { status, detail: typeof state.input === "string" ? state.input : "" };
-    if (status === "error") return { status, detail: errorText(state.error) || toolContentText(state.content) };
-
+    const status = state.status || item.status || "pending";
     const details = [];
-    if (state.input && Object.keys(state.input).length) details.push(safeJSON(state.input));
-    const content = toolContentText(state.content);
-    if (content) details.push(content);
-    if (state.outputPaths?.length) details.push(`Output: ${state.outputPaths.join(", ")}`);
-    if (state.result !== undefined) details.push(typeof state.result === "string" ? state.result : safeJSON(state.result));
-    return { status, detail: details.join("\n\n") };
+    try {
+      if (state.input && Object.keys(state.input).length) details.push(safeJSON(state.input));
+      if (state.title) details.push(state.title);
+      const output = state.output ?? state.result ?? item.output ?? item.result;
+      if (output !== undefined && output !== "") details.push(typeof output === "string" ? output : safeJSON(output));
+      if (state.error) details.push(errorText(state.error));
+      if (state.metadata && Object.keys(state.metadata).length) details.push(safeJSON(state.metadata));
+    } catch {}
+    return { status, detail: details.filter(Boolean).join("\n\n") };
   };
 
   const messageNode = (kind, author, text, time, error) => {
@@ -165,67 +89,143 @@
     return card;
   };
 
-  const assistantText = (message) => (message.content || [])
-    .filter((item) => item?.type === "text")
-    .map((item) => item.text || "")
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-
-  const appendAssistantContent = (node, message) => {
+  const appendParts = (node, message) => {
     const content = node.querySelector(".message-content");
-    for (const item of message.content || []) {
+    for (const item of partsOf(message)) {
       if (item?.type === "reasoning" && item.text) content.appendChild(toolNode("Reasoning", "completed", item.text));
       if (item?.type === "tool") {
         const summary = toolSummary(item);
-        content.appendChild(toolNode(item.name || "tool", summary.status, summary.detail));
+        content.appendChild(toolNode(item.tool || item.name || "tool", summary.status, summary.detail));
+      }
+      if (item?.type === "subtask") {
+        content.appendChild(toolNode("Subtask", item.status || "created", item.description || item.prompt || ""));
       }
     }
+  };
+
+  const renderEnvelope = (view, message) => {
+    if (!message?.info || !Array.isArray(message.parts)) return false;
+    const info = message.info;
+    const time = info.time?.created ?? info.time?.completed;
+    if (info.role === "user") {
+      view.appendChild(messageNode("user", "You", textOf(message), time));
+      return true;
+    }
+    if (info.role === "assistant") {
+      const node = messageNode("assistant", info.agent || "Kilo", textOf(message), time, errorText(info.error));
+      appendParts(node, message);
+      view.appendChild(node);
+      return true;
+    }
+    return false;
+  };
+
+  K.showConversation = () => {
+    K.els.emptyState.classList.add("hidden");
+    K.els.conversation.classList.remove("hidden");
   };
 
   K.renderMessages = () => {
     const view = K.els.conversation;
     view.textContent = "";
     for (const message of K.state.messages) {
-      switch (message?.type) {
-        case "user":
-          view.appendChild(messageNode("user", "You", message.text || "", message.time?.created));
-          break;
-        case "assistant": {
-          const node = messageNode("assistant", message.agent || "Kilo", assistantText(message), message.time?.created, errorText(message.error));
-          appendAssistantContent(node, message);
-          view.appendChild(node);
-          break;
-        }
-        case "shell": {
-          const node = messageNode("assistant", "Shell", "", message.time?.created);
-          node.querySelector(".message-content").appendChild(toolNode(message.command || "command", message.time?.completed ? "completed" : "running", message.output || ""));
-          view.appendChild(node);
-          break;
-        }
-        case "system":
-        case "synthetic":
-          view.appendChild(messageNode("system", "System", message.text || "", message.time?.created));
-          break;
-        case "compaction":
-          view.appendChild(messageNode("system", "Context", message.summary || "Conversation context was compacted.", message.time?.created));
-          break;
-        case "agent-switched":
-        case "model-switched":
-          break;
+      if (renderEnvelope(view, message)) continue;
+
+      // Keep alpha-created projected sessions readable while the repository is
+      // transitioning from the experimental /api Session model.
+      if (message?.type === "user") {
+        view.appendChild(messageNode("user", "You", message.text || textOf(message), message.time?.created));
+      } else if (message?.type === "assistant") {
+        const node = messageNode("assistant", message.agent || "Kilo", textOf(message), message.time?.created, errorText(message.error));
+        appendParts(node, message);
+        view.appendChild(node);
+      } else if (message?.type === "shell") {
+        const node = messageNode("assistant", "Shell", "", message.time?.created);
+        node.querySelector(".message-content").appendChild(toolNode(message.command || "command", message.time?.completed ? "completed" : "running", message.output || ""));
+        view.appendChild(node);
+      } else if (message?.type === "system" || message?.type === "synthetic") {
+        view.appendChild(messageNode("system", "System", message.text || "", message.time?.created));
       }
     }
 
-    if (K.state.live.text || K.state.live.reasoning) {
-      const row = messageNode("assistant", K.state.session?.agent || "Kilo", K.state.live.text, Date.now());
-      if (K.state.live.reasoning) row.querySelector(".message-content").appendChild(toolNode("Reasoning", "streaming", K.state.live.reasoning));
-      view.appendChild(row);
-    } else if (K.state.session && (K.state.activeSessions[K.state.session.id] || K.state.sending)) {
-      const row = messageNode("assistant", "Kilo", "", Date.now());
+    if (K.state.session && (K.isSessionRunning(K.state.session.id) || K.state.sending)) {
+      const row = messageNode("assistant", K.state.session.agent || "Kilo", "", Date.now());
       row.querySelector(".message-text").innerHTML = 'Working <span class="typing"><i></i><i></i><i></i></span>';
       view.appendChild(row);
     }
     requestAnimationFrame(() => { view.scrollTop = view.scrollHeight; });
+  };
+
+  K.stopSessionPolling = () => {
+    if (K.state.sessionPolling) window.clearInterval(K.state.sessionPolling);
+    K.state.sessionPolling = null;
+  };
+
+  K.stopEvents = () => {
+    if (K.state.eventSource) K.state.eventSource.close();
+    K.state.eventSource = null;
+    if (K.state.fallbackPolling) window.clearInterval(K.state.fallbackPolling);
+    K.state.fallbackPolling = null;
+    K.stopSessionPolling();
+  };
+
+  K.newSession = () => {
+    K.stopSessionPolling();
+    Object.assign(K.state, { session: null, messages: [], sending: false, attentionKey: "" });
+    K.showError("");
+    K.renderSessions();
+    K.renderSessionHeader();
+    K.els.conversation.textContent = "";
+    K.els.conversation.classList.add("hidden");
+    K.els.emptyState.classList.remove("hidden");
+    K.els.prompt.focus();
+  };
+
+  K.loadMessages = async () => {
+    if (!K.state.session) return [];
+    const revision = ++K.state.revision;
+    const payload = await K.api.sessions.messages(K.state.session.id, { limit: 200 });
+    if (revision === K.state.revision) K.state.messages = Array.isArray(payload?.data) ? payload.data : [];
+    return K.state.messages;
+  };
+
+  K.selectSession = async (session) => {
+    K.stopSessionPolling();
+    K.state.session = session;
+    K.state.messages = [];
+    K.renderSessions();
+    K.renderSessionHeader();
+    K.showConversation();
+    K.showError("");
+    K.syncSelectors();
+    await Promise.all([K.loadMessages(), K.loadActiveSessions(), K.loadAttention?.()]);
+    K.renderMessages();
+    if (K.isSessionRunning(session.id)) K.startSessionPolling();
+  };
+
+  K.createSession = async () => {
+    const input = {};
+    const agent = K.els.agentSelect.value || undefined;
+    const model = K.selectedModel();
+    if (agent) input.agent = agent;
+    if (model) input.model = model;
+    const session = (await K.api.sessions.create(input))?.data;
+    if (!session?.id) throw new Error("Kilo did not return a session ID");
+    K.state.session = session;
+    if (agent) K.state.session.agent = agent;
+    if (model) K.state.session.model = model;
+    K.showConversation();
+    K.renderSessionHeader();
+    await K.loadSessions().catch(() => {});
+    return session;
+  };
+
+  K.ensureSessionSelection = () => {
+    const session = K.state.session;
+    if (!session) return;
+    session.agent = K.els.agentSelect.value || undefined;
+    session.model = K.selectedModel();
+    K.renderSessionHeader();
   };
 
   let refreshTimer = null;
@@ -247,83 +247,74 @@
 
   K.handleKiloEvent = (event) => {
     const type = event?.type || "";
-    const data = event?.data || {};
+    const props = event?.properties || event?.data || {};
     const selectedID = K.state.session?.id;
-    const sessionID = data.sessionID;
+    const sessionID = props.sessionID || props.info?.sessionID || props.part?.sessionID;
 
     if (type === "server.connected") return;
+    if (type.startsWith("permission.") || type.startsWith("question.")) K.loadAttention?.().catch(() => {});
     if (sessionID && sessionID !== selectedID) {
-      if (type.startsWith("session.next.")) window.setTimeout(() => K.loadSessions().catch(() => {}), 100);
+      if (type.startsWith("session.") || type.startsWith("message.")) window.setTimeout(() => K.loadSessions().catch(() => {}), 100);
       return;
     }
-
-    if (type === "session.next.text.started") {
-      K.state.live.assistantMessageID = data.assistantMessageID || "";
-      K.state.live.text = "";
-      K.renderMessages();
-      return;
-    }
-    if (type === "session.next.text.delta") {
-      if (!K.state.live.assistantMessageID || K.state.live.assistantMessageID === data.assistantMessageID) {
-        K.state.live.assistantMessageID = data.assistantMessageID || K.state.live.assistantMessageID;
-        K.state.live.text += data.delta || "";
-        K.renderMessages();
-      }
-      return;
-    }
-    if (type === "session.next.reasoning.started") {
-      K.state.live.assistantMessageID = data.assistantMessageID || K.state.live.assistantMessageID;
-      K.state.live.reasoning = "";
-      return;
-    }
-    if (type === "session.next.reasoning.delta") {
-      K.state.live.reasoning += data.delta || "";
-      K.renderMessages();
-      return;
-    }
-
-    if (type === "session.next.step.started") {
-      K.state.sending = true;
-      if (selectedID) K.state.activeSessions[selectedID] = { type: "running" };
-      K.renderMessages();
-      return;
-    }
-
-    if (type === "session.next.step.ended" || type === "session.next.step.failed") {
-      K.state.sending = false;
-      K.state.live = { text: "", reasoning: "", assistantMessageID: "" };
-      scheduleSelectedRefresh(0);
-      return;
-    }
-
-    if (type === "permission.v2.asked" || type === "permission.v2.replied" || type === "question.v2.asked" || type === "question.v2.replied" || type === "question.v2.rejected") {
-      K.loadAttention?.().catch(() => {});
-    }
-
-    if (type.startsWith("session.next.")) {
-      if (type === "session.next.text.ended" || type === "session.next.reasoning.ended") {
-        K.state.live = { text: "", reasoning: "", assistantMessageID: "" };
-      }
-      scheduleSelectedRefresh(type.includes(".delta") ? 250 : 40);
-    }
+    if (type.startsWith("session.") || type.startsWith("message.") || type.startsWith("file.")) scheduleSelectedRefresh(30);
   };
 
   K.startEvents = () => {
-    K.stopEvents();
+    if (K.state.eventSource) K.state.eventSource.close();
+    K.state.eventSource = null;
+    if (K.state.fallbackPolling) window.clearInterval(K.state.fallbackPolling);
+    K.state.fallbackPolling = null;
+
     if (!("EventSource" in window)) {
-      K.state.fallbackPolling = window.setInterval(async () => {
-        if (!K.state.session) return;
-        await Promise.all([K.loadMessages(), K.loadActiveSessions(), K.loadAttention?.()]).catch(() => {});
-        K.renderMessages();
-      }, 1200);
+      K.state.fallbackPolling = window.setInterval(() => scheduleSelectedRefresh(0), 1200);
       return;
     }
     K.state.eventSource = K.api.events.subscribe({
       onEvent: K.handleKiloEvent,
       onError: () => {
-        // EventSource reconnects automatically. Projected messages remain the source of truth.
+        // Native EventSource reconnects automatically. Prompt polling remains a
+        // second source of truth for headless/server variations.
       },
     });
+  };
+
+  const assistantAfter = (timestamp) => K.state.messages.some((message) => {
+    if (message?.info?.role !== "assistant") return false;
+    const created = Number(message.info.time?.created || 0);
+    return created >= timestamp - 1000 && (textOf(message) || message.info.error || partsOf(message).some((part) => part?.type === "tool"));
+  });
+
+  K.startSessionPolling = (startedAt = Date.now()) => {
+    K.stopSessionPolling();
+    let sawRunning = K.state.session ? K.isSessionRunning(K.state.session.id) : false;
+    K.state.sessionPolling = window.setInterval(async () => {
+      if (!K.state.session) return K.stopSessionPolling();
+      try {
+        await Promise.all([K.loadMessages(), K.loadActiveSessions(), K.loadAttention?.()]);
+        const running = K.isSessionRunning(K.state.session.id);
+        if (running) sawRunning = true;
+        K.renderMessages();
+
+        const elapsed = Date.now() - startedAt;
+        const settled = !running && !K.els.attentionDialog.open && (sawRunning || assistantAfter(startedAt) || elapsed > 4000);
+        if (settled) {
+          K.state.sending = false;
+          K.stopSessionPolling();
+          await K.loadSessions().catch(() => {});
+          const fresh = K.state.sessions.find((item) => item.id === K.state.session?.id);
+          if (fresh) K.state.session = fresh;
+          K.renderSessionHeader();
+          K.renderSessions();
+          K.renderMessages();
+        }
+      } catch (err) {
+        K.state.sending = false;
+        K.stopSessionPolling();
+        K.showError(err.message || String(err));
+        K.renderMessages();
+      }
+    }, 700);
   };
 
   K.sendPrompt = async () => {
@@ -332,24 +323,30 @@
     K.showError("");
     K.state.sending = true;
     K.els.sendButton.disabled = true;
+    const startedAt = Date.now();
     try {
       if (!K.state.session) await K.createSession();
-      await K.ensureSessionSelection();
+      K.ensureSessionSelection();
+      const agent = K.els.agentSelect.value || undefined;
+      const model = K.selectedModel();
+
       K.els.prompt.value = "";
       K.resizePrompt();
-      K.state.messages.push({ type: "user", text, time: { created: Date.now() } });
+      K.state.messages.push({
+        info: {
+          role: "user",
+          time: { created: startedAt },
+          agent: agent || "",
+          model: model ? { providerID: model.providerID, modelID: model.id } : undefined,
+        },
+        parts: [{ type: "text", text }],
+      });
       K.renderMessages();
-      await K.api.sessions.prompt(K.state.session.id, { text }, { delivery: "queue" });
+
+      await K.api.sessions.promptAsync(K.state.session.id, { text, agent, model, variant: model?.variant });
       await Promise.all([K.loadMessages(), K.loadActiveSessions(), K.loadAttention?.()]);
       K.renderMessages();
-      window.setTimeout(() => K.loadSessions().then(() => {
-        const fresh = K.state.sessions.find((item) => item.id === K.state.session?.id);
-        if (fresh) {
-          K.state.session = fresh;
-          K.renderSessionHeader();
-          K.renderSessions();
-        }
-      }).catch(() => {}), 500);
+      K.startSessionPolling(startedAt);
     } catch (err) {
       K.state.sending = false;
       K.showError(err.message || String(err));
@@ -390,33 +387,26 @@
   };
 
   K.afterProjectChange = async () => {
-    Object.assign(K.state, { session: null, sessions: [], messages: [], location: null });
+    K.stopEvents();
+    Object.assign(K.state, { session: null, sessions: [], messages: [], activeSessions: {}, sending: false });
     K.els.projectName.textContent = K.basename(K.state.local.project);
     K.els.projectPath.textContent = K.state.local.project;
     K.els.projectPath.title = K.state.local.project;
     K.newSession();
-    await K.checkBackend();
-    await Promise.all([K.loadCatalog(), K.loadSessions()]);
+    await Promise.all([K.loadCatalog(), K.loadSessions(), K.loadActiveSessions()]);
     K.startEvents();
   };
 
-  K.switchAgent = async () => {
-    if (!K.state.session || !K.els.agentSelect.value) return;
-    try {
-      await K.api.sessions.switchAgent(K.state.session.id, K.els.agentSelect.value);
-      K.state.session.agent = K.els.agentSelect.value;
-      K.renderSessionHeader();
-    } catch (err) { K.showError(err.message || String(err)); }
+  K.switchAgent = () => {
+    if (!K.state.session) return;
+    K.state.session.agent = K.els.agentSelect.value || undefined;
+    K.renderSessionHeader();
   };
 
-  K.switchModel = async () => {
-    const model = K.selectedModel();
-    if (!K.state.session || !model) return;
-    try {
-      await K.api.sessions.switchModel(K.state.session.id, model);
-      K.state.session.model = model;
-      K.renderSessionHeader();
-    } catch (err) { K.showError(err.message || String(err)); }
+  K.switchModel = () => {
+    if (!K.state.session) return;
+    K.state.session.model = K.selectedModel();
+    K.renderSessionHeader();
   };
 
   K.resizePrompt = () => {

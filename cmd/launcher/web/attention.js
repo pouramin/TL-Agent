@@ -5,9 +5,32 @@
   const parseDeviceCode = (input) => input?.match(/code:\s*([A-Z0-9-]+)/i)?.[1]?.toUpperCase()
     || input?.match(/\b[A-Z0-9]{4,}(?:-[A-Z0-9]{3,})+\b/i)?.[0]?.toUpperCase() || "";
 
+  K.applyKiloAuthStatus = (status) => {
+    const normalized = {
+      authenticated: status?.authenticated === true,
+      type: status?.type || "",
+      organizationId: status?.organizationId || "",
+    };
+    K.state.kiloAuth = normalized;
+    if (normalized.authenticated) K.state.connectedProviders.add("kilo");
+    else K.state.connectedProviders.delete("kilo");
+    K.renderAccount?.();
+    return normalized;
+  };
+
+  K.refreshKiloAuthStatus = async () => K.applyKiloAuthStatus(await K.api.oauth.kiloStatus());
+
   K.signInKilo = async () => {
-    if (K.state.connectedProviders.has("kilo")) return K.showError("Kilo is already connected on this computer.");
     K.showError("");
+    let status;
+    try {
+      status = await K.refreshKiloAuthStatus();
+    } catch (err) {
+      K.showError(`Unable to verify Kilo account state: ${err.message || String(err)}`);
+      return;
+    }
+    if (status.authenticated) return K.showError("Kilo is already connected on this computer.");
+
     K.state.authController?.abort();
     K.state.authController = new AbortController();
     K.state.authURL = "";
@@ -20,19 +43,28 @@
     try {
       const info = await K.api.oauth.authorizeKilo() || {};
       K.state.authURL = info.url || "";
-      K.els.authInstructions.textContent = info.instructions || "Complete the Kilo sign-in in your browser.";
+      K.els.authInstructions.textContent = info.instructions || "Authorization is ready. Open the Kilo sign-in page to continue.";
       const code = parseDeviceCode(info.instructions);
       if (code) {
         K.els.authCode.textContent = code;
         K.els.authCodeWrap.classList.remove("hidden");
       }
       K.els.authOpen.disabled = !K.state.authURL;
-      if (K.state.authURL) window.open(K.state.authURL, "_blank", "noopener,noreferrer");
 
+      // Do not auto-open the external authorization URL here. The previous flow
+      // could produce duplicate authorization tabs on some Windows/browser
+      // combinations. The single Open sign-in page button is now the only place
+      // that navigates to the Kilo authorization URL.
       await K.api.oauth.callbackKilo(K.state.authController.signal);
       K.state.authController = null;
       K.els.authInstructions.textContent = "Signed in successfully.";
+
+      // Kilo's official clients dispose the in-memory instance after auth changes.
+      // Without this, /provider can keep reporting the pre-auth provider state.
+      await K.api.runtime.dispose();
       await K.loadCatalog();
+      await K.refreshKiloAuthStatus();
+
       window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
     } catch (err) {
       if (err?.name !== "AbortError") K.els.authInstructions.textContent = `Sign-in failed: ${err.message || String(err)}`;
@@ -89,11 +121,14 @@
 
     const text = document.createElement("div");
     const meta = document.createElement("div");
-    text.textContent = `Kilo wants permission to ${item.action || "perform an action"}.`;
+    text.textContent = `Kilo wants permission to ${item.permission || item.action || "perform an action"}.`;
     meta.className = "attention-meta";
+    const patterns = Array.isArray(item.patterns) ? item.patterns : Array.isArray(item.resources) ? item.resources : [];
+    const always = Array.isArray(item.always) && item.always.length ? `Can save as always allowed:\n${item.always.join("\n")}` : "";
     meta.textContent = [
-      Array.isArray(item.resources) ? item.resources.join("\n") : "",
-      item.metadata ? JSON.stringify(item.metadata, null, 2) : "",
+      patterns.length ? patterns.join("\n") : "",
+      item.metadata && Object.keys(item.metadata).length ? JSON.stringify(item.metadata, null, 2) : "",
+      always,
     ].filter(Boolean).join("\n\n") || "No additional details.";
     K.els.attentionBody.append(text, meta);
     K.els.attentionActions.append(
@@ -140,6 +175,7 @@
         input.type = question.multiple ? "checkbox" : "radio";
         input.name = name;
         input.value = option.label;
+        if (!question.multiple && question.default && option.label === question.default) input.checked = true;
         span.textContent = option.description ? `${option.label} — ${option.description}` : option.label;
         label.append(input, span);
         block.appendChild(label);

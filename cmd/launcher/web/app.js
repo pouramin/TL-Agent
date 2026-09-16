@@ -22,7 +22,9 @@
     const e = K.els;
     e.pickProject.addEventListener("click", K.pickProject);
     e.emptyPickProject.addEventListener("click", K.pickProject);
-    e.manualProject.addEventListener("click", K.openManualProject);
+    e.manualProject.textContent = "Browse…";
+    e.manualProject.title = "Choose a project folder";
+    e.manualProject.addEventListener("click", K.pickProject);
     e.pathForm.addEventListener("submit", K.setManualProject);
     e.newSession.addEventListener("click", K.newSession);
     e.emptyNewSession.addEventListener("click", K.newSession);
@@ -58,5 +60,41 @@
     } catch (err) { K.showError(err.message || String(err)); }
   };
 
-  init();
+  const loadScript = (src, ready, warning) => new Promise((resolve) => {
+    if (ready?.()) return resolve();
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.onload = resolve;
+    script.onerror = () => {
+      console.warn(warning);
+      resolve();
+    };
+    document.head.appendChild(script);
+  });
+
+  const loadExtensions = async () => {
+    await loadScript(
+      "/diagnostics-ui.js",
+      () => K.__diagnosticsUiInstalled,
+      "[TL Agent] Session diagnostics UI failed to load",
+    );
+    await loadScript(
+      "/provider-recovery-ui.js",
+      () => K.__providerRecoveryInstalled,
+      "[TL Agent] Provider recovery UI failed to load",
+    );
+    await loadScript(
+      "/providers-ui.js",
+      () => K.__providersUiInstalled,
+      "[TL Agent] Custom provider settings UI failed to load",
+    );
+    await loadScript(
+      "/providers-settings-bridge.js",
+      () => K.__providersSettingsBridgeInstalled,
+      "[TL Agent] Custom provider settings bridge failed to load",
+    );
+  };
+
+  loadExtensions().finally(init);
 })();
