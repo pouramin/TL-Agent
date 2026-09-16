@@ -11,8 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/pouramin/TL-Agent/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Agent?include_prereleases&sort=semver" alt="Release"></a>
+  <a href="https://github.com/pouramin/TL-Agent/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Agent?sort=semver" alt="Release"></a>
   <a href="https://github.com/pouramin/TL-Agent/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pouramin/TL-Agent/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/tl-agent"><img src="https://img.shields.io/npm/v/tl-agent" alt="npm"></a>
   <a href="https://github.com/pouramin/TL-Agent/releases"><img src="https://img.shields.io/github/downloads/pouramin/TL-Agent/total" alt="Downloads"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/pouramin/TL-Agent" alt="License"></a>
 </p>
@@ -28,14 +29,26 @@
 اگر Node.js و npm نصب هستند، داخل فولدر پروژه‌ای که می‌خواهید روی آن کار کنید این دستور را اجرا کنید:
 
 ```bash
-npx --yes github:pouramin/TL-Agent
+npx --yes tl-agent
 ```
 
-لانچر سبک سیستم‌عامل و معماری را تشخیص می‌دهد، Release مناسب را دانلود می‌کند، SHA-256 آن را بررسی می‌کند، فایل را به‌صورت محلی Cache می‌کند و TL Agent را با فولدر فعلی به‌عنوان Project باز می‌کند.
+پکیج npm فقط یک Launcher سبک است. سیستم‌عامل و معماری را تشخیص می‌دهد، Release رسمی و متناظر TL Agent را از GitHub دانلود می‌کند، SHA-256 آن را بررسی می‌کند، فایل را به‌صورت محلی Cache می‌کند و TL Agent را با فولدر فعلی به‌عنوان Project باز می‌کند.
+
+برای جلوگیری از بازشدن خودکار مرورگر:
+
+```bash
+npx --yes tl-agent --no-browser
+```
+
+نسخه‌های آزمایشی همچنان می‌توانند با Channel مشخص اجرا شوند، برای مثال:
+
+```bash
+npx --yes tl-agent@alpha
+```
 
 ### نسخه‌ی Portable
 
-برای نسخه‌ی معمولی Portable نیازی به Node.js نیست. فایل مناسب سیستم خود را از **[GitHub Releases](https://github.com/pouramin/TL-Agent/releases)** دانلود و Extract کنید، سپس اجرا کنید:
+برای نسخه‌ی Portable نیازی به Node.js نیست. فایل مناسب سیستم خود را از **[GitHub Releases](https://github.com/pouramin/TL-Agent/releases)** دانلود و Extract کنید، سپس اجرا کنید:
 
 ```text
 Windows:  tl-agent.exe
@@ -140,7 +153,7 @@ go run ./cmd/launcher --kilo /path/to/kilo
 
 ## قانون زیرساخت صفر
 
-TL Agent طوری طراحی شده که نگهدارنده برای اجرای پروژه نیازی به پرداخت هزینه‌ی VPS، Hosting، Database، API Gateway، Model inference یا Telemetry backend نداشته باشد. سورس، Issueها، CI، Releaseها و فایل‌های دانلودی روی GitHub قرار دارند.
+TL Agent طوری طراحی شده که نگهدارنده برای اجرای پروژه نیازی به پرداخت هزینه‌ی VPS، Hosting، Database، API Gateway، Model inference یا Telemetry backend نداشته باشد. سورس، Issueها، CI، Releaseها، فایل‌های دانلودی و Launcher سبک npm از زیرساخت GitHub/npm توزیع می‌شوند.
 
 هزینه‌ی احتمالی استفاده از Model مستقیماً بین کاربر و Provider انتخاب‌شده‌ی اوست.
 
@@ -159,7 +172,7 @@ Runtime در صورت داشتن Permission می‌تواند فایل‌ها ر
 
 ## وضعیت پروژه
 
-TL Agent در حال حاضر در مرحله‌ی **Early Alpha** است. مسیر اصلی پروژه هم در CI و هم روی یک سیستم واقعی Windows تست می‌شود:
+**v0.1.0 اولین baseline پایدار TL Agent است** و از baseline اعتبارسنجی‌شده‌ی `v0.1.0-alpha.28` به نسخه‌ی Stable ارتقا داده شده است. مسیر اصلی پروژه هم در CI و هم روی یک سیستم واقعی Windows اعتبارسنجی شده:
 
 ```text
 TL Agent UI
@@ -170,6 +183,8 @@ TL Agent UI
 → local file write
 → final assistant response
 ```
+
+نسخه‌های آزمایشی بعدی می‌توانند روی Channelهای prerelease جدا ادامه پیدا کنند، بدون اینکه مسیر Stable با dist-tag `latest` تغییر کند.
 
 ## لایسنس و Attribution
 
