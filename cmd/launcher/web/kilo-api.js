@@ -70,6 +70,32 @@
       };
     },
 
+    config: {
+      overlay: async ({ scope = "global", directory = projectDirectory() } = {}) => {
+        const payload = unwrapData(await request(route("/config/overlay", { scope }, directory)));
+        return payload && typeof payload === "object" ? payload : {};
+      },
+      update: async ({ scope = "global", set, unset, directory = projectDirectory() } = {}) => {
+        const payload = {
+          scope,
+          ...(set && Object.keys(set).length ? { set } : {}),
+          ...(Array.isArray(unset) && unset.length ? { unset } : {}),
+        };
+        return unwrapData(await request(route("/config/overlay", {}, directory), {
+          method: "PATCH",
+          ...body(payload),
+        }));
+      },
+    },
+
+    auth: {
+      setApiKey: async (providerID, key) => unwrapData(await request(`/auth/${enc(providerID)}`, {
+        method: "PUT",
+        ...body({ type: "api", key }),
+      })),
+      remove: async (providerID) => unwrapData(await request(`/auth/${enc(providerID)}`, { method: "DELETE" })),
+    },
+
     sessions: {
       list: async ({ limit = 50, directory = projectDirectory() } = {}) => {
         const payload = unwrapData(await request(route("/session", { limit, roots: true }, directory)));
