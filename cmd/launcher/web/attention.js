@@ -43,7 +43,7 @@
     try {
       const info = await K.api.oauth.authorizeKilo() || {};
       K.state.authURL = info.url || "";
-      K.els.authInstructions.textContent = info.instructions || "Authorization is ready. Open the Kilo sign-in page to continue.";
+      K.els.authInstructions.textContent = info.instructions || "Authorization is ready. Open the sign-in page to continue.";
       const code = parseDeviceCode(info.instructions);
       if (code) {
         K.els.authCode.textContent = code;
@@ -51,16 +51,10 @@
       }
       K.els.authOpen.disabled = !K.state.authURL;
 
-      // Do not auto-open the external authorization URL here. The previous flow
-      // could produce duplicate authorization tabs on some Windows/browser
-      // combinations. The single Open sign-in page button is now the only place
-      // that navigates to the Kilo authorization URL.
       await K.api.oauth.callbackKilo(K.state.authController.signal);
       K.state.authController = null;
       K.els.authInstructions.textContent = "Signed in successfully.";
 
-      // Kilo's official clients dispose the in-memory instance after auth changes.
-      // Without this, /provider can keep reporting the pre-auth provider state.
       await K.api.runtime.dispose();
       await K.loadCatalog();
       await K.refreshKiloAuthStatus();
@@ -121,21 +115,30 @@
 
     const text = document.createElement("div");
     const meta = document.createElement("div");
-    text.textContent = `Kilo wants permission to ${item.permission || item.action || "perform an action"}.`;
+    text.textContent = `Agent wants permission to ${item.permission || item.action || "perform an action"}.`;
     meta.className = "attention-meta";
+
     const patterns = Array.isArray(item.patterns) ? item.patterns : Array.isArray(item.resources) ? item.resources : [];
-    const always = Array.isArray(item.always) && item.always.length ? `Can save as always allowed:\n${item.always.join("\n")}` : "";
+    const alwaysRules = Array.isArray(item.always) ? item.always.filter(Boolean) : [];
+    const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : {};
+    const sensitive = metadata.skillShell === true || metadata.sandboxEscalation === true;
+    const canAlways = !sensitive && metadata.disableAlways !== true && alwaysRules.length > 0;
+    const always = canAlways ? `Can remember these rules for future matching requests:\n${alwaysRules.join("\n")}` : "";
+
     meta.textContent = [
       patterns.length ? patterns.join("\n") : "",
-      item.metadata && Object.keys(item.metadata).length ? JSON.stringify(item.metadata, null, 2) : "",
+      Object.keys(metadata).length ? JSON.stringify(metadata, null, 2) : "",
       always,
     ].filter(Boolean).join("\n\n") || "No additional details.";
     K.els.attentionBody.append(text, meta);
-    K.els.attentionActions.append(
+
+    const actions = [
       actionButton("Reject", "ghost", () => replyPermission(item, "reject")),
-      actionButton("Allow once", "ghost", () => replyPermission(item, "once")),
-      actionButton("Always allow", "primary", () => replyPermission(item, "always")),
-    );
+      actionButton(sensitive ? "Allow" : "Allow once", "ghost", () => replyPermission(item, "once")),
+    ];
+    if (canAlways) actions.push(actionButton("Always allow these", "primary", () => replyPermission(item, "always")));
+    K.els.attentionActions.append(...actions);
+
     if (!K.els.attentionDialog.open) K.els.attentionDialog.showModal();
   };
 
@@ -152,7 +155,7 @@
     const key = `question:${item.id}`;
     if (K.state.attentionKey === key && K.els.attentionDialog.open) return;
     K.state.attentionKey = key;
-    reset("Kilo has a question");
+    reset("Agent question");
 
     const blocks = [];
     for (const [index, question] of (item.questions || []).entries()) {
@@ -207,7 +210,7 @@
       if (typed) selected.push(typed);
       return selected;
     });
-    if (answers.some((answer) => !answer.length)) return K.showError("Answer every Kilo question before continuing.");
+    if (answers.some((answer) => !answer.length)) return K.showError("Answer every agent question before continuing.");
 
     try {
       await K.api.questions.reply(K.state.session.id, item.id, answers);
