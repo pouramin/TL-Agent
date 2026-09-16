@@ -1,6 +1,6 @@
 ---
 title: رفع مشکل
-description: بررسی مشکلات رایج Startup، Project، Browser و Provider در TL Agent.
+description: بررسی مشکلات رایج Startup، Project، Browser، Attachment، Permission و Provider در TL Agent.
 icon: Wrench
 ---
 
@@ -15,6 +15,12 @@ icon: Wrench
 ## Runtime پیدا نمی‌شود
 
 Release رسمی TL Agent Runtime سازگار را همراه خودش دارد. این Error بیشتر هنگام اجرای Source یا Override دستی Runtime دیده می‌شود.
+
+## Attachment رد می‌شود
+
+Composer فقط Image، PDF و فایل‌های Text/Code پشتیبانی‌شده را قبول می‌کند. Limit فعلی **8 فایل**، **10 MB برای هر فایل** و **20 MB مجموع** است. Binary Formatهای پشتیبانی‌نشده قبل از Send رد می‌شوند.
+
+اگر Send Fail شود، Attachmentهای Pending در Composer باقی می‌مانند تا مشکل اصلی را رفع و دوباره Retry کنید. جزئیات کامل در [File Attachment](./guides/file-attachments) آمده است.
 
 ## Model یا Provider دیده نمی‌شود
 
@@ -31,6 +37,10 @@ Authentication Error، Quota/Usage Limit، Context Overflow و Errorهای مش�
 ## Custom Model در Task طولانی Context را از دست می‌دهد
 
 اگر Context Limit آن Model را می‌دانید، از **Settings → Providers** وارد کنید. Runtime پین‌شده وقتی Context Limit یک Custom Model نامشخص باشد نمی‌تواند Automatic Context Compaction را فعال کند.
+
+## چرا Always allow these نمایش داده نمی‌شود؟
+
+TL Agent فقط وقتی Persistent Approval را نشان می‌دهد که Runtime Rule قابل‌استفاده بدهد و نگه‌داشتن Permission امن باشد. Requestهای حساس skill-shell و sandbox-escalation عمداً هر بار به Approval صریح Human نیاز دارند.
 
 ## Agent منتظر مانده
 

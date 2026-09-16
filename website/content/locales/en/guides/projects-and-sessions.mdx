@@ -8,14 +8,20 @@ icon: FolderCode
 
 TL Agent's project picker selects an existing directory on your computer. Project-scoped requests are routed locally so the active agent works inside that selected folder.
 
-Changing projects changes the context used for sessions, messages, permissions, questions, events, and filesystem tools.
+Changing projects changes the context used for sessions, messages, permissions, questions, events, and filesystem tools. Pending composer attachments are also cleared when you switch projects so files are not accidentally carried into another project context.
 
 ## Sessions
 
 Sessions are shown and managed by TL Agent while the underlying runtime remains the source of execution state. You can create, rename, delete, reopen, and inspect sessions from the workspace.
 
+Starting a new session clears any unsent attachments in the composer. Files that were already sent stay represented on their user message in the conversation history.
+
 ## Messages and live activity
 
-When you send a prompt, TL Agent follows session state and live events rather than treating the first HTTP response as the final answer. The interface can render assistant text, reasoning, tools, file activity, permissions, and questions as the run progresses.
+When you send a prompt, TL Agent follows session state and live events rather than treating the first HTTP response as the final answer. The interface can render assistant text, reasoning, tools, file activity, permissions, questions, and attached filenames as the run progresses.
 
 Projected session messages remain the reconnect-safe source of conversation history.
+
+## Usage summaries
+
+TL Agent surfaces per-turn and project-level usage where the runtime provides it, including token/request totals, elapsed time, reasoning usage, and cache usage. These summaries are part of the local workspace UI rather than a TL Agent-hosted telemetry service.

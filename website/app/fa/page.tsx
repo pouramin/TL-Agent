@@ -28,10 +28,11 @@ const features = [
 ];
 
 const capabilities = [
+  'File Attachments',
   'Custom Providers',
   'Retryable Error Recovery',
   'Files + Changes',
-  'Sessions + Permissions',
+  'Interactive Permissions',
   'Theme + Font Size',
   'Loopback-only Runtime',
 ];
@@ -52,7 +53,7 @@ export default function PersianHomePage() {
             یک Workspace مستقل و Local برای Coding Agentها، بدون IDE.
           </h1>
           <p className="mt-7 max-w-2xl text-balance text-lg leading-8 text-fd-muted-foreground md:text-xl">
-            TL Agent برای کار با Project، Agent، Model، Tool، Provider، Session و File Changes یک Workspace مستقل داخل مرورگر می‌دهد.
+            TL Agent برای کار با Project، Agent، Model، Tool، Provider، Session، File Attachment و File Changes یک Workspace مستقل داخل مرورگر می‌دهد.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/fa/docs" className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-5 py-3 font-medium text-fd-primary-foreground">

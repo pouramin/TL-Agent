@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Diagnose common TL Agent startup, project, browser, and provider problems.
+description: Diagnose common TL Agent startup, project, browser, attachment, permission, and provider problems.
 icon: Wrench
 ---
 
@@ -15,6 +15,12 @@ Choose an existing directory. TL Agent normalizes and validates the selected loc
 ## Runtime not found
 
 Official TL Agent release archives bundle the supported runtime. This error is more likely when running from source or overriding the runtime manually.
+
+## An attachment is rejected
+
+The composer accepts supported images, PDF, and text/code files. The current limits are **8 files**, **10 MB per file**, and **20 MB total**. Unsupported binary formats are rejected before the prompt is sent.
+
+If a send attempt fails, pending attachments remain in the composer so you can fix the underlying problem and retry. See [File attachments](./guides/file-attachments) for the full behavior.
 
 ## Models or providers are missing
 
@@ -31,6 +37,10 @@ Authentication failures, quota/usage-limit errors, context-overflow problems, an
 ## A custom provider loses context on long tasks
 
 Open **Settings → Providers** and set the model's Context Limit when you know it. The pinned runtime cannot automatically compact context for a custom model whose context limit is unknown.
+
+## Why is “Always allow these” missing?
+
+TL Agent only exposes persistent approval when the runtime provides reusable matching rules and the permission is safe to persist. Sensitive skill-shell and sandbox-escalation requests intentionally require an explicit human approval each time.
 
 ## Agent is waiting
 

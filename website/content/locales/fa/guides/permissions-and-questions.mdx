@@ -1,23 +1,29 @@
 ---
 title: Permissionها و سؤال‌ها
-description: مدیریت امن Permission Requestها و سؤال‌های تعاملی Agent در TL Agent.
+description: مدیریت امن Permission Requestها و Questionهای تعاملی Agent در TL Agent.
 icon: ShieldCheck
 ---
 
-Coding Agent ممکن است قبل از انجام یک عملیات حساس نیاز به اجازه داشته باشد یا برای ادامه کار از شما سؤال بپرسد.
+Coding Agent ممکن است قبل از انجام یک عملیات حساس نیاز به Permission داشته باشد یا برای ادامه کار از شما Question بپرسد.
 
-## پاسخ به Permission
+## تصمیم‌های Permission
 
-TL Agent در حال حاضر سه گزینه نشان می‌دهد:
+TL Agent براساس خود Request گزینه‌های قابل استفاده را نشان می‌دهد:
 
-- `once` — فقط همین بار اجازه بده؛
-- `always` — طبق رفتار Runtime، Rule مربوط را ذخیره و اجازه بده؛
-- `reject` — درخواست را رد کن.
+- **Reject** — درخواست را رد می‌کند؛
+- **Allow once** — فقط همان Request را تأیید می‌کند؛
+- **Always allow these** — اگر Runtime Ruleهای قابل‌استفاده برای Requestهای مشابه بدهد و ذخیره‌کردن Approval امن باشد، آن Ruleها را برای دفعات بعد نگه می‌دارد.
 
-قبل از اجازه دادن به اجرای Command یا تغییر فایل، درخواست را بخوانید.
+برای Permissionهای حساس مثل skill-shell یا sandbox-escalation، TL Agent عمداً گزینه Persistent **Always allow** را نشان نمی‌دهد. این Requestها با **Allow** نمایش داده می‌شوند و هر بار به تصمیم صریح کاربر نیاز دارند. اگر Runtime هم Persistent Approval را Disable کرده باشد یا Rule قابل‌استفاده‌ای ندهد، گزینه Always نمایش داده نمی‌شود.
 
-## سؤال‌ها
+هر Approval که از Dialog خود TL Agent انجام می‌دهید به Runtime پین‌شده به‌عنوان پاسخ Human و Interactive فرستاده می‌شود. این نکته مهم است چون Runtime فعلی برای Permissionهای حساس به `interactive: true` نیاز دارد و Approval غیرInteractive را عمداً نادیده می‌گیرد.
 
-Questionهای تعاملی را می‌توانید مستقیم داخل TL Agent پاسخ دهید؛ از انتخاب یک گزینه تا چند گزینه یا پاسخ سفارشی.
+قبل از Allow کردن Command، File Change یا Tool Behavior حساس، Action، Patternها و Metadata درخواست را بخوانید.
 
-اجرای محلی سطح شبکه را محدود می‌کند، اما امنیت نهایی همچنان به Permissionهایی بستگی دارد که به Agent می‌دهید.
+## Questionها
+
+Questionهای تعاملی را می‌توانید مستقیم داخل TL Agent پاسخ دهید. بسته به Request، UI می‌تواند Single Select، Multi Select، Default Option و Custom Answer نشان دهد.
+
+قبل از ادامه باید برای تمام Question Blockها پاسخ انتخاب شود؛ در غیر این صورت می‌توانید کل Question Request را Reject کنید.
+
+Loopback-only بودن سطح Network را محدود می‌کند، اما امنیت نهایی همچنان به Permissionهایی بستگی دارد که به Agent می‌دهید.

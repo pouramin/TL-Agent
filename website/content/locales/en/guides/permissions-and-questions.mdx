@@ -6,18 +6,24 @@ icon: ShieldCheck
 
 Coding agents may need approval before executing a sensitive action or may need an answer before continuing.
 
-## Permission replies
+## Permission decisions
 
-TL Agent currently exposes three choices:
+TL Agent renders the decision options supported by the current request:
 
-- `once` — allow this request once;
-- `always` — allow and persist the applicable rule according to runtime behavior;
-- `reject` — deny the request.
+- **Reject** — deny the request;
+- **Allow once** — approve only this request;
+- **Always allow these** — save the runtime-provided matching rules for future requests, when persistent approval is safe and supported.
 
-Always read the requested action before approving command execution or file changes.
+For sensitive permission classes such as skill-shell or sandbox-escalation, TL Agent intentionally does not offer a persistent **Always allow** action. Those requests are shown as **Allow** and require an explicit human decision each time. The same applies when the runtime disables persistent approval or does not provide reusable matching rules.
+
+Every approval made through the TL Agent permission dialog is sent to the pinned runtime as an interactive human reply. This matters because the current runtime requires an explicit interactive flag for sensitive permission classes; a non-interactive approval is intentionally ignored.
+
+Always read the requested action, patterns, and metadata before approving command execution, file changes, or elevated tool behavior.
 
 ## Questions
 
-Interactive questions can be answered directly inside TL Agent. Depending on the request, the interface can present option lists, single or multiple selection, and custom answers.
+Interactive questions can be answered directly inside TL Agent. Depending on the request, the interface can present option lists, single or multiple selection, default choices, and custom answers.
+
+TL Agent requires an answer for every question block before continuing, or you can reject the question request.
 
 Localhost isolation protects the network surface, but safe use still depends on the permissions you grant to the coding agent.

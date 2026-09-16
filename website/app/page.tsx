@@ -28,10 +28,11 @@ const features = [
 ];
 
 const capabilities = [
+  'File attachments',
   'Custom providers',
   'Retryable error recovery',
   'Files + changes',
-  'Sessions + permissions',
+  'Interactive permissions',
   'Theme + font size',
   'Loopback-only runtime',
 ];

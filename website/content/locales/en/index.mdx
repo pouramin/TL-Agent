@@ -4,7 +4,7 @@ description: Learn what TL Agent is, what it owns as a product, and where the Ki
 icon: House
 ---
 
-TL Agent is a **local, standalone coding-agent workspace**. It gives you a dedicated browser environment for working with local projects, sessions, agents, models, tools, providers, permissions, file changes, and project files without requiring an IDE.
+TL Agent is a **local, standalone coding-agent workspace**. It gives you a dedicated browser environment for working with local projects, sessions, agents, models, tools, providers, file attachments, permissions, file changes, and project files without requiring an IDE.
 
 ## Product identity
 
@@ -17,7 +17,7 @@ TL Agent
   ├─ browser workspace
   ├─ project picker
   ├─ sessions / files / changes
-  ├─ provider settings
+  ├─ attachments + provider settings
   ├─ local security boundary
   └─ launcher + packaging
        ↓
@@ -33,6 +33,7 @@ This separation is intentional: normal TL Agent usage should feel like using TL 
 - choose a local project from the operating-system folder picker;
 - create, rename, and delete sessions;
 - choose an agent and model;
+- attach images, PDFs, and text/code files by picker, drag/drop, or clipboard paste;
 - add custom OpenAI-compatible, OpenAI Responses, or Anthropic-compatible providers from Settings;
 - send prompts and follow live reasoning/tool activity;
 - recover from retryable provider failures without losing existing file changes;
@@ -46,6 +47,6 @@ The current main branch pins Kilo Code `7.6.2` as its bundled runtime contract.
 
 ## Start here
 
-Go to [Installation](./getting-started/installation), then [First run](./getting-started/first-run). For provider setup, see [Custom providers](./guides/custom-providers).
+Go to [Installation](./getting-started/installation), then [First run](./getting-started/first-run). See [File attachments](./guides/file-attachments) for attachment limits and behavior, or [Custom providers](./guides/custom-providers) for provider setup.
 
 > TL Agent is an independent open-source project. It uses Kilo Code as its local agent runtime but is not an official Kilo Code product.

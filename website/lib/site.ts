@@ -4,7 +4,7 @@ export const site = {
   name: 'TL Agent',
   tagline: 'Code. Reason. Act.',
   description:
-    'A local, standalone coding-agent workspace for projects, agents, models, tools, providers, sessions, and file changes — no IDE required.',
+    'A local, standalone coding-agent workspace for projects, agents, models, tools, providers, file attachments, sessions, and file changes — no IDE required.',
   repoUrl: 'https://github.com/pouramin/TL-Agent',
   releasesUrl: 'https://github.com/pouramin/TL-Agent/releases',
   issuesUrl: 'https://github.com/pouramin/TL-Agent/issues',
