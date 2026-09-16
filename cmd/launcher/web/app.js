@@ -60,5 +60,18 @@
     } catch (err) { K.showError(err.message || String(err)); }
   };
 
-  init();
+  const loadDiagnostics = () => new Promise((resolve) => {
+    if (K.__diagnosticsUiInstalled) return resolve();
+    const script = document.createElement("script");
+    script.src = "/diagnostics-ui.js";
+    script.async = false;
+    script.onload = resolve;
+    script.onerror = () => {
+      console.warn("[TL Agent] Session diagnostics UI failed to load");
+      resolve();
+    };
+    document.head.appendChild(script);
+  });
+
+  loadDiagnostics().finally(init);
 })();
