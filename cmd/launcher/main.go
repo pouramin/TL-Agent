@@ -284,13 +284,13 @@ func localOnly(next http.Handler) http.Handler {
 			host = r.Host
 		}
 		if !isLoopbackHost(host) {
-			http.Error(w, "localhost access only", http.StatusForbidden)
+			http.Error(w, "localhost only", http.StatusForbidden)
 			return
 		}
 		if origin := r.Header.Get("Origin"); origin != "" {
-			parsed, parseErr := url.Parse(origin)
-			if parseErr != nil || !isLoopbackHost(parsed.Hostname()) || !strings.EqualFold(parsed.Hostname(), host) {
-				http.Error(w, "invalid origin", http.StatusForbidden)
+			u, err := url.Parse(origin)
+			if err != nil || !isLoopbackHost(u.Hostname()) || !strings.EqualFold(u.Host, r.Host) {
+				http.Error(w, "cross-origin request blocked", http.StatusForbidden)
 				return
 			}
 		}
@@ -302,18 +302,25 @@ func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self' data:")
 		next.ServeHTTP(w, r)
 	})
 }
 
+func writeJSON(w http.ResponseWriter, status int, value any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(value)
+}
+
 func normalizeProject(input string) (string, error) {
 	if strings.TrimSpace(input) == "" {
-		wd, err := os.Getwd()
+		cwd, err := os.Getwd()
 		if err != nil {
 			return "", err
 		}
-		return wd, nil
+		input = cwd
 	}
 	abs, err := filepath.Abs(input)
 	if err != nil {
@@ -321,12 +328,12 @@ func normalizeProject(input string) (string, error) {
 	}
 	info, err := os.Stat(abs)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("%s: %w", abs, err)
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("not a directory: %s", abs)
+		return "", fmt.Errorf("%s is not a directory", abs)
 	}
-	return abs, nil
+	return filepath.Clean(abs), nil
 }
 
 func findKiloBinary(override string) (string, error) {
@@ -338,34 +345,42 @@ func findKiloBinary(override string) (string, error) {
 		candidates = append(candidates, env)
 	}
 	if exe, err := os.Executable(); err == nil {
+		base := filepath.Dir(exe)
 		name := "kilo"
 		if runtime.GOOS == "windows" {
 			name = "kilo.exe"
 		}
-		candidates = append(candidates,
-			filepath.Join(filepath.Dir(exe), "bin", name),
-			filepath.Join(filepath.Dir(exe), name),
-		)
+		candidates = append(candidates, filepath.Join(base, "bin", name), filepath.Join(base, name))
 	}
-	candidates = append(candidates, "kilo")
+	if path, err := exec.LookPath("kilo"); err == nil {
+		candidates = append(candidates, path)
+	}
 	for _, candidate := range candidates {
-		if resolved, err := exec.LookPath(candidate); err == nil {
-			return resolved, nil
+		if candidate == "" {
+			continue
 		}
-		if filepath.IsAbs(candidate) || strings.ContainsRune(candidate, os.PathSeparator) {
-			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-				return candidate, nil
-			}
+		abs, err := filepath.Abs(candidate)
+		if err != nil {
+			continue
+		}
+		if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+			return abs, nil
 		}
 	}
-	return "", errors.New("TL Agent runtime not found")
+	return "", errors.New("Kilo binary not found. Put it in ./bin/kilo (or bin\\kilo.exe), install `kilo` in PATH, or pass --kilo /path/to/kilo")
 }
 
-func startKilo(ctx context.Context, binary string, port int, username, password string) (*exec.Cmd, error) {
-	cmd := exec.CommandContext(ctx, binary, "serve", "--hostname", "127.0.0.1", "--port", fmt.Sprint(port))
-	cmd.Env = append(os.Environ(), "KILO_SERVER_USERNAME="+username, "KILO_SERVER_PASSWORD="+password)
+func startKilo(ctx context.Context, kiloPath string, port int, username, password string) (*exec.Cmd, error) {
+	cmd := exec.CommandContext(ctx, kiloPath, "serve", "--hostname", "127.0.0.1", "--port", fmt.Sprint(port))
+	cmd.Env = append(os.Environ(),
+		"KILO_SERVER_USERNAME="+username,
+		"KILO_SERVER_PASSWORD="+password,
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	if runtime.GOOS == "windows" {
+		cmd.SysProcAttr = windowsHideProcess()
+	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -384,33 +399,25 @@ func stopProcess(cmd *exec.Cmd) {
 	}()
 	select {
 	case <-done:
-	case <-time.After(2 * time.Second):
+	case <-time.After(3 * time.Second):
 		_ = cmd.Process.Kill()
 	}
 }
 
 func freePort(host string) (int, error) {
-	listener, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
+	ln, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
 	if err != nil {
 		return 0, err
 	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port, nil
-}
-
-func randomSecret(bytes int) (string, error) {
-	buffer := make([]byte, bytes)
-	if _, err := rand.Read(buffer); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buffer), nil
+	defer ln.Close()
+	return ln.Addr().(*net.TCPAddr).Port, nil
 }
 
 func waitForPort(ctx context.Context, host string, port int, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	address := net.JoinHostPort(host, fmt.Sprint(port))
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", address, 150*time.Millisecond)
+		conn, err := net.DialTimeout("tcp", address, 250*time.Millisecond)
 		if err == nil {
 			_ = conn.Close()
 			return nil
@@ -418,67 +425,29 @@ func waitForPort(ctx context.Context, host string, port int, timeout time.Durati
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(120 * time.Millisecond):
 		}
 	}
 	return fmt.Errorf("timed out waiting for %s", address)
 }
 
-func openBrowser(target string) error {
-	var command string
-	var args []string
+func randomSecret(bytes int) (string, error) {
+	buf := make([]byte, bytes)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
+}
+
+func openBrowser(address string) error {
+	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "windows":
-		command = "rundll32"
-		args = []string{"url.dll,FileProtocolHandler", target}
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", address)
 	case "darwin":
-		command = "open"
-		args = []string{target}
+		cmd = exec.Command("open", address)
 	default:
-		command = "xdg-open"
-		args = []string{target}
+		cmd = exec.Command("xdg-open", address)
 	}
-	return exec.Command(command, args...).Start()
-}
-
-func pickDirectory(current string) (string, error) {
-	switch runtime.GOOS {
-	case "windows":
-		script := fmt.Sprintf(`Add-Type -AssemblyName System.Windows.Forms; $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description = 'Choose a project folder'; $dialog.ShowNewFolderButton = $true; %s if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; Write-Output $dialog.SelectedPath }`, powershellInitialDirectory(current))
-		output, err := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-STA", "-Command", script).Output()
-		if err != nil {
-			return "", fmt.Errorf("folder picker: %w", err)
-		}
-		return strings.TrimSpace(string(output)), nil
-	case "darwin":
-		output, err := exec.Command("osascript", "-e", `POSIX path of (choose folder with prompt "Choose a project folder")`).Output()
-		if err != nil {
-			return "", fmt.Errorf("folder picker: %w", err)
-		}
-		return strings.TrimSpace(string(output)), nil
-	default:
-		if path, err := exec.LookPath("zenity"); err == nil {
-			output, runErr := exec.Command(path, "--file-selection", "--directory", "--title=Choose a project folder").Output()
-			if runErr != nil {
-				return "", fmt.Errorf("folder picker: %w", runErr)
-			}
-			return strings.TrimSpace(string(output)), nil
-		}
-		return "", errors.New("native folder picker is unavailable on this system; enter the path manually")
-	}
-}
-
-func powershellInitialDirectory(current string) string {
-	if strings.TrimSpace(current) == "" {
-		return ""
-	}
-	escaped := strings.ReplaceAll(current, "'", "''")
-	return fmt.Sprintf("$dialog.SelectedPath = '%s';", escaped)
-}
-
-func writeJSON(w http.ResponseWriter, status int, value any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+	return cmd.Start()
 }
