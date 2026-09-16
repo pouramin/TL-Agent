@@ -95,7 +95,7 @@ const current = hooks.lastRecordedModelInAttempt(5, currentAttemptModelMessages)
 assert.equal(current?.label, "qwen/qwen3-coder:free");
 assert.equal(hooks.attemptNumberAt(5, currentAttemptModelMessages), 2);
 
-const now = 10_000;
+const now = 1_000_000;
 K.state.messages = currentAttemptModelMessages;
 K.state.activeSessions["session-1"] = {
   type: "retry",
