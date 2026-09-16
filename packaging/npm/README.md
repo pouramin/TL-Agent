@@ -4,27 +4,23 @@ This npm package is a lightweight launcher for **TL Agent**, a local, standalone
 
 It does not bundle or replace the TL Agent application. The launcher detects the current OS/architecture, downloads the matching official GitHub Release, verifies its SHA-256 checksum, caches it locally, and runs it in the current project directory.
 
-Each npm package version is pinned to the matching TL Agent GitHub Release. For example, `tl-agent@0.1.0-alpha.28` launches `v0.1.0-alpha.28`, keeping runs reproducible.
+Each npm package version is pinned to the matching TL Agent GitHub Release. For example, `tl-agent@0.1.0` launches `v0.1.0`, keeping runs reproducible.
 
 ## Quick start
 
-While TL Agent is in alpha, use the `alpha` dist-tag:
+Run TL Agent from the current project directory:
 
 ```bash
-npx --yes tl-agent@alpha
+npx --yes tl-agent
 ```
 
 Run without automatically opening the browser:
 
 ```bash
-npx --yes tl-agent@alpha --no-browser
+npx --yes tl-agent --no-browser
 ```
 
-When a stable release is published under the `latest` dist-tag, the shorter command will become:
-
-```bash
-npx --yes tl-agent
-```
+Prerelease builds, when available, use explicit dist-tags such as `alpha` and can be launched with commands such as `npx --yes tl-agent@alpha`.
 
 ## What gets stored locally?
 
