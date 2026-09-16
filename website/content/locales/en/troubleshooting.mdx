@@ -18,7 +18,19 @@ Official TL Agent release archives bundle the supported runtime. This error is m
 
 ## Models or providers are missing
 
-Provider/model availability comes from the configured runtime/provider account. Complete the required sign-in flow and refresh provider state.
+For Kilo-hosted models, complete the required account/device sign-in. For custom endpoints, open **Settings → Providers** and verify the Base URL, model ID, provider API family, and API-key state.
+
+## A provider request ended after retries
+
+TL Agent distinguishes retryable provider failures from terminal errors. For retryable upstream failures — such as transient connection problems or some `5xx` responses — the conversation can show **Resume** after Kilo's retry cycle ends.
+
+Existing file changes are preserved. Resume continues the current task from that workspace state rather than repeating completed work.
+
+Authentication failures, quota/usage-limit errors, context-overflow problems, and similar terminal errors are not treated as retryable recovery cases; fix the underlying provider/account problem first.
+
+## A custom provider loses context on long tasks
+
+Open **Settings → Providers** and set the model's Context Limit when you know it. The pinned runtime cannot automatically compact context for a custom model whose context limit is unknown.
 
 ## Agent is waiting
 

@@ -1,37 +1,41 @@
 ---
 title: معماری
-description: مرز بین لایه محصول TL Agent و Agent Runtime زیرین.
+description: مرز بین Product Layer مربوط به TL Agent و Agent Runtime زیرین.
 icon: Network
 ---
 
-TL Agent از یک لایه محصول محلی و یک Runtime بالادستی تشکیل شده است.
+TL Agent از یک Product Layer Local و یک Runtime بالادستی تشکیل شده است.
 
 ```text
-Browser
+Browser Workspace
   ↓ localhost
 TL Agent UI + Go launcher
-  ├─ project picker
-  ├─ local state
-  ├─ security boundary
-  └─ authenticated reverse proxy
+  ├─ Project Picker
+  ├─ Sessions / Files / Changes
+  ├─ Provider Settings UI
+  ├─ Retryable Provider Recovery UI
+  ├─ Local State + Appearance
+  ├─ Security Boundary
+  └─ Authenticated Reverse Proxy
        ↓
-Bundled Kilo runtime
-       ├─ sessions / agents / tools
-       ├─ provider integrations
-       └─ project execution
+Bundled Kilo Runtime
+       ├─ Sessions / Agents / Tools
+       ├─ Provider Config + Local Auth Store
+       ├─ Provider Integration / Model Execution
+       └─ Project Execution
 ```
 
 ## مسئولیت TL Agent
 
-- Workspace مستقل در مرورگر؛
+- Standalone Browser Workspace؛
 - Launch و مدیریت Processها؛
-- انتخاب پروژه؛
-- Reverse Proxy و مرز امنیتی؛
-- Packaging و Release؛
-- UX مربوط به Session، فایل، Changes، Permission و Settings.
+- Project Selection؛
+- Reverse Proxy و Security Boundary؛
+- Packaging، Release و Brand خود TL Agent؛
+- UX مربوط به Session، File، Changes، Permission، Provider Settings، Recovery و Appearance.
 
 ## مسئولیت Runtime
 
-Kilo در لایه زیرین مسئول اجرای Agent، Toolها، جزئیات Session، Provider Integration و Model Execution است.
+Kilo در لایه زیرین مسئول Agent Execution، Toolها، جزئیات Session، Filesystem/Tool Call، ذخیره Provider Config، نگه‌داری Credentialها در Local Auth Store خودش و Model Execution است.
 
-برای کاربر، محصول TL Agent است؛ Kilo یک Component فنی زیر کاپوت باقی می‌ماند.
+برای کاربر، محصول **TL Agent** است؛ Kilo یک Runtime Component زیر کاپوت باقی می‌ماند.

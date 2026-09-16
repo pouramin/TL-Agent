@@ -7,7 +7,7 @@ import { site } from '@/lib/site';
 const features = [
   {
     title: 'کاملاً Local',
-    description: 'TL Agent روی کامپیوتر خودتان اجرا می‌شود و مستقیم با پروژه Local شما کار می‌کند؛ بدون بک‌اند ابری یا دیتابیس متعلق به TL Agent.',
+    description: 'TL Agent روی کامپیوتر خودتان اجرا می‌شود و مستقیم با Project Local کار می‌کند؛ بدون Cloud Backend یا Database متعلق به TL Agent.',
     icon: ServerOff,
   },
   {
@@ -16,15 +16,24 @@ const features = [
     icon: SquareTerminal,
   },
   {
-    title: 'Project-aware',
-    description: 'پوشه پروژه را انتخاب کنید، Session بسازید، Agent و Model را تغییر دهید و Changes فایل‌ها را داخل همان Workspace ببینید.',
+    title: 'Project-aware Workflow',
+    description: 'Folder پروژه را انتخاب کنید، Sessionها را مدیریت کنید، Project Files و Changes را ببینید و هر Conversation را در Context همان Project نگه دارید.',
     icon: FolderCode,
   },
   {
-    title: 'Local Security',
-    description: 'TL Agent فقط روی loopback اجرا می‌شود، اطلاعات Runtime را روی همان سیستم نگه می‌دارد و برای عملیات حساس Agent از شما Permission می‌گیرد.',
+    title: 'Provider Control',
+    description: 'از Modelهای Kilo استفاده کنید یا Custom Provider سازگار اضافه کنید. API Key داخل Local Auth Store خود Kilo می‌ماند، نه Browser Storage مربوط به TL Agent.',
     icon: LockKeyhole,
   },
+];
+
+const capabilities = [
+  'Custom Providers',
+  'Retryable Error Recovery',
+  'Files + Changes',
+  'Sessions + Permissions',
+  'Theme + Font Size',
+  'Loopback-only Runtime',
 ];
 
 export default function PersianHomePage() {
@@ -32,15 +41,18 @@ export default function PersianHomePage() {
     <HomeLayout {...baseOptions('fa')}>
       <main dir="rtl" lang="fa" className="relative overflow-hidden text-right">
         <div className="hero-grid pointer-events-none absolute inset-0 -z-10 opacity-60" />
-        <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-20 pt-24 text-center md:pt-32">
+        <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-20 pt-20 text-center md:pt-28">
+          <div className="tl-brand-lockup mb-7" dir="ltr">
+            <img src={site.logoUrl} alt="TL Agent — Code. Reason. Act." />
+          </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
             Early Alpha · Local-first · Open Source
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
-            یک Workspace مستقل برای Coding Agentها، بدون IDE.
+            یک Workspace مستقل و Local برای Coding Agentها، بدون IDE.
           </h1>
           <p className="mt-7 max-w-2xl text-balance text-lg leading-8 text-fd-muted-foreground md:text-xl">
-            TL Agent یک Workspace مستقل و Local برای کار با پروژه‌ها، Agentها، Modelها، Toolها، Sessionها و Changes فایل‌هاست؛ همه از داخل مرورگر.
+            TL Agent برای کار با Project، Agent، Model، Tool، Provider، Session و File Changes یک Workspace مستقل داخل مرورگر می‌دهد.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/fa/docs" className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-5 py-3 font-medium text-fd-primary-foreground">
@@ -49,6 +61,13 @@ export default function PersianHomePage() {
             <a href={site.releasesUrl} className="inline-flex items-center gap-2 rounded-lg border bg-fd-card px-5 py-3 font-medium" target="_blank" rel="noreferrer">
               <Download className="size-4" /> Releases
             </a>
+          </div>
+          <div className="mt-6 flex max-w-4xl flex-wrap justify-center gap-2" dir="ltr">
+            {capabilities.map((item) => (
+              <span key={item} className="tl-capability-chip rounded-full px-3 py-1 text-sm text-fd-muted-foreground">
+                {item}
+              </span>
+            ))}
           </div>
 
           <div className="mt-16 w-full max-w-4xl rounded-2xl border bg-fd-card/80 p-5 shadow-sm md:p-8">
@@ -79,7 +98,7 @@ export default function PersianHomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Upstream runtime</p>
             <h2 className="mt-2 text-3xl font-semibold">TL Agent محصول مستقله؛ Kilo Runtime فقط زیرِ کاپوته.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              UX، انتخاب پروژه، Local Security، Packaging و Releaseها متعلق به TL Agent هستند. Kilo در لایه زیرین فقط نقش Agent Runtime را دارد.
+              UX، Project Selection، Local Security، Provider Settings، Packaging و Releaseها متعلق به TL Agent هستند. Kilo در لایه زیرین نقش Agent Runtime را دارد.
             </p>
           </div>
         </section>

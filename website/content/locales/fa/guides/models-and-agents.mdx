@@ -4,7 +4,7 @@ description: انتخاب Coding Agent و Modelهای قابل استفاده د
 icon: Bot
 ---
 
-TL Agent، Agentها، Providerها و Modelهایی را نشان می‌دهد که Runtime محلی در اختیارش می‌گذارد. TL Agent یک Model Router جداگانه روی آن نمی‌سازد.
+TL Agent، Agentها، Providerها و Modelهایی را نشان می‌دهد که Runtime Local در اختیارش می‌گذارد. TL Agent Model Router یا Model Inference Backend جداگانه‌ای روی آن نمی‌سازد.
 
 ## Agentها
 
@@ -12,8 +12,14 @@ TL Agent، Agentها، Providerها و Modelهایی را نشان می‌دهد
 
 ## Model و Provider
 
-Modelهای قابل استفاده از Providerهایی می‌آیند که Runtime به آن‌ها متصل است. TL Agent وضعیت آن‌ها را در UI نشان می‌دهد و Model انتخاب‌شده را برای اجرا می‌فرستد.
+Model می‌تواند از Kilo-hosted Providerها بیاید یا از Custom Endpoint سازگاری که در **Settings → Providers** اضافه کرده‌اید. TL Agent هنگام شروع کار Provider/Model انتخاب‌شده را به Runtime Local می‌فرستد.
 
-## ورود به حساب
+برای API Familyهای پشتیبانی‌شده و نحوه ذخیره Config و API Key، [Custom Providerها](./custom-providers) را ببینید.
 
-اگر Provider نیاز به Login داشته باشد، TL Agent می‌تواند Device Authorization خود Runtime را نمایش دهد. Credentialها و Model Inference از زیرساخت ابری متعلق به TL Agent عبور نمی‌کنند.
+## Kilo Account Login
+
+برای Modelهای Hosted در Kilo، TL Agent همان Device Authorization خود Kilo را نمایش می‌دهد. Credentialها و Model Inference از Cloud متعلق به TL Agent عبور نمی‌کنند.
+
+## Provider Error
+
+حتی وقتی TL Agent و Runtime Local سالم هستند ممکن است Provider موقتاً Error بدهد. اگر Runtime بعد از Retry Cycle به یک Retryable Provider Error برسد، TL Agent می‌تواند دکمه **Resume** نشان دهد تا کار از Workspace State فعلی ادامه پیدا کند و لازم نباشد از اول شروع کنید.

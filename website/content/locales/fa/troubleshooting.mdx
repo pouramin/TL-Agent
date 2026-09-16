@@ -1,24 +1,36 @@
 ---
 title: رفع مشکل
-description: بررسی مشکلات رایج Startup، پروژه، مرورگر و Provider در TL Agent.
+description: بررسی مشکلات رایج Startup، Project، Browser و Provider در TL Agent.
 icon: Wrench
 ---
 
-## مرورگر خودکار باز نشد
+## Browser خودکار باز نشد
 
-ممکن است Server محلی همچنان در حال اجرا باشد. آدرس `Local:` را از Terminal کپی و دستی باز کنید. اگر `--no-browser` داده‌اید، این رفتار طبیعی است.
+ممکن است Local Server همچنان در حال اجرا باشد. آدرس `Local:` را از Terminal کپی و دستی باز کنید. اگر `--no-browser` داده‌اید، این رفتار طبیعی است.
 
 ## Folder Picker پوشه را قبول نمی‌کند
 
-یک Directory موجود انتخاب کنید. TL Agent مسیر محلی را قبل از تغییر پروژه Normalize و Validate می‌کند.
+یک Directory موجود انتخاب کنید. TL Agent مسیر Local را قبل از تغییر Project Context، Normalize و Validate می‌کند.
 
 ## Runtime پیدا نمی‌شود
 
-Release رسمی TL Agent Runtime سازگار را همراه خودش دارد. این خطا بیشتر هنگام اجرای Source یا Override دستی Runtime دیده می‌شود.
+Release رسمی TL Agent Runtime سازگار را همراه خودش دارد. این Error بیشتر هنگام اجرای Source یا Override دستی Runtime دیده می‌شود.
 
 ## Model یا Provider دیده نمی‌شود
 
-وضعیت Model/Provider از Runtime و حساب Provider می‌آید. Login لازم را کامل و Provider State را Refresh کنید.
+برای Modelهای Hosted در Kilo، Account/Device Login لازم را کامل کنید. برای Custom Endpoint، وارد **Settings → Providers** شوید و Base URL، Model ID، Provider API و وضعیت API Key را بررسی کنید.
+
+## Provider بعد از Retryها متوقف شد
+
+TL Agent بین Retryable Provider Error و Error نهایی تفاوت می‌گذارد. برای Failureهای موقت Upstream — مثل بعضی Connection Errorها یا Responseهای `5xx` — بعد از تمام‌شدن Retry Cycle خود Kilo، ممکن است دکمه **Resume** نمایش داده شود.
+
+File Changes قبلی حفظ می‌شوند و Resume کار را از Workspace State فعلی ادامه می‌دهد؛ قرار نیست کارهای تمام‌شده از اول تکرار شوند.
+
+Authentication Error، Quota/Usage Limit، Context Overflow و Errorهای مشابه به‌عنوان Retryable Recovery در نظر گرفته نمی‌شوند؛ اول باید مشکل اصلی Provider یا Account را حل کنید.
+
+## Custom Model در Task طولانی Context را از دست می‌دهد
+
+اگر Context Limit آن Model را می‌دانید، از **Settings → Providers** وارد کنید. Runtime پین‌شده وقتی Context Limit یک Custom Model نامشخص باشد نمی‌تواند Automatic Context Compaction را فعال کند.
 
 ## Agent منتظر مانده
 

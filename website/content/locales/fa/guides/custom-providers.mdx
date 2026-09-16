@@ -1,0 +1,51 @@
+---
+title: Custom Providerها
+description: اضافه‌کردن و مدیریت Providerهای سازگار به‌صورت Local از داخل Settings خود TL Agent.
+icon: Cable
+---
+
+TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provider سازگار اضافه کنید. این یک Workflow داخل خود TL Agent است که از Config و Auth APIهای Local مربوط به Kilo استفاده می‌کند؛ یعنی TL Agent برای این کار Cloud Gateway جداگانه‌ای ندارد.
+
+## Provider APIهای پشتیبانی‌شده
+
+فرم فعلی سه API Family را پشتیبانی می‌کند:
+
+- **OpenAI Compatible**
+- **OpenAI Responses**
+- **Anthropic Messages**
+
+این بخش عمداً Vendor-agnostic طراحی شده؛ به‌جای وابستگی به Preset یک شرکت خاص، Endpoint خودتان را تعریف می‌کنید.
+
+## اضافه‌کردن Provider
+
+از مسیر **Settings → Providers → Add provider** این اطلاعات را وارد کنید:
+
+- Provider ID با حروف کوچک، عدد، `-` یا `_`؛
+- Display Name؛
+- Provider API؛
+- Base URL؛
+- API Key؛
+- Model ID و در صورت نیاز Model Name؛
+- Context Limit و Max Output به‌صورت اختیاری؛
+- پشتیبانی یا عدم پشتیبانی از Tool Calling؛
+- فعال‌بودن Reasoning برای آن Model.
+
+بعد از Save، Modelهای آن Provider در Model Selection خود TL Agent قابل استفاده می‌شوند.
+
+## اطلاعات کجا ذخیره می‌شوند؟
+
+Provider Config از طریق Config Layer خود Kilo به‌صورت Global روی همان سیستم ذخیره می‌شود و بین Projectها قابل استفاده است.
+
+API Key مسیر جدا دارد و داخل **Local Auth Store خود Kilo** نگه‌داری می‌شود. TL Agent کلید Provider را داخل Browser Storage یا Provider Config ذخیره نمی‌کند.
+
+## Context و Output Limit
+
+اگر Context Limit یا Max Output آن Model را می‌دانید، بهتر است وارد کنید. Runtime برای Conversationهای طولانی از این اطلاعات استفاده می‌کند. در Runtime فعلی، وقتی Context Limit یک Custom Model مشخص نباشد، Automatic Context Compaction برای آن Model غیرفعال می‌شود.
+
+## Edit یا حذف Provider
+
+Providerهای سازگار در همان Providers Panel نمایش داده می‌شوند. می‌توانید Config را Edit کنید یا Provider را حذف کنید. هنگام حذف، Auth Entry مربوط به API Key هم از طریق Runtime Local پاک می‌شود.
+
+## نکته امنیتی
+
+Base URL سفارشی، Promptها و Requestهای Model مربوط به همان Provider را دریافت می‌کند. فقط Endpointی را اضافه کنید که به آن اعتماد دارید و API Key را داخل Issue، Screenshot یا Log عمومی قرار ندهید.

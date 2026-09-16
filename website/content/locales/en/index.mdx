@@ -4,11 +4,11 @@ description: Learn what TL Agent is, what it owns as a product, and where the Ki
 icon: House
 ---
 
-TL Agent is a **local, standalone coding-agent workspace**. It gives you a dedicated browser environment for working with local projects, sessions, agents, models, tools, permissions, file changes, and project files without requiring an IDE.
+TL Agent is a **local, standalone coding-agent workspace**. It gives you a dedicated browser environment for working with local projects, sessions, agents, models, tools, providers, permissions, file changes, and project files without requiring an IDE.
 
 ## Product identity
 
-TL Agent is the product you install and interact with. Kilo Code is an upstream runtime dependency used underneath TL Agent for agent execution, tools, sessions, and provider integrations.
+TL Agent is the product you install and interact with. Kilo Code is an upstream runtime dependency used underneath TL Agent for agent execution, tools, sessions, provider integrations, and model execution.
 
 ```text
 You
@@ -16,7 +16,8 @@ You
 TL Agent
   ├─ browser workspace
   ├─ project picker
-  ├─ sessions and changes
+  ├─ sessions / files / changes
+  ├─ provider settings
   ├─ local security boundary
   └─ launcher + packaging
        ↓
@@ -31,16 +32,20 @@ This separation is intentional: normal TL Agent usage should feel like using TL 
 
 - choose a local project from the operating-system folder picker;
 - create, rename, and delete sessions;
-- choose an agent and available model;
+- choose an agent and model;
+- add custom OpenAI-compatible, OpenAI Responses, or Anthropic-compatible providers from Settings;
 - send prompts and follow live reasoning/tool activity;
-- approve or reject permission requests;
-- answer interactive questions from the agent;
-- inspect project files and file changes;
+- recover from retryable provider failures without losing existing file changes;
+- approve or reject permission requests and answer interactive questions;
+- inspect project files and per-session changes;
 - interrupt an active run;
+- personalize theme and UI font size;
 - use the application without VS Code, JetBrains, Cursor, Docker, or a TL Agent cloud backend.
+
+The current main branch pins Kilo Code `7.6.2` as its bundled runtime contract.
 
 ## Start here
 
-Go to [Installation](./getting-started/installation), then [First run](./getting-started/first-run).
+Go to [Installation](./getting-started/installation), then [First run](./getting-started/first-run). For provider setup, see [Custom providers](./guides/custom-providers).
 
 > TL Agent is an independent open-source project. It uses Kilo Code as its local agent runtime but is not an official Kilo Code product.

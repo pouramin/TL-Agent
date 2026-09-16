@@ -9,7 +9,12 @@ export function baseOptions(lang: 'en' | 'fa' = 'en'): BaseLayoutProps {
 
   return {
     nav: {
-      title: site.name,
+      title: (
+        <span className="tl-docs-brand">
+          <img src={site.markUrl} alt="" aria-hidden="true" />
+          <span>TL Agent</span>
+        </span>
+      ),
       url: `${prefix}/`,
     },
     githubUrl: site.repoUrl,

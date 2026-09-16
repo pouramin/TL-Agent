@@ -17,14 +17,23 @@ const features = [
   },
   {
     title: 'Project-aware workflow',
-    description: 'Pick a local folder, create sessions, choose agents and models, inspect file changes, and keep each conversation scoped to the selected project.',
+    description: 'Pick a local folder, manage sessions, inspect project files and changes, and keep each conversation scoped to the selected project.',
     icon: FolderCode,
   },
   {
-    title: 'Local security boundary',
-    description: 'The product binds to loopback, keeps runtime credentials server-side, rejects cross-origin requests, and asks for permission before sensitive agent actions.',
+    title: 'Provider control without a TL Agent cloud',
+    description: 'Use Kilo-hosted models or add compatible custom providers locally. Provider keys stay in Kilo’s local auth store, not TL Agent browser storage.',
     icon: LockKeyhole,
   },
+];
+
+const capabilities = [
+  'Custom providers',
+  'Retryable error recovery',
+  'Files + changes',
+  'Sessions + permissions',
+  'Theme + font size',
+  'Loopback-only runtime',
 ];
 
 export default function HomePage() {
@@ -32,7 +41,10 @@ export default function HomePage() {
     <HomeLayout {...baseOptions('en')}>
       <main className="relative overflow-hidden">
         <div className="hero-grid pointer-events-none absolute inset-0 -z-10 opacity-60" />
-        <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-20 pt-24 text-center md:pt-32">
+        <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-20 pt-20 text-center md:pt-28">
+          <div className="tl-brand-lockup mb-7">
+            <img src={site.logoUrl} alt="TL Agent — Code. Reason. Act." />
+          </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
             Early alpha · Local-first · Open source
           </div>
@@ -49,6 +61,13 @@ export default function HomePage() {
             <a href={site.releasesUrl} className="inline-flex items-center gap-2 rounded-lg border bg-fd-card px-5 py-3 font-medium" target="_blank" rel="noreferrer">
               <Download className="size-4" /> Download releases
             </a>
+          </div>
+          <div className="mt-6 flex max-w-4xl flex-wrap justify-center gap-2">
+            {capabilities.map((item) => (
+              <span key={item} className="tl-capability-chip rounded-full px-3 py-1 text-sm text-fd-muted-foreground">
+                {item}
+              </span>
+            ))}
           </div>
 
           <div className="mt-16 w-full max-w-4xl rounded-2xl border bg-fd-card/80 p-5 text-left shadow-sm md:p-8">
@@ -79,7 +98,7 @@ export default function HomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground">Independent product, upstream runtime</p>
             <h2 className="mt-2 text-3xl font-semibold">TL Agent owns the workspace. Kilo powers the agent runtime underneath.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Kilo is an upstream runtime dependency, not TL Agent's product identity. User-facing workflows, packaging, local security, project selection, browser UX, and releases belong to TL Agent.
+              Kilo is an upstream runtime dependency, not TL Agent’s product identity. User-facing workflows, packaging, local security, provider settings, project selection, browser UX, and releases belong to TL Agent.
             </p>
           </div>
         </section>

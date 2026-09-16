@@ -4,7 +4,7 @@ description: Choose the coding agent and models available through TL Agent.
 icon: Bot
 ---
 
-TL Agent presents the agents, providers, and models exposed by its bundled runtime. It does not create a second model router of its own.
+TL Agent presents the agents, providers, and models exposed by its bundled runtime. It does not create a second model router or model-inference backend of its own.
 
 ## Agents
 
@@ -12,8 +12,14 @@ The primary coding workflow uses the product-facing `code` agent exposed by the 
 
 ## Models and providers
 
-Available models come from providers configured through the runtime. TL Agent shows that state in the workspace and sends the selected provider/model reference when starting work.
+Models can come from Kilo-hosted/provider accounts or from a compatible custom endpoint you add in **Settings → Providers**. TL Agent sends the selected provider/model reference to the local runtime when starting work.
 
-## Account login
+See [Custom providers](./custom-providers) for the supported API families and storage/security model.
 
-Where a provider requires sign-in, TL Agent can surface the runtime's normal device authorization flow. Credentials and model inference are not routed through TL Agent-owned cloud infrastructure.
+## Kilo account login
+
+For Kilo-hosted models, TL Agent surfaces Kilo's normal device authorization flow. Credentials and model inference are not routed through TL Agent-owned cloud infrastructure.
+
+## Provider failures
+
+Transient provider failures can happen even when TL Agent and the local runtime are healthy. When the runtime finishes its retry cycle with a retryable provider error, TL Agent can offer a **Resume** action that continues from the preserved workspace state instead of starting over.

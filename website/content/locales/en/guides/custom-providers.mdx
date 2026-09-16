@@ -1,0 +1,51 @@
+---
+title: Custom providers
+description: Add and manage compatible model providers locally from TL Agent Settings.
+icon: Cable
+---
+
+TL Agent can add compatible providers from **Settings → Providers**. This is a TL Agent product workflow backed by Kilo's local configuration and auth APIs; it does not introduce a TL Agent-hosted gateway.
+
+## Supported provider APIs
+
+The current provider form supports three API families:
+
+- **OpenAI Compatible**
+- **OpenAI Responses**
+- **Anthropic Messages**
+
+This layer is intentionally vendor-agnostic. You provide the endpoint details rather than choosing from a hard-coded vendor preset.
+
+## Add a provider
+
+Open **Settings → Providers → Add provider** and fill in:
+
+- Provider ID — lowercase letters, numbers, dashes, or underscores;
+- Display name;
+- Provider API;
+- Base URL;
+- API key;
+- Model ID and optional display name;
+- optional context limit and max output;
+- whether the model supports tool calling;
+- whether the model exposes reasoning.
+
+After saving, models from that provider become available through TL Agent's model selection flow.
+
+## Where configuration is stored
+
+Provider configuration is saved globally through Kilo's local config layer and is available across projects on that machine.
+
+API keys are handled separately by Kilo's **local auth store**. TL Agent does not save provider keys in browser storage or inside the provider configuration object.
+
+## Context and output limits
+
+If you know a custom model's context or maximum output limit, enter it. This gives the runtime better information for long conversations. The current runtime does not automatically compact context for a custom model when no context limit is known.
+
+## Edit or remove a provider
+
+Existing compatible providers appear in the Providers panel. You can edit their configuration or remove them. Removing a provider also removes the matching API-key entry through the local runtime auth API.
+
+## Security note
+
+A custom Base URL receives the prompts and model requests sent through that provider. Only add endpoints you trust, and never paste an API key into issue reports, screenshots, or public logs.

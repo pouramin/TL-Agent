@@ -4,11 +4,11 @@ description: آشنایی با TL Agent به‌عنوان یک محصول مست
 icon: House
 ---
 
-TL Agent یک **Local Workspace مستقل برای Coding Agentها** است. از داخل مرورگر می‌توانید با پروژه‌های Local، Sessionها، Agentها، Modelها، Toolها، Permissionها و Changes فایل کار کنید؛ بدون اینکه مجبور باشید داخل یک IDE بمانید.
+TL Agent یک **Local Workspace مستقل برای Coding Agentها** است. از داخل مرورگر می‌توانید با Projectهای Local، Sessionها، Agentها، Modelها، Toolها، Providerها، Permissionها و File Changes کار کنید؛ بدون اینکه مجبور باشید داخل IDE بمانید.
 
 ## هویت محصول
 
-محصولی که نصب و استفاده می‌کنید **TL Agent** است. Kilo Code در لایه زیرین نقش Agent Runtime را دارد و اجرای Agent، Toolها، Sessionها و اتصال به Providerها را انجام می‌دهد.
+محصولی که نصب و استفاده می‌کنید **TL Agent** است. Kilo Code در لایه زیرین نقش Agent Runtime را دارد و اجرای Agent، Toolها، Sessionها، Provider Integration و Model Execution را انجام می‌دهد.
 
 ```text
 User
@@ -16,7 +16,8 @@ User
 TL Agent
  ├─ Browser Workspace
  ├─ Project Picker
- ├─ Sessions + Changes
+ ├─ Sessions / Files / Changes
+ ├─ Provider Settings
  ├─ Local Security
  └─ Launcher + Packaging
       ↓
@@ -29,18 +30,22 @@ Models / Providers / Project Tools
 
 ## چه کارهایی می‌توانید انجام دهید؟
 
-- انتخاب پوشه پروژه با Folder Picker سیستم‌عامل؛
+- انتخاب Folder پروژه با Folder Picker سیستم‌عامل؛
 - ساخت، Rename و حذف Session؛
 - انتخاب Agent و Model؛
+- اضافه‌کردن Custom Providerهای سازگار با OpenAI Compatible، OpenAI Responses یا Anthropic Messages از داخل Settings؛
 - ارسال Prompt و مشاهده Live Activity مربوط به Agent و Toolها؛
-- تأیید یا رد Permissionها؛
-- پاسخ به سؤال‌های تعاملی Agent؛
-- مشاهده فایل‌های پروژه و Changes؛
-- Stop یا Abort کردن اجرای فعال؛
-- استفاده بدون VS Code، JetBrains، Cursor، Docker یا بک‌اند ابری TL Agent.
+- Resume کردن Retryable Provider Error بدون از دست رفتن File Changes قبلی؛
+- تأیید یا رد Permissionها و پاسخ به Questionهای Agent؛
+- مشاهده Project Files و Changes هر Session؛
+- Stop یا Abort کردن Run فعال؛
+- تغییر Theme و Font Size رابط؛
+- استفاده بدون VS Code، JetBrains، Cursor، Docker یا Cloud Backend متعلق به TL Agent.
+
+در Main فعلی، Runtime پروژه روی Kilo Code `7.6.2` پین شده است.
 
 ## از کجا شروع کنم؟
 
-ابتدا [نصب](./getting-started/installation) و بعد [اولین اجرا](./getting-started/first-run) را ببینید.
+ابتدا [نصب](./getting-started/installation) و بعد [اولین اجرا](./getting-started/first-run) را ببینید. برای Providerها هم [Custom Provider](./guides/custom-providers) را ببینید.
 
 > TL Agent یک پروژه Open Source مستقل است. از Kilo Code به‌عنوان Runtime استفاده می‌کند، اما محصول رسمی Kilo Code نیست.

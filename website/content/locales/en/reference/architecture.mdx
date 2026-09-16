@@ -4,20 +4,24 @@ description: Understand the boundary between TL Agent's product layer and its bu
 icon: Network
 ---
 
-TL Agent is built around a small local product layer and an upstream agent runtime.
+TL Agent is built around a local product layer and an upstream agent runtime.
 
 ```text
-Browser
+Browser workspace
   ↓ localhost
 TL Agent UI + Go launcher
   ├─ project picker
-  ├─ local state
+  ├─ sessions / files / changes
+  ├─ provider settings UI
+  ├─ retryable provider recovery UI
+  ├─ local state + appearance preferences
   ├─ security boundary
   └─ authenticated reverse proxy
        ↓
 Bundled Kilo runtime
        ├─ sessions / agents / tools
-       ├─ provider integrations
+       ├─ provider config + local auth store
+       ├─ provider integrations / model execution
        └─ project execution
 ```
 
@@ -27,11 +31,11 @@ Bundled Kilo runtime
 - local launch and process lifecycle;
 - project selection;
 - the reverse-proxy/security boundary;
-- packaging and releases;
-- user-facing session, file, changes, permission, and settings UX.
+- packaging, releases, and the TL Agent brand;
+- user-facing session, file, changes, permission, provider-settings, recovery, and appearance UX.
 
 ## Runtime owns
 
-Kilo remains responsible for agent execution, tools, session internals, filesystem/tool calls, provider integrations, and model execution.
+Kilo remains responsible for agent execution, tools, session internals, filesystem/tool calls, provider configuration persistence, provider credentials in its local auth store, and model execution.
 
-The distinction is architectural, not branding: users operate TL Agent while Kilo stays an upstream component under the hood.
+The distinction is architectural and product-facing: users operate TL Agent while Kilo remains an upstream runtime component under the hood.

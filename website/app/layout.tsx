@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   },
   description: site.description,
   applicationName: site.name,
+  icons: {
+    icon: site.markUrl,
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
