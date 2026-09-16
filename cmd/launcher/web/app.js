@@ -75,6 +75,11 @@
 
   const loadExtensions = async () => {
     await loadScript(
+      "/attachments.js",
+      () => K.__attachmentsInstalled,
+      "[TL Agent] Composer attachments failed to load",
+    );
+    await loadScript(
       "/diagnostics-ui.js",
       () => K.__diagnosticsUiInstalled,
       "[TL Agent] Session diagnostics UI failed to load",

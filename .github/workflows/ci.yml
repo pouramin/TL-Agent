@@ -32,7 +32,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(cmd/launcher/web/core.js cmd/launcher/web/chat.js cmd/launcher/web/attention.js cmd/launcher/web/app.js)
+          files=(cmd/launcher/web/core.js cmd/launcher/web/chat.js cmd/launcher/web/attachments.js cmd/launcher/web/attention.js cmd/launcher/web/app.js)
           if grep -nE 'K\.kilo|/kilo/(api|provider|session|agent|permission|question|global)|K\.request\([^)]*/kilo' "${files[@]}"; then
             echo "UI modules must access Kilo only through cmd/launcher/web/kilo-api.js" >&2
             exit 1
