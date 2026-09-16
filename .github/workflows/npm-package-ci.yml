@@ -34,7 +34,9 @@ jobs:
         run: node packaging/npm/build.cjs
 
       - name: Verify launcher syntax
-        run: node --check packaging/npm/dist/tl-agent.cjs
+        run: |
+          node --check packaging/npm/dist/tl-agent.cjs
+          node --check packaging/npm/dist/launcher.cjs
 
       - name: Verify package metadata and contents
         working-directory: packaging/npm/dist
@@ -49,6 +51,8 @@ jobs:
           test "$PACKAGE_NAME" = "tl-agent"
           test "$BIN_TARGET" = "tl-agent.cjs"
           test -f tl-agent.cjs
+          test -f launcher.cjs
           test -f README.md
+          grep -F "TL_AGENT_VERSION = \"v${EXPECTED_VERSION}\"" tl-agent.cjs
 
           npm pack --dry-run --ignore-scripts
