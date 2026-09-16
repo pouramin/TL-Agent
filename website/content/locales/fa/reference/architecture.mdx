@@ -4,7 +4,7 @@ description: مرز بین Product Layer مربوط به TL Agent و Agent Runti
 icon: Network
 ---
 
-TL Agent از یک Product Layer Local و یک Runtime بالادستی تشکیل شده است.
+TL Agent از یک Product Layer Local و یک Agent Runtime همراه برنامه تشکیل شده است.
 
 ```text
 Browser Workspace
@@ -18,9 +18,9 @@ TL Agent UI + Go launcher
   ├─ Security Boundary
   └─ Authenticated Reverse Proxy
        ↓
-Bundled Kilo Runtime
+Bundled Agent Runtime
        ├─ Sessions / Agents / Tools
-       ├─ Provider Config + Local Auth Store
+       ├─ Provider Config + Local Credential Store
        ├─ Provider Integration / Model Execution
        └─ Project Execution
 ```
@@ -36,6 +36,6 @@ Bundled Kilo Runtime
 
 ## مسئولیت Runtime
 
-Kilo در لایه زیرین مسئول Agent Execution، Toolها، جزئیات Session، Filesystem/Tool Call، ذخیره Provider Config، نگه‌داری Credentialها در Local Auth Store خودش و Model Execution است.
+Runtime همراه برنامه Agent Execution، Toolها، جزئیات Session، Filesystem/Tool Call، ذخیره Provider Config، نگه‌داری Credentialها و Model Execution را انجام می‌دهد.
 
-برای کاربر، محصول **TL Agent** است؛ Kilo یک Runtime Component زیر کاپوت باقی می‌ماند.
+این تفاوت یک مرز معماری است، نه هویت محصول؛ کاربر با **TL Agent** کار می‌کند و جزئیات Runtime پشت Adapter Boundary باقی می‌ماند.

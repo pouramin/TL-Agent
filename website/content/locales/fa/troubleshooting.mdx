@@ -24,11 +24,11 @@ Composer فقط Image، PDF و فایل‌های Text/Code پشتیبانی‌ش
 
 ## Model یا Provider دیده نمی‌شود
 
-برای Modelهای Hosted در Kilo، Account/Device Login لازم را کامل کنید. برای Custom Endpoint، وارد **Settings → Providers** شوید و Base URL، Model ID، Provider API و وضعیت API Key را بررسی کنید.
+برای Modelهای Hosted، Account/Device Login لازم را کامل کنید. برای Custom Endpoint، وارد **Settings → Providers** شوید و Base URL، Model ID، Provider API و وضعیت API Key را بررسی کنید.
 
 ## Provider بعد از Retryها متوقف شد
 
-TL Agent بین Retryable Provider Error و Error نهایی تفاوت می‌گذارد. برای Failureهای موقت Upstream — مثل بعضی Connection Errorها یا Responseهای `5xx` — بعد از تمام‌شدن Retry Cycle خود Kilo، ممکن است دکمه **Resume** نمایش داده شود.
+TL Agent بین Retryable Provider Error و Error نهایی تفاوت می‌گذارد. برای Failureهای موقت Upstream — مثل بعضی Connection Errorها یا Responseهای `5xx` — بعد از تمام‌شدن Retry Cycle مربوط به Runtime ممکن است دکمه **Resume** نمایش داده شود.
 
 File Changes قبلی حفظ می‌شوند و Resume کار را از Workspace State فعلی ادامه می‌دهد؛ قرار نیست کارهای تمام‌شده از اول تکرار شوند.
 

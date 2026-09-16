@@ -22,7 +22,7 @@ const features = [
   },
   {
     title: 'Provider Control',
-    description: 'از Modelهای Kilo استفاده کنید یا Custom Provider سازگار اضافه کنید. API Key داخل Local Auth Store خود Kilo می‌ماند، نه Browser Storage مربوط به TL Agent.',
+    description: 'از Modelهای Hosted یا Custom Providerهای سازگار استفاده کنید. Credentialها داخل Local Runtime Store می‌مانند، نه Browser Storage مربوط به TL Agent.',
     icon: LockKeyhole,
   },
 ];
@@ -96,10 +96,10 @@ export default function PersianHomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-16">
-            <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Upstream runtime</p>
-            <h2 className="mt-2 text-3xl font-semibold">TL Agent محصول مستقله؛ Kilo Runtime فقط زیرِ کاپوته.</h2>
+            <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Local runtime</p>
+            <h2 className="mt-2 text-3xl font-semibold">TL Agent همون محصولیه که کاربر می‌بینه و استفاده می‌کنه.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              UX، Project Selection، Local Security، Provider Settings، Packaging و Releaseها متعلق به TL Agent هستند. Kilo در لایه زیرین نقش Agent Runtime را دارد.
+              Workspace، Project Selection، Provider Settings، Recovery، Local Security، Packaging و Releaseها متعلق به TL Agent هستند. Runtime همراه برنامه فقط اجرای Agent را پشت مرز محصول انجام می‌دهد.
             </p>
           </div>
         </section>

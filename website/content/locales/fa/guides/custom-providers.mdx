@@ -4,7 +4,7 @@ description: اضافه‌کردن و مدیریت Providerهای سازگار �
 icon: Cable
 ---
 
-TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provider سازگار اضافه کنید. این یک Workflow داخل خود TL Agent است که از Config و Auth APIهای Local مربوط به Kilo استفاده می‌کند؛ یعنی TL Agent برای این کار Cloud Gateway جداگانه‌ای ندارد.
+TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provider سازگار اضافه کنید. این یک Workflow داخل خود TL Agent است که از Config و Credential APIهای Local Runtime استفاده می‌کند؛ یعنی TL Agent برای این کار Cloud Gateway جداگانه‌ای ندارد.
 
 ## Provider APIهای پشتیبانی‌شده
 
@@ -34,9 +34,9 @@ TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provi
 
 ## اطلاعات کجا ذخیره می‌شوند؟
 
-Provider Config از طریق Config Layer خود Kilo به‌صورت Global روی همان سیستم ذخیره می‌شود و بین Projectها قابل استفاده است.
+Provider Config از طریق Config Layer مربوط به Local Runtime به‌صورت Global روی همان سیستم ذخیره می‌شود و بین Projectها قابل استفاده است.
 
-API Key مسیر جدا دارد و داخل **Local Auth Store خود Kilo** نگه‌داری می‌شود. TL Agent کلید Provider را داخل Browser Storage یا Provider Config ذخیره نمی‌کند.
+API Key مسیر جدا دارد و داخل **Local Credential Store** مربوط به Runtime نگه‌داری می‌شود. TL Agent کلید Provider را داخل Browser Storage یا Provider Config ذخیره نمی‌کند.
 
 ## Context و Output Limit
 

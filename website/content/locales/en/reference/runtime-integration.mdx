@@ -1,0 +1,25 @@
+---
+title: Runtime integration
+description: Maintainer reference for the bundled runtime compatibility layer used by TL Agent.
+icon: Cable
+---
+
+TL Agent keeps runtime-specific implementation details behind an adapter boundary. The current upstream implementation is **Kilo Code 7.6.2**; TL Agent remains an independent product and normal user workflows do not depend on knowing or operating that runtime directly.
+
+## Compatibility contract
+
+The bundled runtime version is pinned and CI validates the product-facing HTTP contract used for agents, providers, sessions, status, messages, asynchronous prompts, global events, permissions, questions, and device authorization.
+
+## Adapter boundary
+
+Browser-side runtime calls are centralized in:
+
+```text
+cmd/launcher/web/kilo-api.js
+```
+
+UI modules should not build runtime endpoint paths directly. Keeping compatibility logic in one adapter makes runtime upgrades reviewable and testable.
+
+## Upgrade rule
+
+Before changing the bundled runtime version, TL Agent CI must verify project routing, agent/provider/session shapes, messages, permissions/questions, events, and a real write-tool flow against the new target.

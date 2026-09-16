@@ -1,6 +1,6 @@
 ---
 title: TL Agent
-description: آشنایی با TL Agent به‌عنوان یک محصول مستقل و جایگاه Kilo به‌عنوان Runtime زیرین.
+description: آشنایی با TL Agent به‌عنوان یک Workspace مستقل و Local برای Coding Agentها.
 icon: House
 ---
 
@@ -8,7 +8,7 @@ TL Agent یک **Local Workspace مستقل برای Coding Agentها** است. �
 
 ## هویت محصول
 
-محصولی که نصب و استفاده می‌کنید **TL Agent** است. Kilo Code در لایه زیرین نقش Agent Runtime را دارد و اجرای Agent، Toolها، Sessionها، Provider Integration و Model Execution را انجام می‌دهد.
+محصولی که نصب و استفاده می‌کنید **TL Agent** است. Project Selection، Sessionها، Provider Settings، Attachmentها، Recovery، Security، Packaging و Browser Experience همگی بخشی از خود TL Agent هستند.
 
 ```text
 User
@@ -21,12 +21,12 @@ TL Agent
  ├─ Local Security
  └─ Launcher + Packaging
       ↓
-Agent Runtime (Kilo)
+Bundled Agent Runtime
       ↓
 Models / Providers / Project Tools
 ```
 
-این جداسازی عمدی است: در استفاده روزمره با **TL Agent** کار می‌کنید؛ Kilo یک Runtime زیرساختی است، نه هویت اصلی محصول.
+Runtime همراه برنامه یک لایه اجرایی داخلی است. در استفاده روزمره با یک محصول کار می‌کنید: **TL Agent**.
 
 ## چه کارهایی می‌توانید انجام دهید؟
 
@@ -43,10 +43,8 @@ Models / Providers / Project Tools
 - تغییر Theme و Font Size رابط؛
 - استفاده بدون VS Code، JetBrains، Cursor، Docker یا Cloud Backend متعلق به TL Agent.
 
-در Main فعلی، Runtime پروژه روی Kilo Code `7.6.2` پین شده است.
-
 ## از کجا شروع کنم؟
 
 ابتدا [نصب](./getting-started/installation) و بعد [اولین اجرا](./getting-started/first-run) را ببینید. برای محدودیت‌ها و رفتار Attachmentها [File Attachment](./guides/file-attachments) و برای Providerها [Custom Provider](./guides/custom-providers) را ببینید.
 
-> TL Agent یک پروژه Open Source مستقل است. از Kilo Code به‌عنوان Runtime استفاده می‌کند، اما محصول رسمی Kilo Code نیست.
+جزئیات Low-level سازگاری Runtime برای Maintainerها در [Runtime Integration](./reference/runtime-integration) آمده است.

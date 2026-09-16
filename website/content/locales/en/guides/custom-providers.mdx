@@ -4,7 +4,7 @@ description: Add and manage compatible model providers locally from TL Agent Set
 icon: Cable
 ---
 
-TL Agent can add compatible providers from **Settings → Providers**. This is a TL Agent product workflow backed by Kilo's local configuration and auth APIs; it does not introduce a TL Agent-hosted gateway.
+TL Agent can add compatible providers from **Settings → Providers**. This is a TL Agent product workflow backed by local runtime configuration and credential APIs; it does not introduce a TL Agent-hosted gateway.
 
 ## Supported provider APIs
 
@@ -34,9 +34,9 @@ After saving, models from that provider become available through TL Agent's mode
 
 ## Where configuration is stored
 
-Provider configuration is saved globally through Kilo's local config layer and is available across projects on that machine.
+Provider configuration is saved globally through the local runtime configuration layer and is available across projects on that machine.
 
-API keys are handled separately by Kilo's **local auth store**. TL Agent does not save provider keys in browser storage or inside the provider configuration object.
+API keys are handled separately by the runtime's **local credential store**. TL Agent does not save provider keys in browser storage or inside the provider configuration object.
 
 ## Context and output limits
 

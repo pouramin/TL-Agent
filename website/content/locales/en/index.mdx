@@ -1,6 +1,6 @@
 ---
 title: TL Agent
-description: Learn what TL Agent is, what it owns as a product, and where the Kilo runtime fits underneath.
+description: Learn what TL Agent is and how its standalone local workspace is structured.
 icon: House
 ---
 
@@ -8,7 +8,7 @@ TL Agent is a **local, standalone coding-agent workspace**. It gives you a dedic
 
 ## Product identity
 
-TL Agent is the product you install and interact with. Kilo Code is an upstream runtime dependency used underneath TL Agent for agent execution, tools, sessions, provider integrations, and model execution.
+TL Agent is the product you install and interact with. Project selection, sessions, provider settings, attachments, recovery, security, packaging, and the browser experience are all part of TL Agent.
 
 ```text
 You
@@ -21,12 +21,12 @@ TL Agent
   ├─ local security boundary
   └─ launcher + packaging
        ↓
-Agent runtime (Kilo)
+Bundled agent runtime
        ↓
 Models / providers / project tools
 ```
 
-This separation is intentional: normal TL Agent usage should feel like using TL Agent, not like operating a Kilo command-line wrapper.
+The bundled runtime is an internal execution layer. Normal use should feel like operating one product: **TL Agent**.
 
 ## What you can do
 
@@ -43,10 +43,8 @@ This separation is intentional: normal TL Agent usage should feel like using TL 
 - personalize theme and UI font size;
 - use the application without VS Code, JetBrains, Cursor, Docker, or a TL Agent cloud backend.
 
-The current main branch pins Kilo Code `7.6.2` as its bundled runtime contract.
-
 ## Start here
 
 Go to [Installation](./getting-started/installation), then [First run](./getting-started/first-run). See [File attachments](./guides/file-attachments) for attachment limits and behavior, or [Custom providers](./guides/custom-providers) for provider setup.
 
-> TL Agent is an independent open-source project. It uses Kilo Code as its local agent runtime but is not an official Kilo Code product.
+Maintainers can use [Runtime integration](./reference/runtime-integration) for low-level compatibility details.

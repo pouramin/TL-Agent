@@ -2,7 +2,7 @@
 
 This directory contains the public documentation and product site for **TL Agent**. It is intentionally isolated from the Go application and from the internal engineering notes under `../docs/`.
 
-TL Agent is documented as an independent local coding-agent workspace. Kilo Code is described only where its role as the bundled upstream agent runtime is technically relevant.
+The public site treats TL Agent as the product identity. Runtime-specific implementation details are kept in a dedicated maintainer reference instead of being repeated across user-facing pages.
 
 ## Languages
 

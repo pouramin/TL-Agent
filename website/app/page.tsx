@@ -22,7 +22,7 @@ const features = [
   },
   {
     title: 'Provider control without a TL Agent cloud',
-    description: 'Use Kilo-hosted models or add compatible custom providers locally. Provider keys stay in Kilo’s local auth store, not TL Agent browser storage.',
+    description: 'Use hosted models or add compatible custom providers locally. Provider credentials stay in the local runtime credential store, not TL Agent browser storage.',
     icon: LockKeyhole,
   },
 ];
@@ -96,10 +96,10 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-16">
-            <p className="text-sm font-medium text-fd-muted-foreground">Independent product, upstream runtime</p>
-            <h2 className="mt-2 text-3xl font-semibold">TL Agent owns the workspace. Kilo powers the agent runtime underneath.</h2>
+            <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Local runtime</p>
+            <h2 className="mt-2 text-3xl font-semibold">TL Agent is the product layer from end to end.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Kilo is an upstream runtime dependency, not TL Agent’s product identity. User-facing workflows, packaging, local security, provider settings, project selection, browser UX, and releases belong to TL Agent.
+              Workspace UX, project selection, provider settings, recovery, local security, packaging, and releases all belong to TL Agent. A bundled runtime handles agent execution behind that product boundary.
             </p>
           </div>
         </section>

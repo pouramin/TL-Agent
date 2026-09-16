@@ -1,22 +1,20 @@
 ---
 title: Releases and bundled runtime
-description: Understand TL Agent release archives and the bundled Kilo runtime.
+description: Understand TL Agent release archives and the bundled runtime model.
 icon: PackageCheck
 ---
 
-TL Agent ships its own launcher/UI together with a pinned upstream runtime so users can download one archive and run it directly.
+TL Agent ships its own launcher/UI together with a pinned runtime so users can download one archive and run it directly.
 
-```text
-tl-agent/
-├─ tl-agent[.exe]
-├─ bin/
-│  └─ kilo[.exe]
-├─ LICENSE
-├─ THIRD_PARTY_NOTICES.md
-└─ third_party/
-   └─ KILO_LICENSE.txt
-```
+A release archive contains:
 
-The repository's `VERSION` tracks TL Agent. `KILO_VERSION` tracks the compatible upstream runtime.
+- the TL Agent executable;
+- the compatible bundled runtime;
+- TL Agent licensing files;
+- third-party notices and licenses.
 
-Release CI tests the product, downloads the exact pinned runtime, builds TL Agent for supported operating systems, packages the result, and publishes checksums.
+The repository's `VERSION` tracks TL Agent. Runtime compatibility is pinned separately and validated by CI.
+
+Release CI tests the product, resolves the exact compatible runtime, builds TL Agent for supported operating systems, packages the result, and publishes checksums.
+
+Maintainers can see [Runtime integration](./runtime-integration) for the low-level compatibility contract.
