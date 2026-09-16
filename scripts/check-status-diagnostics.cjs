@@ -1,0 +1,124 @@
+"use strict";
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+class FakeElement {
+  constructor(tag = "div") {
+    this.tagName = tag.toUpperCase();
+    this.id = "";
+    this.className = "";
+    this.textContent = "";
+    this.dataset = {};
+    this.children = [];
+  }
+  appendChild(child) { this.children.push(child); return child; }
+}
+
+const repoRoot = path.resolve(__dirname, "..");
+const source = fs.readFileSync(path.join(repoRoot, "cmd", "launcher", "web", "diagnostics-ui.js"), "utf8");
+const RESUME_PROMPT = "Continue the current task from the existing workspace state. Inspect what is already complete, do not repeat finished work, and finish the user's latest request.";
+
+const originalUser = (created = 1000) => ({
+  info: { role: "user", time: { created } },
+  parts: [{ type: "text", text: "Build the site" }],
+});
+const resumeUser = (created = 3000) => ({
+  info: { role: "user", time: { created } },
+  parts: [{ type: "text", text: RESUME_PROMPT }],
+});
+const assistantStep = (modelID, created = 1500, completed = 2000) => ({
+  info: { role: "assistant", time: { created, completed } },
+  parts: [{
+    type: "step-finish",
+    time: { start: created, end: completed },
+    model: { providerID: "kilo", modelID },
+  }],
+});
+const assistantError = (created = 2500) => ({
+  info: { role: "assistant", time: { created, completed: created + 10 }, error: { message: "Upstream idle timeout exceeded" } },
+  parts: [],
+});
+
+const K = {
+  __diagnosticsUiInstalled: false,
+  renderMessages: () => {},
+  state: {
+    session: { id: "session-1" },
+    activeSessions: {},
+    messages: [],
+    sending: false,
+  },
+  els: { conversation: null },
+};
+
+const document = {
+  head: new FakeElement("head"),
+  createElement: (tag) => new FakeElement(tag),
+  getElementById: () => null,
+};
+
+const context = vm.createContext({
+  window: { KLU: K },
+  document,
+  console,
+  Date,
+  JSON,
+});
+vm.runInContext(source, context, { filename: "diagnostics-ui.js" });
+
+const hooks = K.__statusDiagnostics;
+assert.ok(hooks, "diagnostics hooks should be installed");
+
+const inheritedModelMessages = [
+  originalUser(),
+  assistantStep("nvidia/nemotron-3-ultra-550b-a55b:free"),
+  assistantError(),
+  resumeUser(),
+  assistantError(3500),
+];
+assert.equal(hooks.attemptNumberAt(4, inheritedModelMessages), 2);
+assert.equal(
+  hooks.lastRecordedModelInAttempt(4, inheritedModelMessages),
+  null,
+  "a timeout in a new Resume attempt must not inherit a routed model from the previous attempt",
+);
+
+const currentAttemptModelMessages = [
+  ...inheritedModelMessages.slice(0, 4),
+  assistantStep("qwen/qwen3-coder:free", 3200, 3400),
+  assistantError(3600),
+];
+const current = hooks.lastRecordedModelInAttempt(5, currentAttemptModelMessages);
+assert.equal(current?.label, "qwen/qwen3-coder:free");
+assert.equal(hooks.attemptNumberAt(5, currentAttemptModelMessages), 2);
+
+const now = 10_000;
+K.state.messages = currentAttemptModelMessages;
+K.state.activeSessions["session-1"] = {
+  type: "retry",
+  attempt: 3,
+  message: "Upstream idle timeout exceeded",
+  next: now + 5_000,
+};
+let snapshot = hooks.workingStatusSnapshot(now, currentAttemptModelMessages);
+assert.equal(snapshot.type, "retry");
+assert.match(snapshot.meta, /provider retry 3/);
+assert.match(snapshot.meta, /next in 5s/);
+assert.equal(snapshot.detail, "Upstream model idle timeout");
+assert.equal(snapshot.model, "qwen/qwen3-coder:free");
+
+const staleMessages = [
+  originalUser(now - 600_000),
+  assistantStep("qwen/qwen3-coder:free", now - 400_000, now - 300_000),
+];
+K.state.activeSessions["session-1"] = { type: "busy" };
+snapshot = hooks.workingStatusSnapshot(now, staleMessages);
+assert.equal(snapshot.type, "busy");
+assert.equal(snapshot.stale, true);
+assert.match(snapshot.title, /Still busy/);
+assert.match(snapshot.meta, /no new session activity for 5m/);
+
+console.log("status diagnostics regressions: ok");
