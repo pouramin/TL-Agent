@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.x'
-          cache: false
 
       - name: Build isolated npm package
         run: node packaging/npm/build.cjs
