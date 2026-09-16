@@ -13,7 +13,7 @@ npx --yes tl-agent
 Run without automatically opening the browser:
 
 ```bash
-npx --yes tl-agent -- --no-browser
+npx --yes tl-agent --no-browser
 ```
 
 ## What gets stored locally?
