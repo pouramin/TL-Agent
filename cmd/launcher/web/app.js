@@ -85,6 +85,11 @@
       "[TL Agent] Integrated terminal failed to load",
     );
     await loadScript(
+      "/preview.js",
+      () => K.__previewInstalled,
+      "[TL Agent] Live preview failed to load",
+    );
+    await loadScript(
       "/attachments.js",
       () => K.__attachmentsInstalled,
       "[TL Agent] Composer attachments failed to load",
