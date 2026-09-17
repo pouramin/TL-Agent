@@ -237,6 +237,7 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 		writeJSON(w, http.StatusOK, state.snapshot())
 	})
 	registerLocalFileRoutes(mux, state)
+	registerProjectSearchRoutes(mux, state)
 	registerLocalProcessRoutes(mux, state)
 	mux.Handle("/kilo/", proxy)
 	mux.Handle("/kilo", proxy)

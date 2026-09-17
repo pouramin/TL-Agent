@@ -26,6 +26,16 @@ Runtime file/session events trigger workspace reconciliation. Clean open buffers
 
 The current editor surface remains dependency-free at runtime. Syntax coloring is layered locally over the editor and user font/theme preferences are stored in browser-local settings. A future editor-engine replacement may be considered only if it can remain fully bundled/local and preserve the same file-buffer/save/conflict contracts.
 
+## Project Search
+
+Project Search is a TL Agent workspace capability owned by the launcher rather than the bundled coding runtime.
+
+The browser sends a bounded query to `/local/search`. The launcher recursively scans only the currently selected project, groups matches by file, and returns deterministic path/line-ordered results with line, column, byte offsets, matched text, and a bounded snippet. The result shape intentionally preserves match location metadata so a future Replace in Files milestone can build on the same search foundation without moving filesystem authority into the browser.
+
+Search follows the same local filesystem trust boundary as the rest of the workspace. It does not construct shell commands or require an external search binary. Symlink entries are not followed, obvious heavy/generated directories such as `.git`, `node_modules`, `dist`, `build`, `out`, `coverage`, and `.next` are skipped by default, binary/non-UTF-8 files are ignored, and individual searchable files plus total results are bounded.
+
+The browser Search UI supports case-sensitive search and lightweight include/exclude patterns. Rapid query changes abort the previous HTTP request and stale generations are discarded. Clicking a match opens or activates the file in the existing editor and selects the matching range. The standard project-search shortcut is `Ctrl+Shift+F` or `Cmd+Shift+F`.
+
 ## Local process manager and Terminal
 
 TL Agent owns a project-scoped local process manager behind `/local/process`.
@@ -56,7 +66,7 @@ Only loopback preview URLs are accepted. Static preview file serving remains pro
 ```text
 Browser TL Agent UI
   │
-  ├── /local/*  ───────────────► launcher project/files/process/preview boundary
+  ├── /local/*  ───────────────► launcher project/files/search/process/preview boundary
   │
   └── /kilo/*
           │
@@ -100,7 +110,7 @@ The current editor is the embedded TL Agent editor surface plus local syntax hig
 
 The public TL Agent UI binds to loopback only. Requests are rejected when the Host is not loopback, and browser requests with an Origin must match the same local control origin. The bundled coding runtime also binds to `127.0.0.1` and is protected with a random per-launch password known only to the launcher.
 
-Project file mutation routes reject paths outside the selected project, project-root mutation, symlink-parent escapes, and protected Git metadata. Direct symlink writes are not treated as editable regular files.
+Project file mutation routes reject paths outside the selected project, project-root mutation, symlink-parent escapes, and protected Git metadata. Direct symlink writes are not treated as editable regular files. Project Search remains rooted at the canonical selected-project path and does not follow symlink entries outside that tree.
 
 Preview execution does not relax this boundary: project web code runs on a separate loopback origin and external preview URLs are not accepted.
 
