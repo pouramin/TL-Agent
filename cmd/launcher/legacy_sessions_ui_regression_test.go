@@ -10,7 +10,7 @@ func TestLegacySessionRecoveryContract(t *testing.T) {
 	assets, err := fs.Sub(webFS, "web")
 	if err != nil { t.Fatal(err) }
 
-	adapter, err := fs.ReadFile(assets, "kilo-api.js")
+	adapter, err := fs.ReadFile(assets, "runtime-api.js")
 	if err != nil { t.Fatal(err) }
 	legacy, err := fs.ReadFile(assets, "legacy-sessions.js")
 	if err != nil { t.Fatal(err) }
@@ -20,7 +20,7 @@ func TestLegacySessionRecoveryContract(t *testing.T) {
 	adapterText := string(adapter)
 	for _, required := range []string{"legacySessions", "/api/session", "legacyPageQuery", "messages:"} {
 		if !strings.Contains(adapterText, required) {
-			t.Fatalf("kilo-api.js missing legacy recovery marker %q", required)
+			t.Fatalf("runtime-api.js missing legacy recovery marker %q", required)
 		}
 	}
 	for _, forbidden := range []string{"legacySessions.create", "legacySessions.remove", "legacySessions.prompt"} {

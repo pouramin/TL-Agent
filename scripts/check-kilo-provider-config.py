@@ -66,7 +66,7 @@ def main() -> int:
     project = local["project"]
     provider_id = "tl-agent-contract-provider"
     model_id = "contract-model"
-    overlay_path = f"/kilo/config/overlay?{query(project, scope='global')}"
+    overlay_path = f"/runtime/config/overlay?{query(project, scope='global')}"
 
     overlay = unwrap(request(base, overlay_path))
     require(isinstance(overlay, dict), "config overlay must be an object")
@@ -89,22 +89,22 @@ def main() -> int:
     }
 
     try:
-        updated = unwrap(request(base, f"/kilo/config/overlay?{query(project)}", method="PATCH", payload={
+        updated = unwrap(request(base, f"/runtime/config/overlay?{query(project)}", method="PATCH", payload={
             "scope": "global",
             "set": {"provider": providers},
         }))
         require(isinstance(updated, dict), "config.overlay update must return an object")
 
-        auth = unwrap(request(base, f"/kilo/auth/{urllib.parse.quote(provider_id, safe='')}", method="PUT", payload={
+        auth = unwrap(request(base, f"/runtime/auth/{urllib.parse.quote(provider_id, safe='')}", method="PUT", payload={
             "type": "api",
             "key": "tl-agent-contract-key",
         }))
         require(auth is True, f"auth.set mismatch: {auth!r}")
 
-        disposed = unwrap(request(base, "/kilo/global/dispose", method="POST"))
+        disposed = unwrap(request(base, "/runtime/global/dispose", method="POST"))
         require(disposed is True, f"global.dispose mismatch: {disposed!r}")
 
-        state = unwrap(request(base, f"/kilo/provider?{query(project)}"))
+        state = unwrap(request(base, f"/runtime/provider?{query(project)}"))
         require(isinstance(state, dict), "provider state must be an object")
         all_providers = state.get("all") if isinstance(state.get("all"), list) else []
         hit = next((item for item in all_providers if isinstance(item, dict) and item.get("id") == provider_id), None)
@@ -118,15 +118,15 @@ def main() -> int:
             latest_effective = latest.get("effective") if isinstance(latest, dict) and isinstance(latest.get("effective"), dict) else {}
             cleanup = dict(latest_effective.get("provider") if isinstance(latest_effective.get("provider"), dict) else {})
             cleanup[provider_id] = None
-            request(base, f"/kilo/config/overlay?{query(project)}", method="PATCH", payload={
+            request(base, f"/runtime/config/overlay?{query(project)}", method="PATCH", payload={
                 "scope": "global",
                 "set": {"provider": cleanup},
             })
         except Exception as error:
             print(f"warning: provider cleanup failed: {error}", file=sys.stderr)
         try:
-            request(base, f"/kilo/auth/{urllib.parse.quote(provider_id, safe='')}", method="DELETE")
-            request(base, "/kilo/global/dispose", method="POST")
+            request(base, f"/runtime/auth/{urllib.parse.quote(provider_id, safe='')}", method="DELETE")
+            request(base, "/runtime/global/dispose", method="POST")
         except Exception as error:
             print(f"warning: auth cleanup failed: {error}", file=sys.stderr)
 

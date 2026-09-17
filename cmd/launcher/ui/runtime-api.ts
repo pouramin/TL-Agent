@@ -6,7 +6,7 @@
   const json = (value) => JSON.stringify(value);
   const body = (value) => ({ body: json(value) });
   const unwrapData = (payload) => payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
-  const request = (path, options) => K.request(`/kilo${path}`, options);
+  const request = (path, options) => K.request(`/runtime${path}`, options);
   const wrapData = (data) => ({ data });
 
   const projectDirectory = () => K.state?.local?.project || "";
@@ -46,7 +46,7 @@
   };
 
   const openEventSource = (path, { onEvent, onOpen, onError } = {}) => {
-    const source = new EventSource(`/kilo${route(path)}`);
+    const source = new EventSource(`/runtime${route(path)}`);
     if (onOpen) source.addEventListener("open", onOpen);
     if (onError) source.addEventListener("error", onError);
     if (onEvent) source.addEventListener("message", parseSSE(onEvent));
@@ -54,7 +54,7 @@
   };
 
   K.api = Object.freeze({
-    version: "kilo-v7.6.2-production-httpapi",
+    version: "bundled-runtime-adapter-v1",
 
     health: () => request("/global/health"),
     path: () => request(route("/path")),
@@ -165,7 +165,7 @@
         return (Array.isArray(payload) ? payload : []).filter((item) => !sessionID || item?.sessionID === sessionID);
       },
       // Every reply through this browser adapter is the result of an explicit human click.
-      // Kilo v7.6.2 requires `interactive: true` for sensitive permission classes such as
+      // The bundled runtime requires `interactive: true` for sensitive permission classes such as
       // skill-shell and sandbox-escalation requests; otherwise an approval is intentionally ignored.
       reply: (sessionID, requestID, reply, message) => request(route(`/permission/${enc(requestID)}/reply`), {
         method: "POST",
@@ -184,8 +184,10 @@
       reject: (sessionID, requestID) => request(route(`/question/${enc(requestID)}/reject`), { method: "POST" }),
     },
 
-    oauth: {
-      kiloStatus: async () => {
+    hosted: {
+      providerID: "kilo",
+      preferredModels: ["kilo-auto/free"],
+      status: async () => {
         const payload = unwrapData(await request(route("/kilo/auth-status"))) || {};
         return {
           authenticated: payload.authenticated === true,
@@ -193,9 +195,9 @@
           organizationId: payload.organizationId || "",
         };
       },
-      authorizeKilo: async () => unwrapData(await request(route("/provider/kilo/oauth/authorize"), { method: "POST", ...body({ method: 0 }) })),
-      callbackKilo: async (signal) => unwrapData(await request(route("/provider/kilo/oauth/callback"), { method: "POST", ...body({ method: 0 }), signal })),
-      disconnectKilo: async () => unwrapData(await request("/auth/kilo", { method: "DELETE" })),
+      authorize: async () => unwrapData(await request(route("/provider/kilo/oauth/authorize"), { method: "POST", ...body({ method: 0 }) })),
+      callback: async (signal) => unwrapData(await request(route("/provider/kilo/oauth/callback"), { method: "POST", ...body({ method: 0 }), signal })),
+      disconnect: async () => unwrapData(await request("/auth/kilo", { method: "DELETE" })),
     },
 
     events: {

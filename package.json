@@ -17,5 +17,12 @@
   },
   "files": [
     "scripts/npx-launch.cjs"
-  ]
+  ],
+  "scripts": {
+    "build:web": "tsc -p tsconfig.json",
+    "check:web": "tsc -p tsconfig.check.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2"
+  }
 }
