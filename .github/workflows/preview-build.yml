@@ -1,0 +1,83 @@
+name: Preview Build
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build browser UI
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check:web
+          npm run build:web
+
+      - name: Resolve preview version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          test -n "$VERSION"
+          echo "PREVIEW_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "PREVIEW_TAG=v$VERSION" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: go test ./...
+
+      - name: Build Windows launcher
+        shell: bash
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p staging/package/bin staging/upstream
+          go build -trimpath -ldflags "-s -w -X main.version=${PREVIEW_TAG}" -o staging/package/tl-agent.exe ./cmd/launcher
+
+      - name: Bundle pinned runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNTIME_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
+          ASSET="kilo-windows-x64.zip"
+          URL="https://github.com/Kilo-Org/kilocode/releases/download/v${RUNTIME_VERSION}/${ASSET}"
+          curl --fail --location --retry 3 "$URL" -o "staging/upstream/${ASSET}"
+          unzip -q "staging/upstream/${ASSET}" -d staging/upstream/extracted
+          RUNTIME_BIN="$(find staging/upstream/extracted -type f -name 'kilo.exe' | head -n 1)"
+          test -n "$RUNTIME_BIN"
+          cp "$RUNTIME_BIN" staging/package/bin/kilo.exe
+          cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
+          mkdir -p staging/package/third_party
+          cp third_party/KILO_LICENSE.txt staging/package/third_party/
+
+      - name: Package Windows preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          FILE="TL-Agent-${PREVIEW_TAG}-Windows-x64-Preview.zip"
+          (cd staging/package && zip -qr "../../dist/${FILE}" .)
+          sha256sum "dist/${FILE}" > dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TL-Agent-${{ env.PREVIEW_VERSION }}-Windows-x64-Preview
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14

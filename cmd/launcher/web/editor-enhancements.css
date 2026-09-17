@@ -1,0 +1,87 @@
+:root {
+  --tl-ui-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --tl-code-font: "Cascadia Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --tl-terminal-font: "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --tok-keyword: #c792ea;
+  --tok-string: #c3e88d;
+  --tok-comment: #697098;
+  --tok-number: #f78c6c;
+  --tok-property: #82aaff;
+  --tok-tag: #f07178;
+  --tok-attr: #ffcb6b;
+  --tok-selector: #ffcb6b;
+}
+
+html, body, button, input, select, textarea, dialog { font-family: var(--tl-ui-font); }
+.file-editor-input, .file-editor-highlight, .file-line-numbers, code, pre { font-family: var(--tl-code-font); }
+.terminal-output, .terminal-input { font-family: var(--tl-terminal-font); }
+
+.file-editor-surface { position: relative; }
+.file-editor-highlight {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 14px 16px 40px;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre;
+  tab-size: 2;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text, #d9e1ec);
+  background: transparent;
+}
+.file-editor-input {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  background: transparent !important;
+  color: transparent !important;
+  caret-color: var(--accent, #b8ff42);
+  -webkit-text-fill-color: transparent;
+  white-space: pre;
+  tab-size: 2;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.file-editor-input::selection {
+  background: color-mix(in srgb, var(--accent, #b8ff42) 28%, transparent);
+  -webkit-text-fill-color: transparent;
+}
+.tok-keyword { color: var(--tok-keyword); }
+.tok-string { color: var(--tok-string); }
+.tok-comment { color: var(--tok-comment); font-style: italic; }
+.tok-number { color: var(--tok-number); }
+.tok-property { color: var(--tok-property); }
+.tok-tag { color: var(--tok-tag); }
+.tok-attr { color: var(--tok-attr); }
+.tok-selector { color: var(--tok-selector); }
+
+html[data-editor-theme="midnight"] {
+  --tok-keyword: #c792ea; --tok-string: #c3e88d; --tok-comment: #697098; --tok-number: #f78c6c;
+  --tok-property: #82aaff; --tok-tag: #f07178; --tok-attr: #ffcb6b; --tok-selector: #ffcb6b;
+}
+html[data-editor-theme="github-dark"] {
+  --tok-keyword: #ff7b72; --tok-string: #a5d6ff; --tok-comment: #8b949e; --tok-number: #79c0ff;
+  --tok-property: #d2a8ff; --tok-tag: #7ee787; --tok-attr: #ffa657; --tok-selector: #d2a8ff;
+}
+html[data-editor-theme="solarized"] {
+  --tok-keyword: #859900; --tok-string: #2aa198; --tok-comment: #586e75; --tok-number: #d33682;
+  --tok-property: #268bd2; --tok-tag: #cb4b16; --tok-attr: #b58900; --tok-selector: #859900;
+}
+html[data-editor-theme="mono"] {
+  --tok-keyword: currentColor; --tok-string: currentColor; --tok-comment: #7f8794; --tok-number: currentColor;
+  --tok-property: currentColor; --tok-tag: currentColor; --tok-attr: currentColor; --tok-selector: currentColor;
+}
+
+.settings-font-preview { min-width: 250px; }
+.settings-font-preview option { font-family: inherit; }
+.settings-row-stack { align-items: flex-start; }
+.settings-row-stack .settings-control-stack { display: grid; gap: 8px; min-width: 260px; }
+.settings-control-hint { color: var(--muted, #8b95a5); font-size: 12px; }
