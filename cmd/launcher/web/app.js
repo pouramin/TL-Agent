@@ -80,6 +80,11 @@
       "[TL Agent] Browser IDE reconciliation extension failed to load",
     );
     await loadScript(
+      "/editor-enhancements.js",
+      () => K.__editorEnhancementsInstalled,
+      "[TL Agent] Editor enhancements failed to load",
+    );
+    await loadScript(
       "/terminal.js",
       () => K.__terminalInstalled,
       "[TL Agent] Integrated terminal failed to load",
@@ -114,8 +119,6 @@
       () => K.__providersSettingsBridgeInstalled,
       "[TL Agent] Custom provider settings bridge failed to load",
     );
-    // Keep legacy recovery last so its read-only guards wrap the final composer
-    // and session actions rather than being replaced by later UI extensions.
     await loadScript(
       "/legacy-sessions.js",
       () => K.__legacySessionsInstalled,
