@@ -4,51 +4,78 @@
 
 ### Launcher
 
-A single Go binary using only the Go standard library. It owns the lifecycle of the Kilo child process, chooses ephemeral ports, serves embedded static UI assets, exposes the project-scoped local workspace API, and reverse-proxies `/kilo/*` to the authenticated Kilo server.
+A single Go binary using only the Go standard library. It owns the lifecycle of the bundled coding runtime, chooses ephemeral ports, serves embedded static UI assets, exposes project-scoped local workspace APIs, and reverse-proxies the runtime API behind TL Agent's local product boundary.
 
 The launcher is also the filesystem trust boundary for browser IDE operations. Browser requests never receive arbitrary host filesystem access: file reads and mutations are resolved relative to the selected project, traversal and symlink escapes are rejected, and workspace mutations protect Git metadata.
 
-### Kilo runtime
+### Bundled coding runtime
 
-The launcher executes:
+The current implementation starts the bundled runtime on loopback with a random per-launch password. The runtime remains responsible for sessions, agents, tools, provider integrations, model execution, and filesystem operations initiated by the agent.
 
-```text
-kilo serve --hostname 127.0.0.1 --port <ephemeral-port>
-```
+The runtime is behind TL Agent's product boundary. The browser never connects to it directly and never receives its server password.
 
-with a random `KILO_SERVER_PASSWORD`. The runtime remains responsible for sessions, agents, tools, provider integrations, model execution, and filesystem operations initiated by the agent.
-
-Kilo is behind TL Agent's product boundary. The browser never connects to it directly and never receives its server password.
+Implementation-specific API compatibility details are documented in [`KILO_API_CONTRACT.md`](./KILO_API_CONTRACT.md).
 
 ### Browser UI
 
-Static HTML/CSS/JavaScript is embedded in the launcher at build time. The browser only talks to the launcher origin.
+Static HTML/CSS/JavaScript is embedded in the launcher at build time. The normal TL Agent control surface talks only to the launcher origin.
 
-The browser IDE foundation keeps one in-memory buffer per open editor tab. User-initiated reads, saves, creates, renames, and deletes go through launcher-owned `/local/*` routes. File previews include a SHA-256 revision token; normal saves send that token back so an external edit by the agent, Git, or another process cannot be silently overwritten. A deliberate force-save is a separate explicit action after a conflict.
+The browser IDE keeps one in-memory buffer per open editor tab. User-initiated reads, saves, creates, renames, and deletes go through launcher-owned `/local/*` routes. File previews include a SHA-256 revision token; normal saves send that token back so an external edit by the agent, Git, or another process cannot be silently overwritten. A deliberate force-save is a separate explicit action after a conflict.
 
 Runtime file/session events trigger workspace reconciliation. Clean open buffers follow disk changes automatically, while dirty buffers are preserved and marked when the disk version changes or disappears.
+
+The current editor surface remains dependency-free at runtime. Syntax coloring is layered locally over the editor and user font/theme preferences are stored in browser-local settings. A future editor-engine replacement may be considered only if it can remain fully bundled/local and preserve the same file-buffer/save/conflict contracts.
+
+## Local process manager and Terminal
+
+TL Agent owns a project-scoped local process manager behind `/local/process`.
+
+- Commands run with the currently selected project as their working directory.
+- Output is kept in a bounded in-memory buffer and surfaced to the browser locally.
+- Long-running processes can be stopped by TL Agent.
+- On Windows, stop terminates the process tree so child dev servers are not left behind.
+- Completed process records are retained only temporarily.
+
+The current Terminal UI is a command runner built on this process layer. It is deliberately not a full PTY/terminal-emulation implementation yet; interactive TUI applications remain out of scope for the current foundation.
+
+This process layer is also reused by higher-level features such as Live Preview rather than giving each feature its own process lifecycle implementation.
+
+## Live Web Preview
+
+Live Preview has two supported paths:
+
+1. static projects with a root `index.html` are served by a TL Agent-owned loopback-only static preview server;
+2. supported Node projects with a `package.json` `dev` script run that dev server through the process manager and TL Agent discovers its reported loopback URL.
+
+Preview content intentionally runs on a **separate loopback origin** from the TL Agent control origin. Project JavaScript must not share an origin with TL Agent's `/local/*` control APIs.
+
+Only loopback preview URLs are accepted. Static preview file serving remains project-boundary checked and rejects traversal/symlink escapes. The browser Preview window is only a view/controller for that isolated local preview origin.
 
 ## Request flow
 
 ```text
-Browser
+Browser TL Agent UI
   │
-  ├── /local/*  ───────────────► launcher project filesystem boundary
+  ├── /local/*  ───────────────► launcher project/files/process/preview boundary
   │
   └── /kilo/*
           │
           ▼
       launcher reverse proxy
           │  strips /kilo
-          │  injects Basic Auth
-          │  injects x-kilo-directory
+          │  injects runtime authentication
+          │  injects selected project directory
           ▼
-      Kilo HTTP API on 127.0.0.1:<backend-port>
+      bundled coding runtime on 127.0.0.1:<backend-port>
+
+Live Preview iframe
+  │
+  └─────────────────────────────► separate 127.0.0.1:<preview/dev-server-port>
 ```
 
 ## Session and agent surface
 
-The UI uses Kilo's current APIs for:
+The UI uses the pinned runtime's current product APIs for:
 
 - sessions
 - messages/prompts
@@ -56,23 +83,27 @@ The UI uses Kilo's current APIs for:
 - agent switching
 - model switching
 - provider/model discovery
-- Kilo provider OAuth/device authorization
+- provider authorization
 - session permissions
 - session questions
 - event/SSE-driven progress and file-change reconciliation
 
+A narrow read-only compatibility bridge exists for sessions created during an older TL Agent alpha protocol window. Current sessions continue to use only the current product API path.
+
 ## Editor asset strategy
 
-The browser IDE foundation intentionally remains dependency-free at runtime and keeps the existing direct embedded-static-assets build. It does not load editor code, fonts, workers, or other assets from a CDN.
+TL Agent does not load editor code, fonts, workers, or other runtime assets from a CDN.
 
-The first foundation milestone uses TL Agent's embedded editor surface so the filesystem, tab, save, dirty-state, and conflict contracts can land without introducing a separate frontend supply chain. Monaco can be added later only as a locally bundled/vendored editor implementation, with its workers and assets shipped inside the same application and without weakening the Content Security Policy or local-first boundary.
+The current editor is the embedded TL Agent editor surface plus local syntax highlighting. If a richer editor engine such as Monaco or CodeMirror is introduced later, its code/workers/assets must be shipped locally with the application and must not weaken the Content Security Policy or local-first boundary.
 
 ## Local-only security boundary
 
-The public UI binds to loopback only. Requests are rejected when the Host is not loopback, and browser requests with an Origin must match the same local origin. The Kilo child process also binds to `127.0.0.1` and is protected with a random per-launch password known only to the launcher.
+The public TL Agent UI binds to loopback only. Requests are rejected when the Host is not loopback, and browser requests with an Origin must match the same local control origin. The bundled coding runtime also binds to `127.0.0.1` and is protected with a random per-launch password known only to the launcher.
 
 Project file mutation routes reject paths outside the selected project, project-root mutation, symlink-parent escapes, and protected Git metadata. Direct symlink writes are not treated as editable regular files.
 
+Preview execution does not relax this boundary: project web code runs on a separate loopback origin and external preview URLs are not accepted.
+
 ## No cloud control plane
 
-There is intentionally no application server belonging to this project. The only external requests are made by Kilo or the browser for services the user explicitly configures (for example an AI provider or Kilo login), and optional future update checks against GitHub Releases.
+There is intentionally no application server belonging to this project. External requests are only those required by services the user explicitly configures, plus normal distribution/update traffic such as GitHub Releases when applicable.
