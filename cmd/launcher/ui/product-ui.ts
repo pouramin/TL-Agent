@@ -22,7 +22,7 @@
   const THEME_KEY = "tl-agent.appearance";
   const FONT_KEY = "tl-agent.font-size";
   const systemTheme = window.matchMedia?.("(prefers-color-scheme: light)");
-  const hostedConnected = () => K.state.hostedAuth?.authenticated ?? K.state.connectedProviders.has("kilo");
+  const hostedConnected = () => K.state.hostedAuth?.authenticated ?? K.state.connectedProviders.has(K.api.hosted.providerID);
 
   const readSetting = (key, fallback) => {
     try { return window.localStorage.getItem(key) || fallback; }
