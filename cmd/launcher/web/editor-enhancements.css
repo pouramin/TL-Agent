@@ -18,28 +18,37 @@ html, body, button, input, select, textarea, dialog { font-family: var(--tl-ui-f
 
 .file-editor-surface { position: relative; }
 .file-editor-highlight {
-  position: absolute;
-  inset: 0 0 0 0;
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   margin: 0;
-  padding: 14px 16px;
+  padding: 14px 16px 40px;
   overflow: hidden;
   pointer-events: none;
   white-space: pre;
   tab-size: 2;
-  line-height: 1.55;
-  color: var(--text-primary, #d9e1ec);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--text, #d9e1ec);
   background: transparent;
 }
 .file-editor-input {
+  grid-column: 2;
+  grid-row: 1;
   position: relative;
   z-index: 2;
   background: transparent !important;
   color: transparent !important;
-  caret-color: var(--text-primary, #f5f7fb);
+  caret-color: var(--accent, #b8ff42);
   -webkit-text-fill-color: transparent;
   white-space: pre;
   tab-size: 2;
-  line-height: 1.55;
+  font-size: 10px;
+  line-height: 1.6;
 }
 .file-editor-input::selection {
   background: color-mix(in srgb, var(--accent, #b8ff42) 28%, transparent);
@@ -71,19 +80,8 @@ html[data-editor-theme="mono"] {
   --tok-property: currentColor; --tok-tag: currentColor; --tok-attr: currentColor; --tok-selector: currentColor;
 }
 
-.settings-font-preview {
-  min-width: 250px;
-}
+.settings-font-preview { min-width: 250px; }
 .settings-font-preview option { font-family: inherit; }
-.settings-row-stack {
-  align-items: flex-start;
-}
-.settings-row-stack .settings-control-stack {
-  display: grid;
-  gap: 8px;
-  min-width: 260px;
-}
-.settings-control-hint {
-  color: var(--muted, #8b95a5);
-  font-size: 12px;
-}
+.settings-row-stack { align-items: flex-start; }
+.settings-row-stack .settings-control-stack { display: grid; gap: 8px; min-width: 260px; }
+.settings-control-hint { color: var(--muted, #8b95a5); font-size: 12px; }
