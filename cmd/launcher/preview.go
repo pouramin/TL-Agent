@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/url"
@@ -79,6 +80,10 @@ func (h *previewHost) serveProject(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if previewSensitivePath(rel) {
+		http.Error(w, "preview path is protected", http.StatusForbidden)
+		return
+	}
 	info, err := os.Stat(target)
 	if err != nil {
 		http.NotFound(w, r)
@@ -90,8 +95,8 @@ func (h *previewHost) serveProject(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "preview path is protected", http.StatusForbidden)
 			return
 		}
-		target, _, err = resolveProjectEntry(h.state.projectPath(), indexRel)
-		if err != nil {
+		target, rel, err = resolveProjectEntry(h.state.projectPath(), indexRel)
+		if err != nil || previewSensitivePath(rel) {
 			http.NotFound(w, r)
 			return
 		}
@@ -295,6 +300,9 @@ func validatePreviewTarget(raw string) (string, string, error) {
 	if err != nil || target.Host == "" {
 		return "", "", fmt.Errorf("invalid preview URL")
 	}
+	if target.User != nil {
+		return "", "", fmt.Errorf("preview URL must not contain credentials")
+	}
 	if target.Scheme != "http" && target.Scheme != "https" {
 		return "", "", fmt.Errorf("preview URL must use http or https")
 	}
@@ -341,7 +349,7 @@ func livePreviewVersion(project string) (string, error) {
 		name := strings.ToLower(entry.Name())
 		if entry.IsDir() {
 			switch name {
-			case ".git", "node_modules", ".next", ".cache", ".turbo", "dist", "build", "coverage":
+			case ".git", ".idea", ".vscode", ".venv", "venv", "node_modules", ".next", ".cache", ".turbo", "dist", "build", "coverage", "target", "vendor":
 				return filepath.SkipDir
 			}
 			return nil
@@ -360,7 +368,7 @@ func livePreviewVersion(project string) (string, error) {
 		_, _ = fmt.Fprintf(hash, "%s\x00%d\x00%d\n", filepath.ToSlash(rel), info.Size(), info.ModTime().UnixNano())
 		count++
 		if count >= 3000 {
-			return filepath.SkipAll
+			return fs.SkipAll
 		}
 		return nil
 	})
