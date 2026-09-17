@@ -85,6 +85,11 @@
       "[TL Agent] Integrated terminal failed to load",
     );
     await loadScript(
+      "/legacy-sessions.js",
+      () => K.__legacySessionsInstalled,
+      "[TL Agent] Legacy session recovery failed to load",
+    );
+    await loadScript(
       "/attachments.js",
       () => K.__attachmentsInstalled,
       "[TL Agent] Composer attachments failed to load",
