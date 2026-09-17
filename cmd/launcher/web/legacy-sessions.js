@@ -34,6 +34,7 @@
     if (K.els.sendButton) K.els.sendButton.disabled = !!enabled;
     if (K.els.agentSelect) K.els.agentSelect.disabled = !!enabled;
     if (K.els.modelSelect) K.els.modelSelect.disabled = !!enabled;
+    if (K.els.attachButton) K.els.attachButton.disabled = !!enabled;
   };
 
   const loadLegacyForCurrentProject = async () => {
@@ -44,14 +45,13 @@
     try {
       const payload = await K.api.legacySessions.list({ order: "desc", limit: 100 });
       const rows = Array.isArray(payload?.data) ? payload.data : [];
-      const current = K.state.local?.project || "";
       const sessions = rows
         .filter((session) => session?.id)
         .map((session) => {
-          const directory = sessionDirectory(session) || current;
+          const directory = sessionDirectory(session);
           return { ...session, directory, __legacy: true };
         })
-        .filter((session) => !session.directory || normalizePath(session.directory) === key);
+        .filter((session) => !!session.directory && normalizePath(session.directory) === key);
       legacyCache.set(key, sessions);
       return sessions;
     } catch (error) {
@@ -131,6 +131,7 @@
 
   const openLegacySession = async (session) => {
     K.stopSessionPolling?.();
+    K.clearAttachments?.();
     K.state.session = session;
     K.state.messages = [];
     K.state.sending = false;
@@ -186,8 +187,7 @@
   const baseAfterProjectChange = K.afterProjectChange;
   K.afterProjectChange = async (...args) => {
     setLegacyMode(false);
-    const result = await baseAfterProjectChange(...args);
-    return result;
+    return baseAfterProjectChange(...args);
   };
 
   K.legacySessions = Object.freeze({
