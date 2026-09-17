@@ -50,7 +50,7 @@ def directory_query(project: str, extra=None):
 
 
 def first_global_event(base: str, project: str):
-    path = "/kilo/global/event?" + directory_query(project)
+    path = "/runtime/global/event?" + directory_query(project)
     req = urllib.request.Request(base.rstrip("/") + path, headers={"Accept": "text/event-stream"})
     with urllib.request.urlopen(req, timeout=10) as res:
         require("text/event-stream" in (res.headers.get("Content-Type") or ""), "global/event is not SSE")
@@ -88,46 +88,46 @@ def main() -> int:
     require(isinstance(history, dict) and isinstance(history.get("projects"), list), "/local/projects shape mismatch")
     require(project in history["projects"], "current project was not remembered")
 
-    health = unwrap(request(base, "/kilo/global/health"))
+    health = unwrap(request(base, "/runtime/global/health"))
     require(isinstance(health, dict) and health.get("healthy") is True, f"global health mismatch: {health!r}")
 
-    path = unwrap(request(base, f"/kilo/path?{query}"))
+    path = unwrap(request(base, f"/runtime/path?{query}"))
     require(isinstance(path, dict) and isinstance(path.get("directory"), str), f"path mismatch: {path!r}")
 
-    agents = unwrap(request(base, f"/kilo/agent?{query}"))
+    agents = unwrap(request(base, f"/runtime/agent?{query}"))
     require(isinstance(agents, list) and agents, "agent list must be non-empty")
     visible = [a for a in agents if isinstance(a, dict) and not a.get("hidden") and a.get("mode") != "subagent"]
     names = [str(a.get("name") or a.get("id") or "") for a in visible]
     require("code" in names, f"official Kilo code agent missing; visible agents={names!r}")
     require("build" not in names, f"unpatched build agent leaked through product API: {names!r}")
 
-    providers = unwrap(request(base, f"/kilo/provider?{query}"))
+    providers = unwrap(request(base, f"/runtime/provider?{query}"))
     require(isinstance(providers, dict), "/provider must return an object")
     require(isinstance(providers.get("all"), list), "/provider.all must be an array")
     require(isinstance(providers.get("connected"), list), "/provider.connected must be an array")
     require(isinstance(providers.get("default"), dict), "/provider.default must be an object")
 
-    kilo_auth_before = unwrap(request(base, f"/kilo/kilo/auth-status?{query}"))
-    require(isinstance(kilo_auth_before, dict), "/kilo/auth-status must return an object")
-    require(isinstance(kilo_auth_before.get("authenticated"), bool), "/kilo/auth-status.authenticated must be boolean")
+    kilo_auth_before = unwrap(request(base, f"/runtime/kilo/auth-status?{query}"))
+    require(isinstance(kilo_auth_before, dict), "/runtime/auth-status must return an object")
+    require(isinstance(kilo_auth_before.get("authenticated"), bool), "/runtime/auth-status.authenticated must be boolean")
 
-    auth_removed = unwrap(request(base, "/kilo/auth/kilo", method="DELETE"))
+    auth_removed = unwrap(request(base, "/runtime/auth/kilo", method="DELETE"))
     require(auth_removed is True, f"auth.remove mismatch: {auth_removed!r}")
 
-    disposed = unwrap(request(base, "/kilo/global/dispose", method="POST"))
+    disposed = unwrap(request(base, "/runtime/global/dispose", method="POST"))
     require(disposed is True, f"global.dispose mismatch: {disposed!r}")
 
-    kilo_auth_after = unwrap(request(base, f"/kilo/kilo/auth-status?{query}"))
+    kilo_auth_after = unwrap(request(base, f"/runtime/kilo/auth-status?{query}"))
     require(isinstance(kilo_auth_after, dict), "post-dispose /kilo/auth-status must return an object")
     require(kilo_auth_after.get("authenticated") is False,
             f"Kilo auth should be signed out after auth.remove + global.dispose: {kilo_auth_after!r}")
 
-    created = unwrap(request(base, f"/kilo/session?{query}", method="POST", payload={}))
+    created = unwrap(request(base, f"/runtime/session?{query}", method="POST", payload={}))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session.create mismatch: {created!r}")
     sid = created["id"]
     sidq = urllib.parse.quote(sid, safe="")
 
-    sessions = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
+    sessions = unwrap(request(base, f"/runtime/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
     require(isinstance(sessions, list), "session.list must be an array")
     require(sid in session_ids(sessions), "created session missing from project list")
 
@@ -147,7 +147,7 @@ def main() -> int:
                 f"recent project history did not keep both projects: {history!r}")
 
         alt_query = directory_query(alt_project)
-        created_alt = unwrap(request(base, f"/kilo/session?{alt_query}", method="POST", payload={"title": "TL Agent cross-project"}))
+        created_alt = unwrap(request(base, f"/runtime/session?{alt_query}", method="POST", payload={"title": "TL Agent cross-project"}))
         require(isinstance(created_alt, dict) and isinstance(created_alt.get("id"), str),
                 f"second project session.create mismatch: {created_alt!r}")
         alt_sid = created_alt["id"]
@@ -156,8 +156,8 @@ def main() -> int:
         # can still retrieve both histories while the launcher's active project is
         # the original one. This mirrors TL Agent's sidebar aggregation.
         request(base, "/local/project", method="POST", payload={"path": project})
-        original_sessions = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
-        alt_sessions = unwrap(request(base, f"/kilo/session?{directory_query(alt_project, {'limit': 50, 'roots': 'true'})}"))
+        original_sessions = unwrap(request(base, f"/runtime/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
+        alt_sessions = unwrap(request(base, f"/runtime/session?{directory_query(alt_project, {'limit': 50, 'roots': 'true'})}"))
         require(isinstance(original_sessions, list) and isinstance(alt_sessions, list), "per-project session list must be arrays")
         require(sid in session_ids(original_sessions), "original project session disappeared")
         require(alt_sid in session_ids(alt_sessions), "alternate project session could not be read by explicit directory")
@@ -170,24 +170,24 @@ def main() -> int:
     finally:
         request(base, "/local/project", method="POST", payload={"path": project})
 
-    renamed = unwrap(request(base, f"/kilo/session/{sidq}?{query}", method="PATCH", payload={"title": "TL Agent contract"}))
+    renamed = unwrap(request(base, f"/runtime/session/{sidq}?{query}", method="PATCH", payload={"title": "TL Agent contract"}))
     require(isinstance(renamed, dict) and renamed.get("title") == "TL Agent contract", f"session.update mismatch: {renamed!r}")
 
-    messages = unwrap(request(base, f"/kilo/session/{sidq}/message?{directory_query(project, {'limit': 10})}"))
+    messages = unwrap(request(base, f"/runtime/session/{sidq}/message?{directory_query(project, {'limit': 10})}"))
     require(isinstance(messages, list), "session messages must be an array")
     for item in messages:
         require(isinstance(item, dict) and isinstance(item.get("info"), dict) and isinstance(item.get("parts"), list),
                 f"production message must be {{info, parts}}: {item!r}")
 
-    diffs = unwrap(request(base, f"/kilo/session/{sidq}/diff?{query}"))
+    diffs = unwrap(request(base, f"/runtime/session/{sidq}/diff?{query}"))
     require(isinstance(diffs, list), "session.diff must be an array")
 
-    statuses = unwrap(request(base, f"/kilo/session/status?{query}"))
+    statuses = unwrap(request(base, f"/runtime/session/status?{query}"))
     require(isinstance(statuses, dict), "session/status must be an object")
 
-    permissions = unwrap(request(base, f"/kilo/permission?{query}"))
+    permissions = unwrap(request(base, f"/runtime/permission?{query}"))
     require(isinstance(permissions, list), "permission list must be an array")
-    questions = unwrap(request(base, f"/kilo/question?{query}"))
+    questions = unwrap(request(base, f"/runtime/question?{query}"))
     require(isinstance(questions, list), "question list must be an array")
 
     event = first_global_event(base, project)
@@ -195,15 +195,15 @@ def main() -> int:
     event_payload = event.get("payload", event)
     require(isinstance(event_payload, dict) and isinstance(event_payload.get("type"), str), f"global event payload mismatch: {event!r}")
 
-    removed = unwrap(request(base, f"/kilo/session/{sidq}?{query}", method="DELETE"))
+    removed = unwrap(request(base, f"/runtime/session/{sidq}?{query}", method="DELETE"))
     require(removed is True, f"session.delete mismatch: {removed!r}")
-    sessions_after = unwrap(request(base, f"/kilo/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
+    sessions_after = unwrap(request(base, f"/runtime/session?{directory_query(project, {'limit': 50, 'roots': 'true'})}"))
     require(not any(isinstance(s, dict) and s.get("id") == sid for s in sessions_after), "deleted session still present")
 
     if alt_sid:
         alt_query = directory_query(alt_project)
         alt_sidq = urllib.parse.quote(alt_sid, safe="")
-        removed_alt = unwrap(request(base, f"/kilo/session/{alt_sidq}?{alt_query}", method="DELETE"))
+        removed_alt = unwrap(request(base, f"/runtime/session/{alt_sidq}?{alt_query}", method="DELETE"))
         require(removed_alt is True, f"second project session.delete mismatch: {removed_alt!r}")
     shutil.rmtree(alt_project, ignore_errors=True)
 

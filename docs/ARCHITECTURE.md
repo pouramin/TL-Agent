@@ -18,7 +18,7 @@ Implementation-specific API compatibility details are documented in [`KILO_API_C
 
 ### Browser UI
 
-Static HTML/CSS/JavaScript is embedded in the launcher at build time. The normal TL Agent control surface talks only to the launcher origin.
+Static HTML/CSS and compiled JavaScript are embedded in the launcher at build time. Browser application source is maintained in TypeScript under `cmd/launcher/ui`; `cmd/launcher/web/*.js` is build output. The normal TL Agent control surface talks only to the launcher origin.
 
 The browser IDE keeps one in-memory buffer per open editor tab. User-initiated reads, saves, creates, renames, and deletes go through launcher-owned `/local/*` routes. File previews include a SHA-256 revision token; normal saves send that token back so an external edit by the agent, Git, or another process cannot be silently overwritten. A deliberate force-save is a separate explicit action after a conflict.
 
@@ -68,11 +68,11 @@ Browser TL Agent UI
   │
   ├── /local/*  ───────────────► launcher project/files/search/process/preview boundary
   │
-  └── /kilo/*
+  └── /runtime/*
           │
           ▼
       launcher reverse proxy
-          │  strips /kilo
+          │  strips /runtime
           │  injects runtime authentication
           │  injects selected project directory
           ▼
@@ -85,7 +85,7 @@ Live Preview iframe
 
 ## Session and agent surface
 
-The UI uses the pinned runtime's current product APIs for:
+The browser uses TL Agent's `/runtime/*` contract. The launcher/runtime adapter currently translates that contract to the bundled engine's product APIs for:
 
 - sessions
 - messages/prompts
@@ -117,3 +117,12 @@ Preview execution does not relax this boundary: project web code runs on a separ
 ## No cloud control plane
 
 There is intentionally no application server belonging to this project. External requests are only those required by services the user explicitly configures, plus normal distribution/update traffic such as GitHub Releases when applicable.
+
+
+## Runtime abstraction boundary
+
+The browser must not call implementation-specific runtime routes directly. `/runtime/*` is the public local runtime boundary owned by TL Agent. Implementation-specific route names, authentication details, binary discovery, and hosted-provider quirks stay behind the launcher/runtime adapter.
+
+The current engine remains replaceable. New browser features must depend on TL Agent concepts such as sessions, messages, providers, permissions, questions, tools, and events rather than on the bundled engine's product name.
+
+This establishes the Phase 1 independence boundary. Phase 2 progressively moves session/config/provider/tool/permission ownership into TL Agent while keeping the same browser-facing contract.
