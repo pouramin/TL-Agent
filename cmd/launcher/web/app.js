@@ -109,6 +109,13 @@
       () => K.__providersSettingsBridgeInstalled,
       "[TL Agent] Custom provider settings bridge failed to load",
     );
+    // Keep legacy recovery last so its read-only guards wrap the final composer
+    // and session actions rather than being replaced by later UI extensions.
+    await loadScript(
+      "/legacy-sessions.js",
+      () => K.__legacySessionsInstalled,
+      "[TL Agent] Legacy session recovery failed to load",
+    );
   };
 
   loadExtensions().finally(init);

@@ -14,7 +14,7 @@ func TestEmbeddedTerminalUIContract(t *testing.T) {
 	css, err := fs.ReadFile(assets, "terminal.css")
 	if err != nil { t.Fatal(err) }
 	text := string(js)
-	for _, required := range []string{"Terminal", "/local/process", "terminalStop", "historyIndex", "K.terminal", "stoppedByUser", "[stopped]"} {
+	for _, required := range []string{"Terminal", "/local/process", "terminalStop", "historyIndex", "K.terminal", "stoppedByUser", "[stopped]", "snapshot?.cwd", "setCwd"} {
 		if !strings.Contains(text, required) { t.Fatalf("terminal.js missing %q", required) }
 	}
 	if strings.Contains(text, "cdn.") || strings.Contains(text, "unpkg") || strings.Contains(text, "jsdelivr") {

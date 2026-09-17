@@ -22,6 +22,14 @@
     ...params,
   });
 
+  const legacyPageQuery = ({ order, limit, cursor } = {}) => {
+    const query = new URLSearchParams();
+    if (cursor) query.set("cursor", cursor);
+    else if (order) query.set("order", order);
+    if (limit !== undefined) query.set("limit", String(limit));
+    return query;
+  };
+
   const wireModel = (model) => model ? {
     providerID: model.providerID,
     modelID: model.modelID || model.id,
@@ -137,13 +145,27 @@
       abort: (sessionID, { scope, directory } = {}) => request(route(`/session/${enc(sessionID)}/abort`, { scope }, directory), { method: "POST" }),
     },
 
+    // Read-only compatibility bridge for sessions created during TL Agent's
+    // short Protocol v2 alpha window. New sessions and all normal coding stay
+    // on the production Session API above.
+    legacySessions: {
+      list: ({ order = "desc", limit = 100, cursor } = {}) => {
+        const query = legacyPageQuery({ order, limit, cursor });
+        return request(`/api/session${query.size ? `?${query}` : ""}`);
+      },
+      messages: (sessionID, { order = "asc", limit = 500, cursor } = {}) => {
+        const query = legacyPageQuery({ order, limit, cursor });
+        return request(`/api/session/${enc(sessionID)}/message${query.size ? `?${query}` : ""}`);
+      },
+    },
+
     permissions: {
       list: async (sessionID) => {
         const payload = unwrapData(await request(route("/permission")));
         return (Array.isArray(payload) ? payload : []).filter((item) => !sessionID || item?.sessionID === sessionID);
       },
       // Every reply through this browser adapter is the result of an explicit human click.
-      // Kilo 7.6.2 requires `interactive: true` for sensitive permission classes such as
+      // Kilo v7.6.2 requires `interactive: true` for sensitive permission classes such as
       // skill-shell and sandbox-escalation requests; otherwise an approval is intentionally ignored.
       reply: (sessionID, requestID, reply, message) => request(route(`/permission/${enc(requestID)}/reply`), {
         method: "POST",
