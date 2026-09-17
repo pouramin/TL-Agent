@@ -622,6 +622,34 @@
     if (tab) await refreshTabFromDisk(tab, { silent: true });
   };
 
+  const openEditorAt = async ({ path, line = 1, column = 1, match = "" } = {}) => {
+    if (!path) return;
+    await openFiles();
+    await openEditor(path);
+    const tab = tabFor(path);
+    if (!tab || !ui.editor) return;
+    const content = String(tab.content || "");
+    const lines = content.split("\n");
+    const lineIndex = Math.max(0, Math.min(lines.length - 1, Number(line || 1) - 1));
+    let offset = 0;
+    for (let index = 0; index < lineIndex; index++) offset += lines[index].length + 1;
+    const lineText = lines[lineIndex] || "";
+    const runeColumn = Math.max(0, Number(column || 1) - 1);
+    const columnPrefix = Array.from(lineText).slice(0, runeColumn).join("");
+    const start = Math.min(content.length, offset + columnPrefix.length);
+    const end = Math.min(content.length, start + String(match || "").length);
+    ui.editor.focus();
+    ui.editor.setSelectionRange(start, Math.max(start, end));
+    const lineHeight = Number.parseFloat(window.getComputedStyle(ui.editor).lineHeight) || 20;
+    const scrollTop = Math.max(0, (lineIndex - 2) * lineHeight);
+    ui.editor.scrollTop = scrollTop;
+    if (ui.gutter) ui.gutter.scrollTop = scrollTop;
+    updateCursor();
+  };
+
+  K.openWorkspace = openFiles;
+  K.openWorkspaceFileAt = openEditorAt;
+
   ui.button?.addEventListener("click", openFiles);
   ui.close?.addEventListener("click", () => ui.panel.classList.add("hidden"));
   ui.refresh?.addEventListener("click", async () => {
