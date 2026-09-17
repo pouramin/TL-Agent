@@ -35,6 +35,7 @@ var webFS embed.FS
 type appState struct {
 	mu          sync.RWMutex
 	project     string
+	backendURL  string
 	frontendURL string
 }
 
@@ -112,6 +113,7 @@ func main() {
 	frontendURL := "http://" + net.JoinHostPort(listenAddr, fmt.Sprint(frontendPort))
 	state := &appState{
 		project:     project,
+		backendURL:  backendURL,
 		frontendURL: frontendURL,
 	}
 
