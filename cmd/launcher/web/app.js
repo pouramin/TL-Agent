@@ -100,6 +100,11 @@
       "[TL Agent] Floating preview layout failed to load",
     );
     await loadScript(
+      "/search.js",
+      () => K.__projectSearchInstalled,
+      "[TL Agent] Project search UI failed to load",
+    );
+    await loadScript(
       "/settings-enhancements.js",
       () => K.__settingsEnhancementsInstalled,
       "[TL Agent] Editor and font settings failed to load",
