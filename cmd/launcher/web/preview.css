@@ -1,0 +1,130 @@
+.preview-panel {
+  position: fixed;
+  top: 86px;
+  right: 18px;
+  bottom: 18px;
+  width: min(760px, calc(100vw - 390px));
+  min-width: 420px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border, #2a2f36);
+  border-radius: 14px;
+  background: var(--panel, #0d1014);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .42);
+  z-index: 40;
+}
+
+.preview-panel.hidden { display: none; }
+
+.preview-head,
+.preview-url-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border, #2a2f36);
+}
+
+.preview-head {
+  justify-content: space-between;
+}
+
+.preview-title-wrap {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.preview-title-wrap > span,
+.preview-url-row > span {
+  color: var(--muted, #8f98a6);
+  font-size: 12px;
+}
+
+.preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.preview-url-row {
+  background: rgba(255, 255, 255, .018);
+}
+
+.preview-url-row code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text, #e8edf4);
+  font-size: 12px;
+}
+
+.preview-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 28px;
+  text-align: center;
+  color: var(--muted, #8f98a6);
+}
+
+.preview-empty strong {
+  color: var(--text, #e8edf4);
+  font-size: 16px;
+}
+
+.preview-logs {
+  width: min(620px, 68vw);
+  max-height: 260px;
+  margin: 10px auto 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--border, #2a2f36);
+  border-radius: 10px;
+  background: #080b0f;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #cbd4df;
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.preview-logs.hidden { display: none; }
+
+.preview-frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: white;
+}
+
+.preview-frame.hidden { display: none; }
+
+.preview-toggle-active {
+  border-color: var(--accent, #b8ff4a) !important;
+  color: var(--accent, #b8ff4a) !important;
+}
+
+@media (max-width: 900px) {
+  .preview-panel {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    min-width: 0;
+  }
+
+  .preview-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .preview-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

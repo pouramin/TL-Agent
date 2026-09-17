@@ -196,4 +196,5 @@ func registerLocalProcessRoutes(mux *http.ServeMux, state *appState) {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	registerLivePreviewRoutes(mux, state)
 }
