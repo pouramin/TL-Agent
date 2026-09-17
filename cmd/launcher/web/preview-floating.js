@@ -4,6 +4,13 @@
   if (!K || K.__previewFloatingInstalled) return;
   K.__previewFloatingInstalled = true;
 
+  if (!document.querySelector('link[href="/preview-floating.css"]')) {
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "/preview-floating.css";
+    document.head.appendChild(css);
+  }
+
   const panel = document.getElementById("previewPanel");
   const head = panel?.querySelector(".preview-head");
   if (!panel || !head) return;
@@ -87,5 +94,11 @@
     write();
   });
 
-  K.previewWindow = Object.freeze({ reset: () => { try { localStorage.removeItem(KEY); } catch {} apply(null); write(); } });
+  K.previewWindow = Object.freeze({
+    reset: () => {
+      try { localStorage.removeItem(KEY); } catch {}
+      apply(null);
+      write();
+    },
+  });
 })();
