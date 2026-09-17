@@ -95,6 +95,11 @@
       "[TL Agent] Live preview failed to load",
     );
     await loadScript(
+      "/preview-floating.js",
+      () => K.__previewFloatingInstalled,
+      "[TL Agent] Floating preview layout failed to load",
+    );
+    await loadScript(
       "/attachments.js",
       () => K.__attachmentsInstalled,
       "[TL Agent] Composer attachments failed to load",
