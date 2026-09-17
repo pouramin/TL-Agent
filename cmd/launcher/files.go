@@ -61,6 +61,7 @@ type localEntryRenameRequest struct {
 
 func registerLocalFileRoutes(mux *http.ServeMux, state *appState) {
 	registerProjectHistoryRoute(mux, state)
+	registerLocalPreviewRoutes(mux, state)
 
 	mux.HandleFunc("GET /local/files", func(w http.ResponseWriter, r *http.Request) {
 		project := state.projectPath()
@@ -384,7 +385,7 @@ func localFileEntryFromPath(target, rel string) (localFileEntry, error) {
 		Name:     filepath.Base(target),
 		Path:     filepath.ToSlash(rel),
 		Type:     entryType,
-		Modified: info.ModTime().UTC().Format("2006-01-02T15:04:05Z"),
+		Modified: info.ModTime().UTC().Format("2006-01-02T15:04:05Z")
 	}
 	if !info.IsDir() {
 		item.Size = info.Size()
