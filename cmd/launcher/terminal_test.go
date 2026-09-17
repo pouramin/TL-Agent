@@ -70,6 +70,32 @@ func TestLocalProcessRoutesRunAndReadOutput(t *testing.T) {
 	t.Fatal("process did not finish")
 }
 
+func TestProcessManagerUsesProjectSelectedAfterManagerCreation(t *testing.T) {
+	projectA := t.TempDir()
+	projectB := t.TempDir()
+	state := &appState{project: projectA}
+	manager := newProcessManager(state.projectPath)
+
+	state.setProject(projectB)
+	process, err := manager.start(terminalTestCommand())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := process.snapshot().CWD; !sameProjectPath(got, projectB) {
+		t.Fatalf("process cwd=%q, want switched project %q", got, projectB)
+	}
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if !process.snapshot().Running {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	_ = manager.stop(process.id)
+	t.Fatal("switched-project process did not finish")
+}
+
 func TestLocalProcessRoutesRequireProjectAndCommand(t *testing.T) {
 	state := &appState{}
 	mux := http.NewServeMux()
