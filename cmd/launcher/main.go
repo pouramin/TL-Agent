@@ -294,6 +294,7 @@ func localOnly(next http.Handler) http.Handler {
 				http.Error(w, "cross-origin request blocked", http.StatusForbidden)
 				return
 			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }
