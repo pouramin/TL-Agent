@@ -31,18 +31,18 @@ func TestComposerAttachmentsAreEmbeddedAndWired(t *testing.T) {
 			t.Fatalf("attachments.js is missing expected behavior %q", expected)
 		}
 	}
-	if strings.Contains(text, "K.request(") || strings.Contains(text, "/kilo/session/") {
-		t.Fatal("attachments UI bypasses the Kilo API adapter")
+	if strings.Contains(text, "K.request(") || strings.Contains(text, "/kilo/session/") || strings.Contains(text, "/runtime/session/") {
+		t.Fatal("attachments UI bypasses the TL Agent runtime adapter")
 	}
 
-	adapter, err := webFS.ReadFile("web/kilo-api.js")
+	adapter, err := webFS.ReadFile("web/runtime-api.js")
 	if err != nil {
-		t.Fatalf("read embedded kilo-api.js: %v", err)
+		t.Fatalf("read embedded runtime-api.js: %v", err)
 	}
 	adapterText := string(adapter)
 	if !strings.Contains(adapterText, "{ text, parts, agent, model") ||
 		!strings.Contains(adapterText, "Array.isArray(parts) && parts.length ? parts") {
-		t.Fatal("Kilo API adapter does not preserve structured prompt parts")
+		t.Fatal("runtime API adapter does not preserve structured prompt parts")
 	}
 
 	css, err := webFS.ReadFile("web/attachments.css")

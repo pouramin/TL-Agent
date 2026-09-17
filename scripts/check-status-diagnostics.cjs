@@ -56,6 +56,7 @@ const K = {
     sending: false,
   },
   els: { conversation: null, prompt: { value: "" } },
+  api: { hosted: { providerID: "kilo" } },
 };
 
 const document = {

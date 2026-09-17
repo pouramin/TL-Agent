@@ -155,7 +155,7 @@ const K = {
   resizePrompt: () => {},
   sendPrompt: async () => {},
   showError: () => {},
-  api: { sessions: { messages: async () => ({ data: [] }) } },
+  api: { hosted: { providerID: "kilo" }, sessions: { messages: async () => ({ data: [] }) } },
 };
 
 const context = vm.createContext({
