@@ -77,7 +77,7 @@
     close: document.getElementById("terminalClose"),
   };
 
-  K.state.terminal = { process: null, poll: null, history: [], historyIndex: 0, transcript: "" };
+  K.state.terminal = { process: null, poll: null, history: [], historyIndex: 0, transcript: "", stoppedByUser: false };
 
   const projectLabel = () => K.state.local?.project || "Project root";
   const setOpen = (open) => {
@@ -115,8 +115,13 @@
     ui.input.disabled = running;
     if (!running && snapshot) {
       stopPolling();
-      const code = snapshot.exitCode;
-      append(`\n[exit ${code == null ? "?" : code}]\n`);
+      if (K.state.terminal.stoppedByUser) {
+        append("\n[stopped]\n");
+      } else {
+        const code = snapshot.exitCode;
+        append(`\n[exit ${code == null ? "?" : code}]\n`);
+      }
+      K.state.terminal.stoppedByUser = false;
       K.state.terminal.process = null;
       ui.input.disabled = false;
       ui.run.disabled = false;
@@ -146,6 +151,7 @@
     append(`\n› ${command}\n`);
     K.state.terminal.history.push(command);
     K.state.terminal.historyIndex = K.state.terminal.history.length;
+    K.state.terminal.stoppedByUser = false;
     ui.input.value = "";
     ui.input.disabled = true;
     ui.run.disabled = true;
@@ -159,6 +165,7 @@
     } catch (error) {
       append(`[terminal error] ${error.message || error}\n`);
       K.state.terminal.process = null;
+      K.state.terminal.stoppedByUser = false;
       ui.input.disabled = false;
       ui.run.disabled = false;
       ui.stop.disabled = true;
@@ -170,10 +177,12 @@
     const id = K.state.terminal.process?.id;
     if (!id) return;
     ui.stop.disabled = true;
+    K.state.terminal.stoppedByUser = true;
     try {
       await request(`/local/process/${encodeURIComponent(id)}`, { method: "DELETE" });
       append("\n[stopping process…]\n");
     } catch (error) {
+      K.state.terminal.stoppedByUser = false;
       append(`\n[stop error] ${error.message || error}\n`);
     }
   };
