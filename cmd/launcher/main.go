@@ -237,6 +237,7 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 		writeJSON(w, http.StatusOK, state.snapshot())
 	})
 	registerLocalFileRoutes(mux, state)
+	registerProjectSearchRoutes(mux, state)
 	registerLocalProcessRoutes(mux, state)
 	mux.Handle("/kilo/", proxy)
 	mux.Handle("/kilo", proxy)
@@ -293,7 +294,6 @@ func localOnly(next http.Handler) http.Handler {
 				http.Error(w, "cross-origin request blocked", http.StatusForbidden)
 				return
 			}
-		}
 		next.ServeHTTP(w, r)
 	})
 }
