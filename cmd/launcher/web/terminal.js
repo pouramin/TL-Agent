@@ -80,12 +80,16 @@
   K.state.terminal = { process: null, poll: null, history: [], historyIndex: 0, transcript: "", stoppedByUser: false };
 
   const projectLabel = () => K.state.local?.project || "Project root";
+  const setCwd = (value) => {
+    const cwd = value || projectLabel();
+    ui.cwd.textContent = cwd;
+    ui.cwd.title = cwd;
+  };
   const setOpen = (open) => {
     ui.panel.classList.toggle("hidden", !open);
     ui.button.classList.toggle("terminal-toggle-active", open);
     if (open) {
-      ui.cwd.textContent = projectLabel();
-      ui.cwd.title = projectLabel();
+      setCwd(projectLabel());
       window.setTimeout(() => ui.input.focus(), 0);
     }
   };
@@ -105,6 +109,7 @@
   const renderSnapshot = (snapshot) => {
     const previous = K.state.terminal.process?.output || "";
     K.state.terminal.process = snapshot;
+    if (snapshot?.cwd) setCwd(snapshot.cwd);
     if (snapshot?.output && snapshot.output !== previous) {
       const delta = snapshot.output.startsWith(previous) ? snapshot.output.slice(previous.length) : snapshot.output;
       append(delta);
@@ -157,6 +162,7 @@
     ui.run.disabled = true;
     try {
       const snapshot = await request("/local/process", { method: "POST", body: JSON.stringify({ command }) });
+      if (snapshot?.cwd) setCwd(snapshot.cwd);
       K.state.terminal.process = { ...snapshot, output: "" };
       ui.stop.disabled = false;
       stopPolling();
@@ -208,8 +214,7 @@
     K.afterProjectChange = async (...args) => {
       if (K.state.terminal.process?.running) await stopProcess();
       const result = await originalAfterProjectChange(...args);
-      ui.cwd.textContent = projectLabel();
-      ui.cwd.title = projectLabel();
+      setCwd(projectLabel());
       return result;
     };
   }
