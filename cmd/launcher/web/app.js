@@ -85,11 +85,6 @@
       "[TL Agent] Integrated terminal failed to load",
     );
     await loadScript(
-      "/legacy-sessions.js",
-      () => K.__legacySessionsInstalled,
-      "[TL Agent] Legacy session recovery failed to load",
-    );
-    await loadScript(
       "/attachments.js",
       () => K.__attachmentsInstalled,
       "[TL Agent] Composer attachments failed to load",
@@ -113,6 +108,13 @@
       "/providers-settings-bridge.js",
       () => K.__providersSettingsBridgeInstalled,
       "[TL Agent] Custom provider settings bridge failed to load",
+    );
+    // Keep legacy recovery last so its read-only guards wrap the final composer
+    // and session actions rather than being replaced by later UI extensions.
+    await loadScript(
+      "/legacy-sessions.js",
+      () => K.__legacySessionsInstalled,
+      "[TL Agent] Legacy session recovery failed to load",
     );
   };
 
