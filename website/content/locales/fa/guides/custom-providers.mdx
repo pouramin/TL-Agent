@@ -4,7 +4,7 @@ description: اضافه‌کردن و مدیریت Providerهای سازگار �
 icon: Cable
 ---
 
-TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provider سازگار اضافه کنید. این یک Workflow داخل خود TL Agent است که از Config و Credential APIهای Local Runtime استفاده می‌کند؛ یعنی TL Agent برای این کار Cloud Gateway جداگانه‌ای ندارد.
+TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provider سازگار اضافه کنید. تعریف Provider و Model متعلق به خود TL Agent است و Launcher آن را در پشت صحنه برای Runtime فعال ترجمه می‌کند؛ یعنی TL Agent برای این کار Cloud Gateway جداگانه‌ای ندارد.
 
 ## Provider APIهای پشتیبانی‌شده
 
@@ -34,9 +34,13 @@ TL Agent از داخل **Settings → Providers** اجازه می‌دهد Provi
 
 ## اطلاعات کجا ذخیره می‌شوند؟
 
-Provider Config از طریق Config Layer مربوط به Local Runtime به‌صورت Global روی همان سیستم ذخیره می‌شود و بین Projectها قابل استفاده است.
+تعریف Provider و Model داخل Registry محلی خود TL Agent ذخیره می‌شود:
 
-API Key مسیر جدا دارد و داخل **Local Credential Store** مربوط به Runtime نگه‌داری می‌شود. TL Agent کلید Provider را داخل Browser Storage یا Provider Config ذخیره نمی‌کند.
+`providers.json`
+
+این اطلاعات بین Projectهای همان سیستم قابل استفاده هستند.
+
+API Key مسیر جدا دارد و داخل **Local Credential Store** مربوط به Runtime نگه‌داری می‌شود. TL Agent کلید Provider را داخل Browser Storage یا `providers.json` ذخیره نمی‌کند.
 
 ## Context و Output Limit
 
@@ -44,7 +48,7 @@ API Key مسیر جدا دارد و داخل **Local Credential Store** مربو
 
 ## Edit یا حذف Provider
 
-Providerهای سازگار در همان Providers Panel نمایش داده می‌شوند. می‌توانید Config را Edit کنید یا Provider را حذف کنید. هنگام حذف، Auth Entry مربوط به API Key هم از طریق Runtime Local پاک می‌شود.
+Providerهایی که TL Agent مدیریت می‌کند در همان Providers Panel نمایش داده می‌شوند. می‌توانید Definition آن‌ها را Edit یا حذف کنید. Launcher تغییر را با Runtime فعال Sync می‌کند و هنگام حذف Provider مدیریت‌شده، Credential متناظر هم از Store فعلی Runtime پاک می‌شود.
 
 ## نکته امنیتی
 
