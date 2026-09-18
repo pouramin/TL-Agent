@@ -4,7 +4,7 @@ description: Add and manage compatible model providers locally from TL Agent Set
 icon: Cable
 ---
 
-TL Agent can add compatible providers from **Settings → Providers**. This is a TL Agent product workflow backed by local runtime configuration and credential APIs; it does not introduce a TL Agent-hosted gateway.
+TL Agent can add compatible providers from **Settings → Providers**. Provider/model definitions are owned by TL Agent and translated to the active local runtime by the launcher; this does not introduce a TL Agent-hosted gateway.
 
 ## Supported provider APIs
 
@@ -34,9 +34,9 @@ After saving, models from that provider become available through TL Agent's mode
 
 ## Where configuration is stored
 
-Provider configuration is saved globally through the local runtime configuration layer and is available across projects on that machine.
+Provider/model definitions are stored in TL Agent's local `providers.json` registry and are available across projects on that machine.
 
-API keys are handled separately by the runtime's **local credential store**. TL Agent does not save provider keys in browser storage or inside the provider configuration object.
+API keys are handled separately by the runtime's **local credential store**. TL Agent does not save provider keys in browser storage or inside `providers.json`.
 
 ## Context and output limits
 
@@ -44,7 +44,7 @@ If you know a custom model's context or maximum output limit, enter it. This giv
 
 ## Edit or remove a provider
 
-Existing compatible providers appear in the Providers panel. You can edit their configuration or remove them. Removing a provider also removes the matching API-key entry through the local runtime auth API.
+TL Agent-managed providers appear in the Providers panel. You can edit their definition or remove them. The launcher synchronizes the change to the active runtime; removing a managed provider also removes the matching credential entry from the current runtime store.
 
 ## Security note
 
