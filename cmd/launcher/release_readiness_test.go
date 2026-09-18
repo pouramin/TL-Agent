@@ -37,18 +37,31 @@ func TestProductUIKeepsRuntimeBrandingBehindBoundary(t *testing.T) {
 	}
 }
 
-func TestReleaseWorkflowUsesPublicRuntimeBoundaryAndBuildsUI(t *testing.T) {
+func TestWorkflowsUsePublicRuntimeBoundary(t *testing.T) {
+	root := releaseRepoRoot(t)
+	for _, workflow := range []string{"release.yml", "custom-provider-contract.yml"} {
+		data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", workflow))
+		if err != nil {
+			t.Fatal(err)
+		}
+		source := string(data)
+		if strings.Contains(source, "/kilo/global/health") {
+			t.Fatalf("%s still uses the legacy runtime route", workflow)
+		}
+		if !strings.Contains(source, "/runtime/global/health") {
+			t.Fatalf("%s is missing the TL Agent runtime health boundary", workflow)
+		}
+	}
+}
+
+func TestReleaseWorkflowBuildsBrowserUI(t *testing.T) {
 	root := releaseRepoRoot(t)
 	data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "release.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	source := string(data)
-	if strings.Contains(source, "/kilo/global/health") {
-		t.Fatal("release workflow still uses the legacy runtime route")
-	}
 	for _, required := range []string{
-		"/runtime/global/health",
 		"npm run check:web",
 		"npm run build:web",
 	} {

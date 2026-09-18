@@ -61,35 +61,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /tmp/kilo-local-ui.exe ./cmd/launcher
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/kilo-local-ui-linux-x64 ./cmd/launcher
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /tmp/kilo-local-ui-linux-arm64 ./cmd/launcher
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/kilo-local-ui-darwin-x64 ./cmd/launcher
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/kilo-local-ui-darwin-arm64 ./cmd/launcher
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o /tmp/tl-agent.exe ./cmd/launcher
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /tmp/tl-agent-linux-x64 ./cmd/launcher
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /tmp/tl-agent-linux-arm64 ./cmd/launcher
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/tl-agent-darwin-x64 ./cmd/launcher
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/tl-agent-darwin-arm64 ./cmd/launcher
 
-  kilo-product-contract:
+  runtime-product-contract:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
-      - name: Build launcher and download pinned Kilo
+      - name: Build launcher and download pinned runtime
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/klu-contract/bin /tmp/klu-upstream
-          go build -trimpath -o /tmp/klu-contract/kilo-local-ui ./cmd/launcher
+          mkdir -p /tmp/tl-contract/bin /tmp/tl-runtime-upstream
+          go build -trimpath -o /tmp/tl-contract/tl-agent ./cmd/launcher
           KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
           ASSET="kilo-linux-x64.tar.gz"
           curl --fail --location --retry 3 \
             "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}" \
-            -o "/tmp/klu-upstream/${ASSET}"
-          tar -xzf "/tmp/klu-upstream/${ASSET}" -C /tmp/klu-upstream
-          KILO_BIN="$(find /tmp/klu-upstream -type f -name kilo | head -n 1)"
+            -o "/tmp/tl-runtime-upstream/${ASSET}"
+          tar -xzf "/tmp/tl-runtime-upstream/${ASSET}" -C /tmp/tl-runtime-upstream
+          KILO_BIN="$(find /tmp/tl-runtime-upstream -type f -name kilo | head -n 1)"
           test -n "$KILO_BIN"
-          cp "$KILO_BIN" /tmp/klu-contract/bin/kilo
-          chmod +x /tmp/klu-contract/kilo-local-ui /tmp/klu-contract/bin/kilo
+          cp "$KILO_BIN" /tmp/tl-contract/bin/kilo
+          chmod +x /tmp/tl-contract/tl-agent /tmp/tl-contract/bin/kilo
       - name: Run real-runtime product API contract test
         shell: bash
         run: |
@@ -97,7 +97,7 @@ jobs:
           LOG="$(mktemp)"
           START_DIR="$PWD"
           cd /tmp
-          /tmp/klu-contract/kilo-local-ui --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          /tmp/tl-contract/tl-agent --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
           cd "$START_DIR"
           cleanup() {
@@ -120,36 +120,36 @@ jobs:
           python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
           python3 scripts/check-kilo-product-contract.py "$LOCAL_URL"
 
-  kilo-product-prompt-e2e:
+  runtime-product-prompt-e2e:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
-      - name: Build launcher and download pinned Kilo
+      - name: Build launcher and download pinned runtime
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/klu-e2e/bin /tmp/klu-upstream
-          go build -trimpath -o /tmp/klu-e2e/kilo-local-ui ./cmd/launcher
+          mkdir -p /tmp/tl-e2e/bin /tmp/tl-runtime-upstream
+          go build -trimpath -o /tmp/tl-e2e/tl-agent ./cmd/launcher
           KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
           ASSET="kilo-linux-x64.tar.gz"
           curl --fail --location --retry 3 \
             "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}" \
-            -o "/tmp/klu-upstream/${ASSET}"
-          tar -xzf "/tmp/klu-upstream/${ASSET}" -C /tmp/klu-upstream
-          KILO_BIN="$(find /tmp/klu-upstream -type f -name kilo | head -n 1)"
+            -o "/tmp/tl-runtime-upstream/${ASSET}"
+          tar -xzf "/tmp/tl-runtime-upstream/${ASSET}" -C /tmp/tl-runtime-upstream
+          KILO_BIN="$(find /tmp/tl-runtime-upstream -type f -name kilo | head -n 1)"
           test -n "$KILO_BIN"
-          cp "$KILO_BIN" /tmp/klu-e2e/bin/kilo
-          chmod +x /tmp/klu-e2e/kilo-local-ui /tmp/klu-e2e/bin/kilo
+          cp "$KILO_BIN" /tmp/tl-e2e/bin/kilo
+          chmod +x /tmp/tl-e2e/tl-agent /tmp/tl-e2e/bin/kilo
       - name: Run product prompt and real write-tool E2E
         shell: bash
         run: |
           set -euo pipefail
           FAKE_LOG="$(mktemp)"
           LAUNCHER_LOG="$(mktemp)"
-          PROJECT_DIR="/tmp/klu-e2e-project"
+          PROJECT_DIR="/tmp/tl-e2e-project"
           rm -rf "$PROJECT_DIR"
           mkdir -p "$PROJECT_DIR"
 
@@ -202,7 +202,7 @@ jobs:
           unset KILO_CONFIG_CONTENT || true
           START_DIR="$PWD"
           cd /tmp
-          /tmp/klu-e2e/kilo-local-ui --no-browser --project "$PROJECT_DIR" >"$LAUNCHER_LOG" 2>&1 &
+          /tmp/tl-e2e/tl-agent --no-browser --project "$PROJECT_DIR" >"$LAUNCHER_LOG" 2>&1 &
           LAUNCHER_PID=$!
           cd "$START_DIR"
 
