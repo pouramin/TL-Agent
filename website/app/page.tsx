@@ -7,34 +7,34 @@ import { site } from '@/lib/site';
 const features = [
   {
     title: 'Local-first by design',
-    description: 'TL Agent runs on your computer and works with your local project. There is no TL Agent cloud backend or database in the middle.',
+    description: 'TL Agent runs on your computer, works directly with your local project, and does not require a TL Agent cloud backend or database.',
     icon: ServerOff,
   },
   {
-    title: 'A workspace of its own',
-    description: 'Work with a coding agent from a dedicated browser workspace instead of living inside VS Code, JetBrains, Cursor, or another IDE.',
+    title: 'A browser IDE of its own',
+    description: 'Edit files, search the project, run commands, inspect changes, and open a live preview without living inside VS Code, JetBrains, Cursor, or another IDE.',
     icon: SquareTerminal,
   },
   {
-    title: 'Project-aware workflow',
-    description: 'Pick a local folder, manage sessions, inspect project files and changes, and keep each conversation scoped to the selected project.',
+    title: 'Project-aware agent workflow',
+    description: 'Keep sessions, files, attachments, changes, permissions, and Agent context scoped to the project you actually opened.',
     icon: FolderCode,
   },
   {
-    title: 'Provider control without a TL Agent cloud',
-    description: 'Use hosted models or add compatible custom providers locally. Provider credentials stay in the local runtime credential store, not TL Agent browser storage.',
+    title: 'Provider and model control',
+    description: 'Manage compatible custom provider/model definitions in TL Agent while credentials stay out of browser storage.',
     icon: LockKeyhole,
   },
 ];
 
 const capabilities = [
+  'Multi-tab editor',
+  'Project Search',
+  'Terminal',
+  'Live Preview',
   'File attachments',
   'Custom providers',
-  'Retryable error recovery',
-  'Files + changes',
-  'Interactive permissions',
-  'Theme + font size',
-  'Loopback-only runtime',
+  'Local security',
 ];
 
 export default function HomePage() {
@@ -74,7 +74,7 @@ export default function HomePage() {
           <div className="mt-16 w-full max-w-4xl rounded-2xl border bg-fd-card/80 p-5 text-left shadow-sm md:p-8">
             <div className="mb-5 text-sm font-medium text-fd-muted-foreground">How TL Agent works</div>
             <div className="grid gap-3 md:grid-cols-4">
-              {['Browser workspace', 'TL Agent local layer', 'Agent runtime', 'Models + project tools'].map((label, index) => (
+              {['Browser IDE', 'TL Agent local core', 'Agent engine adapter', 'Models + tools'].map((label, index) => (
                 <div key={label} className="relative">
                   <div className="arch-line rounded-xl px-4 py-5 text-center font-medium">{label}</div>
                   {index < 3 ? <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-fd-muted-foreground md:block">→</div> : null}
@@ -96,10 +96,10 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-16">
-            <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Local runtime</p>
-            <h2 className="mt-2 text-3xl font-semibold">TL Agent is the product layer from end to end.</h2>
+            <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Replaceable engine</p>
+            <h2 className="mt-2 text-3xl font-semibold">TL Agent owns the product experience end to end.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Workspace UX, project selection, provider settings, recovery, local security, packaging, and releases all belong to TL Agent. A bundled runtime handles agent execution behind that product boundary.
+              The editor, project filesystem, Search, Terminal, Live Preview, provider/model registry, recovery, local security, packaging, and releases belong to TL Agent. Agent execution sits behind a generic local runtime contract.
             </p>
           </div>
         </section>
