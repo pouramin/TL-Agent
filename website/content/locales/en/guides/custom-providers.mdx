@@ -1,51 +1,57 @@
 ---
 title: Custom providers
-description: Add and manage compatible model providers locally from TL Agent Settings.
+description: Manage compatible Provider and Model definitions in TL Agent's own local registry.
 icon: Cable
 ---
 
-TL Agent can add compatible providers from **Settings → Providers**. Provider/model definitions are owned by TL Agent and translated to the active local runtime by the launcher; this does not introduce a TL Agent-hosted gateway.
+TL Agent manages compatible custom Provider definitions from **Settings → Providers** without requiring a TL Agent-hosted gateway.
 
 ## Supported provider APIs
 
-The current provider form supports three API families:
+The current form supports three protocol families:
 
 - **OpenAI Compatible**
 - **OpenAI Responses**
 - **Anthropic Messages**
 
-This layer is intentionally vendor-agnostic. You provide the endpoint details rather than choosing from a hard-coded vendor preset.
+The form is intentionally vendor-agnostic. You provide the endpoint and Model details instead of choosing from a hard-coded vendor preset.
 
 ## Add a provider
 
-Open **Settings → Providers → Add provider** and fill in:
+Open **Settings → Providers → Add provider** and enter:
 
-- Provider ID — lowercase letters, numbers, dashes, or underscores;
-- Display name;
-- Provider API;
+- Provider ID;
+- display name;
+- protocol;
 - Base URL;
 - API key;
 - Model ID and optional display name;
-- optional context limit and max output;
-- whether the model supports tool calling;
-- whether the model exposes reasoning.
+- optional context and output limits;
+- Tool Calling support;
+- Reasoning support.
 
-After saving, models from that provider become available through TL Agent's model selection flow.
+After saving, the Provider/Model definitions become part of TL Agent's local configuration and are translated to the active Agent engine behind the runtime adapter.
 
-## Where configuration is stored
+## TL Agent owns the provider registry
 
-Provider/model definitions are stored in TL Agent's local `providers.json` registry and are available across projects on that machine.
+Custom Provider definitions are persisted by TL Agent in a versioned `providers.json` file under TL Agent's local application state.
 
-API keys are handled separately by the runtime's **local credential store**. TL Agent does not save provider keys in browser storage or inside `providers.json`.
+That file contains TL Agent concepts only: Provider ID/name, protocol, Base URL, Model definitions, capability flags, and optional limits. Engine package names and implementation-specific configuration shapes are deliberately excluded.
+
+On the first run after upgrading from older alpha builds, if no TL Agent provider registry exists yet, TL Agent can import compatible custom Provider definitions from the older runtime configuration. After that migration, the TL Agent registry becomes the source of truth for managed definitions.
+
+## API keys are separate
+
+API keys are **not** written into `providers.json` and are not stored in browser storage.
+
+In v0.2, credential persistence is still delegated to the bundled engine's local credential store. Moving credentials into a TL Agent-controlled secure store is a separate future milestone.
+
+Removing a managed Provider removes its translated engine configuration and the matching local credential entry.
 
 ## Context and output limits
 
-If you know a custom model's context or maximum output limit, enter it. This gives the runtime better information for long conversations. The current runtime does not automatically compact context for a custom model when no context limit is known.
-
-## Edit or remove a provider
-
-TL Agent-managed providers appear in the Providers panel. You can edit their definition or remove them. The launcher synchronizes the change to the active runtime; removing a managed provider also removes the matching credential entry from the current runtime store.
+If you know a custom Model's context or maximum output limit, enter it. Accurate limits help the execution layer handle longer conversations more reliably.
 
 ## Security note
 
-A custom Base URL receives the prompts and model requests sent through that provider. Only add endpoints you trust, and never paste an API key into issue reports, screenshots, or public logs.
+A custom Base URL receives the prompts and Model requests sent through that Provider. Only add endpoints you trust, and never publish API keys in screenshots, logs, Issues, or bug reports.
