@@ -265,16 +265,19 @@
   };
 
   const activateSettingsSection = (name = "general") => {
-    for (const button of ui.settingsNavItems) {
+    const navItems = [...(ui.settingsDialog?.querySelectorAll("[data-settings-section]") || [])];
+    const panels = [...(ui.settingsDialog?.querySelectorAll("[data-settings-panel]") || [])];
+    for (const button of navItems) {
       const active = button.dataset.settingsSection === name;
       button.classList.toggle("active", active);
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     }
-    for (const panel of ui.settingsPanels) {
+    for (const panel of panels) {
       panel.classList.toggle("hidden", panel.dataset.settingsPanel !== name);
     }
   };
+  K.activateSettingsSection = activateSettingsSection;
 
   const openSettings = () => {
     applyAppearance(readSetting(THEME_KEY, "system"));
