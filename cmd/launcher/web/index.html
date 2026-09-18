@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
-  <meta name="description" content="TL Agent is a local browser workspace powered by Kilo Code." />
+  <meta name="description" content="TL Agent is a local browser-based coding agent workspace." />
   <title>TL Agent</title>
   <link rel="icon" type="image/svg+xml" href="/tl-agent-mark.svg" />
   <link rel="stylesheet" href="/styles.css" />
@@ -64,12 +64,12 @@
       <section id="emptyState" class="empty-state">
         <div class="empty-icon"><img src="/tl-agent-mark.svg" alt="" /></div>
         <h1>Your local coding agent, without the IDE.</h1>
-        <p>TL Agent runs Kilo on this computer. The browser is your workspace.</p>
+        <p>TL Agent runs a local coding agent on this computer. The browser is your workspace.</p>
         <div class="empty-actions">
           <button id="emptyNewSession" class="primary">Start a session</button>
           <button id="emptyPickProject" class="ghost">Choose project</button>
         </div>
-        <div class="privacy-note">Project files stay on this computer. Model traffic is handled by the provider configured in Kilo.</div>
+        <div class="privacy-note">Project files stay on this computer. Model traffic is handled by the provider selected in TL Agent.</div>
       </section>
 
       <section id="conversation" class="conversation hidden" aria-live="polite"></section>
@@ -210,7 +210,7 @@
               <div class="about-product-mark"><img src="/tl-agent-mark.svg" alt="" /></div>
               <div class="about-product-copy">
                 <strong>TL Agent</strong>
-                <span>Local coding workspace powered by Kilo Code.</span>
+                <span>Local browser-based coding agent workspace.</span>
               </div>
               <span id="versionLabel" class="about-version">Local runtime</span>
             </div>
@@ -249,7 +249,7 @@
 
   <dialog id="accountDialog">
     <div class="dialog-card account-card">
-      <h2>Kilo account</h2><p>Manage the Kilo account used for hosted models.</p>
+      <h2>Hosted models</h2><p>Manage the hosted model account used by the local runtime.</p>
       <div id="accountStatus" class="account-state">Checking account status…</div>
       <div class="dialog-actions split">
         <button id="accountClose" class="ghost" type="button">Close</button>
@@ -263,7 +263,7 @@
 
   <dialog id="authDialog">
     <div class="dialog-card auth-card">
-      <h2>Sign in to Kilo</h2><p id="authInstructions">Starting secure device authorization…</p>
+      <h2>Connect hosted models</h2><p id="authInstructions">Starting secure device authorization…</p>
       <div id="authCodeWrap" class="auth-code-wrap hidden"><span>Device code</span><button id="authCode" class="auth-code" type="button" title="Copy code"></button></div>
       <div class="dialog-actions split"><button id="authCancel" class="ghost" type="button">Cancel</button><button id="authOpen" class="primary" type="button" disabled>Open sign-in page</button></div>
     </div>
@@ -277,7 +277,7 @@
   </dialog>
 
   <script src="/core.js" defer></script>
-  <script src="/kilo-api.js" defer></script>
+  <script src="/runtime-api.js" defer></script>
   <script src="/chat.js" defer></script>
   <script src="/presentation.js" defer></script>
   <script src="/attention.js" defer></script>

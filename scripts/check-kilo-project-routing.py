@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify that TL-Agent routes Kilo's production HttpApi to the selected project."""
+"""Verify that TL-Agent routes current and legacy read APIs to the selected project."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def main() -> int:
         return 1
 
     quoted = urllib.parse.quote(selected, safe="")
-    routed = get_json(base, f"/kilo/path?directory={quoted}")
+    routed = get_json(base, f"/runtime/path?directory={quoted}")
     if isinstance(routed, dict) and isinstance(routed.get("data"), dict):
         routed = routed["data"]
     directory = routed.get("directory") if isinstance(routed, dict) else None
@@ -44,7 +44,35 @@ def main() -> int:
         print(f"project routing mismatch: selected={selected!r} routed={directory!r}", file=sys.stderr)
         return 1
 
-    print(json.dumps({"ok": True, "selected": selected, "routed": directory}, indent=2))
+    # TL Agent briefly used Protocol v2 during alpha development. The current
+    # product path never writes through that API, but recovery of those alpha
+    # sessions requires its read endpoints to remain available in the pinned
+    # local runtime and scoped to the selected project by the proxy boundary.
+    legacy_location = get_json(base, "/runtime/api/location")
+    legacy_directory = legacy_location.get("directory") if isinstance(legacy_location, dict) else None
+    if not isinstance(legacy_directory, str):
+        print(f"invalid legacy /api/location response: {legacy_location!r}", file=sys.stderr)
+        return 1
+    if canonical(selected) != canonical(legacy_directory):
+        print(
+            f"legacy project routing mismatch: selected={selected!r} routed={legacy_directory!r}",
+            file=sys.stderr,
+        )
+        return 1
+
+    legacy_sessions = get_json(base, "/runtime/api/session?order=desc&limit=1")
+    legacy_data = legacy_sessions.get("data") if isinstance(legacy_sessions, dict) else None
+    if not isinstance(legacy_data, list):
+        print(f"invalid legacy /api/session response: {legacy_sessions!r}", file=sys.stderr)
+        return 1
+
+    print(json.dumps({
+        "ok": True,
+        "selected": selected,
+        "routed": directory,
+        "legacy_routed": legacy_directory,
+        "legacy_read": True,
+    }, indent=2))
     return 0
 
 

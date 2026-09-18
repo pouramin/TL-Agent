@@ -69,7 +69,7 @@ func TestProxyAddsAuthAndProject(t *testing.T) {
 	frontend := httptest.NewServer(handler)
 	defer frontend.Close()
 
-	res, err := http.Get(frontend.URL + "/kilo/global/health")
+	res, err := http.Get(frontend.URL + "/runtime/global/health")
 	if err != nil {
 		t.Fatal(err)
 	}

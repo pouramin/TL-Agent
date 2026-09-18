@@ -35,7 +35,6 @@ var webFS embed.FS
 type appState struct {
 	mu          sync.RWMutex
 	project     string
-	kiloPath    string
 	backendURL  string
 	frontendURL string
 }
@@ -46,8 +45,6 @@ func (s *appState) snapshot() map[string]any {
 	return map[string]any{
 		"version":     version,
 		"project":     s.project,
-		"kiloPath":    s.kiloPath,
-		"backendURL":  s.backendURL,
 		"frontendURL": s.frontendURL,
 		"platform":    runtime.GOOS,
 		"arch":        runtime.GOARCH,
@@ -78,7 +75,7 @@ func main() {
 	flag.StringVar(&projectArg, "project", "", "project directory to open")
 	flag.BoolVar(&noBrowser, "no-browser", false, "do not open the browser automatically")
 	flag.StringVar(&listenAddr, "listen", "127.0.0.1", "frontend listen address")
-	flag.StringVar(&kiloOverride, "kilo", "", "path to the kilo binary")
+	flag.StringVar(&kiloOverride, "runtime-bin", "", "override path to the bundled agent runtime (advanced)")
 	flag.Parse()
 	if !isLoopbackHost(listenAddr) {
 		log.Fatalf("listen: %q is not a loopback address; this UI intentionally binds only to localhost", listenAddr)
@@ -106,7 +103,7 @@ func main() {
 		log.Fatalf("find frontend port: %v", err)
 	}
 
-	username := "kilo"
+	username := "runtime"
 	password, err := randomSecret(24)
 	if err != nil {
 		log.Fatalf("create server password: %v", err)
@@ -116,7 +113,6 @@ func main() {
 	frontendURL := "http://" + net.JoinHostPort(listenAddr, fmt.Sprint(frontendPort))
 	state := &appState{
 		project:     project,
-		kiloPath:    kiloPath,
 		backendURL:  backendURL,
 		frontendURL: frontendURL,
 	}
@@ -126,13 +122,13 @@ func main() {
 
 	kiloCmd, err := startKilo(ctx, kiloPath, backendPort, username, password)
 	if err != nil {
-		log.Fatalf("start kilo: %v", err)
+		log.Fatalf("start bundled runtime: %v", err)
 	}
 	defer stopProcess(kiloCmd)
 
 	if err := waitForPort(ctx, "127.0.0.1", backendPort, 12*time.Second); err != nil {
 		stopProcess(kiloCmd)
-		log.Fatalf("kilo backend did not start: %v", err)
+		log.Fatalf("bundled runtime did not start: %v", err)
 	}
 
 	server, err := newServer(state, backendURL, username, password)
@@ -157,7 +153,7 @@ func main() {
 	fmt.Printf("TL Agent %s\n", version)
 	fmt.Printf("  Project: %s\n", project)
 	fmt.Printf("  Local:   %s\n", frontendURL)
-	fmt.Printf("  Backend: %s\n", backendURL)
+	fmt.Printf("  Runtime: bundled\n")
 
 	if !noBrowser {
 		go func() {
@@ -184,7 +180,7 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
-		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/kilo")
+		req.URL.Path = strings.TrimPrefix(req.URL.Path, "/runtime")
 		if req.URL.Path == "" {
 			req.URL.Path = "/"
 		}
@@ -195,7 +191,12 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 		}
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, err error) {
-		writeJSON(w, http.StatusBadGateway, jsonError{Error: "Kilo backend unavailable: " + err.Error()})
+		writeJSON(w, http.StatusBadGateway, jsonError{Error: "Runtime backend unavailable: " + err.Error()})
+	}
+
+	providerManager, err := newRuntimeProviderManager(state, backendURL, username, password)
+	if err != nil {
+		return nil, fmt.Errorf("create runtime provider manager: %w", err)
 	}
 
 	mux := http.NewServeMux()
@@ -237,8 +238,11 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 		writeJSON(w, http.StatusOK, state.snapshot())
 	})
 	registerLocalFileRoutes(mux, state)
-	mux.Handle("/kilo/", proxy)
-	mux.Handle("/kilo", proxy)
+	registerProjectSearchRoutes(mux, state)
+	registerLocalProcessRoutes(mux, state)
+	registerRuntimeProviderRoutes(mux, providerManager)
+	mux.Handle("/runtime/", proxy)
+	mux.Handle("/runtime", proxy)
 
 	assets, err := fs.Sub(webFS, "web")
 	if err != nil {
@@ -340,8 +344,10 @@ func findKiloBinary(override string) (string, error) {
 	if strings.TrimSpace(override) != "" {
 		candidates = append(candidates, override)
 	}
-	if env := strings.TrimSpace(os.Getenv("KILO_BIN")); env != "" {
+	if env := strings.TrimSpace(os.Getenv("TL_AGENT_RUNTIME_BIN")); env != "" {
 		candidates = append(candidates, env)
+	} else if legacyEnv := strings.TrimSpace(os.Getenv("KILO_BIN")); legacyEnv != "" {
+		candidates = append(candidates, legacyEnv)
 	}
 	if exe, err := os.Executable(); err == nil {
 		base := filepath.Dir(exe)
@@ -366,7 +372,7 @@ func findKiloBinary(override string) (string, error) {
 			return abs, nil
 		}
 	}
-	return "", errors.New("Kilo binary not found. Put it in ./bin/kilo (or bin\\kilo.exe), install `kilo` in PATH, or pass --kilo /path/to/kilo")
+	return "", errors.New("bundled agent runtime not found; reinstall TL Agent or use --runtime-bin for an advanced local override")
 }
 
 func startKilo(ctx context.Context, kiloPath string, port int, username, password string) (*exec.Cmd, error) {

@@ -1,0 +1,37 @@
+{
+  "name": "tl-agent",
+  "version": "0.0.0",
+  "description": "Quick launcher for the TL Agent local coding-agent workspace",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "tl-agent": "tl-agent.cjs"
+  },
+  "files": [
+    "tl-agent.cjs",
+    "launcher.cjs",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pouramin/TL-Agent.git"
+  },
+  "homepage": "https://github.com/pouramin/TL-Agent#readme",
+  "bugs": {
+    "url": "https://github.com/pouramin/TL-Agent/issues"
+  },
+  "keywords": [
+    "tl-agent",
+    "coding-agent",
+    "ai",
+    "developer-tools",
+    "local-first"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

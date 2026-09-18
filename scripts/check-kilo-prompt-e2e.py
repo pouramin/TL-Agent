@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 
 EXPECTED = "E2E_PRODUCT_OK"
-FILE_CONTENT = "KILO_LOCAL_UI_OK"
+FILE_CONTENT = "TL_AGENT_E2E_OK"
 
 
 class E2EError(RuntimeError):
@@ -60,7 +60,7 @@ def routed(path: str, project: str, **params) -> str:
 def sse_events(base: str, project: str, sink: list[dict], ready: threading.Event, stop: threading.Event):
     try:
         req = urllib.request.Request(
-            base.rstrip("/") + routed("/kilo/global/event", project),
+            base.rstrip("/") + routed("/runtime/global/event", project),
             headers={"Accept": "text/event-stream", "Cache-Control": "no-cache"},
         )
         with urllib.request.urlopen(req, timeout=60) as res:
@@ -121,7 +121,7 @@ def has_completed_write(envelope: dict) -> bool:
 
 
 def projected_changes(messages: list[dict]) -> list[dict]:
-    """Mirror TL Agent's fallback when Kilo's aggregate session diff is empty."""
+    """Mirror TL Agent's fallback when the bundled runtime's aggregate session diff is empty."""
     summary_diffs: list[dict] = []
     for message in messages:
         info = message.get("info") if isinstance(message, dict) else None
@@ -186,14 +186,14 @@ def main() -> int:
     project = local.get("project") if isinstance(local, dict) else None
     require(isinstance(project, str) and project, f"local project missing: {local!r}")
 
-    agents = unwrap(request(base, routed("/kilo/agent", project)))
+    agents = unwrap(request(base, routed("/runtime/agent", project)))
     require(isinstance(agents, list), f"agent response mismatch: {agents!r}")
     visible = [a for a in agents if isinstance(a, dict) and not a.get("hidden") and a.get("mode") != "subagent"]
     names = [str(a.get("name") or a.get("id") or "") for a in visible]
     require("code" in names, f"product code agent missing: {names!r}")
     require("build" not in names, f"raw build agent leaked through product API: {names!r}")
 
-    provider_state = unwrap(request(base, routed("/kilo/provider", project)))
+    provider_state = unwrap(request(base, routed("/runtime/provider", project)))
     require(isinstance(provider_state, dict), f"provider response mismatch: {provider_state!r}")
     providers = provider_state.get("all")
     require(isinstance(providers, list), "provider.all missing")
@@ -210,7 +210,7 @@ def main() -> int:
     else:
         raise E2EError(f"test provider models have invalid shape: {models!r}")
 
-    created = unwrap(request(base, routed("/kilo/session", project), method="POST", payload={}))
+    created = unwrap(request(base, routed("/runtime/session", project), method="POST", payload={}))
     require(isinstance(created, dict) and isinstance(created.get("id"), str), f"session creation failed: {created!r}")
     session_id = created["id"]
     sid = urllib.parse.quote(session_id, safe="")
@@ -225,7 +225,7 @@ def main() -> int:
 
     request(
         base,
-        routed(f"/kilo/session/{sid}/prompt_async", project),
+        routed(f"/runtime/session/{sid}/prompt_async", project),
         method="POST",
         payload={
             "agent": "code",
@@ -241,13 +241,13 @@ def main() -> int:
     saw_edit_permission = False
 
     while time.time() < deadline:
-        statuses = unwrap(request(base, routed("/kilo/session/status", project)))
+        statuses = unwrap(request(base, routed("/runtime/session/status", project)))
         statuses = statuses if isinstance(statuses, dict) else {}
         status = statuses.get(session_id)
         if isinstance(status, dict) and status.get("type") != "idle":
             saw_running = True
 
-        pending = unwrap(request(base, routed("/kilo/permission", project)))
+        pending = unwrap(request(base, routed("/runtime/permission", project)))
         pending = pending if isinstance(pending, list) else []
         for permission in pending:
             if not isinstance(permission, dict) or permission.get("sessionID") != session_id:
@@ -261,14 +261,14 @@ def main() -> int:
                     f"edit permission did not target hello.txt: {permission!r}")
             request(
                 base,
-                routed(f"/kilo/permission/{urllib.parse.quote(permission_id, safe='')}/reply", project),
+                routed(f"/runtime/permission/{urllib.parse.quote(permission_id, safe='')}/reply", project),
                 method="POST",
                 payload={"reply": "once"},
             )
             approved_permissions.add(permission_id)
             saw_edit_permission = True
 
-        messages = unwrap(request(base, routed(f"/kilo/session/{sid}/message", project, limit=200)))
+        messages = unwrap(request(base, routed(f"/runtime/session/{sid}/message", project, limit=200)))
         messages = messages if isinstance(messages, list) else []
         if any(EXPECTED in assistant_text(message) for message in messages):
             break
@@ -299,12 +299,12 @@ def main() -> int:
     require(any(has_completed_write(m) for m in assistants), f"completed write tool part missing: {assistants!r}")
 
     target = os.path.join(project, "hello.txt")
-    require(os.path.isfile(target), f"Kilo did not create {target}")
+    require(os.path.isfile(target), f"bundled runtime did not create {target}")
     with open(target, "r", encoding="utf-8") as handle:
         actual = handle.read()
     require(actual == FILE_CONTENT, f"file content mismatch: {actual!r}")
 
-    aggregate_diffs = unwrap(request(base, routed(f"/kilo/session/{sid}/diff", project)))
+    aggregate_diffs = unwrap(request(base, routed(f"/runtime/session/{sid}/diff", project)))
     require(isinstance(aggregate_diffs, list), f"session diff must be an array: {aggregate_diffs!r}")
     visible_changes = aggregate_diffs if aggregate_diffs else projected_changes(messages)
     change_source = "session.diff" if aggregate_diffs else "tool-metadata"

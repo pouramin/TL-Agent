@@ -1,297 +1,221 @@
-# Kilo API Contract
+# Bundled Runtime Contract — Kilo Code 7.6.2
 
-This repository bundles **Kilo Code v7.6.2** and intentionally follows the same product-facing HTTP API used by Kilo's official VS Code client for local coding sessions.
+This document records the **implementation-specific compatibility contract** for the engine currently bundled with TL Agent.
 
-- Upstream repository: `Kilo-Org/kilocode`
-- Upstream tag: `v7.6.2`
-- Upstream commit: `3d04228b6a642acb3daf68a649269618b6018250`
-- Bundled runtime version: see `/KILO_VERSION`
-- Browser adapter: `cmd/launcher/web/kilo-api.js`
+It is intentionally not the public browser/product contract.
 
-## Why this contract exists
+Current engine:
 
-`@kilocode/sdk/v2/client` in Kilo v7.6.2 exposes more than one API generation at the same time:
+- upstream: `Kilo-Org/kilocode`
+- pinned version: `v7.6.2`
+- pinned version file: `/KILO_VERSION`
+- browser runtime adapter source: `cmd/launcher/ui/runtime-api.ts`
+- generated browser adapter: `cmd/launcher/web/runtime-api.js`
+- launcher provider/hosted translation: `cmd/launcher/runtime_providers.go`
 
-1. the **product/current HttpApi**, used by Kilo's official VS Code client for coding;
-2. the experimental **Protocol v2 `/api/*`** surface.
+TL Agent owns the browser-facing runtime namespace, provider/model registry, workspace APIs, release packaging, and product identity. Kilo-specific routes, environment variables, authentication, and provider implementation details stay behind that boundary.
 
-The package name alone therefore does not mean every `/api/*` route is the product runtime used by the official UI.
+## Product boundary
 
-TL-Agent originally migrated its main chat path to the experimental Protocol v2 surface. Real Windows testing exposed the mismatch: `/api/agent` returned the core `build` and `plan` agents, while the product agent layer in Kilo patches `build` into `code` and adds Kilo's product agents. The experimental Session runner also has documented parity gaps in v7.6.2.
+The browser talks to TL Agent through:
 
-**Rule:** TL-Agent's primary coding path must follow the same generated SDK methods actually invoked by the official Kilo client for the pinned version. Experimental `/api/*` routes are not used for the primary chat runtime unless upstream itself migrates the official client and runtime parity is verified.
+- `/local/*` for TL Agent-owned workspace/files/search/process/preview capabilities;
+- `/runtime/*` for agent-runtime capabilities.
 
-## Project routing
+The browser must not construct Kilo-specific route prefixes or depend on Kilo-specific authentication details.
 
-Every project-scoped product request carries the selected project explicitly as the `directory` query parameter. The launcher additionally injects `x-kilo-directory` at the reverse-proxy boundary.
+For generic runtime product routes, the launcher reverse proxy strips the `/runtime` prefix, injects runtime authentication, and injects the selected project directory before forwarding to the bundled engine.
 
-This dual routing is deliberate:
+For TL Agent-owned semantic provider routes, the launcher handles translation itself.
 
-- it matches how the official SDK/client supplies `directory`;
-- it prevents a server CWD from silently becoming the active project;
-- changing the project in TL-Agent must also change agents, providers, sessions, messages, permissions, questions, events, and tool filesystem operations.
+## Current engine routing
 
-`GET /path?directory=...` is the runtime routing assertion used by CI.
+Kilo v7.6.2 expects project-scoped requests to carry the selected directory. TL Agent forwards the selected project as the runtime query directory and injects the current engine's `x-kilo-directory` header at the private proxy boundary.
 
-## Product routes used by TL-Agent
+That header is an engine implementation detail. Browser modules must never set or depend on it.
 
-### Runtime health and path
+The launcher also starts the current engine with its required local server environment and a random per-launch credential. Those engine-specific environment variables remain server-side.
 
-- `GET /global/health`
-- `GET /path?directory=...`
+## Runtime product routes currently exercised
+
+The browser reaches these through the TL Agent `/runtime/*` namespace:
+
+### Health and project routing
+
+- `GET /runtime/global/health`
+- `GET /runtime/path?directory=...`
 
 ### Agents
 
-- `GET /agent?directory=...`
+- `GET /runtime/agent?directory=...`
 
-The product agent response uses fields such as:
+The current engine's product layer exposes the visible `code` agent rather than the lower-level raw `build` agent. CI treats that behavior as part of the pinned-engine compatibility contract.
 
-- `name`
-- `displayName?`
-- `description?`
-- `mode`
-- `hidden`
-- `permission`
-- `model?`
+### Sessions and messages
 
-Kilo v7.6.2 constructs base agents including `build` and `plan`, then its Kilo product patch renames `build` to **`code`** and adds/patches product agents. The contract test therefore requires a visible `code` agent and rejects an exposed raw `build` agent on the product route.
+- `GET /runtime/session?directory=...`
+- `POST /runtime/session?directory=...`
+- `GET /runtime/session/status?directory=...`
+- `GET /runtime/session/:sessionID?directory=...`
+- `GET /runtime/session/:sessionID/message?directory=...`
+- `POST /runtime/session/:sessionID/prompt_async?directory=...`
+- `POST /runtime/session/:sessionID/abort?directory=...`
+- `GET /runtime/session/:sessionID/diff?directory=...`
 
-TL-Agent normalizes `name` as the stable selection value and uses `displayName` when available for display.
-
-### Providers and models
-
-- `GET /provider?directory=...`
-
-The product provider response is:
-
-```json
-{
-  "all": [],
-  "default": {},
-  "connected": [],
-  "failed": []
-}
-```
-
-Models are enumerated from each provider's `models` collection because this is the provider surface used by the official product client in v7.6.2.
-
-Kilo's authenticated free default remains:
-
-```text
-providerID: kilo
-modelID: kilo-auto/free
-```
-
-TL-Agent keeps an internal browser selection as `{ providerID, id, variant? }` and converts it at the adapter boundary to the product SDK model reference `{ providerID, modelID }`.
-
-### Sessions
-
-- `GET /session?directory=...`
-- `POST /session?directory=...`
-- `GET /session/status?directory=...`
-- `GET /session/:sessionID?directory=...`
-- `GET /session/:sessionID/message?directory=...`
-- `POST /session/:sessionID/prompt_async?directory=...`
-- `POST /session/:sessionID/abort?directory=...`
-
-The official VS Code client in Kilo v7.6.2 sends normal coding messages through `client.session.promptAsync(...)`. TL-Agent mirrors that path.
-
-A text prompt is sent as:
-
-```json
-{
-  "agent": "code",
-  "model": {
-    "providerID": "kilo",
-    "modelID": "kilo-auto/free"
-  },
-  "parts": [
-    {
-      "type": "text",
-      "text": "..."
-    }
-  ]
-}
-```
-
-Agent and model are sent explicitly with each prompt. TL-Agent does not depend on the experimental `/api/session/:id/agent`, `/model`, or `/prompt` routes for the product chat path.
-
-### Messages
-
-Production Session messages are returned as:
-
-```json
-[
-  {
-    "info": { "role": "user" },
-    "parts": []
-  },
-  {
-    "info": { "role": "assistant" },
-    "parts": []
-  }
-]
-```
-
-This `info + parts` envelope is the canonical message representation for the product route in v7.6.2.
-
-Relevant Part variants include:
-
-- `text`
-- `reasoning`
-- `tool`
-- `subtask`
-- file-related parts
-
-A tool part contains its tool name and state. Tool state can be pending/running/completed/error and includes input/output/error metadata as appropriate.
-
-Projected messages remain the reconnect-safe rendering source of truth.
+The pinned engine returns product messages in its current `info + parts` envelope. The browser adapter normalizes and presents that data through TL Agent UI concepts.
 
 ### Events
 
-- `GET /global/event?directory=...` (SSE)
+- `GET /runtime/global/event?directory=...` (SSE)
 
-The global event stream is wrapped with project/location metadata. The event itself is under `payload` and uses product event names such as:
-
-- `message.updated`
-- `message.part.updated`
-- `session.updated`
-- `session.status`
-- `session.idle`
-- permission/question events
-- file edit events
-
-The adapter unwraps the outer global-event envelope before UI dispatch.
-
-TL-Agent uses events for responsive refresh and also polls Session status/messages after a prompt as a conservative fallback. It does not treat an SSE delta as durable conversation history.
+TL Agent uses events for responsive updates and projected runtime state, while persisted/current session messages remain the reconnect-safe rendering source of truth.
 
 ### Permissions
 
-- `GET /permission?directory=...`
-- `POST /permission/:requestID/reply?directory=...`
-
-Pending permission requests are filtered by `sessionID` in the adapter.
-
-Production `PermissionRequest` fields used by the UI:
-
-- `id`
-- `sessionID`
-- `permission`
-- `patterns[]`
-- `metadata`
-- `always[]`
-- optional tool source
-
-Reply values are exactly:
-
-- `once`
-- `always`
-- `reject`
+- `GET /runtime/permission?directory=...`
+- `POST /runtime/permission/:requestID/reply?directory=...`
 
 ### Questions
 
-- `GET /question?directory=...`
-- `POST /question/:requestID/reply?directory=...`
-- `POST /question/:requestID/reject?directory=...`
+- `GET /runtime/question?directory=...`
+- `POST /runtime/question/:requestID/reply?directory=...`
+- `POST /runtime/question/:requestID/reject?directory=...`
 
-Requests are filtered by `sessionID` in the adapter. Questions support option lists, single/multiple selection, optional custom answers, and an optional default single-select label.
+## Provider and model ownership
 
-### Kilo account OAuth
+Provider/model definitions are no longer owned by browser code or stored as engine-specific configuration in the TL Agent UI.
 
-- `POST /provider/kilo/oauth/authorize`
-- `POST /provider/kilo/oauth/callback`
+TL Agent owns a local `providers.json` registry with product concepts such as:
 
-TL-Agent uses Kilo's normal device authorization flow and refreshes product provider state afterward.
+- provider ID and display name
+- protocol
+- base URL
+- model definitions
+- tool-calling capability
+- reasoning capability
+- context/output limits
+
+The browser uses TL Agent semantic routes:
+
+- `GET /runtime/providers/catalog`
+- `GET /runtime/providers/config`
+- `PUT /runtime/providers/config/{id}`
+- `DELETE /runtime/providers/config/{id}`
+
+The launcher translates those definitions to the currently bundled engine internally. Current engine package identifiers such as `@ai-sdk/*`, overlay config shapes, and auth routes are not part of the browser contract.
+
+Credentials are intentionally excluded from `providers.json` and browser storage. Credential ownership is still delegated to the current engine's local credential store and can move later as a separate security milestone.
+
+## Hosted provider mapping
+
+The browser uses TL Agent semantic hosted-provider routes:
+
+- `GET /runtime/hosted/status`
+- `POST /runtime/hosted/authorize`
+- `POST /runtime/hosted/callback`
+- `DELETE /runtime/hosted`
+
+The launcher currently maps those calls to Kilo's hosted-provider/auth implementation.
+
+The current bundled engine exposes its hosted provider as `kilo` and currently advertises `kilo-auto/free` as the preferred Auto Free model. These IDs are returned to the browser as runtime metadata rather than hard-coded in browser modules.
+
+A future engine replacement must be able to change this mapping without redesigning the product UI.
 
 ## Browser adapter policy
 
-All browser-side Kilo calls must go through:
+Authored browser runtime code lives in:
 
-`cmd/launcher/web/kilo-api.js`
+`cmd/launcher/ui/runtime-api.ts`
 
-UI modules must not construct Kilo endpoint paths directly. The adapter owns:
+Generated browser JavaScript lives in:
 
-- directory routing
-- response unwrapping
-- model reference conversion (`id` ↔ `modelID`)
-- Agent/provider/session endpoints
-- `prompt_async`
-- Session status/messages
-- global SSE envelope unwrapping
-- Permission/Question routes
-- Kilo OAuth
+`cmd/launcher/web/runtime-api.js`
 
-This makes an upstream Kilo upgrade an explicit adapter/contract change rather than a scattered UI change.
+UI modules must use this TL Agent adapter and must not construct engine-specific routes directly.
 
-## Automated contract gates
+The adapter owns browser-side runtime concerns such as:
 
-### Product contract
+- TL Agent `/runtime/*` route construction
+- selected-project routing
+- response normalization
+- session/message access
+- model selection representation
+- permission/question access
+- live-event handling
+
+Engine-specific provider/config/auth translation belongs in the launcher, not in browser modules.
+
+## Automated compatibility gates
+
+The test filenames still use `check-kilo-*` because they validate the exact currently bundled Kilo engine. Their scope is implementation compatibility, not product identity.
+
+### Runtime product contract
 
 `scripts/check-kilo-product-contract.py`
 
-CI downloads the exact official Kilo binary pinned in `KILO_VERSION`, starts it through the TL-Agent launcher, and verifies:
+CI starts the pinned real engine through the TL Agent launcher and verifies health, selected-project routing, agent behavior, provider/session/message shapes, permissions/questions, and the event stream through TL Agent's public `/runtime/*` boundary.
 
-- product health
-- selected-project routing
-- product Agent list contains `code`, not raw `build`
-- Provider response shape
-- production Session creation/list/messages/status
-- production message envelope is `info + parts`
-- Permission/Question list shapes
-- `/global/event` SSE is available
+### Project routing
+
+`scripts/check-kilo-project-routing.py`
+
+This verifies that changing the selected TL Agent project changes the directory used by the current engine rather than silently falling back to the launcher process CWD.
 
 ### Prompt + real write-tool E2E
 
 `scripts/check-kilo-prompt-e2e.py`
 
-CI also starts a local fake OpenAI-compatible LLM with no external API key or cost. The project config mirrors Kilo v7.6.2's own `testProviderConfig` format (`provider`, singular).
-
-The E2E must pass this chain:
+CI starts a local fake OpenAI-compatible provider and exercises:
 
 ```text
-TL-Agent launcher
-→ real bundled Kilo 7.6.2
-→ GET /agent returns code
-→ production custom provider discovery
-→ POST /session
-→ POST /session/:id/prompt_async
-→ fake LLM requests Kilo's real write tool
-→ Kilo writes hello.txt inside the selected project
-→ provider receives tool result
-→ final assistant reply
-→ GET /session/:id/message returns info + parts
-→ global product events observed
+TL Agent launcher
+→ bundled Kilo 7.6.2 engine
+→ TL Agent /runtime boundary
+→ product agent/session flow
+→ local test provider
+→ real write tool
+→ edit permission
+→ hello.txt inside the selected project
+→ final assistant response
 ```
 
-The test asserts both:
+The fixture asserts:
 
 ```text
-hello.txt == KILO_LOCAL_UI_OK
+hello.txt == TL_AGENT_E2E_OK
 ```
 
-and the final assistant marker:
+and:
 
 ```text
 E2E_PRODUCT_OK
 ```
 
-A release must not be cut if this product-path E2E fails.
+A release must not be cut if this real-engine product-path E2E fails.
 
-## Protocol v2 status
+## Experimental Protocol v2
 
-The experimental `/api/*` Protocol v2 remains valuable and may eventually replace more of the current HttpApi. In Kilo v7.6.2 it is **not** the primary TL-Agent coding contract because the official product client has not migrated its main coding flow to that surface and upstream parity documentation still lists incomplete runtime behavior.
+Kilo v7.6.2 exposes an experimental `/api/*` Protocol v2 surface in addition to the product/current HTTP API used by its official client.
 
-Do not mix product and experimental Session models opportunistically. Any future migration must be version-pinned and validated against the official Kilo client plus real-runtime E2E.
+TL Agent's current stable coding path does not use that experimental surface as its primary session model. Any future engine/API migration must be version-pinned and validated against the real bundled engine and TL Agent's product E2E before release.
 
-## Upgrade checklist
+## Engine upgrade checklist
 
 Before changing `KILO_VERSION`:
 
-1. inspect the generated `@kilocode/sdk/v2/client` routes for the new tag;
-2. inspect the official VS Code client and identify which SDK methods it actually invokes for Agent, Provider, Session, Prompt, Permission, Question, and events;
-3. inspect Kilo's product Agent patching behavior;
-4. compare message/part schemas;
-5. review Protocol v2 parity only as a separate potential migration;
-6. update this document and `kilo-api.js`;
-7. run product contract + production Prompt/write-tool E2E against the exact new binary;
-8. only then publish a release.
+1. inspect the new upstream release and generated SDK/client routes;
+2. inspect the upstream product client to determine which routes it actually uses;
+3. compare agent, provider, session, message/part, permission, question, event, and tool behavior;
+4. update only the launcher/runtime adapter and this implementation-specific contract where possible;
+5. keep browser modules on TL Agent-owned `/runtime/*` and semantic provider/hosted routes;
+6. run the real runtime contract, project-routing, provider contract, and Prompt/write-tool E2E tests;
+7. perform hands-on Windows validation before promotion.
+
+## Attribution
+
+The current release bundle includes Kilo Code under its MIT license. Required attribution and the upstream license remain in:
+
+- `THIRD_PARTY_NOTICES.md`
+- `third_party/KILO_LICENSE.txt`
+
+Reducing product coupling does not remove or weaken required third-party attribution.

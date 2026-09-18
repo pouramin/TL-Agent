@@ -6,8 +6,13 @@
   const json = (value) => JSON.stringify(value);
   const body = (value) => ({ body: json(value) });
   const unwrapData = (payload) => payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
-  const request = (path, options) => K.request(`/kilo${path}`, options);
+  const request = (path, options) => K.request(`/runtime${path}`, options);
   const wrapData = (data) => ({ data });
+  const hostedMeta = { providerID: "", preferredModels: [] };
+  const applyHostedMeta = (value) => {
+    if (value?.providerID) hostedMeta.providerID = String(value.providerID);
+    if (Array.isArray(value?.preferredModels)) hostedMeta.preferredModels = value.preferredModels.map(String);
+  };
 
   const projectDirectory = () => K.state?.local?.project || "";
   const withQuery = (path, params = {}) => {
@@ -21,6 +26,14 @@
     ...(directory ? { directory } : {}),
     ...params,
   });
+
+  const legacyPageQuery = ({ order, limit, cursor } = {}) => {
+    const query = new URLSearchParams();
+    if (cursor) query.set("cursor", cursor);
+    else if (order) query.set("order", order);
+    if (limit !== undefined) query.set("limit", String(limit));
+    return query;
+  };
 
   const wireModel = (model) => model ? {
     providerID: model.providerID,
@@ -38,7 +51,7 @@
   };
 
   const openEventSource = (path, { onEvent, onOpen, onError } = {}) => {
-    const source = new EventSource(`/kilo${route(path)}`);
+    const source = new EventSource(`/runtime${route(path)}`);
     if (onOpen) source.addEventListener("open", onOpen);
     if (onError) source.addEventListener("error", onError);
     if (onEvent) source.addEventListener("message", parseSSE(onEvent));
@@ -46,7 +59,7 @@
   };
 
   K.api = Object.freeze({
-    version: "kilo-v7.6.2-production-httpapi",
+    version: "bundled-runtime-adapter-v1",
 
     health: () => request("/global/health"),
     path: () => request(route("/path")),
@@ -61,7 +74,8 @@
     },
 
     providerState: async () => {
-      const payload = unwrapData(await request(route("/provider"))) || {};
+      const payload = unwrapData(await request(route("/providers/catalog"))) || {};
+      applyHostedMeta(payload.hosted);
       return {
         all: Array.isArray(payload.all) ? payload.all : [],
         connected: new Set(Array.isArray(payload.connected) ? payload.connected : []),
@@ -70,30 +84,16 @@
       };
     },
 
-    config: {
-      overlay: async ({ scope = "global", directory = projectDirectory() } = {}) => {
-        const payload = unwrapData(await request(route("/config/overlay", { scope }, directory)));
-        return payload && typeof payload === "object" ? payload : {};
+    providers: {
+      config: async () => {
+        const payload = unwrapData(await request("/providers/config")) || {};
+        return { providers: Array.isArray(payload.providers) ? payload.providers : [] };
       },
-      update: async ({ scope = "global", set, unset, directory = projectDirectory() } = {}) => {
-        const payload = {
-          scope,
-          ...(set && Object.keys(set).length ? { set } : {}),
-          ...(Array.isArray(unset) && unset.length ? { unset } : {}),
-        };
-        return unwrapData(await request(route("/config/overlay", {}, directory), {
-          method: "PATCH",
-          ...body(payload),
-        }));
-      },
-    },
-
-    auth: {
-      setApiKey: async (providerID, key) => unwrapData(await request(`/auth/${enc(providerID)}`, {
+      upsert: async (providerID, { provider, apiKey } = {}) => unwrapData(await request(`/providers/config/${enc(providerID)}`, {
         method: "PUT",
-        ...body({ type: "api", key }),
+        ...body({ provider, ...(apiKey ? { apiKey } : {}) }),
       })),
-      remove: async (providerID) => unwrapData(await request(`/auth/${enc(providerID)}`, { method: "DELETE" })),
+      remove: async (providerID) => unwrapData(await request(`/providers/config/${enc(providerID)}`, { method: "DELETE" })),
     },
 
     sessions: {
@@ -137,13 +137,27 @@
       abort: (sessionID, { scope, directory } = {}) => request(route(`/session/${enc(sessionID)}/abort`, { scope }, directory), { method: "POST" }),
     },
 
+    // Read-only compatibility bridge for sessions created during TL Agent's
+    // short Protocol v2 alpha window. New sessions and all normal coding stay
+    // on the production Session API above.
+    legacySessions: {
+      list: ({ order = "desc", limit = 100, cursor } = {}) => {
+        const query = legacyPageQuery({ order, limit, cursor });
+        return request(`/api/session${query.size ? `?${query}` : ""}`);
+      },
+      messages: (sessionID, { order = "asc", limit = 500, cursor } = {}) => {
+        const query = legacyPageQuery({ order, limit, cursor });
+        return request(`/api/session/${enc(sessionID)}/message${query.size ? `?${query}` : ""}`);
+      },
+    },
+
     permissions: {
       list: async (sessionID) => {
         const payload = unwrapData(await request(route("/permission")));
         return (Array.isArray(payload) ? payload : []).filter((item) => !sessionID || item?.sessionID === sessionID);
       },
       // Every reply through this browser adapter is the result of an explicit human click.
-      // Kilo 7.6.2 requires `interactive: true` for sensitive permission classes such as
+      // The bundled runtime requires `interactive: true` for sensitive permission classes such as
       // skill-shell and sandbox-escalation requests; otherwise an approval is intentionally ignored.
       reply: (sessionID, requestID, reply, message) => request(route(`/permission/${enc(requestID)}/reply`), {
         method: "POST",
@@ -162,18 +176,21 @@
       reject: (sessionID, requestID) => request(route(`/question/${enc(requestID)}/reject`), { method: "POST" }),
     },
 
-    oauth: {
-      kiloStatus: async () => {
-        const payload = unwrapData(await request(route("/kilo/auth-status"))) || {};
+    hosted: {
+      get providerID() { return hostedMeta.providerID; },
+      get preferredModels() { return [...hostedMeta.preferredModels]; },
+      status: async () => {
+        const payload = unwrapData(await request(route("/hosted/status"))) || {};
+        applyHostedMeta(payload);
         return {
           authenticated: payload.authenticated === true,
           type: payload.type || "",
           organizationId: payload.organizationId || "",
         };
       },
-      authorizeKilo: async () => unwrapData(await request(route("/provider/kilo/oauth/authorize"), { method: "POST", ...body({ method: 0 }) })),
-      callbackKilo: async (signal) => unwrapData(await request(route("/provider/kilo/oauth/callback"), { method: "POST", ...body({ method: 0 }), signal })),
-      disconnectKilo: async () => unwrapData(await request("/auth/kilo", { method: "DELETE" })),
+      authorize: async () => unwrapData(await request(route("/hosted/authorize"), { method: "POST" })),
+      callback: async (signal) => unwrapData(await request(route("/hosted/callback"), { method: "POST", signal })),
+      disconnect: async () => unwrapData(await request("/hosted", { method: "DELETE" })),
     },
 
     events: {

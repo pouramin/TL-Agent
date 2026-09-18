@@ -90,20 +90,20 @@ def main() -> int:
     require(isinstance(local, dict), "local/status must return an object")
     require(isinstance(local.get("project"), str), "local/status.project must be a string")
 
-    health = request(base, "/kilo/api/health")
+    health = request(base, "/runtime/api/health")
     require(health == {"healthy": True}, f"/api/health mismatch: {health!r}")
 
-    location = request(base, "/kilo/api/location")
+    location = request(base, "/runtime/api/location")
     require(isinstance(location, dict), "/api/location must return an object")
     require(isinstance(location.get("directory"), str), "/api/location.directory must be a string")
     require(isinstance(location.get("project"), dict), "/api/location.project must be an object")
 
-    event = first_sse_event(base, "/kilo/api/event")
+    event = first_sse_event(base, "/runtime/api/event")
     require(isinstance(event, dict), "/api/event: SSE data must decode to an object")
     require(event.get("type") == "server.connected", f"/api/event: expected server.connected first, got {event!r}")
     require(isinstance(event.get("data"), dict), "/api/event: event.data must be an object")
 
-    agents = require_location_envelope(request(base, "/kilo/api/agent"), "/api/agent")
+    agents = require_location_envelope(request(base, "/runtime/api/agent"), "/api/agent")
     for agent in agents:
         require(isinstance(agent.get("id"), str), "Agent.Info.id must be a string")
         require(agent.get("mode") in {"subagent", "primary", "all"}, "Agent.Info.mode is invalid")
@@ -111,7 +111,7 @@ def main() -> int:
         require(isinstance(agent.get("permissions"), list), "Agent.Info.permissions must be an array")
         require(isinstance(agent.get("request"), dict), "Agent.Info.request must be an object")
 
-    models = require_location_envelope(request(base, "/kilo/api/model"), "/api/model")
+    models = require_location_envelope(request(base, "/runtime/api/model"), "/api/model")
     for model in models:
         require(isinstance(model.get("id"), str), "Model.Info.id must be a string")
         require(isinstance(model.get("providerID"), str), "Model.Info.providerID must be a string")
@@ -120,7 +120,7 @@ def main() -> int:
         require(model.get("status") in {"alpha", "beta", "deprecated", "active"}, "Model.Info.status is invalid")
         require(isinstance(model.get("capabilities"), dict), "Model.Info.capabilities must be an object")
 
-    providers = require_location_envelope(request(base, "/kilo/api/provider"), "/api/provider")
+    providers = require_location_envelope(request(base, "/runtime/api/provider"), "/api/provider")
     for provider in providers:
         require(isinstance(provider.get("id"), str), "Provider.Info.id must be a string")
         require(isinstance(provider.get("name"), str), "Provider.Info.name must be a string")
@@ -129,14 +129,14 @@ def main() -> int:
 
     # Official provider HttpApi used by Kilo's own clients. TL-Agent uses only
     # connection/default state from this route; model enumeration stays on v2.
-    provider_runtime = request(base, "/kilo/provider")
+    provider_runtime = request(base, "/runtime/provider")
     if isinstance(provider_runtime, dict) and isinstance(provider_runtime.get("data"), dict):
         provider_runtime = provider_runtime["data"]
     require(isinstance(provider_runtime, dict), "/provider must return an object")
     require(isinstance(provider_runtime.get("connected"), list), "/provider.connected must be an array")
     require(isinstance(provider_runtime.get("default"), dict), "/provider.default must be an object")
 
-    created = request(base, "/kilo/api/session", method="POST", payload={})
+    created = request(base, "/runtime/api/session", method="POST", payload={})
     require(isinstance(created, dict) and isinstance(created.get("data"), dict), "session.create must return {data}")
     session = created["data"]
     session_id = session.get("id")
@@ -144,21 +144,21 @@ def main() -> int:
     for key in ("projectID", "title", "location", "time", "tokens"):
         require(key in session, f"Session.Info.{key} missing")
 
-    got = request(base, f"/kilo/api/session/{urllib.parse.quote(session_id, safe='')}")
+    got = request(base, f"/runtime/api/session/{urllib.parse.quote(session_id, safe='')}")
     require(got.get("data", {}).get("id") == session_id, "session.get returned the wrong session")
 
-    messages = request(base, f"/kilo/api/session/{urllib.parse.quote(session_id, safe='')}/message?order=asc&limit=10")
+    messages = request(base, f"/runtime/api/session/{urllib.parse.quote(session_id, safe='')}/message?order=asc&limit=10")
     require(isinstance(messages, dict), "session.messages must return an object")
     require(isinstance(messages.get("data"), list), "session.messages.data must be an array")
     require(isinstance(messages.get("cursor"), dict), "session.messages.cursor must be an object")
 
-    permissions = request(base, f"/kilo/api/session/{urllib.parse.quote(session_id, safe='')}/permission")
+    permissions = request(base, f"/runtime/api/session/{urllib.parse.quote(session_id, safe='')}/permission")
     require(isinstance(permissions, dict) and isinstance(permissions.get("data"), list), "permission list shape mismatch")
 
-    questions = request(base, f"/kilo/api/session/{urllib.parse.quote(session_id, safe='')}/question")
+    questions = request(base, f"/runtime/api/session/{urllib.parse.quote(session_id, safe='')}/question")
     require(isinstance(questions, dict) and isinstance(questions.get("data"), list), "question list shape mismatch")
 
-    active = request(base, "/kilo/api/session/active")
+    active = request(base, "/runtime/api/session/active")
     require(isinstance(active, dict) and isinstance(active.get("data"), dict), "session.active shape mismatch")
 
     print(

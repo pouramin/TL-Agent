@@ -11,8 +11,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/pouramin/TL-Agent/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Agent?include_prereleases&sort=semver" alt="Release"></a>
+  <a href="https://github.com/pouramin/TL-Agent/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Agent?sort=semver" alt="Release"></a>
   <a href="https://github.com/pouramin/TL-Agent/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pouramin/TL-Agent/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://www.npmjs.com/package/tl-agent"><img src="https://img.shields.io/npm/v/tl-agent" alt="npm"></a>
   <a href="https://github.com/pouramin/TL-Agent/releases"><img src="https://img.shields.io/github/downloads/pouramin/TL-Agent/total" alt="Downloads"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/pouramin/TL-Agent" alt="License"></a>
 </p>
@@ -28,14 +29,26 @@
 اگر Node.js و npm نصب هستند، داخل فولدر پروژه‌ای که می‌خواهید روی آن کار کنید این دستور را اجرا کنید:
 
 ```bash
-npx --yes github:pouramin/TL-Agent
+npx --yes tl-agent
 ```
 
-لانچر سبک سیستم‌عامل و معماری را تشخیص می‌دهد، Release مناسب را دانلود می‌کند، SHA-256 آن را بررسی می‌کند، فایل را به‌صورت محلی Cache می‌کند و TL Agent را با فولدر فعلی به‌عنوان Project باز می‌کند.
+پکیج npm فقط یک Launcher سبک است. سیستم‌عامل و معماری را تشخیص می‌دهد، Release رسمی و متناظر TL Agent را از GitHub دانلود می‌کند، SHA-256 آن را بررسی می‌کند، فایل را به‌صورت محلی Cache می‌کند و TL Agent را با فولدر فعلی به‌عنوان Project باز می‌کند.
+
+برای جلوگیری از بازشدن خودکار مرورگر:
+
+```bash
+npx --yes tl-agent --no-browser
+```
+
+نسخه‌های آزمایشی همچنان می‌توانند با Channel مشخص اجرا شوند، برای مثال:
+
+```bash
+npx --yes tl-agent@alpha
+```
 
 ### نسخه‌ی Portable
 
-برای نسخه‌ی معمولی Portable نیازی به Node.js نیست. فایل مناسب سیستم خود را از **[GitHub Releases](https://github.com/pouramin/TL-Agent/releases)** دانلود و Extract کنید، سپس اجرا کنید:
+برای نسخه‌ی Portable نیازی به Node.js نیست. فایل مناسب سیستم خود را از **[GitHub Releases](https://github.com/pouramin/TL-Agent/releases)** دانلود و Extract کنید، سپس اجرا کنید:
 
 ```text
 Windows:  tl-agent.exe
@@ -58,8 +71,11 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 - **مدیریت Session** — ساخت، ادامه، تغییر نام، حذف و جابه‌جایی Sessionها بین Projectهای اخیر.
 - **Project Usage** — نمایش مصرف هر Turn و مجموع Project شامل Token، Request، Time، Reasoning و Cache.
 - **Changes panel** — مشاهده‌ی فایل‌های تغییرکرده، تعداد خطوط اضافه/حذف‌شده و Patch.
-- **File Explorer داخلی** — مرور و Preview فایل‌های Project به‌صورت Read-only.
-- **تنظیمات ظاهری** — حالت System، Dark و Light به‌همراه تغییر اندازه‌ی فونت رابط.
+- **Project Workspace داخلی** — File Explorer قابل‌نوشتن، Editor چندتب، Save/Create/Rename/Delete و هماهنگی با تغییرات خارجی فایل.
+- **Project Search** — جست‌وجوی سریع متن در کل Project با Include/Exclude و بازکردن مستقیم نتیجه در Editor.
+- **Terminal داخلی** — اجرای Command در Scope پروژه، تاریخچه‌ی خروجی، Stop و پایان Process tree.
+- **Live Preview** — Preview لوکال برای Static یا Node dev server در پنجره‌ی قابل‌جابجایی و تغییر اندازه.
+- **تنظیمات ظاهر و Editor** — حالت System، Dark و Light به‌همراه Editor theme و Font جداگانه برای UI، Code و Terminal.
 - **معماری Local-first** — اجرای Loopback-only، رمز تصادفی Backend در هر اجرا، کنترل Origin و CSP محدودکننده.
 - **بدون Cloud یا Telemetry اختصاصی TL Agent** — ترافیک Model براساس Provider و Runtime انتخاب‌شده‌ی کاربر انجام می‌شود و از زیرساخت TL Agent عبور نمی‌کند.
 
@@ -70,27 +86,33 @@ Browser workspace
     │ فقط localhost
     ▼
 TL Agent launcher (Go)
-    │ reverse proxy محلی و احراز‌شده
-    ▼
-Local agent runtime
     │
-    ├─ agents / sessions / tools
-    ├─ permissions / questions / live events
-    ├─ project files / terminal commands
-    └─ configured AI providers
+    ├─ TL Agent provider/model registry
+    ├─ project files / search / terminal / preview
+    │
+    └─ runtime adapter محلی و احراز‌شده
+            ▼
+        Local agent runtime
+            ├─ agents / sessions / tools
+            ├─ permissions / questions / live events
+            └─ provider execution / model inference
 ```
 
-TL Agent مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تجربه‌ی Project و Session، تنظیم Providerها، Recovery و Release packaging.
+TL Agent مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تعریف Provider و Model، تجربه‌ی Project و Session، Recovery و Release packaging.
+
+تعریف Custom Providerها داخل State محلی خود TL Agent ذخیره می‌شود و Launcher آن‌ها را برای Runtime فعال ترجمه می‌کند. Credentialها فعلاً به Credential Store محلی Runtime سپرده می‌شوند و داخل Provider Registry خود TL Agent ذخیره نمی‌شوند.
 
 Runtime به‌عنوان یک لایه‌ی زیرساختی جدا پشت این مرز قرار می‌گیرد.
 
 Project انتخاب‌شده روی سیستم کاربر باقی می‌ماند و TL Agent ترافیک Model را از زیرساخت خودش عبور نمی‌دهد.
 
-## Runtime و سازگاری
+## مرز Runtime
 
-Runtime فعلی پروژه **Kilo Code** است و نسخه‌ی تست‌شده‌ی آن در فایل [`KILO_VERSION`](./KILO_VERSION) پین می‌شود. جزئیات سازگاری مخصوص Runtime در [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md) نگهداری می‌شود تا قرارداد محصول TL Agent به جزئیات Backend گره نخورد.
+مرورگر و رابط محصول TL Agent به قراردادهای خود TL Agent وابسته‌اند، نه به API اختصاصی یک Engine. ترافیک Runtime مرورگر فقط از مرز محلی `/runtime/*` عبور می‌کند و تعریف Provider/Model، فایل‌های Project، Search، Terminal، Preview و بخش‌های اصلی Workspace در مالکیت TL Agent هستند.
 
-CI نسخه‌ی واقعی و پین‌شده‌ی Runtime را برای Project routing، APIهای Agent/Provider/Session، Async Prompt، Live events، Permission، Provider configuration، اجرای Tool و Write واقعی روی فایل تست می‌کند.
+نسخه‌ی Stable فعلی، **Kilo Code 7.6.2** را به‌عنوان Agent Engine شخص ثالث و تست‌شده Bundle می‌کند. این Engine یک جزئیات پیاده‌سازی پشت Runtime Adapter است و هویت عمومی محصول به آن وابسته نیست. جزئیات سازگاری Engine در [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md) و Attribution لازم در [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) نگهداری می‌شود.
+
+CI همین Engine پین‌شده را از طریق مرز عمومی Runtime خود TL Agent برای Project routing، APIهای Agent/Provider/Session، Async Prompt، Live events، Permission، Provider configuration، اجرای Tool و Write واقعی روی فایل تست می‌کند.
 
 ## نسخه‌های قابل دانلود
 
@@ -133,14 +155,14 @@ go run ./cmd/launcher --project /path/to/project
 استفاده از Runtime binary مشخص:
 
 ```bash
-go run ./cmd/launcher --kilo /path/to/kilo
+go run ./cmd/launcher --runtime-bin /path/to/runtime
 ```
 
 برای جلوگیری از بازشدن خودکار مرورگر از `--no-browser` استفاده کنید.
 
 ## قانون زیرساخت صفر
 
-TL Agent طوری طراحی شده که نگهدارنده برای اجرای پروژه نیازی به پرداخت هزینه‌ی VPS، Hosting، Database، API Gateway، Model inference یا Telemetry backend نداشته باشد. سورس، Issueها، CI، Releaseها و فایل‌های دانلودی روی GitHub قرار دارند.
+TL Agent طوری طراحی شده که نگهدارنده برای اجرای پروژه نیازی به پرداخت هزینه‌ی VPS، Hosting، Database، API Gateway، Model inference یا Telemetry backend نداشته باشد. سورس، Issueها، CI، Releaseها، فایل‌های دانلودی و Launcher سبک npm از زیرساخت GitHub/npm توزیع می‌شوند.
 
 هزینه‌ی احتمالی استفاده از Model مستقیماً بین کاربر و Provider انتخاب‌شده‌ی اوست.
 
@@ -159,7 +181,7 @@ Runtime در صورت داشتن Permission می‌تواند فایل‌ها ر
 
 ## وضعیت پروژه
 
-TL Agent در حال حاضر در مرحله‌ی **Early Alpha** است. مسیر اصلی پروژه هم در CI و هم روی یک سیستم واقعی Windows تست می‌شود:
+TL Agent خط پایدار Production را روی `main` و توسعه‌ی آزمایشی را روی `dev` نگه می‌دارد. نسخه‌ی Stable فقط بعد از عبور از CI خودکار و تست دستی روی یک سیستم واقعی Windows ارتقا داده می‌شود. مسیر اصلی که پیش از Promotion بررسی می‌شود شامل این زنجیره است:
 
 ```text
 TL Agent UI
@@ -170,6 +192,8 @@ TL Agent UI
 → local file write
 → final assistant response
 ```
+
+نسخه‌های آزمایشی روی Channelهای prerelease جدا ادامه پیدا می‌کنند، بدون اینکه مسیر Stable با dist-tag `latest` تغییر کند.
 
 ## لایسنس و Attribution
 
