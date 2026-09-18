@@ -1,23 +1,45 @@
 ---
 title: Security model
-description: Understand TL Agent's local-only network boundary and remaining trust assumptions.
+description: Understand TL Agent's local network, filesystem, process, preview, and credential boundaries.
 icon: ShieldCheck
 ---
 
-TL Agent is designed as a local application, not a remotely exposed coding-agent service.
+TL Agent is designed as a local application rather than a remotely exposed coding service.
 
-## Local-only listeners
+## Loopback-only control surface
 
-The browser-facing server accepts loopback addresses only, and the bundled runtime is also started on loopback.
+The browser-facing server accepts loopback addresses only. The bundled Agent engine also runs on loopback and is not exposed to the browser as a separate public endpoint.
 
-## Per-run backend credential
+Each launch creates a fresh random backend credential that remains server-side. TL Agent injects engine authentication through its local adapter.
 
-Each launch generates a fresh random backend password. TL Agent keeps it on the local server side and injects authentication into proxied requests; browser JavaScript does not need to know it.
+## Browser origin checks
 
-## Browser protections
+Browser requests are validated against the local control origin and the UI is served with a restrictive Content Security Policy.
 
-TL Agent checks the request host/origin and serves restrictive security headers, including a Content Security Policy.
+## Project filesystem boundary
 
-## Remaining trust boundary
+Browser file operations are constrained to the selected Project.
 
-A coding agent can read/write project files and execute commands when permissions allow it. Localhost isolation reduces network exposure but does not make every approved tool action safe. Review sensitive permission requests before allowing them.
+TL Agent rejects path traversal, symlink-parent escapes, project-root mutation, and protected Git metadata mutations. Direct symlinks are not treated as normal editable files.
+
+Normal saves use a revision token so external changes cannot be silently overwritten.
+
+## Preview isolation
+
+Project web code does not run on TL Agent's privileged control origin. Live Preview uses a separate loopback origin and only accepts local Preview URLs.
+
+## Local editor assets
+
+Editor code and syntax-color assets are bundled locally. TL Agent does not load editor runtime code or workers from a CDN.
+
+## Terminal trust
+
+Terminal commands execute locally with your user account's permissions. Loopback isolation does not make an unsafe command safe; review destructive or credential-sensitive commands before running them.
+
+## Provider credentials
+
+Custom Provider definitions belong to TL Agent, but v0.2 still delegates API-key persistence to the bundled engine's local credential store. Keys are excluded from TL Agent's `providers.json` and browser storage.
+
+## Agent permissions
+
+An Agent can read/write project files and execute commands when the relevant Permission is granted. Review sensitive Permission requests before approving them.
