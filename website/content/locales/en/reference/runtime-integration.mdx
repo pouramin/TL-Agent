@@ -1,35 +1,40 @@
 ---
 title: Runtime integration
-description: Maintainer reference for the bundled runtime compatibility layer used by TL Agent.
+description: Maintainer reference for TL Agent's replaceable Agent-engine compatibility boundary.
 icon: Cable
 ---
 
-TL Agent keeps engine-specific implementation details behind a runtime adapter boundary. The current stable distribution bundles **Kilo Code 7.6.2** as the tested third-party agent engine, but normal user workflows and browser UI contracts are TL Agent-owned.
+TL Agent keeps implementation-specific engine details behind a local adapter. The current bundled implementation is **Kilo Code 7.6.2**. Normal users do not need to install, configure, or operate that engine separately.
 
-## Product boundary
+## Public local contract
 
-Browser runtime calls go through the TL Agent `/runtime/*` namespace and the authored adapter:
+Browser modules use TL Agent-owned routes:
 
-`cmd/launcher/ui/runtime-api.ts`
+- `/local/*` for project files, Search, process/Terminal, and Preview;
+- `/runtime/*` for Agent/session execution and runtime-facing product concepts.
 
-Generated browser JavaScript is emitted to:
+The launcher strips/translates the runtime prefix, injects local authentication, and supplies the selected Project context. Browser code never needs the engine password.
 
-`cmd/launcher/web/runtime-api.js`
+## Browser adapter
 
-UI modules should not construct engine-specific route prefixes, authentication, provider package names, or hosted-provider OAuth paths.
+Runtime calls are centralized in `cmd/launcher/ui/runtime-api.ts` and its compiled browser output. Other UI modules should not construct implementation-specific engine routes.
 
-## Provider and model ownership
+CI explicitly checks this boundary so product-facing JavaScript cannot drift back toward vendor-specific endpoint names or account wording.
 
-Custom provider/model definitions are owned by TL Agent and persisted in its local `providers.json` registry. The launcher translates those definitions to the active engine internally.
+## Provider/model boundary
 
-Provider credentials are still delegated to the current engine's local credential store. That remaining credential dependency is separate from provider/model definition ownership.
+Provider and Model definitions are now TL Agent-owned and stored in TL Agent's local registry. The launcher translates them into the current engine's configuration internally.
 
-## Compatibility contract
+Credentials, Agent/session execution, Tools, Permissions, Questions, and Model inference still depend on the bundled engine in v0.2.
 
-The bundled engine version is pinned and CI validates project routing, agents, sessions, messages, asynchronous prompts, global events, permissions, questions, provider translation, and a real write-tool flow through TL Agent's public runtime boundary.
+## Advanced override
 
-The engine-specific compatibility contract remains documented in the repository's `docs/KILO_API_CONTRACT.md` because it describes the exact currently bundled implementation rather than TL Agent's public product API.
+Maintainers can point TL Agent at a compatible runtime binary with:
+
+```bash
+tl-agent --runtime-bin /path/to/runtime
+```
 
 ## Upgrade rule
 
-Before changing the bundled engine version, CI must verify the new engine against TL Agent's runtime boundary and product E2E. Engine-specific changes should stay behind the launcher/runtime adapter wherever possible.
+Before changing the bundled engine, compatibility checks must cover Project routing, Agent/Provider/Session shapes, Messages, Permissions/Questions, Events, Provider configuration, and a real file-write Tool flow.
