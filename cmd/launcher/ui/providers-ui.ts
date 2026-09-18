@@ -238,7 +238,7 @@
       meta.className = "provider-item-meta";
       const protocol = entry.protocol;
       const keyed = K.state.connectedProviders.has(entry.id);
-      meta.textContent = `${entry.id} · ${protocol} · ${modelCount(entry.config)} model${modelCount(entry.config) === 1 ? "" : "s"} · ${keyed ? "credentials connected" : "no stored key"}`;
+      meta.textContent = `${entry.id} · ${protocol} · ${modelCount(entry)} model${modelCount(entry) === 1 ? "" : "s"} · ${keyed ? "credentials connected" : "no stored key"}`;
       copy.append(title, meta);
 
       const actions = document.createElement("div");

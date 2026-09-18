@@ -12,10 +12,28 @@ const K = {
   state: { local: { project: "C:\\Projects\\demo" } },
   request: async (path, options = {}) => {
     calls.push({ path, options });
-    if (path.includes("/config/overlay") && (!options.method || options.method === "GET")) {
-      return { effective: { provider: {} } };
+    if (path.includes("/providers/catalog")) {
+      return {
+        all: [{ id: "kilo", name: "Hosted", models: { "kilo-auto/free": { name: "Auto Free" } } }],
+        connected: ["kilo"],
+        default: { kilo: "kilo-auto/free" },
+        failed: [],
+        hosted: { providerID: "kilo", preferredModels: ["kilo-auto/free"] },
+      };
     }
-    return true;
+    if (path === "/runtime/providers/config" && (!options.method || options.method === "GET")) {
+      return { providers: [] };
+    }
+    if (path.includes("/hosted/status")) {
+      return {
+        authenticated: true,
+        type: "oauth",
+        organizationId: "org-1",
+        providerID: "kilo",
+        preferredModels: ["kilo-auto/free"],
+      };
+    }
+    return { ok: true };
   },
 };
 
@@ -31,46 +49,57 @@ const context = vm.createContext({
 vm.runInContext(source, context, { filename: "runtime-api.js" });
 
 async function main() {
-  assert.ok(K.api?.config?.overlay);
-  assert.ok(K.api?.config?.update);
-  assert.ok(K.api?.auth?.setApiKey);
+  assert.ok(K.api?.providers?.config);
+  assert.ok(K.api?.providers?.upsert);
+  assert.ok(K.api?.providers?.remove);
 
-  await K.api.config.overlay({ scope: "global" });
-  assert.match(calls.at(-1).path, /^\/runtime\/config\/overlay\?/);
-  assert.match(calls.at(-1).path, /scope=global/);
+  const state = await K.api.providerState();
+  assert.equal(state.all[0].id, "kilo");
+  assert.equal(K.api.hosted.providerID, "kilo");
+  assert.deepEqual(Array.from(K.api.hosted.preferredModels), ["kilo-auto/free"]);
+  assert.match(calls.at(-1).path, /^\/runtime\/providers\/catalog\?/);
   assert.match(calls.at(-1).path, /directory=C%3A%5CProjects%5Cdemo/);
 
-  await K.api.config.update({
-    scope: "global",
-    set: {
-      provider: {
-        agentrouter: {
-          name: "AgentRouter",
-          npm: "@ai-sdk/openai-compatible",
-          options: { baseURL: "https://co.agentrouter.org/v1" },
-          models: { "deepseek-v4-flash": { name: "DeepSeek V4 Flash" } },
-        },
-      },
-    },
-  });
-  const patch = calls.at(-1);
-  assert.equal(patch.path.startsWith("/runtime/config/overlay?"), true);
-  assert.equal(patch.options.method, "PATCH");
-  const patchBody = JSON.parse(patch.options.body);
-  assert.equal(patchBody.scope, "global");
-  assert.equal(patchBody.set.provider.agentrouter.npm, "@ai-sdk/openai-compatible");
-  assert.equal("apiKey" in patchBody.set.provider.agentrouter.options, false);
+  await K.api.providers.config();
+  assert.equal(calls.at(-1).path, "/runtime/providers/config");
 
-  await K.api.auth.setApiKey("agentrouter", "secret-key");
-  const auth = calls.at(-1);
-  assert.equal(auth.path, "/runtime/auth/agentrouter");
-  assert.equal(auth.options.method, "PUT");
-  assert.deepEqual(JSON.parse(auth.options.body), { type: "api", key: "secret-key" });
+  const provider = {
+    id: "agentrouter",
+    name: "AgentRouter",
+    protocol: "openai-compatible",
+    baseURL: "https://co.agentrouter.org/v1",
+    models: [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", toolCall: true, reasoning: false }],
+  };
+  await K.api.providers.upsert("agentrouter", { provider, apiKey: "secret-key" });
+  const put = calls.at(-1);
+  assert.equal(put.path, "/runtime/providers/config/agentrouter");
+  assert.equal(put.options.method, "PUT");
+  const putBody = JSON.parse(put.options.body);
+  assert.deepEqual(putBody.provider, provider);
+  assert.equal(putBody.apiKey, "secret-key");
+  assert.equal(JSON.stringify(putBody).includes("@ai-sdk"), false);
 
-  await K.api.auth.remove("agentrouter");
+  await K.api.providers.remove("agentrouter");
   const remove = calls.at(-1);
-  assert.equal(remove.path, "/runtime/auth/agentrouter");
+  assert.equal(remove.path, "/runtime/providers/config/agentrouter");
   assert.equal(remove.options.method, "DELETE");
+
+  const hosted = await K.api.hosted.status();
+  assert.equal(hosted.authenticated, true);
+  assert.equal(K.api.hosted.providerID, "kilo");
+  assert.equal(calls.at(-1).path.startsWith("/runtime/hosted/status?"), true);
+
+  for (const forbidden of [
+    "/config/overlay",
+    "/provider/kilo/",
+    "/kilo/auth-status",
+    '"/auth/',
+    '"kilo-auto/free"',
+    'providerID: "kilo"',
+    "@ai-sdk/",
+  ]) {
+    assert.equal(source.includes(forbidden), false, `runtime-api.js leaked implementation detail: ${forbidden}`);
+  }
 
   console.log("provider API adapter regressions: ok");
 }
