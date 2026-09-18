@@ -4,38 +4,42 @@ description: Understand the boundary between TL Agent's product layer and its bu
 icon: Network
 ---
 
-TL Agent is built around a local product layer and a bundled agent runtime.
+TL Agent is built around a local product layer and a replaceable agent-runtime boundary.
 
 ```text
 Browser workspace
   ↓ localhost
 TL Agent UI + Go launcher
   ├─ project picker
-  ├─ sessions / files / changes
-  ├─ provider settings UI
-  ├─ retryable provider recovery UI
+  ├─ project files / search / terminal / preview
+  ├─ provider/model registry
+  ├─ provider settings + recovery UX
   ├─ local state + appearance preferences
   ├─ security boundary
-  └─ authenticated reverse proxy
+  └─ authenticated runtime adapter
        ↓
 Bundled agent runtime
        ├─ sessions / agents / tools
-       ├─ provider config + local credential store
-       ├─ provider integrations / model execution
-       └─ project execution
+       ├─ local credential store
+       ├─ provider execution / model inference
+       └─ agent project execution
 ```
 
 ## TL Agent owns
 
 - the standalone browser workspace;
 - local launch and process lifecycle;
-- project selection;
+- project selection and project-scoped file/search/process APIs;
+- provider/model definitions and their local registry;
+- the browser-facing `/runtime/*` contract;
 - the reverse-proxy/security boundary;
 - packaging, releases, and the TL Agent brand;
-- user-facing session, file, changes, permission, provider-settings, recovery, and appearance UX.
+- user-facing session, files, changes, permission, provider-settings, recovery, preview, and appearance UX.
 
-## Runtime owns
+## Runtime owns today
 
-The bundled runtime handles agent execution, tools, session internals, filesystem/tool calls, provider configuration persistence, provider credentials, and model execution.
+The bundled runtime still handles agent execution, tool execution, session internals, runtime-originated filesystem/tool calls, provider credentials, and model execution.
 
-The distinction is architectural rather than product-facing: users operate **TL Agent** while runtime-specific implementation details stay behind the adapter boundary.
+Some semantics such as sessions, tools, and permissions still originate in the runtime today, but the browser reaches them only through the TL Agent runtime boundary. Future ownership can move inward without redesigning the product UI.
+
+The distinction is architectural rather than product-facing: users operate **TL Agent** while engine-specific implementation details stay behind the adapter boundary.
