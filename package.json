@@ -2,7 +2,7 @@
   "name": "tl-agent",
   "version": "0.0.0-github",
   "private": true,
-  "description": "GitHub-backed quick launcher for TL Agent",
+  "description": "Development tooling for the TL Agent browser UI",
   "license": "MIT",
   "repository": {
     "type": "git",
