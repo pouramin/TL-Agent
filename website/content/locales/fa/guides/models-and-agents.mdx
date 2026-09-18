@@ -1,25 +1,27 @@
 ---
-title: Modelها و Agentها
-description: انتخاب Coding Agent و Modelهای قابل استفاده در TL Agent.
+title: Model و Agent
+description: انتخاب Agent و Model از طریق Runtime Contract عمومی TL Agent.
 icon: Bot
 ---
 
-TL Agent، Agentها، Providerها و Modelهایی را نشان می‌دهد که Runtime Local در اختیارش می‌گذارد. TL Agent Model Router یا Model Inference Backend جداگانه‌ای روی آن نمی‌سازد.
+TL Agent، Agent Execution را پشت یک Runtime Contract عمومی و Local نگه می‌دارد و بخش بیشتری از Product Surface مربوط به Provider و Model را خودش مدیریت می‌کند.
 
-## Agentها
+## Agent
 
-مسیر اصلی Coding از Agent محصولی `code` استفاده می‌کند. انتخاب Agent داخل TL Agent انجام می‌شود و اجرای واقعی در Runtime زیرین صورت می‌گیرد.
+Coding Agent در Workspace خود TL Agent انتخاب می‌شود و Engine همراه برنامه Task را پشت Adapter Boundary اجرا می‌کند.
 
 ## Model و Provider
 
-Model می‌تواند از Hosted Account Flow داخل TL Agent بیاید یا از Custom Endpoint سازگاری که در **Settings → Providers** اضافه کرده‌اید. TL Agent هنگام شروع کار Provider/Model انتخاب‌شده را به Runtime Local می‌فرستد.
+تعریف Custom Provider و Model داده‌ی متعلق به TL Agent است. این تعریف‌ها در Local Provider Registry خود TL Agent ذخیره می‌شوند و Launcher آن‌ها را برای Engine فعال ترجمه می‌کند.
 
-برای API Familyهای پشتیبانی‌شده و نحوه ذخیره Config و API Key، [Custom Providerها](./custom-providers) را ببینید.
+Model Picker می‌تواند Modelهای Hosted یا Runtime-discovered را هم نمایش دهد. Provider ID و Preferred Routeهای مربوط به Engine به‌صورت Metadata به UI داده می‌شوند و داخل Product Moduleها Hard-code نمی‌شوند.
 
-## Hosted Account Login
+برای API Familyهای پشتیبانی‌شده و Storage Model، [Custom Provider](./custom-providers) را ببینید.
 
-برای Modelهای Hosted، TL Agent Device Authorization ارائه‌شده توسط Local Runtime را نمایش می‌دهد. Credentialها و Model Inference از Cloud متعلق به TL Agent عبور نمی‌کنند.
+## Hosted Account Flow
 
-## Provider Error
+وقتی Engine همراه برنامه Hosted Account Flow داشته باشد، TL Agent آن Authorization را از طریق Routeهای Local عمومی خودش نمایش می‌دهد. Browser نیازی به دانستن Endpointهای Implementation-specific ندارد.
 
-حتی وقتی TL Agent و Runtime Local سالم هستند ممکن است Provider موقتاً Error بدهد. اگر Runtime بعد از Retry Cycle به یک Retryable Provider Error برسد، TL Agent می‌تواند دکمه **Resume** نشان دهد تا کار از Workspace State فعلی ادامه پیدا کند و لازم نباشد از اول شروع کنید.
+## Provider Failure
+
+Failure موقت Upstream ممکن است رخ دهد درحالی‌که خود TL Agent سالم است. اگر Retry Cycle مربوط به Engine با Error قابل‌Retry تمام شود، TL Agent می‌تواند **Resume** را نشان دهد تا Task از Workspace State حفظ‌شده ادامه پیدا کند.
