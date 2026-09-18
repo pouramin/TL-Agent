@@ -1,38 +1,41 @@
 ---
-title: Releases and bundled runtime
-description: Understand TL Agent release archives, npm distribution, and the bundled runtime model.
+title: Releases and bundled engine
+description: Understand TL Agent stable/prerelease channels and portable release packaging.
 icon: PackageCheck
 ---
 
-TL Agent ships its own launcher/UI together with a pinned runtime so users can download one archive and run it directly.
+**v0.2.0 is the current stable TL Agent release.**
 
-## Stable and prerelease channels
+## Stable and development lines
 
-**v0.2.0 is the first stable TL Agent baseline.** The npm package version is pinned to the matching GitHub Release, so the default command follows the stable `latest` channel:
+- `main` is the stable production line.
+- `dev` is the active next-version development line.
+- stable npm uses the `latest` dist-tag;
+- experimental npm builds use explicit prerelease tags such as `alpha`.
+
+Stable launch:
 
 ```bash
 npx --yes tl-agent
 ```
 
-When prerelease builds are available, they use explicit dist-tags such as `alpha`:
+Prerelease launch when available:
 
 ```bash
 npx --yes tl-agent@alpha
 ```
 
-The npm package is only a lightweight launcher; it downloads and verifies the matching official release for the current platform.
+The npm package is a lightweight launcher pinned to the matching TL Agent GitHub Release. It detects OS/architecture, downloads the official archive, verifies SHA-256, caches it locally, and starts TL Agent.
 
-## Portable release contents
+## Portable releases
 
-A release archive contains:
+Portable archives include:
 
 - the TL Agent executable;
-- the compatible bundled runtime;
-- TL Agent licensing files;
-- third-party notices and licenses.
+- the compatible bundled Agent engine;
+- TL Agent license files;
+- required third-party notices/licenses.
 
-The repository's `VERSION` tracks TL Agent. Runtime compatibility is pinned separately and validated by CI.
+Users do not need to install or manage the Agent engine separately.
 
-Release CI tests the product, resolves the exact compatible runtime, builds TL Agent for supported operating systems, packages the result, and publishes checksums.
-
-Maintainers can see [Runtime integration](./runtime-integration) for the low-level compatibility contract.
+Stable promotion happens only after automated checks and hands-on validation of the release candidate. Experimental development can continue without changing the stable `latest` path.
