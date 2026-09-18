@@ -63,11 +63,19 @@
     ? [...config.providers].sort((a, b) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
     : [];
 
+  const withoutProvider = (config, providerID) => ({
+    ...(config && typeof config === "object" ? config : {}),
+    providers: Array.isArray(config?.providers)
+      ? config.providers.filter((provider) => provider?.id !== providerID)
+      : [],
+  });
+
   K.__providersUi = {
     PROTOCOLS,
     validateDraft,
     buildProviderDefinition,
     customProviderEntries,
+    withoutProvider,
   };
 
   const settingsDialog = document.getElementById("settingsDialog");
@@ -159,6 +167,10 @@
     els.notice.classList.toggle("error", !!message && error);
   };
   const activate = () => {
+    if (typeof K.activateSettingsSection === "function") {
+      K.activateSettingsSection("providers");
+      return;
+    }
     for (const button of settingsDialog.querySelectorAll("[data-settings-section]")) {
       const active = button.dataset.settingsSection === "providers";
       button.classList.toggle("active", active);
@@ -325,11 +337,37 @@
     notice("");
     try {
       await K.api.providers.remove(entry.id);
-      await K.loadCatalog();
-      providerConfig = await K.api.providers.config();
+
+      // The delete has already succeeded in TL Agent's provider registry.
+      // Update the visible state immediately instead of waiting on a runtime
+      // catalog refresh, which can briefly fail while the runtime reloads.
+      providerConfig = withoutProvider(providerConfig, entry.id);
+      K.state.providers = Array.isArray(K.state.providers)
+        ? K.state.providers.filter((provider) => provider?.id !== entry.id)
+        : [];
+      K.state.models = Array.isArray(K.state.models)
+        ? K.state.models.filter((model) => model?.providerID !== entry.id)
+        : [];
+      K.state.connectedProviders?.delete?.(entry.id);
+      if (K.state.providerDefaults && typeof K.state.providerDefaults === "object") {
+        delete K.state.providerDefaults[entry.id];
+      }
       renderList();
+      K.renderModels?.();
       clearForm();
       notice(`${entry.name || entry.id} removed.`);
+
+      try {
+        providerConfig = await K.api.providers.config();
+        renderList();
+      } catch (error) {
+        console.warn("[TL Agent] Provider registry refresh after delete failed", error);
+      }
+      try {
+        await K.loadCatalog();
+      } catch (error) {
+        console.warn("[TL Agent] Runtime catalog refresh after provider delete failed", error);
+      }
     } catch (error) {
       notice(`Could not delete provider: ${error.message || String(error)}`, true);
     } finally {

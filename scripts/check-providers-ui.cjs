@@ -7,6 +7,7 @@ const vm = require("node:vm");
 
 const repoRoot = path.resolve(__dirname, "..");
 const source = fs.readFileSync(path.join(repoRoot, "cmd", "launcher", "web", "providers-ui.js"), "utf8");
+const productSource = fs.readFileSync(path.join(repoRoot, "cmd", "launcher", "web", "product-ui.js"), "utf8");
 
 const K = { __providersUiInstalled: false };
 const context = vm.createContext({
@@ -86,6 +87,13 @@ const entries = hooks.customProviderEntries({
   ],
 });
 assert.deepEqual(Array.from(entries, (entry) => entry.id), ["example-provider", "z-provider"]);
+
+const removed = hooks.withoutProvider({ providers: [definition, { id: "keep-me", name: "Keep", models: [] }] }, "example-provider");
+assert.deepEqual(Array.from(removed.providers, (provider) => provider.id), ["keep-me"], "successful delete must remove the provider from visible TL Agent state immediately");
+
+assert.match(productSource, /settingsDialog\?\.querySelectorAll\("\[data-settings-section\]"\)/, "settings navigation must query dynamic sections so Providers cannot stay highlighted beside General/About");
+assert.match(productSource, /settingsDialog\?\.querySelectorAll\("\[data-settings-panel\]"\)/, "settings navigation must query dynamic panels");
+assert.match(productSource, /K\.activateSettingsSection\s*=\s*activateSettingsSection/, "dynamic settings activation should be shared with injected settings sections");
 
 assert.match(hooks.validateDraft({ ...draft, providerID: "Bad ID" }), /Provider ID/);
 assert.match(hooks.validateDraft({ ...draft, baseURL: "not-a-url" }), /Base URL/);
