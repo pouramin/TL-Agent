@@ -1,23 +1,45 @@
 ---
-title: مدل امنیتی
-description: مرز شبکه محلی TL Agent و Trust Boundary باقی‌مانده.
+title: مدل Security
+description: Network، Filesystem، Process، Preview و Credential Boundary در TL Agent.
 icon: ShieldCheck
 ---
 
-TL Agent به‌عنوان یک برنامه محلی طراحی شده، نه یک Coding Agent Service که روی شبکه عمومی باز باشد.
+TL Agent به‌عنوان یک Local Application طراحی شده، نه Coding Service که از راه دور Expose شود.
 
-## فقط loopback
+## Loopback-only Control Surface
 
-Server سمت مرورگر فقط آدرس‌های loopback را قبول می‌کند و Runtime همراه برنامه هم روی loopback اجرا می‌شود.
+Browser Server فقط Loopback Address را قبول می‌کند. Agent Engine همراه برنامه هم روی Loopback اجرا می‌شود و به‌عنوان Endpoint عمومی جدا در اختیار Browser قرار نمی‌گیرد.
 
-## Credential موقت در هر اجرا
+هر اجرا یک Backend Credential تصادفی تازه می‌سازد که سمت Server باقی می‌ماند و TL Agent Authentication لازم را از داخل Adapter تزریق می‌کند.
 
-در هر Launch یک Password تصادفی جدید برای Backend ساخته می‌شود. TL Agent آن را سمت Server محلی نگه می‌دارد و Browser JavaScript نیازی به دانستن آن ندارد.
+## Browser Origin Check
 
-## محافظت مرورگر
+Requestهای Browser با Local Control Origin بررسی می‌شوند و UI با Content Security Policy محدودکننده Serve می‌شود.
 
-TL Agent Host و Origin درخواست را بررسی می‌کند و Security Headerهای محدودکننده، از جمله Content Security Policy، می‌فرستد.
+## Project Filesystem Boundary
 
-## مرز اعتماد
+عملیات File از Browser به Project انتخاب‌شده محدود است.
 
-Coding Agent در صورت داشتن Permission می‌تواند فایل‌ها را بخواند یا تغییر دهد و Command اجرا کند. Localhost سطح حمله شبکه را کم می‌کند، اما جای بررسی Permissionها را نمی‌گیرد.
+TL Agent، Path Traversal، Symlink-parent Escape، Project-root Mutation و تغییر Protected Git Metadata را رد می‌کند. Symlink مستقیم مثل File عادی قابل‌Edit در نظر گرفته نمی‌شود.
+
+Save معمولی Revision Token دارد تا External Change بی‌صدا Overwrite نشود.
+
+## Preview Isolation
+
+Project Web Code روی Origin دارای دسترسی Control API اجرا نمی‌شود. Live Preview از Loopback Origin جدا استفاده می‌کند و فقط Preview URL محلی پذیرفته می‌شود.
+
+## Local Editor Assets
+
+Editor Code و Syntax-color Assetها همراه خود برنامه هستند. Runtime Code یا Worker مربوط به Editor از CDN Load نمی‌شود.
+
+## Terminal Trust
+
+Terminal Commandها با Permissionهای User سیستم اجرا می‌شوند. Loopback بودن Command خطرناک را امن نمی‌کند؛ قبل از اجرای Commandهای مخرب یا Credential-sensitive آن‌ها را بررسی کنید.
+
+## Provider Credential
+
+Custom Provider Definition متعلق به TL Agent است، اما در v0.2 نگه‌داری API Key هنوز به Local Credential Store مربوط به Agent Engine سپرده شده است. Key داخل `providers.json` خود TL Agent یا Browser Storage قرار نمی‌گیرد.
+
+## Agent Permission
+
+Agent در صورت گرفتن Permission لازم می‌تواند Project Fileها را Read/Write کند و Command اجرا کند. Permission Request حساس را قبل از Approval بررسی کنید.
