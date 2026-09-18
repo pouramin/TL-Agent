@@ -5,14 +5,8 @@
   if (!K || K.__providersUiInstalled) return;
   K.__providersUiInstalled = true;
 
-  const PACKAGES = Object.freeze({
-    "openai-compatible": "@ai-sdk/openai-compatible",
-    "openai-responses": "@ai-sdk/openai",
-    "anthropic-messages": "@ai-sdk/anthropic",
-  });
-  const PACKAGE_PROTOCOL = Object.fromEntries(Object.entries(PACKAGES).map(([protocol, npm]) => [npm, protocol]));
+  const PROTOCOLS = new Set(["openai-compatible", "openai-responses", "anthropic-messages"]);
   const PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/;
-  const SUPPORTED_PACKAGES = new Set(Object.values(PACKAGES));
 
   const clean = (value) => String(value ?? "").trim();
   const positiveInt = (value) => {
@@ -33,65 +27,46 @@
     const id = clean(draft.providerID);
     if (!PROVIDER_ID.test(id)) return "Provider ID must use lowercase letters, numbers, dashes, or underscores.";
     if (!clean(draft.name)) return "Display name is required.";
-    if (!PACKAGES[draft.protocol]) return "Choose a supported provider API.";
+    if (!PROTOCOLS.has(draft.protocol)) return "Choose a supported provider API.";
     if (!safeURL(draft.baseURL)) return "Enter a valid http(s) Base URL.";
     if (!clean(draft.modelID)) return "Model ID is required.";
     const context = positiveInt(draft.contextLimit);
     const output = positiveInt(draft.outputLimit);
     if (Number.isNaN(context)) return "Context limit must be a positive whole number.";
-    if (Number.isNaN(output)) return "Output limit must be a positive whole number.";
+    if (Number.isNaN(output)) return "Max output must be a positive whole number.";
     return "";
   };
 
-  const buildProviderConfig = (draft, existing = {}) => {
+  const buildProviderDefinition = (draft, existing = {}) => {
     const modelID = clean(draft.modelID);
     const context = positiveInt(draft.contextLimit);
     const output = positiveInt(draft.outputLimit);
-    const previousOptions = existing?.options && typeof existing.options === "object" ? existing.options : {};
-    const previousModels = existing?.models && typeof existing.models === "object" ? existing.models : {};
-    const previousModel = previousModels[modelID] && typeof previousModels[modelID] === "object" ? previousModels[modelID] : {};
-    const limit = {
-      ...(previousModel.limit && typeof previousModel.limit === "object" ? previousModel.limit : {}),
-      ...(context ? { context } : {}),
-      ...(output ? { output } : {}),
+    const previousModels = Array.isArray(existing?.models) ? existing.models.filter((model) => model?.id && model.id !== modelID) : [];
+    const model = {
+      id: modelID,
+      name: clean(draft.modelName) || modelID,
+      toolCall: draft.toolCall !== false,
+      reasoning: draft.reasoning === true,
+      ...(context ? { contextLimit: context } : {}),
+      ...(output ? { outputLimit: output } : {}),
     };
-    if (!context) delete limit.context;
-    if (!output) delete limit.output;
-
     return {
-      ...existing,
+      id: clean(draft.providerID),
       name: clean(draft.name),
-      npm: PACKAGES[draft.protocol],
-      options: {
-        ...previousOptions,
-        baseURL: safeURL(draft.baseURL),
-      },
-      models: {
-        ...previousModels,
-        [modelID]: {
-          ...previousModel,
-          name: clean(draft.modelName) || modelID,
-          tool_call: draft.toolCall !== false,
-          reasoning: draft.reasoning === true,
-          ...(Object.keys(limit).length ? { limit } : {}),
-        },
-      },
+      protocol: draft.protocol,
+      baseURL: safeURL(draft.baseURL),
+      models: [...previousModels, model].sort((a, b) => String(a.id).localeCompare(String(b.id))),
     };
   };
 
-  const customProviderEntries = (overlay) => {
-    const providers = overlay?.effective?.provider;
-    if (!providers || typeof providers !== "object") return [];
-    return Object.entries(providers)
-      .filter(([, config]) => config && typeof config === "object" && SUPPORTED_PACKAGES.has(config.npm))
-      .map(([id, config]) => ({ id, config }))
-      .sort((a, b) => String(a.config.name || a.id).localeCompare(String(b.config.name || b.id)));
-  };
+  const customProviderEntries = (config) => Array.isArray(config?.providers)
+    ? [...config.providers].sort((a, b) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
+    : [];
 
   K.__providersUi = {
-    PACKAGES,
+    PROTOCOLS,
     validateDraft,
-    buildProviderConfig,
+    buildProviderDefinition,
     customProviderEntries,
   };
 
@@ -141,8 +116,8 @@
         <label><input id="providerToolCallInput" type="checkbox" checked /> <span>Tool calling</span></label>
         <label><input id="providerReasoningInput" type="checkbox" /> <span>Reasoning</span></label>
       </div>
-      <div class="provider-security-note">API keys are stored by the local runtime credential store. TL Agent does not save provider keys in browser storage or in the provider config file.</div>
-      <div class="provider-limit-note">For custom models, set context/output limits when you know them. The current runtime disables automatic context compaction when a custom model has no known context limit.</div>
+      <div class="provider-security-note">TL Agent keeps API keys out of its provider config. Credentials are currently delegated to the local runtime credential store and are never saved in browser storage.</div>
+      <div class="provider-limit-note">For custom models, set context/output limits when you know them. Automatic context compaction may be unavailable when a model has no known context limit.</div>
       <div class="dialog-actions provider-form-actions"><button id="providerFormCancel" class="ghost" type="button">Cancel</button><button id="providerFormSave" class="primary" type="submit">Save provider</button></div>
     </form>
   `;
@@ -169,7 +144,7 @@
     toolCall: $("providerToolCallInput"), reasoning: $("providerReasoningInput"),
   };
 
-  let overlay = null;
+  let providerConfig = { providers: [] };
   let editingID = "";
   let saving = false;
 
@@ -236,10 +211,10 @@
     els.form.scrollIntoView?.({ block: "nearest" });
   };
 
-  const modelCount = (cfg) => Object.keys(cfg?.models && typeof cfg.models === "object" ? cfg.models : {}).length;
+  const modelCount = (provider) => Array.isArray(provider?.models) ? provider.models.length : 0;
   const renderList = () => {
     els.list.textContent = "";
-    const entries = customProviderEntries(overlay);
+    const entries = customProviderEntries(providerConfig);
     if (!entries.length) {
       const empty = document.createElement("div");
       empty.className = "provider-empty";
@@ -257,11 +232,11 @@
       const loaded = K.state.providers.some((provider) => provider?.id === entry.id);
       dot.className = `provider-status-dot${loaded ? " ok" : ""}`;
       const strong = document.createElement("strong");
-      strong.textContent = entry.config.name || entry.id;
+      strong.textContent = entry.name || entry.id;
       title.append(dot, strong);
       const meta = document.createElement("div");
       meta.className = "provider-item-meta";
-      const protocol = PACKAGE_PROTOCOL[entry.config.npm] || entry.config.npm;
+      const protocol = entry.protocol;
       const keyed = K.state.connectedProviders.has(entry.id);
       meta.textContent = `${entry.id} · ${protocol} · ${modelCount(entry.config)} model${modelCount(entry.config) === 1 ? "" : "s"} · ${keyed ? "credentials connected" : "no stored key"}`;
       copy.append(title, meta);
@@ -287,7 +262,7 @@
   const load = async () => {
     notice("");
     try {
-      overlay = await K.api.config.overlay({ scope: "global" });
+      providerConfig = await K.api.providers.config();
       renderList();
     } catch (error) {
       notice(`Could not load provider settings: ${error.message || String(error)}`, true);
@@ -295,22 +270,18 @@
   };
 
   const editEntry = (entry) => {
-    const cfg = entry.config || {};
-    const models = cfg.models && typeof cfg.models === "object" ? cfg.models : {};
-    const first = Object.entries(models)[0] || ["", {}];
-    const modelID = first[0];
-    const model = first[1] || {};
+    const first = Array.isArray(entry?.models) && entry.models.length ? entry.models[0] : {};
     fillForm({
       providerID: entry.id,
-      name: cfg.name || entry.id,
-      protocol: PACKAGE_PROTOCOL[cfg.npm] || "openai-compatible",
-      baseURL: cfg.options?.baseURL || "",
-      modelID,
-      modelName: model.name || modelID,
-      contextLimit: model.limit?.context || "",
-      outputLimit: model.limit?.output || "",
-      toolCall: model.tool_call !== false,
-      reasoning: model.reasoning === true,
+      name: entry.name || entry.id,
+      protocol: entry.protocol || "openai-compatible",
+      baseURL: entry.baseURL || "",
+      modelID: first.id || "",
+      modelName: first.name || first.id || "",
+      contextLimit: first.contextLimit || "",
+      outputLimit: first.outputLimit || "",
+      toolCall: first.toolCall !== false,
+      reasoning: first.reasoning === true,
     }, entry.id);
   };
 
@@ -324,27 +295,24 @@
     setBusy(true);
     notice("");
     try {
-      overlay = await K.api.config.overlay({ scope: "global" });
-      const effective = overlay?.effective && typeof overlay.effective === "object" ? overlay.effective : {};
-      const providers = { ...(effective.provider && typeof effective.provider === "object" ? effective.provider : {}) };
-      const existing = providers[editingID || clean(value.providerID)] || {};
       const id = clean(value.providerID);
-      providers[id] = buildProviderConfig(value, existing);
-      const disabled = Array.isArray(effective.disabled_providers) ? effective.disabled_providers.filter((item) => item !== id) : [];
-
-      await K.api.config.update({ scope: "global", set: { provider: providers, disabled_providers: disabled } });
-      if (clean(value.apiKey)) await K.api.auth.setApiKey(id, clean(value.apiKey));
-      await K.api.runtime.dispose();
+      const existing = customProviderEntries(providerConfig).find((provider) => provider.id === (editingID || id)) || {};
+      const provider = buildProviderDefinition(value, existing);
+      await K.api.providers.upsert(id, {
+        provider,
+        ...(clean(value.apiKey) ? { apiKey: clean(value.apiKey) } : {}),
+      });
       await K.loadCatalog();
-      overlay = await K.api.config.overlay({ scope: "global" });
+      providerConfig = await K.api.providers.config();
       renderList();
       clearForm();
       const loaded = K.state.models.some((model) => model.providerID === id && model.id === clean(value.modelID));
       notice(loaded
         ? `${value.name} saved. ${clean(value.modelID)} is now available in the model selector.`
-        : `${value.name} was saved, but the runtime did not load ${clean(value.modelID)}. Check the endpoint, protocol, and model ID.`, !loaded);
+        : `${value.name} was saved by TL Agent, but the active runtime did not load ${clean(value.modelID)}. Check the endpoint, protocol, and model ID.`, !loaded);
     } catch (err) {
       notice(`Could not save provider: ${err.message || String(err)}`, true);
+      try { providerConfig = await K.api.providers.config(); renderList(); } catch {}
     } finally {
       setBusy(false);
     }
@@ -352,22 +320,16 @@
 
   const deleteEntry = async (entry) => {
     if (saving) return;
-    if (!window.confirm(`Delete provider “${entry.config.name || entry.id}”? Stored credentials for this provider will also be removed.`)) return;
+    if (!window.confirm(`Delete provider “${entry.name || entry.id}”? Stored credentials for this provider will also be removed.`)) return;
     setBusy(true);
     notice("");
     try {
-      overlay = await K.api.config.overlay({ scope: "global" });
-      const effective = overlay?.effective && typeof overlay.effective === "object" ? overlay.effective : {};
-      const providers = { ...(effective.provider && typeof effective.provider === "object" ? effective.provider : {}) };
-      providers[entry.id] = null;
-      await K.api.config.update({ scope: "global", set: { provider: providers } });
-      await K.api.auth.remove(entry.id).catch(() => {});
-      await K.api.runtime.dispose();
+      await K.api.providers.remove(entry.id);
       await K.loadCatalog();
-      overlay = await K.api.config.overlay({ scope: "global" });
+      providerConfig = await K.api.providers.config();
       renderList();
       clearForm();
-      notice(`${entry.config.name || entry.id} removed.`);
+      notice(`${entry.name || entry.id} removed.`);
     } catch (error) {
       notice(`Could not delete provider: ${error.message || String(error)}`, true);
     } finally {
