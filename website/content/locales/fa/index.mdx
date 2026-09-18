@@ -1,60 +1,63 @@
 ---
 title: TL Agent
-description: آشنایی با TL Agent به‌عنوان یک Workspace مستقل و Local برای Coding Agentها.
+description: آشنایی با TL Agent به‌عنوان یک Coding Workspace مستقل و Local با Browser IDE داخلی.
 icon: House
 ---
 
-TL Agent یک **Local Workspace مستقل برای Coding Agentها** است. از داخل مرورگر می‌توانید با Projectهای Local، Sessionها، Agentها، Modelها، Toolها، Providerها، File Attachmentها، Permissionها و File Changes کار کنید؛ بدون اینکه مجبور باشید داخل IDE بمانید.
+TL Agent یک **Coding Agent Workspace مستقل و Local با Browser IDE داخلی** است. Agent Chat، Project Files، Multi-tab Editor، Project Search، اجرای Command، Live Preview، Sessionها، Providerها، Permissionها، Attachmentها و Changes را داخل یک محصول Local کنار هم قرار می‌دهد؛ بدون اینکه مجبور باشید داخل یک IDE دیگر کار کنید.
 
 ## هویت محصول
 
-محصولی که نصب و استفاده می‌کنید **TL Agent** است. Project Selection، Sessionها، Provider Settings، Attachmentها، Recovery، Security، Packaging و Browser Experience همگی بخشی از خود TL Agent هستند.
+محصولی که نصب و استفاده می‌کنید **TL Agent** است. Workspace، Editor، ابزارهای Project، تعریف Provider و Model، Recovery، Security Boundary، Packaging و Browser Experience همگی بخشی از TL Agent هستند.
 
 ```text
 User
  ↓
 TL Agent
- ├─ Browser Workspace
- ├─ Project Picker
- ├─ Sessions / Files / Changes
- ├─ Attachments + Provider Settings
- ├─ Local Security
- └─ Launcher + Packaging
+ ├─ Browser IDE + Agent Workspace
+ ├─ Files / Editor / Search
+ ├─ Terminal / Live Preview
+ ├─ Sessions / Attachments / Changes
+ ├─ Provider + Model Registry
+ └─ Local Security + Packaging
       ↓
-Bundled Agent Runtime
+Runtime Contract + Adapter
       ↓
-Models / Providers / Project Tools
+Bundled Agent Engine
+      ↓
+Models / Providers / Agent Tools
 ```
 
-Runtime همراه برنامه یک لایه اجرایی داخلی است. در استفاده روزمره با یک محصول کار می‌کنید: **TL Agent**.
+Engine همراه برنامه یک وابستگی اجرایی پشت Contract خود TL Agent است؛ هویت عمومی محصول نیست.
 
 ## چه کارهایی می‌توانید انجام دهید؟
 
-- انتخاب Folder پروژه با Folder Picker سیستم‌عامل؛
-- ساخت، Rename و حذف Session؛
+- بازکردن Project لوکال با Folder Picker سیستم‌عامل؛
+- Browse، Edit، Create، Rename، Delete و Save کردن Project Files؛
+- کار با چند Editor Tab همراه با Unsaved State و Conflict Protection؛
+- جست‌وجو در کل Project و رفتن مستقیم به Match؛
+- اجرای Command در Scope پروژه و Stop کردن Processهای طولانی؛
+- Preview لوکال برای Static Site و Node dev serverهای پشتیبانی‌شده؛
+- ساخت و مدیریت Agent Sessionها؛
 - انتخاب Agent و Model؛
-- Attach کردن Image، PDF و فایل‌های Text/Code با File Picker، Drag & Drop یا Paste از Clipboard؛
-- اضافه‌کردن Custom Providerهای سازگار با OpenAI Compatible، OpenAI Responses یا Anthropic Messages از داخل Settings؛
-- ارسال Prompt و مشاهده Live Activity مربوط به Agent و Toolها؛
-- Resume کردن Retryable Provider Error بدون از دست رفتن File Changes قبلی؛
-- تأیید یا رد Permissionها و پاسخ به Questionهای Agent؛
-- مشاهده Project Files و Changes هر Session؛
-- Stop یا Abort کردن Run فعال؛
-- تغییر Theme و Font Size رابط؛
-- استفاده بدون VS Code، JetBrains، Cursor، Docker یا Cloud Backend متعلق به TL Agent.
+- Attach کردن Image، PDF و فایل‌های Text/Code؛
+- مدیریت Custom Provider و Modelهای سازگار از Settings؛
+- مشاهده Live Reasoning، Tool و File Activity؛
+- پاسخ به Permission Request و Questionهای تعاملی؛
+- مشاهده Changes هر Session و Usage Summaryهای Local؛
+- Resume کردن Provider Failureهای Retryable بدون دورریختن File Work انجام‌شده؛
+- تنظیم Font جدا برای UI، Code و Terminal و انتخاب Editor Syntax Theme.
 
 ## نسخه Stable فعلی
 
-**v0.2.0 اولین baseline پایدار TL Agent است.** مسیر پیش‌فرض npm روی Stable Channel قرار دارد:
+**v0.2.0 نسخه Stable فعلی TL Agent است.**
 
 ```bash
 npx --yes tl-agent
 ```
 
-Buildهای آزمایشی می‌توانند روی Channelهای Prerelease مثل `tl-agent@alpha` ادامه پیدا کنند، بدون اینکه مسیر Stable تغییر کند.
+خط Stable روی `main` نگه داشته می‌شود و Development آزمایشی روی `dev` و Channelهای prerelease جدا ادامه دارد.
 
 ## از کجا شروع کنم؟
 
-ابتدا [نصب](./getting-started/installation) و بعد [اولین اجرا](./getting-started/first-run) را ببینید. برای محدودیت‌ها و رفتار Attachmentها [File Attachment](./guides/file-attachments) و برای Providerها [Custom Provider](./guides/custom-providers) را ببینید.
-
-جزئیات Low-level سازگاری Runtime برای Maintainerها در [Runtime Integration](./reference/runtime-integration) آمده است.
+از [نصب](./getting-started/installation) و [اولین اجرا](./getting-started/first-run) شروع کنید و بعد [Workspace و Editor](./guides/workspace-editor)، [Project Search](./guides/project-search)، [Terminal](./guides/terminal) و [Live Preview](./guides/live-preview) را ببینید.
