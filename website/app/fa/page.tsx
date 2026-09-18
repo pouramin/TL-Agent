@@ -11,30 +11,30 @@ const features = [
     icon: ServerOff,
   },
   {
-    title: 'Standalone Workspace',
-    description: 'بدون وابستگی به VS Code، JetBrains یا Cursor، یک Workspace اختصاصی در مرورگر برای کار با Coding Agent دارید.',
+    title: 'Browser IDE مستقل',
+    description: 'Fileها را Edit کنید، داخل Project جست‌وجو کنید، Command اجرا کنید، Changes را ببینید و Live Preview بگیرید؛ بدون وابستگی به VS Code، JetBrains یا Cursor.',
     icon: SquareTerminal,
   },
   {
-    title: 'Project-aware Workflow',
-    description: 'Folder پروژه را انتخاب کنید، Sessionها را مدیریت کنید، Project Files و Changes را ببینید و هر Conversation را در Context همان Project نگه دارید.',
+    title: 'Project-aware Agent Workflow',
+    description: 'Session، File، Attachment، Changes، Permission و Context مربوط به Agent در Scope همان Project بازشده باقی می‌ماند.',
     icon: FolderCode,
   },
   {
-    title: 'Provider Control',
-    description: 'از Modelهای Hosted یا Custom Providerهای سازگار استفاده کنید. Credentialها داخل Local Runtime Store می‌مانند، نه Browser Storage مربوط به TL Agent.',
+    title: 'Provider و Model Control',
+    description: 'تعریف Custom Provider و Model داخل TL Agent مدیریت می‌شود و Credentialها داخل Browser Storage ذخیره نمی‌شوند.',
     icon: LockKeyhole,
   },
 ];
 
 const capabilities = [
+  'Multi-tab Editor',
+  'Project Search',
+  'Terminal',
+  'Live Preview',
   'File Attachments',
   'Custom Providers',
-  'Retryable Error Recovery',
-  'Files + Changes',
-  'Interactive Permissions',
-  'Theme + Font Size',
-  'Loopback-only Runtime',
+  'Local Security',
 ];
 
 export default function PersianHomePage() {
@@ -50,10 +50,10 @@ export default function PersianHomePage() {
             Stable v0.2.0 · Local-first · Open Source
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
-            یک Workspace مستقل و Local برای Coding Agentها، بدون IDE.
+            Workspace مستقل و Local برای Coding Agent و Project شما.
           </h1>
           <p className="mt-7 max-w-2xl text-balance text-lg leading-8 text-fd-muted-foreground md:text-xl">
-            TL Agent برای کار با Project، Agent، Model، Tool، Provider، Session، File Attachment و File Changes یک Workspace مستقل داخل مرورگر می‌دهد.
+            TL Agent، Agent Workspace و ابزارهای اصلی Project مثل Editor، Search، Terminal و Live Preview را داخل یک محیط مستقل در مرورگر کنار هم می‌آورد.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/fa/docs" className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-5 py-3 font-medium text-fd-primary-foreground">
@@ -74,7 +74,7 @@ export default function PersianHomePage() {
           <div className="mt-16 w-full max-w-4xl rounded-2xl border bg-fd-card/80 p-5 shadow-sm md:p-8">
             <div className="mb-5 text-sm font-medium text-fd-muted-foreground">TL Agent چطور کار می‌کند؟</div>
             <div className="grid gap-3 md:grid-cols-4" dir="ltr">
-              {['Browser Workspace', 'TL Agent Local Layer', 'Agent Runtime', 'Models + Project Tools'].map((label, index) => (
+              {['Browser IDE', 'TL Agent Local Core', 'Agent Engine Adapter', 'Models + Tools'].map((label, index) => (
                 <div key={label} className="relative">
                   <div className="arch-line rounded-xl px-4 py-5 text-center font-medium">{label}</div>
                   {index < 3 ? <div className="absolute -right-3 top-1/2 hidden -translate-y-1/2 text-fd-muted-foreground md:block">→</div> : null}
@@ -96,10 +96,10 @@ export default function PersianHomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-16">
-            <p className="text-sm font-medium text-fd-muted-foreground">Independent product · Local runtime</p>
+            <p className="text-sm font-medium text-fd-muted-foreground">Independent Product · Replaceable Engine</p>
             <h2 className="mt-2 text-3xl font-semibold">TL Agent همون محصولیه که کاربر می‌بینه و استفاده می‌کنه.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              Workspace، Project Selection، Provider Settings، Recovery، Local Security، Packaging و Releaseها متعلق به TL Agent هستند. Runtime همراه برنامه فقط اجرای Agent را پشت مرز محصول انجام می‌دهد.
+              Editor، Project Files، Search، Terminal، Live Preview، Provider/Model Registry، Recovery، Local Security، Packaging و Releaseها متعلق به TL Agent هستند. Agent Execution پشت یک Runtime Contract عمومی و Local قرار دارد.
             </p>
           </div>
         </section>
