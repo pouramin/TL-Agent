@@ -1,0 +1,37 @@
+---
+title: Live Preview
+description: Preview supported local web projects from inside TL Agent.
+icon: Play
+---
+
+Live Preview lets you view a supported web project without leaving the TL Agent workspace.
+
+## Supported preview paths
+
+TL Agent currently detects two kinds of preview:
+
+1. **Static project** — a root `index.html` is served by a TL Agent-owned local static server.
+2. **Node development project** — if `package.json` contains a `dev` script, TL Agent runs `npm run dev` through its local process manager and discovers the loopback URL reported by the dev server.
+
+## Controls
+
+The Preview surface supports:
+
+- **Start**
+- **Stop**
+- **Reload**
+- **Open** in the browser
+
+The Preview window can be moved and resized, and TL Agent remembers its position and size locally.
+
+Static previews reload after project file changes.
+
+## Separate local origin
+
+Previewed project code does **not** run on the same origin as TL Agent's control API. Static Preview gets a separate loopback server, and Node Preview only accepts a detected loopback URL.
+
+This separation prevents project JavaScript from sharing the privileged origin used by TL Agent's local control routes.
+
+## When Preview is unavailable
+
+A project is not currently previewable when it has neither a root `index.html` nor a supported `package.json` `dev` script. Use the Terminal to run another workflow manually when needed.
