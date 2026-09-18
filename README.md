@@ -71,8 +71,11 @@ The release already includes the pinned local agent runtime.
 - **Session management** — create, resume, rename, delete, and switch sessions across recent projects.
 - **Project-scoped usage** — per-turn and project totals for tokens, requests, time, reasoning, and cache usage.
 - **Changes panel** — inspect changed files, addition/deletion counts, and patches.
-- **Project file explorer** — read-only local file navigation and preview.
-- **Appearance settings** — System, Dark, and Light themes plus interface font-size controls.
+- **Project workspace** — writable local file explorer, multi-tab editor, save/create/rename/delete actions, and external-change reconciliation.
+- **Project Search** — fast project-wide text search with include/exclude filters and click-to-open results.
+- **Integrated terminal** — project-scoped command execution, output history, stop controls, and process-tree termination.
+- **Live Preview** — local static or Node dev-server preview in a movable/resizable browser window.
+- **Appearance & editor settings** — System, Dark, and Light themes plus editor theme and separate UI/code/terminal font controls.
 - **Local-first security** — loopback-only UI, random per-run backend password, origin checks, and restrictive CSP.
 - **No TL Agent telemetry or cloud service** — model traffic goes directly through the provider/runtime configuration selected by the user.
 
@@ -83,17 +86,19 @@ Browser workspace
     │ localhost only
     ▼
 TL Agent launcher (Go)
-    │ authenticated local reverse proxy
-    ▼
-Local agent runtime
     │
-    ├─ agents / sessions / tools
-    ├─ permissions / questions / live events
-    ├─ project files / terminal commands
-    └─ configured AI providers
+    ├─ TL Agent provider/model registry
+    ├─ project files / search / terminal / preview
+    │
+    └─ authenticated runtime adapter
+            ▼
+        Local agent runtime
+            ├─ agents / sessions / tools
+            ├─ permissions / questions / live events
+            └─ provider execution / model inference
 ```
 
-TL Agent owns the workspace, product UI, local launcher, project/session experience, provider configuration, recovery behavior, and release packaging. The runtime remains a replaceable infrastructure layer behind that product boundary.
+TL Agent owns the workspace, product UI, local launcher, provider/model definitions, project/session experience, recovery behavior, and release packaging. Custom provider definitions are persisted in TL Agent's local state and translated to the active runtime by the launcher. Provider credentials are currently delegated to the runtime's local credential store and are not written into TL Agent's provider registry. The runtime remains a replaceable infrastructure layer behind that product boundary.
 
 The selected project stays on the user's computer, and TL Agent does not proxy model traffic through project-owned infrastructure.
 
@@ -144,7 +149,7 @@ go run ./cmd/launcher --project /path/to/project
 Use a specific runtime binary:
 
 ```bash
-go run ./cmd/launcher --kilo /path/to/kilo
+go run ./cmd/launcher --runtime-bin /path/to/runtime
 ```
 
 Use `--no-browser` to suppress automatic browser launch.
@@ -170,7 +175,7 @@ The agent runtime can read/write files and execute commands when permissions all
 
 ## Status
 
-**v0.1.0 is the first stable baseline of TL Agent**, promoted from the validated `v0.1.0-alpha.28` application baseline. The core path is covered by CI and has been validated on a real Windows machine:
+TL Agent keeps the stable production line on `main` and experimental development on `dev`. Stable releases are promoted only after automated CI plus hands-on validation on a real Windows machine. The core path covered before promotion includes:
 
 ```text
 TL Agent UI
@@ -182,7 +187,7 @@ TL Agent UI
 → final assistant response
 ```
 
-Future experimental builds can continue on explicit prerelease channels without changing the stable `latest` npm path.
+Experimental builds continue on explicit prerelease channels without changing the stable `latest` npm path.
 
 ## License & attribution
 

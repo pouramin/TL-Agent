@@ -56,6 +56,7 @@ const K = {
     sending: false,
   },
   els: { conversation: null, prompt: { value: "" } },
+  api: { hosted: { providerID: "kilo" } },
 };
 
 const document = {
@@ -135,6 +136,7 @@ async function testRecovery() {
   K.state.messages = staleMessages;
   K.state.activeSessions["session-1"] = { type: "busy" };
   K.api = {
+    hosted: { providerID: "kilo" },
     sessions: {
       abort: async (sessionID, options) => {
         abortCalls += 1;

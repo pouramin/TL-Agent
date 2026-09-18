@@ -6,13 +6,13 @@ import (
 )
 
 func TestPermissionRepliesAreMarkedInteractive(t *testing.T) {
-	js, err := webFS.ReadFile("web/kilo-api.js")
+	js, err := webFS.ReadFile("web/runtime-api.js")
 	if err != nil {
-		t.Fatalf("read embedded kilo-api.js: %v", err)
+		t.Fatalf("read embedded runtime-api.js: %v", err)
 	}
 	text := string(js)
 	if !strings.Contains(text, `interactive: true`) {
-		t.Fatal("human permission replies must set interactive: true for Kilo sensitive permission classes")
+		t.Fatal("human permission replies must set interactive: true for sensitive runtime permission classes")
 	}
 }
 

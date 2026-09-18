@@ -71,8 +71,11 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 - **مدیریت Session** — ساخت، ادامه، تغییر نام، حذف و جابه‌جایی Sessionها بین Projectهای اخیر.
 - **Project Usage** — نمایش مصرف هر Turn و مجموع Project شامل Token، Request، Time، Reasoning و Cache.
 - **Changes panel** — مشاهده‌ی فایل‌های تغییرکرده، تعداد خطوط اضافه/حذف‌شده و Patch.
-- **File Explorer داخلی** — مرور و Preview فایل‌های Project به‌صورت Read-only.
-- **تنظیمات ظاهری** — حالت System، Dark و Light به‌همراه تغییر اندازه‌ی فونت رابط.
+- **Project Workspace داخلی** — File Explorer قابل‌نوشتن، Editor چندتب، Save/Create/Rename/Delete و هماهنگی با تغییرات خارجی فایل.
+- **Project Search** — جست‌وجوی سریع متن در کل Project با Include/Exclude و بازکردن مستقیم نتیجه در Editor.
+- **Terminal داخلی** — اجرای Command در Scope پروژه، تاریخچه‌ی خروجی، Stop و پایان Process tree.
+- **Live Preview** — Preview لوکال برای Static یا Node dev server در پنجره‌ی قابل‌جابجایی و تغییر اندازه.
+- **تنظیمات ظاهر و Editor** — حالت System، Dark و Light به‌همراه Editor theme و Font جداگانه برای UI، Code و Terminal.
 - **معماری Local-first** — اجرای Loopback-only، رمز تصادفی Backend در هر اجرا، کنترل Origin و CSP محدودکننده.
 - **بدون Cloud یا Telemetry اختصاصی TL Agent** — ترافیک Model براساس Provider و Runtime انتخاب‌شده‌ی کاربر انجام می‌شود و از زیرساخت TL Agent عبور نمی‌کند.
 
@@ -83,17 +86,21 @@ Browser workspace
     │ فقط localhost
     ▼
 TL Agent launcher (Go)
-    │ reverse proxy محلی و احراز‌شده
-    ▼
-Local agent runtime
     │
-    ├─ agents / sessions / tools
-    ├─ permissions / questions / live events
-    ├─ project files / terminal commands
-    └─ configured AI providers
+    ├─ TL Agent provider/model registry
+    ├─ project files / search / terminal / preview
+    │
+    └─ runtime adapter محلی و احراز‌شده
+            ▼
+        Local agent runtime
+            ├─ agents / sessions / tools
+            ├─ permissions / questions / live events
+            └─ provider execution / model inference
 ```
 
-TL Agent مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تجربه‌ی Project و Session، تنظیم Providerها، Recovery و Release packaging.
+TL Agent مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تعریف Provider و Model، تجربه‌ی Project و Session، Recovery و Release packaging.
+
+تعریف Custom Providerها داخل State محلی خود TL Agent ذخیره می‌شود و Launcher آن‌ها را برای Runtime فعال ترجمه می‌کند. Credentialها فعلاً به Credential Store محلی Runtime سپرده می‌شوند و داخل Provider Registry خود TL Agent ذخیره نمی‌شوند.
 
 Runtime به‌عنوان یک لایه‌ی زیرساختی جدا پشت این مرز قرار می‌گیرد.
 
@@ -146,7 +153,7 @@ go run ./cmd/launcher --project /path/to/project
 استفاده از Runtime binary مشخص:
 
 ```bash
-go run ./cmd/launcher --kilo /path/to/kilo
+go run ./cmd/launcher --runtime-bin /path/to/runtime
 ```
 
 برای جلوگیری از بازشدن خودکار مرورگر از `--no-browser` استفاده کنید.
@@ -172,7 +179,7 @@ Runtime در صورت داشتن Permission می‌تواند فایل‌ها ر
 
 ## وضعیت پروژه
 
-**v0.1.0 اولین baseline پایدار TL Agent است** و از baseline اعتبارسنجی‌شده‌ی `v0.1.0-alpha.28` به نسخه‌ی Stable ارتقا داده شده است. مسیر اصلی پروژه هم در CI و هم روی یک سیستم واقعی Windows اعتبارسنجی شده:
+TL Agent خط پایدار Production را روی `main` و توسعه‌ی آزمایشی را روی `dev` نگه می‌دارد. نسخه‌ی Stable فقط بعد از عبور از CI خودکار و تست دستی روی یک سیستم واقعی Windows ارتقا داده می‌شود. مسیر اصلی که پیش از Promotion بررسی می‌شود شامل این زنجیره است:
 
 ```text
 TL Agent UI
@@ -184,7 +191,7 @@ TL Agent UI
 → final assistant response
 ```
 
-نسخه‌های آزمایشی بعدی می‌توانند روی Channelهای prerelease جدا ادامه پیدا کنند، بدون اینکه مسیر Stable با dist-tag `latest` تغییر کند.
+نسخه‌های آزمایشی روی Channelهای prerelease جدا ادامه پیدا می‌کنند، بدون اینکه مسیر Stable با dist-tag `latest` تغییر کند.
 
 ## لایسنس و Attribution
 
