@@ -4,38 +4,45 @@ description: مرز بین Product Layer مربوط به TL Agent و Agent Runti
 icon: Network
 ---
 
-TL Agent از یک Product Layer Local و یک Agent Runtime همراه برنامه تشکیل شده است.
+TL Agent از یک Product Layer محلی و یک مرز Runtime قابل‌تعویض ساخته شده است.
 
 ```text
 Browser Workspace
   ↓ localhost
 TL Agent UI + Go launcher
   ├─ Project Picker
-  ├─ Sessions / Files / Changes
-  ├─ Provider Settings UI
-  ├─ Retryable Provider Recovery UI
+  ├─ Project Files / Search / Terminal / Preview
+  ├─ Provider / Model Registry
+  ├─ Provider Settings + Recovery UX
   ├─ Local State + Appearance
   ├─ Security Boundary
-  └─ Authenticated Reverse Proxy
+  └─ Authenticated Runtime Adapter
        ↓
 Bundled Agent Runtime
        ├─ Sessions / Agents / Tools
-       ├─ Provider Config + Local Credential Store
-       ├─ Provider Integration / Model Execution
-       └─ Project Execution
+       ├─ Local Credential Store
+       ├─ Provider Execution / Model Inference
+       └─ Agent Project Execution
 ```
 
 ## مسئولیت TL Agent
 
 - Standalone Browser Workspace؛
 - Launch و مدیریت Processها؛
-- Project Selection؛
+- Project Selection و APIهای File/Search/Process در Scope پروژه؛
+- تعریف Provider و Model و Registry محلی آن‌ها؛
+- قرارداد Browser-facing با Namespace زیر:
+
+`/runtime/*`
+
 - Reverse Proxy و Security Boundary؛
 - Packaging، Release و Brand خود TL Agent؛
-- UX مربوط به Session، File، Changes، Permission، Provider Settings، Recovery و Appearance.
+- UX مربوط به Session، File، Changes، Permission، Provider Settings، Recovery، Preview و Appearance.
 
-## مسئولیت Runtime
+## مسئولیت Runtime در وضعیت فعلی
 
-Runtime همراه برنامه Agent Execution، Toolها، جزئیات Session، Filesystem/Tool Call، ذخیره Provider Config، نگه‌داری Credentialها و Model Execution را انجام می‌دهد.
+Runtime همراه برنامه هنوز Agent Execution، اجرای Tool، جزئیات داخلی Session، Filesystem/Tool Callهای خود Agent، Credentialهای Provider و Model Execution را انجام می‌دهد.
 
-این تفاوت یک مرز معماری است، نه هویت محصول؛ کاربر با **TL Agent** کار می‌کند و جزئیات Runtime پشت Adapter Boundary باقی می‌ماند.
+بعضی Semanticها مثل Session، Tool و Permission هنوز از Runtime می‌آیند، اما Browser فقط از Runtime Boundary خود TL Agent به آن‌ها دسترسی دارد. در آینده می‌توان مالکیت بیشتری را بدون تغییر طراحی UI به داخل TL Agent منتقل کرد.
+
+این تفاوت یک مرز معماری است، نه هویت محصول؛ کاربر با **TL Agent** کار می‌کند و جزئیات Engine پشت Adapter Boundary باقی می‌ماند.

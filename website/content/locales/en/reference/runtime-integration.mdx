@@ -4,16 +4,32 @@ description: Maintainer reference for the bundled runtime compatibility layer us
 icon: Cable
 ---
 
-TL Agent keeps runtime-specific implementation details behind an adapter boundary. The current upstream implementation is **Kilo Code 7.6.2**; TL Agent remains an independent product and normal user workflows do not depend on knowing or operating that runtime directly.
+TL Agent keeps engine-specific implementation details behind a runtime adapter boundary. The current stable distribution bundles **Kilo Code 7.6.2** as the tested third-party agent engine, but normal user workflows and browser UI contracts are TL Agent-owned.
+
+## Product boundary
+
+Browser runtime calls go through the TL Agent `/runtime/*` namespace and the authored adapter:
+
+`cmd/launcher/ui/runtime-api.ts`
+
+Generated browser JavaScript is emitted to:
+
+`cmd/launcher/web/runtime-api.js`
+
+UI modules should not construct engine-specific route prefixes, authentication, provider package names, or hosted-provider OAuth paths.
+
+## Provider and model ownership
+
+Custom provider/model definitions are owned by TL Agent and persisted in its local `providers.json` registry. The launcher translates those definitions to the active engine internally.
+
+Provider credentials are still delegated to the current engine's local credential store. That remaining credential dependency is separate from provider/model definition ownership.
 
 ## Compatibility contract
 
-The bundled runtime version is pinned and CI validates the product-facing HTTP contract used for agents, providers, sessions, status, messages, asynchronous prompts, global events, permissions, questions, and device authorization.
+The bundled engine version is pinned and CI validates project routing, agents, sessions, messages, asynchronous prompts, global events, permissions, questions, provider translation, and a real write-tool flow through TL Agent's public runtime boundary.
 
-## Adapter boundary
-
-Browser-side runtime calls are centralized in a dedicated adapter under `cmd/launcher/web/`. UI modules should not build runtime endpoint paths directly. Keeping compatibility logic behind one boundary makes runtime upgrades reviewable and testable.
+The engine-specific compatibility contract remains documented in the repository's `docs/KILO_API_CONTRACT.md` because it describes the exact currently bundled implementation rather than TL Agent's public product API.
 
 ## Upgrade rule
 
-Before changing the bundled runtime version, TL Agent CI must verify project routing, agent/provider/session shapes, messages, permissions/questions, events, and a real write-tool flow against the new target.
+Before changing the bundled engine version, CI must verify the new engine against TL Agent's runtime boundary and product E2E. Engine-specific changes should stay behind the launcher/runtime adapter wherever possible.
