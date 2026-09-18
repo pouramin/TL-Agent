@@ -204,6 +204,15 @@
     els.form.classList.add("hidden");
   };
 
+  // Provider editing is scoped to the Providers settings section. Leaving that
+  // section must discard the transient add/edit form so returning always opens
+  // a clean provider list rather than restoring stale edit state.
+  const resetTransientForm = () => {
+    notice("");
+    clearForm();
+  };
+  K.__providersUi.resetTransientForm = resetTransientForm;
+
   const fillForm = (value, existingID = "") => {
     editingID = existingID;
     els.id.value = value.providerID || "";
@@ -375,7 +384,17 @@
     }
   };
 
-  navButton.addEventListener("click", () => { activate(); load(); });
+  navButton.addEventListener("click", () => {
+    resetTransientForm();
+    activate();
+    load();
+  });
+  for (const button of settingsDialog.querySelectorAll("[data-settings-section]")) {
+    if (button.dataset.settingsSection === "providers") continue;
+    button.addEventListener("click", resetTransientForm);
+  }
+  settingsDialog.addEventListener("close", resetTransientForm);
+
   els.add.addEventListener("click", () => { notice(""); fillForm({ toolCall: true }); });
   els.cancel.addEventListener("click", clearForm);
   els.cancelTop.addEventListener("click", clearForm);
