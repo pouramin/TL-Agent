@@ -1,45 +1,80 @@
 ---
 title: Architecture
-description: Understand the boundary between TL Agent's product layer and its bundled agent runtime.
+description: Understand TL Agent's local product core and replaceable Agent engine boundary.
 icon: Network
 ---
 
-TL Agent is built around a local product layer and a replaceable agent-runtime boundary.
+TL Agent v0.2 separates **product capabilities owned by TL Agent** from Agent execution performed behind a generic runtime contract.
 
 ```text
-Browser workspace
-  ↓ localhost
-TL Agent UI + Go launcher
-  ├─ project picker
-  ├─ project files / search / terminal / preview
-  ├─ provider/model registry
-  ├─ provider settings + recovery UX
-  ├─ local state + appearance preferences
-  ├─ security boundary
-  └─ authenticated runtime adapter
-       ↓
-Bundled agent runtime
-       ├─ sessions / agents / tools
-       ├─ local credential store
-       ├─ provider execution / model inference
-       └─ agent project execution
+Browser IDE
+  │
+  ├─ /local/* ───────► TL Agent local core
+  │                    ├─ Project filesystem
+  │                    ├─ Editor state
+  │                    ├─ Project Search
+  │                    ├─ Process / Terminal
+  │                    └─ Live Preview control
+  │
+  └─ /runtime/* ─────► TL Agent runtime contract
+                        ↓
+                    Runtime adapter
+                        ↓
+                    Bundled Agent engine
+                        ├─ Sessions / Agent execution
+                        ├─ Tools / Permissions / Questions
+                        ├─ Provider credentials
+                        └─ Model inference
+
+Live Preview
+  └──────────────────► separate loopback origin
 ```
 
 ## TL Agent owns
 
-- the standalone browser workspace;
-- local launch and process lifecycle;
-- project selection and project-scoped file/search/process APIs;
-- provider/model definitions and their local registry;
-- the browser-facing `/runtime/*` contract;
-- the reverse-proxy/security boundary;
-- packaging, releases, and the TL Agent brand;
-- user-facing session, files, changes, permission, provider-settings, recovery, preview, and appearance UX.
+- the standalone Browser IDE and Agent workspace;
+- local launch and lifecycle;
+- Project selection;
+- writable Project Files and multi-tab editor;
+- revision/conflict protection and external-change reconciliation;
+- Project Search;
+- local process management and Terminal UX;
+- Live Preview control and static preview server;
+- Provider and Model definitions;
+- the `/local/*` project-tool API;
+- the product-facing `/runtime/*` contract;
+- recovery UX, local security, packaging, releases, and branding.
 
-## Runtime owns today
+## Engine responsibilities that remain
 
-The bundled runtime still handles agent execution, tool execution, session internals, runtime-originated filesystem/tool calls, provider credentials, and model execution.
+The bundled Agent engine still handles Agent/session execution, Tool execution, Permission/Question internals, Provider credential persistence, and Model inference.
 
-Some semantics such as sessions, tools, and permissions still originate in the runtime today, but the browser reaches them only through the TL Agent runtime boundary. Future ownership can move inward without redesigning the product UI.
+That boundary is intentionally hidden from normal user workflows. Browser modules depend on TL Agent concepts and generic routes rather than implementation-specific endpoint names.
 
-The distinction is architectural rather than product-facing: users operate **TL Agent** while engine-specific implementation details stay behind the adapter boundary.
+## Provider and Model ownership
+
+Custom Provider definitions are stored in TL Agent's own versioned local `providers.json`. TL Agent is the source of truth for Provider ID/name, protocol, Base URL, Model definitions, capability flags, and optional context/output limits.
+
+The launcher translates those definitions to the current Agent engine internally. API keys remain outside the TL Agent registry and are delegated to the engine's local credential store in v0.2.
+
+## Filesystem trust boundary
+
+The Go launcher is the authority for browser filesystem operations. Paths are resolved against the selected Project; traversal, symlink escapes, root mutation, and protected Git metadata mutations are rejected.
+
+Normal saves use a SHA-256 revision token. If disk content changed after a file was read, TL Agent returns a conflict instead of silently overwriting the new version.
+
+## Search and process boundary
+
+Project Search is implemented by TL Agent itself and does not shell out to an external search command.
+
+Terminal commands run through a TL Agent-owned process manager with the active Project as CWD. The current Terminal is a command runner, not a full PTY.
+
+## Preview isolation
+
+Static Project code and Node dev servers are previewed on a **different loopback origin** from TL Agent's control server. Only loopback Preview URLs are accepted.
+
+## Runtime abstraction
+
+The browser talks to `/runtime/*`; the launcher/runtime adapter is responsible for translating that contract to the bundled engine.
+
+The goal is replaceability: new product features should depend on Sessions, Messages, Providers, Models, Permissions, Questions, Tools, and Events as TL Agent concepts rather than on the name or API layout of one engine.
