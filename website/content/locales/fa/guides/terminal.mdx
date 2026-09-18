@@ -1,0 +1,29 @@
+---
+title: Terminal
+description: اجرای Commandهای Project با Local Process Manager خود TL Agent.
+icon: Terminal
+---
+
+TL Agent یک Command Runner داخلی دارد که روی Local Process Manager خود برنامه ساخته شده است.
+
+## Command در Scope Project
+
+هر Command با Project فعال به‌عنوان Working Directory اجرا می‌شود. بعد از Project Switch، Commandهای جدید CWD همان Project جدید را می‌گیرند.
+
+Output به‌صورت Stream داخل Workspace نمایش داده می‌شود و History آن به‌صورت Bounded در حافظه Local نگه داشته می‌شود.
+
+## Stop کردن Process
+
+Processهای طولانی را می‌توانید از داخل TL Agent Stop کنید. در Windows، Stop کل Process Tree را می‌بندد تا Child Processهایی مثل dev server ناخواسته باز نمانند.
+
+Stop عمدی هم به‌عنوان حالت `stopped` در نظر گرفته می‌شود، نه Crash نامشخص.
+
+## محدودیت نسخه فعلی
+
+Terminal فعلی **Full PTY Terminal Emulator نیست**. برای Project Command، Build/Test، Script و Processهایی طراحی شده که در مدل Command Runner کار می‌کنند.
+
+Interactive TUIهایی که به Terminal Device واقعی نیاز دارند خارج از Foundation فعلی v0.2 هستند.
+
+## Security
+
+Commandها روی سیستم خودتان و با Permissionهای User فعلی اجرا می‌شوند. Local بودن Terminal به معنی امن‌بودن هر Command نیست؛ قبل از اجرا مخصوصاً Commandهای مخرب Filesystem یا Credential را بررسی کنید.
