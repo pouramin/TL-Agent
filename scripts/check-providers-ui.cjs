@@ -94,8 +94,9 @@ assert.deepEqual(Array.from(removed.providers, (provider) => provider.id), ["kee
 assert.match(productSource, /settingsDialog\?\.querySelectorAll\("\[data-settings-section\]"\)/, "settings navigation must query dynamic sections so Providers cannot stay highlighted beside General/About");
 assert.match(productSource, /settingsDialog\?\.querySelectorAll\("\[data-settings-panel\]"\)/, "settings navigation must query dynamic panels");
 assert.match(productSource, /K\.activateSettingsSection\s*=\s*activateSettingsSection/, "dynamic settings activation should be shared with injected settings sections");
-assert.match(source, /if \(button\.dataset\.settingsSection === "providers"\) continue;[\s\S]*button\.addEventListener\("click", resetTransientForm\)/, "leaving Providers must reset the transient add/edit form");
-assert.match(source, /settingsDialog\.addEventListener\("close", resetTransientForm\)/, "closing Settings must reset the transient provider form");
+assert.equal(source.includes('if (button.dataset.settingsSection === "providers") continue;'), true, "Providers tab must be excluded from leave-section reset");
+assert.equal(source.includes('button.addEventListener("click", resetTransientForm);'), true, "leaving Providers must reset the transient add/edit form");
+assert.equal(source.includes('settingsDialog.addEventListener("close", resetTransientForm);'), true, "closing Settings must reset the transient provider form");
 assert.equal(typeof hooks.resetTransientForm, "undefined", "DOM-only reset hook must not be installed when provider settings DOM is unavailable");
 
 assert.match(hooks.validateDraft({ ...draft, providerID: "Bad ID" }), /Provider ID/);
