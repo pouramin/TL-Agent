@@ -1,25 +1,27 @@
 ---
 title: Models and agents
-description: Choose the coding agent and models available through TL Agent.
+description: Choose Agents and Models through TL Agent's product-facing runtime contract.
 icon: Bot
 ---
 
-TL Agent presents the agents, providers, and models exposed through its bundled runtime. It does not create a separate model router or model-inference backend of its own.
+TL Agent keeps Agent execution behind a generic local runtime contract while owning more of the Provider/Model product surface itself.
 
 ## Agents
 
-The primary coding workflow uses the product-facing `code` agent. Agent selection belongs to the TL Agent workspace; execution is handled underneath by the bundled runtime.
+The primary coding workflow uses the available coding Agent exposed through TL Agent. Agent selection happens in the TL Agent workspace; the bundled engine executes the task behind the adapter boundary.
 
-## Models and providers
+## Models and Providers
 
-Models can come from the hosted account flow available in TL Agent or from a compatible custom endpoint you add in **Settings → Providers**. TL Agent sends the selected provider/model reference to the local runtime when starting work.
+Custom Provider and Model definitions are TL Agent-owned data. They are stored in TL Agent's local provider registry and translated to the active engine internally.
 
-See [Custom providers](./custom-providers) for the supported API families and storage/security model.
+The Model picker can also include hosted/runtime-discovered models. Runtime-specific Provider IDs and preferred hosted routes are delivered as metadata to the UI rather than hard-coded into product modules.
 
-## Hosted account login
+See [Custom providers](./custom-providers) for the supported API families and storage model.
 
-For hosted models, TL Agent surfaces the device authorization flow provided by the local runtime. Credentials and model inference are not routed through TL Agent-owned cloud infrastructure.
+## Hosted account flow
+
+When the bundled engine exposes a hosted account flow, TL Agent presents that authorization through generic local routes. The browser does not need implementation-specific endpoint knowledge.
 
 ## Provider failures
 
-Transient provider failures can happen even when TL Agent and the local runtime are healthy. When the runtime finishes its retry cycle with a retryable provider error, TL Agent can offer a **Resume** action that continues from the preserved workspace state instead of starting over.
+Transient upstream failures can happen while TL Agent itself remains healthy. After the engine exhausts a retry cycle for a retryable provider error, TL Agent can offer **Resume** and continue from the preserved workspace state instead of starting the task from scratch.
