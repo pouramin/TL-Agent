@@ -83,17 +83,19 @@ Browser workspace
     │ localhost only
     ▼
 TL Agent launcher (Go)
-    │ authenticated local reverse proxy
-    ▼
-Local agent runtime
     │
-    ├─ agents / sessions / tools
-    ├─ permissions / questions / live events
-    ├─ project files / terminal commands
-    └─ configured AI providers
+    ├─ TL Agent provider/model registry
+    ├─ project files / search / terminal / preview
+    │
+    └─ authenticated runtime adapter
+            ▼
+        Local agent runtime
+            ├─ agents / sessions / tools
+            ├─ permissions / questions / live events
+            └─ provider execution / model inference
 ```
 
-TL Agent owns the workspace, product UI, local launcher, project/session experience, provider configuration, recovery behavior, and release packaging. The runtime remains a replaceable infrastructure layer behind that product boundary.
+TL Agent owns the workspace, product UI, local launcher, provider/model definitions, project/session experience, recovery behavior, and release packaging. Custom provider definitions are persisted in TL Agent's local state and translated to the active runtime by the launcher. Provider credentials are currently delegated to the runtime's local credential store and are not written into TL Agent's provider registry. The runtime remains a replaceable infrastructure layer behind that product boundary.
 
 The selected project stays on the user's computer, and TL Agent does not proxy model traffic through project-owned infrastructure.
 
@@ -144,7 +146,7 @@ go run ./cmd/launcher --project /path/to/project
 Use a specific runtime binary:
 
 ```bash
-go run ./cmd/launcher --kilo /path/to/kilo
+go run ./cmd/launcher --runtime-bin /path/to/runtime
 ```
 
 Use `--no-browser` to suppress automatic browser launch.

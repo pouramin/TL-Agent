@@ -83,17 +83,21 @@ Browser workspace
     │ فقط localhost
     ▼
 TL Agent launcher (Go)
-    │ reverse proxy محلی و احراز‌شده
-    ▼
-Local agent runtime
     │
-    ├─ agents / sessions / tools
-    ├─ permissions / questions / live events
-    ├─ project files / terminal commands
-    └─ configured AI providers
+    ├─ TL Agent provider/model registry
+    ├─ project files / search / terminal / preview
+    │
+    └─ runtime adapter محلی و احراز‌شده
+            ▼
+        Local agent runtime
+            ├─ agents / sessions / tools
+            ├─ permissions / questions / live events
+            └─ provider execution / model inference
 ```
 
-TL Agent مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تجربه‌ی Project و Session، تنظیم Providerها، Recovery و Release packaging.
+TL Agent مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تعریف Provider و Model، تجربه‌ی Project و Session، Recovery و Release packaging.
+
+تعریف Custom Providerها داخل State محلی خود TL Agent ذخیره می‌شود و Launcher آن‌ها را برای Runtime فعال ترجمه می‌کند. Credentialها فعلاً به Credential Store محلی Runtime سپرده می‌شوند و داخل Provider Registry خود TL Agent ذخیره نمی‌شوند.
 
 Runtime به‌عنوان یک لایه‌ی زیرساختی جدا پشت این مرز قرار می‌گیرد.
 
@@ -146,7 +150,7 @@ go run ./cmd/launcher --project /path/to/project
 استفاده از Runtime binary مشخص:
 
 ```bash
-go run ./cmd/launcher --kilo /path/to/kilo
+go run ./cmd/launcher --runtime-bin /path/to/runtime
 ```
 
 برای جلوگیری از بازشدن خودکار مرورگر از `--no-browser` استفاده کنید.
