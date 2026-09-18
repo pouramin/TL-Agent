@@ -92,13 +92,38 @@ The browser uses TL Agent's `/runtime/*` contract. The launcher/runtime adapter 
 - active-session state
 - agent switching
 - model switching
-- provider/model discovery
-- provider authorization
+- TL Agent-owned provider/model discovery
+- hosted-provider authorization
 - session permissions
 - session questions
 - event/SSE-driven progress and file-change reconciliation
 
 A narrow read-only compatibility bridge exists for sessions created during an older TL Agent alpha protocol window. Current sessions continue to use only the current product API path.
+
+## Provider and model ownership
+
+Provider/model configuration is the first Phase 2 capability moved behind a TL Agent-owned domain contract.
+
+Custom provider definitions are persisted in TL Agent's own local state as `providers.json` under the same state root used by the launcher. The persisted schema contains TL Agent concepts only: provider ID/name, protocol, base URL, model definitions, tool/reasoning capability flags, and optional context/output limits. Runtime package names and runtime-specific config shapes are not part of this file.
+
+On first use, when no TL Agent provider registry exists yet, the launcher imports compatible custom providers from the current runtime configuration so existing alpha users do not lose supported provider definitions. After that, TL Agent is the source of truth for those managed definitions.
+
+The browser uses only TL Agent routes for this surface:
+
+- `GET /runtime/providers/catalog`
+- `GET /runtime/providers/config`
+- `PUT /runtime/providers/config/{id}`
+- `DELETE /runtime/providers/config/{id}`
+- `GET /runtime/hosted/status`
+- `POST /runtime/hosted/authorize`
+- `POST /runtime/hosted/callback`
+- `DELETE /runtime/hosted`
+
+The launcher translates managed definitions to the current engine's provider config internally. Hosted provider IDs and preferred hosted models (including the current Auto Free route) are returned as runtime metadata rather than hard-coded by the browser.
+
+API keys are deliberately excluded from TL Agent's provider registry and browser storage. In this phase, credentials are still delegated to the bundled runtime's local credential store. Moving credential ownership to a TL Agent-controlled secure store is a separate future security milestone.
+
+Session, tool, and permission ownership still remain in the runtime for now; this provider/model slice does not change the Agent Engine boundary.
 
 ## Editor asset strategy
 
@@ -125,4 +150,4 @@ The browser must not call implementation-specific runtime routes directly. `/run
 
 The current engine remains replaceable. New browser features must depend on TL Agent concepts such as sessions, messages, providers, permissions, questions, tools, and events rather than on the bundled engine's product name.
 
-This establishes the Phase 1 independence boundary. Phase 2 progressively moves session/config/provider/tool/permission ownership into TL Agent while keeping the same browser-facing contract.
+Phase 1 established the runtime independence boundary. Phase 2 is now in progress: provider/model definitions and their browser-facing configuration contract are TL Agent-owned, while session/tool/permission ownership remains follow-up work behind the same boundary.

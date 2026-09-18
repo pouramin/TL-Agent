@@ -23,8 +23,13 @@ vm.runInContext(source, context, { filename: "providers-ui.js" });
 
 const hooks = K.__providersUi;
 assert.ok(hooks, "provider UI hooks should be installed even when settings DOM is unavailable");
-assert.equal(hooks.PACKAGES["openai-compatible"], "@ai-sdk/openai-compatible");
-assert.equal("AGENTROUTER_PRESET" in hooks, false, "provider settings must remain vendor-agnostic");
+assert.equal(hooks.PROTOCOLS.has("openai-compatible"), true);
+assert.equal(hooks.PROTOCOLS.has("openai-responses"), true);
+assert.equal(hooks.PROTOCOLS.has("anthropic-messages"), true);
+
+for (const forbidden of ["@ai-sdk/", "K.api.config", "K.api.auth", "config/overlay"]) {
+  assert.equal(source.includes(forbidden), false, `provider UI leaked runtime config detail: ${forbidden}`);
+}
 assert.equal(source.includes("AgentRouter"), false, "provider UI must not hard-code a provider brand");
 assert.equal(source.includes("deepseek-v4-flash"), false, "provider UI must not hard-code a model preset");
 
@@ -43,54 +48,44 @@ const draft = {
 };
 assert.equal(hooks.validateDraft(draft), "");
 
-const config = hooks.buildProviderConfig(draft);
-assert.equal(config.name, "Example Provider");
-assert.equal(config.npm, "@ai-sdk/openai-compatible");
-assert.equal(config.options.baseURL, "https://api.example.com/v1");
-assert.equal(config.models["example-model"].name, "Example Model");
-assert.equal(config.models["example-model"].tool_call, true);
-assert.equal(config.models["example-model"].reasoning, true);
-assert.equal(config.models["example-model"].limit.context, 128000);
-assert.equal(config.models["example-model"].limit.output, 16384);
-assert.equal(JSON.stringify(config).includes("super-secret"), false, "API keys must not be written into provider config");
-assert.equal("apiKey" in config.options, false, "provider options must not contain the API key");
+const definition = hooks.buildProviderDefinition(draft);
+assert.equal(definition.id, "example-provider");
+assert.equal(definition.name, "Example Provider");
+assert.equal(definition.protocol, "openai-compatible");
+assert.equal(definition.baseURL, "https://api.example.com/v1");
+assert.equal(definition.models[0].id, "example-model");
+assert.equal(definition.models[0].name, "Example Model");
+assert.equal(definition.models[0].toolCall, true);
+assert.equal(definition.models[0].reasoning, true);
+assert.equal(definition.models[0].contextLimit, 128000);
+assert.equal(definition.models[0].outputLimit, 16384);
+assert.equal(JSON.stringify(definition).includes("super-secret"), false, "API keys must not enter TL Agent provider config");
 
 const existing = {
+  id: "example-provider",
   name: "Existing",
-  npm: "@ai-sdk/openai-compatible",
-  options: { baseURL: "https://old.example/v1", headers: { "X-Test": "yes" } },
-  models: {
-    "other-model": { name: "Other", tool_call: true },
-  },
-};
-const merged = hooks.buildProviderConfig({
-  providerID: "example-provider",
-  name: "Example Provider",
   protocol: "openai-compatible",
+  baseURL: "https://old.example/v1",
+  models: [{ id: "other-model", name: "Other", toolCall: true, reasoning: false }],
+};
+const merged = hooks.buildProviderDefinition({
+  ...draft,
   baseURL: "https://api.example.com/v1/",
-  modelID: "example-model",
-  modelName: "Example Model",
-  toolCall: true,
   reasoning: false,
   contextLimit: "",
   outputLimit: "",
 }, existing);
-assert.equal(merged.options.baseURL, "https://api.example.com/v1");
-assert.equal(merged.options.headers["X-Test"], "yes", "editing must preserve unrelated provider options");
-assert.ok(merged.models["other-model"], "editing one model must preserve other configured models");
-assert.ok(merged.models["example-model"]);
+assert.equal(merged.baseURL, "https://api.example.com/v1");
+assert.ok(merged.models.some((model) => model.id === "other-model"), "editing one model must preserve other TL Agent model definitions");
+assert.ok(merged.models.some((model) => model.id === "example-model"));
 
 const entries = hooks.customProviderEntries({
-  effective: {
-    provider: {
-      example: config,
-      anthropic: { name: "Anthropic" },
-      customResponses: { name: "Responses", npm: "@ai-sdk/openai", models: {} },
-      unsupported: { name: "Unsupported", npm: "some-other-package", models: {} },
-    },
-  },
+  providers: [
+    definition,
+    { id: "z-provider", name: "Zed", protocol: "openai-compatible", baseURL: "https://z.example/v1", models: [] },
+  ],
 });
-assert.deepEqual(Array.from(entries, (entry) => entry.id).sort(), ["customResponses", "example"]);
+assert.deepEqual(Array.from(entries, (entry) => entry.id), ["example-provider", "z-provider"]);
 
 assert.match(hooks.validateDraft({ ...draft, providerID: "Bad ID" }), /Provider ID/);
 assert.match(hooks.validateDraft({ ...draft, baseURL: "not-a-url" }), /Base URL/);

@@ -8,6 +8,11 @@
   const unwrapData = (payload) => payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
   const request = (path, options) => K.request(`/runtime${path}`, options);
   const wrapData = (data) => ({ data });
+  const hostedMeta = { providerID: "", preferredModels: [] };
+  const applyHostedMeta = (value) => {
+    if (value?.providerID) hostedMeta.providerID = String(value.providerID);
+    if (Array.isArray(value?.preferredModels)) hostedMeta.preferredModels = value.preferredModels.map(String);
+  };
 
   const projectDirectory = () => K.state?.local?.project || "";
   const withQuery = (path, params = {}) => {
@@ -69,7 +74,8 @@
     },
 
     providerState: async () => {
-      const payload = unwrapData(await request(route("/provider"))) || {};
+      const payload = unwrapData(await request(route("/providers/catalog"))) || {};
+      applyHostedMeta(payload.hosted);
       return {
         all: Array.isArray(payload.all) ? payload.all : [],
         connected: new Set(Array.isArray(payload.connected) ? payload.connected : []),
@@ -78,30 +84,16 @@
       };
     },
 
-    config: {
-      overlay: async ({ scope = "global", directory = projectDirectory() } = {}) => {
-        const payload = unwrapData(await request(route("/config/overlay", { scope }, directory)));
-        return payload && typeof payload === "object" ? payload : {};
+    providers: {
+      config: async () => {
+        const payload = unwrapData(await request("/providers/config")) || {};
+        return { providers: Array.isArray(payload.providers) ? payload.providers : [] };
       },
-      update: async ({ scope = "global", set, unset, directory = projectDirectory() } = {}) => {
-        const payload = {
-          scope,
-          ...(set && Object.keys(set).length ? { set } : {}),
-          ...(Array.isArray(unset) && unset.length ? { unset } : {}),
-        };
-        return unwrapData(await request(route("/config/overlay", {}, directory), {
-          method: "PATCH",
-          ...body(payload),
-        }));
-      },
-    },
-
-    auth: {
-      setApiKey: async (providerID, key) => unwrapData(await request(`/auth/${enc(providerID)}`, {
+      upsert: async (providerID, { provider, apiKey } = {}) => unwrapData(await request(`/providers/config/${enc(providerID)}`, {
         method: "PUT",
-        ...body({ type: "api", key }),
+        ...body({ provider, ...(apiKey ? { apiKey } : {}) }),
       })),
-      remove: async (providerID) => unwrapData(await request(`/auth/${enc(providerID)}`, { method: "DELETE" })),
+      remove: async (providerID) => unwrapData(await request(`/providers/config/${enc(providerID)}`, { method: "DELETE" })),
     },
 
     sessions: {
@@ -185,19 +177,20 @@
     },
 
     hosted: {
-      providerID: "kilo",
-      preferredModels: ["kilo-auto/free"],
+      get providerID() { return hostedMeta.providerID; },
+      get preferredModels() { return [...hostedMeta.preferredModels]; },
       status: async () => {
-        const payload = unwrapData(await request(route("/kilo/auth-status"))) || {};
+        const payload = unwrapData(await request(route("/hosted/status"))) || {};
+        applyHostedMeta(payload);
         return {
           authenticated: payload.authenticated === true,
           type: payload.type || "",
           organizationId: payload.organizationId || "",
         };
       },
-      authorize: async () => unwrapData(await request(route("/provider/kilo/oauth/authorize"), { method: "POST", ...body({ method: 0 }) })),
-      callback: async (signal) => unwrapData(await request(route("/provider/kilo/oauth/callback"), { method: "POST", ...body({ method: 0 }), signal })),
-      disconnect: async () => unwrapData(await request("/auth/kilo", { method: "DELETE" })),
+      authorize: async () => unwrapData(await request(route("/hosted/authorize"), { method: "POST" })),
+      callback: async (signal) => unwrapData(await request(route("/hosted/callback"), { method: "POST", signal })),
+      disconnect: async () => unwrapData(await request("/hosted", { method: "DELETE" })),
     },
 
     events: {

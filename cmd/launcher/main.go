@@ -194,6 +194,11 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 		writeJSON(w, http.StatusBadGateway, jsonError{Error: "Runtime backend unavailable: " + err.Error()})
 	}
 
+	providerManager, err := newRuntimeProviderManager(state, backendURL, username, password)
+	if err != nil {
+		return nil, fmt.Errorf("create runtime provider manager: %w", err)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /local/status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, state.snapshot())
@@ -235,6 +240,7 @@ func newServer(state *appState, backendURL, username, password string) (http.Han
 	registerLocalFileRoutes(mux, state)
 	registerProjectSearchRoutes(mux, state)
 	registerLocalProcessRoutes(mux, state)
+	registerRuntimeProviderRoutes(mux, providerManager)
 	mux.Handle("/runtime/", proxy)
 	mux.Handle("/runtime", proxy)
 

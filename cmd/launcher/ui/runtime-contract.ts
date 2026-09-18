@@ -21,6 +21,29 @@ interface RuntimePromptInput {
   directory?: string;
 }
 
+interface RuntimeProviderModelConfig {
+  id: string;
+  name: string;
+  toolCall: boolean;
+  reasoning: boolean;
+  contextLimit?: number;
+  outputLimit?: number;
+}
+
+interface RuntimeProviderDefinition {
+  id: RuntimeProviderID;
+  name: string;
+  protocol: "openai-compatible" | "openai-responses" | "anthropic-messages";
+  baseURL: string;
+  models: RuntimeProviderModelConfig[];
+}
+
+interface RuntimeProviderConfigContract {
+  config(): Promise<{ providers: RuntimeProviderDefinition[] }>;
+  upsert(providerID: RuntimeProviderID, input: { provider: RuntimeProviderDefinition; apiKey?: string }): Promise<unknown>;
+  remove(providerID: RuntimeProviderID): Promise<unknown>;
+}
+
 interface RuntimeHostedProviderContract {
   readonly providerID: RuntimeProviderID;
   readonly preferredModels: readonly string[];
@@ -36,6 +59,7 @@ interface TLAgentRuntimeContract {
   health(): Promise<unknown>;
   agents(): Promise<unknown[]>;
   providerState(): Promise<unknown>;
+  readonly providers: RuntimeProviderConfigContract;
   sessions: {
     list(options?: { limit?: number; directory?: string }): Promise<unknown>;
     create(input?: RuntimeSessionCreateInput): Promise<unknown>;
