@@ -1,6 +1,6 @@
 ---
 title: First run
-description: Start TL Agent, choose a local project, and understand the local startup flow.
+description: Start TL Agent, open a local project, and get oriented in the workspace.
 icon: Play
 ---
 
@@ -8,11 +8,15 @@ icon: Play
 
 Run the portable executable or use the one-command launcher. TL Agent starts its local services on loopback and opens the browser workspace automatically.
 
+```bash
+npx --yes tl-agent
+```
+
 ## Choose a project
 
-The normal workflow is **local and graphical**: use TL Agent's project picker and choose a folder directly from your operating system. No separate runtime command is required.
+The normal workflow is graphical: use TL Agent's Folder Picker and choose an existing local project directory.
 
-If you intentionally want to preselect a project from a terminal, TL Agent also accepts its own CLI option:
+You can also preselect a project from the CLI:
 
 ```bash
 tl-agent --project /path/to/project
@@ -24,19 +28,23 @@ On Windows:
 tl-agent.exe --project "C:\Users\you\Projects\my-project"
 ```
 
-When using the one-command launcher from inside a project directory, that directory is selected automatically:
+When you launch with `npx --yes tl-agent` from inside a project directory, that directory is selected automatically.
 
-```bash
-npx --yes tl-agent
-```
+## Get oriented
 
-## What happens locally
+After opening a project:
 
-1. TL Agent resolves the selected project and bundled runtime.
-2. It chooses free loopback ports.
-3. It creates a fresh per-run backend password.
-4. It starts the bundled agent runtime on `127.0.0.1`.
-5. It starts the TL Agent browser server and local reverse proxy.
-6. It opens the workspace in your default browser.
+1. use **Files** to open or edit project files;
+2. use **Search** or `Ctrl/Cmd+Shift+F` for project-wide text search;
+3. use **Terminal** for project-scoped commands;
+4. use **Preview** when the project supports a static or Node development preview;
+5. use the Agent composer for prompts, attachments, Agent/Model selection, and task execution;
+6. inspect **Changes** as the Agent or you modify the project.
 
-Stopping TL Agent also stops the child runtime process.
+Unsaved editor buffers are protected when switching projects, and file revisions are checked before normal saves to reduce accidental overwrites.
+
+## What starts locally
+
+TL Agent starts a local control server and a bundled Agent engine on loopback. The browser talks to TL Agent, not directly to the engine. TL Agent owns the local project APIs and forwards Agent execution through its generic runtime contract.
+
+Stopping TL Agent also stops the bundled child process.
