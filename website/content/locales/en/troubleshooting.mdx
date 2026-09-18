@@ -1,51 +1,76 @@
 ---
 title: Troubleshooting
-description: Diagnose common TL Agent startup, project, browser, attachment, permission, and provider problems.
+description: Diagnose common TL Agent startup, editor, Search, Terminal, Preview, Provider, and Agent problems.
 icon: Wrench
 ---
 
 ## TL Agent does not open a browser
 
-The local server can still be running. Copy the `Local:` URL printed in the terminal and open it manually. If you used `--no-browser`, this is expected.
+The local server may still be running. Copy the `Local:` URL printed in the terminal and open it manually. If you used `--no-browser`, this is expected.
 
 ## Project picker does not accept a folder
 
-Choose an existing directory. TL Agent normalizes and validates the selected local path before switching project context.
+Choose an existing directory. TL Agent normalizes and validates the path before switching Project context.
 
-## Runtime not found
+## A file will not save because it changed on disk
 
-Official TL Agent release archives bundle the supported runtime. This error is more likely when running from source or overriding the runtime manually.
+TL Agent detected that the File revision changed after you opened it. This protects newer Agent/Git/external edits from being silently overwritten.
+
+Review the disk change first. Use force-save only when you intentionally want your editor buffer to replace the newer disk version.
+
+## Unsaved tabs block Project switching
+
+Save the dirty tabs or explicitly choose to discard them. TL Agent protects unsaved editor state before changing Project context.
+
+## Project Search does not show a file
+
+Search skips binary/non-UTF-8 files, symlinks, and common generated/heavy directories such as `.git`, `node_modules`, `dist`, `build`, `out`, `coverage`, and `.next`. Also check your include/exclude patterns and case-sensitive setting.
+
+## A Terminal program expects an interactive TTY
+
+The current Terminal is a project command runner, not a full PTY. Interactive TUI applications may not work correctly in v0.2.
+
+## Preview is unavailable
+
+Automatic Preview currently supports either:
+
+- a root `index.html`; or
+- a `package.json` project with a `dev` script.
+
+For another stack, run its development command manually in Terminal.
+
+## Preview starts but no URL appears
+
+For Node projects, TL Agent detects loopback URLs reported by the development server. Make sure the dev server actually starts and reports a local URL. External/non-loopback Preview URLs are intentionally rejected.
+
+## Bundled engine not found
+
+Official TL Agent portable releases include the compatible Agent engine. This error is more likely when running from source or using `--runtime-bin`.
 
 ## An attachment is rejected
 
-The composer accepts supported images, PDF, and text/code files. The current limits are **8 files**, **10 MB per file**, and **20 MB total**. Unsupported binary formats are rejected before the prompt is sent.
+Current limits are **8 files**, **10 MB per file**, and **20 MB total**. Unsupported binary formats are rejected before send.
 
-If a send attempt fails, pending attachments remain in the composer so you can fix the underlying problem and retry. See [File attachments](./guides/file-attachments) for the full behavior.
+## Models or Providers are missing
 
-## Models or providers are missing
+For a Custom Provider, check **Settings → Providers**, Base URL, protocol, Model ID, and API-key state.
 
-For hosted models, complete the required account/device sign-in. For custom endpoints, open **Settings → Providers** and verify the Base URL, model ID, provider API family, and API-key state.
+TL Agent v0.2 owns the Provider/Model definition registry. If you upgraded from an older alpha build, compatible definitions are imported on first use only when no TL Agent registry exists yet.
 
-## A provider request ended after retries
+## A Provider request ended after retries
 
-TL Agent distinguishes retryable provider failures from terminal errors. For retryable upstream failures — such as transient connection problems or some `5xx` responses — the conversation can show **Resume** after the runtime retry cycle ends.
+Retryable upstream failures can expose **Resume** after the retry cycle ends. Existing file changes remain in the workspace so the task can continue from the current state.
 
-Existing file changes are preserved. Resume continues the current task from that workspace state rather than repeating completed work.
-
-Authentication failures, quota/usage-limit errors, context-overflow problems, and similar terminal errors are not treated as retryable recovery cases; fix the underlying provider/account problem first.
-
-## A custom provider loses context on long tasks
-
-Open **Settings → Providers** and set the model's Context Limit when you know it. The pinned runtime cannot automatically compact context for a custom model whose context limit is unknown.
+Authentication, quota/usage-limit, context-overflow, and similar terminal failures should be fixed at the Provider/account level first.
 
 ## Why is “Always allow these” missing?
 
-TL Agent only exposes persistent approval when the runtime provides reusable matching rules and the permission is safe to persist. Sensitive skill-shell and sandbox-escalation requests intentionally require an explicit human approval each time.
+Persistent approval is shown only when reusable matching rules are available and the Permission class can safely support persistence. Sensitive requests can require explicit approval every time.
 
 ## Agent is waiting
 
-Check TL Agent for a pending permission request or interactive question.
+Check for a pending Permission request or interactive Question.
 
 ## Reporting a bug
 
-Include your operating system, TL Agent version, selected runtime version, reproduction steps, and non-secret error output. Never publish API keys or provider tokens.
+Include your operating system, TL Agent version, reproduction steps, and non-secret error output. Include Agent-engine compatibility details only when the issue appears runtime-specific. Never publish API keys or Provider tokens.
