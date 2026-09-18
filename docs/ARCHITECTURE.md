@@ -150,4 +150,4 @@ The browser must not call implementation-specific runtime routes directly. `/run
 
 The current engine remains replaceable. New browser features must depend on TL Agent concepts such as sessions, messages, providers, permissions, questions, tools, and events rather than on the bundled engine's product name.
 
-Phase 1 established the runtime independence boundary. Phase 2 is now in progress: provider/model definitions and their browser-facing configuration contract are TL Agent-owned, while session/tool/permission ownership remains follow-up work behind the same boundary.
+Phase 1 established the runtime independence boundary. The provider/model ownership slice is now complete: provider/model definitions and their browser-facing configuration contract are TL Agent-owned. Session, tool, and permission ownership remain follow-up work behind the same boundary; future work should continue to move semantics inward without exposing engine-specific contracts to the browser.

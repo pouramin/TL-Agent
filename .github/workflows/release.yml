@@ -94,7 +94,7 @@ jobs:
           set -euo pipefail
           mkdir -p staging/package/bin staging/upstream
           go build -trimpath -ldflags "-s -w -X main.version=${RELEASE_TAG}" -o "staging/package/${{ matrix.launcher }}" ./cmd/launcher
-      - name: Download pinned Kilo runtime
+      - name: Download pinned bundled runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -115,7 +115,7 @@ jobs:
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp third_party/KILO_LICENSE.txt staging/package/third_party/
-      - name: Real Kilo product API contract test
+      - name: Real bundled-runtime product API contract test
         if: matrix.name == 'linux-x64'
         shell: bash
         run: |

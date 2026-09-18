@@ -102,11 +102,13 @@ TL Agent owns the workspace, product UI, local launcher, provider/model definiti
 
 The selected project stays on the user's computer, and TL Agent does not proxy model traffic through project-owned infrastructure.
 
-## Runtime & compatibility
+## Runtime boundary
 
-The current bundled runtime is **Kilo Code**, pinned to a tested version in [`KILO_VERSION`](./KILO_VERSION). Runtime-specific compatibility details are kept in [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md) instead of being part of the product-facing UI contract.
+TL Agent's browser and product UI depend on TL Agent-owned contracts, not on an engine-specific browser API. Browser runtime traffic stays under the local `/runtime/*` boundary, while provider/model definitions, project files, search, terminal, preview, and related workspace behavior are owned by TL Agent.
 
-CI validates the real pinned runtime for project routing, agent/provider/session APIs, async prompts, live events, permissions, provider configuration, tool execution, and real file writes against a local test model server.
+The current stable distribution bundles **Kilo Code 7.6.2** as the tested third-party agent engine. That engine is an implementation detail behind TL Agent's runtime adapter rather than the public product identity. Engine-specific compatibility is isolated in [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md), and required attribution is kept in [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
+
+CI validates the pinned engine through TL Agent's public runtime boundary for project routing, agent/provider/session APIs, async prompts, live events, permissions, provider configuration, tool execution, and real file writes.
 
 ## Supported builds
 
