@@ -4,7 +4,7 @@ description: Attach images, PDFs, and text/code files to prompts in TL Agent.
 icon: Paperclip
 ---
 
-TL Agent can send local files with a prompt as structured file parts through the bundled runtime. You can attach working material without moving the project into a hosted TL Agent service.
+TL Agent can send local files with a prompt as structured attachment parts through its local Agent runtime contract. You can attach working material without moving the project into a hosted TL Agent service.
 
 ## Ways to attach files
 
@@ -14,7 +14,7 @@ Use any of these from the composer:
 - drag files onto the composer;
 - paste files from the clipboard into the prompt field.
 
-Selected files appear as attachment chips before you send the prompt. You can remove individual files before sending.
+Selected files appear as attachment chips before you send. You can remove individual files before sending.
 
 ## Supported file types
 
@@ -28,20 +28,20 @@ SVG files are treated as text rather than image input.
 
 ## Limits
 
-TL Agent currently enforces these composer limits:
+TL Agent currently enforces:
 
 - up to **8 files** per prompt;
 - up to **10 MB per file**;
-- up to **20 MB total** across the pending attachments.
+- up to **20 MB total** across pending attachments.
 
 Unsupported binary formats are rejected before the prompt is sent.
 
-## What happens when you send
+## Send behavior
 
-The browser reads the selected file, creates a structured `file` prompt part, and sends it through TL Agent's local runtime API together with the text prompt. The user message then shows the attached filenames in conversation history.
+The browser prepares structured attachment parts and sends them with the text Prompt through TL Agent's local Agent contract. Sent filenames remain represented in conversation history.
 
-Attachments are cleared after a successful send, when you start a new session, or when you switch projects. If sending fails before the runtime accepts the prompt, the pending attachments remain available so you can retry.
+Pending attachments are cleared after a successful send, when you start a new Session, or when you switch Projects. If sending fails before the Prompt is accepted, the pending files remain available for retry.
 
-## Privacy and provider behavior
+## Privacy and Provider behavior
 
-TL Agent does not upload attachments to a TL Agent-owned cloud backend. However, once you send the prompt, the attachment content can be forwarded by the local runtime to the model/provider you selected. Treat attachments with the same confidentiality rules as any other prompt content sent to that provider.
+TL Agent does not upload attachments to a TL Agent-owned cloud backend. Once you send a Prompt, attachment content can still be forwarded to the Model/Provider you selected. Treat attachments with the same confidentiality rules as any other content sent to that Provider.
