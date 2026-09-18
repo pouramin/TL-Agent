@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 
 EXPECTED = "E2E_PRODUCT_OK"
-FILE_CONTENT = "KILO_LOCAL_UI_OK"
+FILE_CONTENT = "TL_AGENT_E2E_OK"
 
 
 class E2EError(RuntimeError):
@@ -121,7 +121,7 @@ def has_completed_write(envelope: dict) -> bool:
 
 
 def projected_changes(messages: list[dict]) -> list[dict]:
-    """Mirror TL Agent's fallback when Kilo's aggregate session diff is empty."""
+    """Mirror TL Agent's fallback when the bundled runtime's aggregate session diff is empty."""
     summary_diffs: list[dict] = []
     for message in messages:
         info = message.get("info") if isinstance(message, dict) else None
@@ -299,7 +299,7 @@ def main() -> int:
     require(any(has_completed_write(m) for m in assistants), f"completed write tool part missing: {assistants!r}")
 
     target = os.path.join(project, "hello.txt")
-    require(os.path.isfile(target), f"Kilo did not create {target}")
+    require(os.path.isfile(target), f"bundled runtime did not create {target}")
     with open(target, "r", encoding="utf-8") as handle:
         actual = handle.read()
     require(actual == FILE_CONTENT, f"file content mismatch: {actual!r}")

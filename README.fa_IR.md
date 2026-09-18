@@ -106,11 +106,13 @@ Runtime به‌عنوان یک لایه‌ی زیرساختی جدا پشت ای
 
 Project انتخاب‌شده روی سیستم کاربر باقی می‌ماند و TL Agent ترافیک Model را از زیرساخت خودش عبور نمی‌دهد.
 
-## Runtime و سازگاری
+## مرز Runtime
 
-Runtime فعلی پروژه **Kilo Code** است و نسخه‌ی تست‌شده‌ی آن در فایل [`KILO_VERSION`](./KILO_VERSION) پین می‌شود. جزئیات سازگاری مخصوص Runtime در [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md) نگهداری می‌شود تا قرارداد محصول TL Agent به جزئیات Backend گره نخورد.
+مرورگر و رابط محصول TL Agent به قراردادهای خود TL Agent وابسته‌اند، نه به API اختصاصی یک Engine. ترافیک Runtime مرورگر فقط از مرز محلی `/runtime/*` عبور می‌کند و تعریف Provider/Model، فایل‌های Project، Search، Terminal، Preview و بخش‌های اصلی Workspace در مالکیت TL Agent هستند.
 
-CI نسخه‌ی واقعی و پین‌شده‌ی Runtime را برای Project routing، APIهای Agent/Provider/Session، Async Prompt، Live events، Permission، Provider configuration، اجرای Tool و Write واقعی روی فایل تست می‌کند.
+نسخه‌ی Stable فعلی، **Kilo Code 7.6.2** را به‌عنوان Agent Engine شخص ثالث و تست‌شده Bundle می‌کند. این Engine یک جزئیات پیاده‌سازی پشت Runtime Adapter است و هویت عمومی محصول به آن وابسته نیست. جزئیات سازگاری Engine در [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md) و Attribution لازم در [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) نگهداری می‌شود.
+
+CI همین Engine پین‌شده را از طریق مرز عمومی Runtime خود TL Agent برای Project routing، APIهای Agent/Provider/Session، Async Prompt، Live events، Permission، Provider configuration، اجرای Tool و Write واقعی روی فایل تست می‌کند.
 
 ## نسخه‌های قابل دانلود
 
