@@ -1,6 +1,6 @@
 ---
 title: رفع مشکل
-description: بررسی مشکلات رایج Startup، Project، Browser، Attachment، Permission و Provider در TL Agent.
+description: بررسی مشکل‌های Startup، Editor، Search، Terminal، Preview، Provider و Agent در TL Agent.
 icon: Wrench
 ---
 
@@ -10,42 +10,67 @@ icon: Wrench
 
 ## Folder Picker پوشه را قبول نمی‌کند
 
-یک Directory موجود انتخاب کنید. TL Agent مسیر Local را قبل از تغییر Project Context، Normalize و Validate می‌کند.
+یک Directory موجود انتخاب کنید. TL Agent قبل از Project Switch مسیر را Normalize و Validate می‌کند.
 
-## Runtime پیدا نمی‌شود
+## File به‌دلیل تغییر روی Disk Save نمی‌شود
 
-Release رسمی TL Agent Runtime سازگار را همراه خودش دارد. این Error بیشتر هنگام اجرای Source یا Override دستی Runtime دیده می‌شود.
+TL Agent تشخیص داده Revision فایل بعد از بازشدن تغییر کرده است. این کار جلوی Silent Overwrite شدن تغییر جدید Agent، Git یا برنامه دیگر را می‌گیرد.
+
+اول Disk Change را بررسی کنید. Force Save را فقط وقتی استفاده کنید که عمداً می‌خواهید Editor Buffer نسخه جدید روی Disk را جایگزین کند.
+
+## Unsaved Tab جلوی Project Switch را می‌گیرد
+
+Dirty Tabها را Save کنید یا آگاهانه Discard را انتخاب کنید. TL Agent قبل از عوض‌کردن Project از Unsaved Editor State محافظت می‌کند.
+
+## Project Search یک File را نشان نمی‌دهد
+
+Search فایل Binary/Non-UTF8، Symlink و Directoryهای Generated/سنگین مثل `.git`، `node_modules`، `dist`، `build`، `out`، `coverage` و `.next` را Skip می‌کند. Include/Exclude Pattern و Case-sensitive Setting را هم بررسی کنید.
+
+## برنامه داخل Terminal به Interactive TTY نیاز دارد
+
+Terminal فعلی Project Command Runner است و Full PTY نیست. بعضی Interactive TUIها در v0.2 درست کار نمی‌کنند.
+
+## Preview در دسترس نیست
+
+Preview خودکار فعلاً یکی از این دو حالت را لازم دارد:
+
+- `index.html` در Root؛
+- Project دارای `package.json` و Script به اسم `dev`.
+
+برای Stackهای دیگر Development Command را دستی در Terminal اجرا کنید.
+
+## Preview اجرا می‌شود ولی URL پیدا نمی‌شود
+
+در Node Project، TL Agent Loopback URL اعلام‌شده توسط dev server را تشخیص می‌دهد. مطمئن شوید Server واقعاً Start شده و Local URL چاپ می‌کند. External/Non-loopback URL عمداً رد می‌شود.
+
+## Agent Engine همراه برنامه پیدا نمی‌شود
+
+Release رسمی Portable، Engine سازگار را همراه خودش دارد. این Error بیشتر هنگام اجرای Source یا استفاده از `--runtime-bin` دیده می‌شود.
 
 ## Attachment رد می‌شود
 
-Composer فقط Image، PDF و فایل‌های Text/Code پشتیبانی‌شده را قبول می‌کند. Limit فعلی **8 فایل**، **10 MB برای هر فایل** و **20 MB مجموع** است. Binary Formatهای پشتیبانی‌نشده قبل از Send رد می‌شوند.
-
-اگر Send Fail شود، Attachmentهای Pending در Composer باقی می‌مانند تا مشکل اصلی را رفع و دوباره Retry کنید. جزئیات کامل در [File Attachment](./guides/file-attachments) آمده است.
+Limit فعلی **8 فایل**، **10 MB برای هر File** و **20 MB مجموع** است. Binary Format پشتیبانی‌نشده قبل از Send رد می‌شود.
 
 ## Model یا Provider دیده نمی‌شود
 
-برای Modelهای Hosted، Account/Device Login لازم را کامل کنید. برای Custom Endpoint، وارد **Settings → Providers** شوید و Base URL، Model ID، Provider API و وضعیت API Key را بررسی کنید.
+برای Custom Provider وارد **Settings → Providers** شوید و Base URL، Protocol، Model ID و وضعیت API Key را بررسی کنید.
+
+در v0.2 تعریف Provider/Model متعلق به Registry خود TL Agent است. اگر از Alpha قدیمی Upgrade کرده‌اید، Import تعریف‌های سازگار فقط در اولین استفاده و زمانی انجام می‌شود که Registry خود TL Agent هنوز وجود نداشته باشد.
 
 ## Provider بعد از Retryها متوقف شد
 
-TL Agent بین Retryable Provider Error و Error نهایی تفاوت می‌گذارد. برای Failureهای موقت Upstream — مثل بعضی Connection Errorها یا Responseهای `5xx` — بعد از تمام‌شدن Retry Cycle مربوط به Runtime ممکن است دکمه **Resume** نمایش داده شود.
+Failure قابل‌Retry می‌تواند بعد از پایان Retry Cycle دکمه **Resume** نشان دهد. File Changeهای قبلی حفظ می‌شوند و Task از Workspace State فعلی ادامه پیدا می‌کند.
 
-File Changes قبلی حفظ می‌شوند و Resume کار را از Workspace State فعلی ادامه می‌دهد؛ قرار نیست کارهای تمام‌شده از اول تکرار شوند.
-
-Authentication Error، Quota/Usage Limit، Context Overflow و Errorهای مشابه به‌عنوان Retryable Recovery در نظر گرفته نمی‌شوند؛ اول باید مشکل اصلی Provider یا Account را حل کنید.
-
-## Custom Model در Task طولانی Context را از دست می‌دهد
-
-اگر Context Limit آن Model را می‌دانید، از **Settings → Providers** وارد کنید. Runtime پین‌شده وقتی Context Limit یک Custom Model نامشخص باشد نمی‌تواند Automatic Context Compaction را فعال کند.
+Authentication، Quota/Usage Limit، Context Overflow و Errorهای نهایی مشابه را باید اول در Provider/Account رفع کنید.
 
 ## چرا Always allow these نمایش داده نمی‌شود؟
 
-TL Agent فقط وقتی Persistent Approval را نشان می‌دهد که Runtime Rule قابل‌استفاده بدهد و نگه‌داشتن Permission امن باشد. Requestهای حساس skill-shell و sandbox-escalation عمداً هر بار به Approval صریح Human نیاز دارند.
+Persistent Approval فقط وقتی نمایش داده می‌شود که Rule قابل‌استفاده موجود باشد و Permission Class اجازه نگه‌داری امن آن را بدهد. Request حساس ممکن است هر بار Approval صریح بخواهد.
 
 ## Agent منتظر مانده
 
-داخل TL Agent دنبال Permission Request یا Question باز بگردید.
+Permission Request یا Question باز را بررسی کنید.
 
 ## گزارش Bug
 
-سیستم‌عامل، نسخه TL Agent، نسخه Runtime، مراحل بازتولید و Error غیرحساس را بفرستید. API Key یا Token را منتشر نکنید.
+OS، نسخه TL Agent، مراحل Reproduce و Error غیرحساس را بفرستید. جزئیات Agent Engine را فقط وقتی اضافه کنید که مشکل ظاهراً Runtime-specific است. API Key یا Provider Token را منتشر نکنید.
