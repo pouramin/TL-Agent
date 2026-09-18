@@ -16,6 +16,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Ensure OIDC-capable npm CLI
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.19.1
+          node --version
+          npm --version
 
       - name: Build isolated npm package
         run: node packaging/npm/build.cjs
@@ -27,10 +35,8 @@ jobs:
           node --check tl-agent.cjs
           npm pack --dry-run --ignore-scripts
 
-      - name: Publish to npmjs
+      - name: Publish to npmjs with trusted publishing
         working-directory: packaging/npm/dist
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           VERSION="$(node -p "require('./package.json').version")"
@@ -46,13 +52,6 @@ jobs:
           if npm view "${NAME}@${VERSION}" version >/dev/null 2>&1; then
             echo "${NAME}@${VERSION} is already published; nothing to do."
             exit 0
-          fi
-
-          # First publication can use a short-lived npm token stored as NPM_TOKEN.
-          # After the package exists, configure npm Trusted Publishing for this
-          # workflow and remove the secret; npm CLI will use GitHub OIDC instead.
-          if [[ -n "${NPM_TOKEN:-}" ]]; then
-            npm config set //registry.npmjs.org/:_authToken "${NPM_TOKEN}" --location=user
           fi
 
           echo "Publishing ${NAME}@${VERSION} with dist-tag ${DIST_TAG}"
