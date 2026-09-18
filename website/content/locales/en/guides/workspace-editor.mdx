@@ -1,0 +1,48 @@
+---
+title: Workspace and editor
+description: Work with project files in TL Agent's writable multi-tab editor.
+icon: FolderCode
+---
+
+TL Agent v0.2 turns the project pane into a writable local workspace rather than a read-only file viewer.
+
+## File explorer
+
+From the Files area you can:
+
+- open files;
+- create files and folders;
+- rename entries;
+- delete entries;
+- refresh the project tree.
+
+All filesystem operations are resolved inside the selected Project boundary.
+
+## Multi-tab editing
+
+Each open file has its own in-memory editor buffer. TL Agent tracks clean and dirty tabs independently, so you can move between several files without losing unsaved edits.
+
+Use `Ctrl+S` on Windows/Linux or `Cmd+S` on macOS to save the active file.
+
+## Conflict protection
+
+When TL Agent reads a file, it records a SHA-256 revision token. A normal save sends that revision back. If the file changed on disk after you opened it, TL Agent refuses to silently overwrite the newer version.
+
+You can then review the conflict and deliberately choose a force-save only when replacing the disk version is really what you want.
+
+## External and Agent changes
+
+Files may change because of the Agent, Git, a build tool, or another application.
+
+- clean editor buffers follow external disk changes automatically;
+- dirty buffers are preserved and marked when the disk version changes or disappears.
+
+This keeps your unsaved work from being silently replaced while still keeping the workspace synchronized with Agent activity.
+
+## Ask Agent from selected code
+
+Selected editor content can be handed to the Agent as context, so you can move from reading code to asking for an explanation or change without manually copying the surrounding file context.
+
+## Project switching
+
+If open tabs contain unsaved edits, TL Agent protects them before switching to another project. Save or intentionally discard those changes before leaving the current Project.
