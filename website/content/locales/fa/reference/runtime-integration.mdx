@@ -1,47 +1,40 @@
 ---
 title: Runtime Integration
-description: مرجع Maintainer برای Compatibility Layer مربوط به Runtime همراه TL Agent.
+description: مرجع Maintainer برای Replaceable Agent-engine Compatibility Boundary در TL Agent.
 icon: Cable
 ---
 
-TL Agent جزئیات مخصوص Engine را پشت Runtime Adapter نگه می‌دارد. نسخه Stable فعلی **Kilo Code 7.6.2** را به‌عنوان Agent Engine شخص ثالث و تست‌شده Bundle می‌کند، اما Workflow عادی کاربر و قراردادهای Browser متعلق به خود TL Agent هستند.
+TL Agent جزئیات Implementation-specific مربوط به Engine را پشت Local Adapter نگه می‌دارد. Implementation همراه فعلی **Kilo Code 7.6.2** است. User معمولی لازم نیست آن Engine را جدا نصب، Configure یا مدیریت کند.
 
-## Product Boundary
+## Public Local Contract
 
-فراخوانی‌های Runtime در Browser از Namespace خود TL Agent عبور می‌کنند:
+Browser Moduleها از Routeهای متعلق به TL Agent استفاده می‌کنند:
 
-`/runtime/*`
+- `/local/*` برای Project Files، Search، Process/Terminal و Preview؛
+- `/runtime/*` برای Agent/Session Execution و Conceptهای Runtime-facing محصول.
 
-Source اصلی Adapter:
+Launcher Prefix مربوط به Runtime را Translate می‌کند، Local Authentication را تزریق می‌کند و Project Context فعال را می‌فرستد. Browser Password مربوط به Engine را نمی‌بیند.
 
-`cmd/launcher/ui/runtime-api.ts`
+## Browser Adapter
 
-و JavaScript تولیدشده:
+Runtime Callها در `cmd/launcher/ui/runtime-api.ts` و Build خروجی Browser متمرکز شده‌اند. UI Moduleهای دیگر نباید Implementation-specific Route بسازند.
 
-`cmd/launcher/web/runtime-api.js`
+CI این Boundary را بررسی می‌کند تا Product-facing JavaScript دوباره به Endpoint Name یا Account Wording مخصوص Vendor وابسته نشود.
 
-بخش‌های UI نباید Route prefix، Authentication، Provider package یا OAuth مخصوص Engine را مستقیم بسازند.
+## Provider/Model Boundary
 
-## مالکیت Provider و Model
+تعریف Provider و Model حالا متعلق به TL Agent است و در Local Registry خود TL Agent ذخیره می‌شود. Launcher آن‌ها را برای Config موردنیاز Engine فعلی ترجمه می‌کند.
 
-تعریف Custom Provider و Model داخل Registry محلی خود TL Agent ذخیره می‌شود:
+Credential، Agent/Session Execution، Tool، Permission، Question و Model Inference در v0.2 هنوز به Engine همراه برنامه وابسته‌اند.
 
-`providers.json`
+## Advanced Override
 
-Launcher این تعریف‌ها را در پشت صحنه برای Engine فعال ترجمه می‌کند.
+Maintainer می‌تواند Runtime Binary سازگار را مشخص کند:
 
-Credentialهای Provider فعلاً داخل Local Credential Store مربوط به Runtime باقی می‌مانند. این وابستگی با مالکیت Provider/Model Definition یکی نیست و می‌تواند در Milestone امنیتی جداگانه منتقل شود.
+```bash
+tl-agent --runtime-bin /path/to/runtime
+```
 
-## Compatibility Contract
+## Upgrade Rule
 
-نسخه Engine همراه برنامه Pin می‌شود و CI، Project Routing، Agent، Session، Message، Async Prompt، Global Event، Permission، Question، Provider Translation و یک Write Tool واقعی را از طریق مرز عمومی Runtime خود TL Agent تست می‌کند.
-
-جزئیات دقیق Engine فعلی همچنان داخل فایل داخلی زیر مستند می‌شود:
-
-`docs/KILO_API_CONTRACT.md`
-
-چون آن فایل قرارداد پیاده‌سازی فعلی است، نه Product API عمومی TL Agent.
-
-## قانون Upgrade
-
-قبل از تغییر نسخه Engine، Target جدید باید از Runtime Boundary و Product E2E خود TL Agent عبور کند. تغییرات مخصوص Engine تا حد ممکن باید پشت Launcher/Runtime Adapter باقی بمانند.
+قبل از تغییر Engine همراه برنامه، Compatibility Check باید Project Routing، Agent/Provider/Session Shape، Message، Permission/Question، Event، Provider Configuration و یک File-write Tool Flow واقعی را پوشش دهد.
