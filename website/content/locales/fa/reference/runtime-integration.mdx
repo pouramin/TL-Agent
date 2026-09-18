@@ -4,16 +4,44 @@ description: مرجع Maintainer برای Compatibility Layer مربوط به Ru
 icon: Cable
 ---
 
-TL Agent جزئیات Runtime را پشت یک Adapter Boundary نگه می‌دارد. Implementation بالادستی فعلی **Kilo Code 7.6.2** است؛ با این حال TL Agent محصولی مستقل است و Workflow عادی کاربر به شناختن یا کار مستقیم با آن Runtime وابسته نیست.
+TL Agent جزئیات مخصوص Engine را پشت Runtime Adapter نگه می‌دارد. نسخه Stable فعلی **Kilo Code 7.6.2** را به‌عنوان Agent Engine شخص ثالث و تست‌شده Bundle می‌کند، اما Workflow عادی کاربر و قراردادهای Browser متعلق به خود TL Agent هستند.
+
+## Product Boundary
+
+فراخوانی‌های Runtime در Browser از Namespace خود TL Agent عبور می‌کنند:
+
+`/runtime/*`
+
+Source اصلی Adapter:
+
+`cmd/launcher/ui/runtime-api.ts`
+
+و JavaScript تولیدشده:
+
+`cmd/launcher/web/runtime-api.js`
+
+بخش‌های UI نباید Route prefix، Authentication، Provider package یا OAuth مخصوص Engine را مستقیم بسازند.
+
+## مالکیت Provider و Model
+
+تعریف Custom Provider و Model داخل Registry محلی خود TL Agent ذخیره می‌شود:
+
+`providers.json`
+
+Launcher این تعریف‌ها را در پشت صحنه برای Engine فعال ترجمه می‌کند.
+
+Credentialهای Provider فعلاً داخل Local Credential Store مربوط به Runtime باقی می‌مانند. این وابستگی با مالکیت Provider/Model Definition یکی نیست و می‌تواند در Milestone امنیتی جداگانه منتقل شود.
 
 ## Compatibility Contract
 
-نسخه Runtime همراه برنامه Pin می‌شود و CI قرارداد Product-facing مربوط به Agent، Provider، Session، Status، Message، Async Prompt، Global Event، Permission، Question و Device Authorization را تست می‌کند.
+نسخه Engine همراه برنامه Pin می‌شود و CI، Project Routing، Agent، Session، Message، Async Prompt، Global Event، Permission، Question، Provider Translation و یک Write Tool واقعی را از طریق مرز عمومی Runtime خود TL Agent تست می‌کند.
 
-## Adapter Boundary
+جزئیات دقیق Engine فعلی همچنان داخل فایل داخلی زیر مستند می‌شود:
 
-فراخوانی‌های Browser به Runtime داخل یک Adapter اختصاصی در `cmd/launcher/web/` متمرکز شده‌اند. بخش‌های UI نباید Endpointهای Runtime را مستقیم بسازند. این مرزبندی Upgrade Runtime را قابل بررسی و تست نگه می‌دارد.
+`docs/KILO_API_CONTRACT.md`
+
+چون آن فایل قرارداد پیاده‌سازی فعلی است، نه Product API عمومی TL Agent.
 
 ## قانون Upgrade
 
-قبل از تغییر نسخه Runtime همراه برنامه، CI باید Project Routing، Agent/Provider/Session، Messageها، Permission/Question، Eventها و یک Write Tool واقعی را با Target جدید تأیید کند.
+قبل از تغییر نسخه Engine، Target جدید باید از Runtime Boundary و Product E2E خود TL Agent عبور کند. تغییرات مخصوص Engine تا حد ممکن باید پشت Launcher/Runtime Adapter باقی بمانند.
