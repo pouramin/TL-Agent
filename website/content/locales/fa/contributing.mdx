@@ -1,30 +1,60 @@
 ---
 title: مشارکت در پروژه
-description: مشارکت در TL Agent با حفظ مرز بین محصول، Runtime و Documentation.
+description: مشارکت با حفظ Product Boundary، Local Security و Runtime Abstraction در TL Agent.
 icon: GitPullRequest
 ---
 
-کد محصول و Documentation عمومی TL Agent عمداً Build Path جدا دارند.
+Application و Public Documentation در TL Agent Build Path جدا دارند.
 
-## توسعه محصول
+## Product Development
 
-Go launcher در `cmd/launcher/` است. فایل‌های Browser در `cmd/launcher/web/` قرار دارند و اسناد فنی داخلی در `docs/` نگهداری می‌شوند.
+Go Launcher و Local APIهای متعلق به TL Agent زیر `cmd/launcher/` هستند.
 
-## توسعه Documentation
+Source اصلی Browser Application به TypeScript در این مسیر قرار دارد:
 
-سایت عمومی Fumadocs داخل `website/` قرار دارد و CI و GitHub Pages مستقل خودش را دارد.
+```text
+cmd/launcher/ui/
+```
+
+JavaScript کامپایل‌شده در این مسیر تولید می‌شود:
+
+```text
+cmd/launcher/web/
+```
+
+برای تغییر Product Behavior، Generated Fileهای `web/*.js` را Source اصلی در نظر نگیرید.
+
+قبل از Browser Change:
+
+```bash
+npm install
+npm run check:web
+npm run build:web
+go test ./...
+```
+
+## Architecture Ruleها
+
+- Project Filesystem/Search/Process/Preview باید پشت APIهای `/local/*` خود TL Agent بمانند.
+- Agent Execution Conceptها باید پشت Runtime Contract متعلق به TL Agent با `/runtime/*` بمانند.
+- Browser Feature Module نباید Implementation-specific Route بسازد.
+- Provider/Model Definition متعلق به Registry خود TL Agent است، نه Vendor Config داخل Browser.
+- Editor/Runtime Asset جدید باید Local Bundle شود، نه CDN.
+- Preview Project Code باید روی Origin جدا از Control API خود TL Agent اجرا شود.
+
+## Internal Engineering Docs
+
+Engineering Noteها زیر `docs/` در Repository اصلی هستند.
+
+## Public Documentation
+
+سایت Fumadocs زیر `website/` قرار دارد.
 
 ```bash
 cd website
 npm install
-npm run dev
-```
-
-قبل از ارسال تغییرات Documentation:
-
-```bash
 npm run typecheck
 npm run build
 ```
 
-در متن‌های User-facing، TL Agent را محور قرار دهید. جزئیات Implementation مربوط به Runtime فقط در Reference فنی مخصوص Compatibility نگه‌داری شود، نه در صفحه‌های Product-facing.
+متن User-facing باید روی **TL Agent** متمرکز بماند. اسم Agent Engine همراه برنامه فقط در Maintainer Compatibility Reference یا جایی که Attribution قانونی واقعاً لازم است بیاید.
