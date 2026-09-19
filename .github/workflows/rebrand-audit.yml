@@ -17,5 +17,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "=== legacy branding inventory ==="
-          grep -RInE 'TL Agent|TL-Agent|tl-agent|TL_AGENT' .             --exclude-dir=.git             --exclude='*.sum'             --exclude='*.lock'             || true
+          echo "=== legacy content branding inventory ==="
+          grep -RInE 'TL Agent|TL-Agent|tl-agent|TL_AGENT|TLAgent|tlAgent' .             --exclude-dir=.git             --exclude='*.sum'             --exclude='*.lock'             --exclude='rebrand-audit.yml'             || true
+          echo "=== legacy filename inventory ==="
+          find . -path './.git' -prune -o \( -iname '*tl-agent*' -o -iname '*TL-Agent*' \) -print
