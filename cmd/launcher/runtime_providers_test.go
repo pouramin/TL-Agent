@@ -30,7 +30,7 @@ func testProviderDefinition() tlProviderDefinition {
 	}
 }
 
-func TestProviderRegistryPersistsTLAgentSchema(t *testing.T) {
+func TestProviderRegistryPersistsTLStudioSchema(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "providers.json")
 	store := newProviderRegistryStore(path)
 	if err := store.put(testProviderDefinition()); err != nil {
@@ -60,7 +60,7 @@ func TestProviderRegistryPersistsTLAgentSchema(t *testing.T) {
 	}
 }
 
-func TestRuntimeProviderRoutesTranslateTLAgentConfig(t *testing.T) {
+func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 	project := t.TempDir()
 	stateDir := t.TempDir()
 	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
