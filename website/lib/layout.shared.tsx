@@ -1,5 +1,6 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import { LanguageSwitcher } from '@/components/language-switcher';
+import { SocialLinks } from '@/components/social-links';
 import { site } from './site';
 import { getSiteMessages } from './site-i18n';
 
@@ -28,6 +29,11 @@ export function baseOptions(lang: 'en' | 'fa' = 'en'): BaseLayoutProps {
         text: m.releases,
         url: site.releasesUrl,
         external: true,
+      },
+      {
+        type: 'custom',
+        secondary: true,
+        children: <SocialLinks />,
       },
       {
         type: 'custom',
