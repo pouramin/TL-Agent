@@ -71,7 +71,7 @@ The release already includes the pinned local agent runtime.
 - **Session management** — create, resume, rename, delete, and switch sessions across recent projects.
 - **Project-scoped usage** — per-turn and project totals for tokens, requests, time, reasoning, and cache usage.
 - **Changes panel** — inspect changed files, addition/deletion counts, and patches.
-- **Project workspace** — writable local file explorer, multi-tab editor, save/create/rename/delete actions, and external-change reconciliation.
+- **Project workspace** — writable local file explorer plus a locally bundled, lazy-loaded Monaco editor with multi-tab editing, find/replace, multi-cursor editing, save/create/rename/delete actions, and external-change reconciliation.
 - **Project Search** — fast project-wide text search with include/exclude filters and click-to-open results.
 - **Integrated terminal** — project-scoped command execution, output history, stop controls, and process-tree termination.
 - **Live Preview** — local static or Node dev-server preview in a movable/resizable browser window.
@@ -128,7 +128,9 @@ tl-agent/
 ├─ LICENSE
 ├─ THIRD_PARTY_NOTICES.md
 └─ third_party/
-   └─ KILO_LICENSE.txt
+   ├─ KILO_LICENSE.txt
+   ├─ MONACO_LICENSE.txt
+   └─ MONACO_THIRD_PARTY_NOTICES.txt
 ```
 
 ## Run from source

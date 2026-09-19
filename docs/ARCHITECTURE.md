@@ -129,7 +129,7 @@ Session, tool, and permission ownership still remain in the runtime for now; thi
 
 TL Agent does not load editor code, fonts, workers, or other runtime assets from a CDN.
 
-The current editor is the embedded TL Agent editor surface plus local syntax highlighting. If a richer editor engine such as Monaco or CodeMirror is introduced later, its code/workers/assets must be shipped locally with the application and must not weaken the Content Security Policy or local-first boundary.
+TL Agent uses Monaco Editor as the enhanced workspace editor. Monaco is bundled locally at build time together with same-origin workers; no CDN or remote editor assets are used. The editor engine is lazy-loaded on the first file open so the initial application/Agent surface remains lightweight. The original textarea editor remains a functional fallback when the enhanced bundle is unavailable. TL Agent still owns the file-buffer/save/conflict contract; Monaco is a replaceable presentation/editor engine rather than a filesystem authority.
 
 ## Local-only security boundary
 

@@ -288,6 +288,9 @@
       wrapper.append(open, close);
       ui.tabs.appendChild(wrapper);
     }
+    window.dispatchEvent(new CustomEvent("tl-agent:editor-tabs", {
+      detail: { paths: K.state.editorTabs.map((tab) => tab.path) },
+    }));
   };
 
   const renderLineNumbers = (content) => {
@@ -336,6 +339,16 @@
     updateCursor();
   };
 
+  const notifyEditorRender = (tab) => {
+    window.dispatchEvent(new CustomEvent("tl-agent:editor-render", {
+      detail: {
+        path: tab?.path || "",
+        content: tab?.content || "",
+        language: tab ? languageHint(tab.path) : "",
+      },
+    }));
+  };
+
   const renderEditor = () => {
     const tab = activeTab();
     renderTabs();
@@ -346,11 +359,13 @@
       ui.editor.value = "";
       renderLineNumbers("");
       updateEditorChrome();
+      notifyEditorRender(null);
       return;
     }
     if (ui.editor.value !== tab.content) ui.editor.value = tab.content;
     renderLineNumbers(tab.content);
     updateEditorChrome();
+    notifyEditorRender(tab);
   };
 
   const activateTab = (path) => {
@@ -645,6 +660,9 @@
     ui.editor.scrollTop = scrollTop;
     if (ui.gutter) ui.gutter.scrollTop = scrollTop;
     updateCursor();
+    window.dispatchEvent(new CustomEvent("tl-agent:editor-reveal", {
+      detail: { path: tab.path, line: lineIndex + 1, column: runeColumn + 1, match: String(match || "") },
+    }));
   };
 
   K.openWorkspace = openFiles;
