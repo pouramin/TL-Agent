@@ -47,13 +47,13 @@ export default function PersianHomePage() {
             <img src={site.logoUrl} alt="TL Studio — Code. Reason. Act." />
           </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
-            Stable v0.2.0 · Local-first · Open Source
+            Stable v0.2.1 · Local-first · Open Source
           </div>
           <h1 className="max-w-4xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
-            Workspace مستقل و Local برای Coding Agent و Project شما.
+            محیط توسعه‌ی سریع و Local با AI داخلی.
           </h1>
           <p className="mt-7 max-w-2xl text-balance text-lg leading-8 text-fd-muted-foreground md:text-xl">
-            TL Studio، Agent Workspace و ابزارهای اصلی Project مثل Editor، Search، Terminal و Live Preview را داخل یک محیط مستقل در مرورگر کنار هم می‌آورد.
+            TL Studio یک Browser IDE مستقل و Local است که Editor، Search، Terminal، Live Preview، Providerها و Agent را داخل یک محیط سریع کنار هم می‌آورد.
           </p>
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
             <Link href="/fa/docs" className="inline-flex items-center gap-2 rounded-lg bg-fd-primary px-5 py-3 font-medium text-fd-primary-foreground">
