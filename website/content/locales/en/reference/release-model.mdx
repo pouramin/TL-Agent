@@ -1,0 +1,41 @@
+---
+title: Releases and bundled engine
+description: Understand TL Agent stable/prerelease channels and portable release packaging.
+icon: PackageCheck
+---
+
+**v0.2.0 is the current stable TL Agent release.**
+
+## Stable and development lines
+
+- `main` is the stable production line.
+- `dev` is the active next-version development line.
+- stable npm uses the `latest` dist-tag;
+- experimental npm builds use explicit prerelease tags such as `alpha`.
+
+Stable launch:
+
+```bash
+npx --yes tl-agent
+```
+
+Prerelease launch when available:
+
+```bash
+npx --yes tl-agent@alpha
+```
+
+The npm package is a lightweight launcher pinned to the matching TL Agent GitHub Release. It detects OS/architecture, downloads the official archive, verifies SHA-256, caches it locally, and starts TL Agent.
+
+## Portable releases
+
+Portable archives include:
+
+- the TL Agent executable;
+- the compatible bundled Agent engine;
+- TL Agent license files;
+- required third-party notices/licenses.
+
+Users do not need to install or manage the Agent engine separately.
+
+Stable promotion happens only after automated checks and hands-on validation of the release candidate. Experimental development can continue without changing the stable `latest` path.

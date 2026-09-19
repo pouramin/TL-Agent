@@ -1,0 +1,63 @@
+---
+title: TL Agent
+description: آشنایی با TL Agent به‌عنوان یک Coding Workspace مستقل و Local با Browser IDE داخلی.
+icon: House
+---
+
+TL Agent یک **Coding Agent Workspace مستقل و Local با Browser IDE داخلی** است. Agent Chat، Project Files، Multi-tab Editor، Project Search، اجرای Command، Live Preview، Sessionها، Providerها، Permissionها، Attachmentها و Changes را داخل یک محصول Local کنار هم قرار می‌دهد؛ بدون اینکه مجبور باشید داخل یک IDE دیگر کار کنید.
+
+## هویت محصول
+
+محصولی که نصب و استفاده می‌کنید **TL Agent** است. Workspace، Editor، ابزارهای Project، تعریف Provider و Model، Recovery، Security Boundary، Packaging و Browser Experience همگی بخشی از TL Agent هستند.
+
+```text
+User
+ ↓
+TL Agent
+ ├─ Browser IDE + Agent Workspace
+ ├─ Files / Editor / Search
+ ├─ Terminal / Live Preview
+ ├─ Sessions / Attachments / Changes
+ ├─ Provider + Model Registry
+ └─ Local Security + Packaging
+      ↓
+Runtime Contract + Adapter
+      ↓
+Bundled Agent Engine
+      ↓
+Models / Providers / Agent Tools
+```
+
+Engine همراه برنامه یک وابستگی اجرایی پشت Contract خود TL Agent است؛ هویت عمومی محصول نیست.
+
+## چه کارهایی می‌توانید انجام دهید؟
+
+- بازکردن Project لوکال با Folder Picker سیستم‌عامل؛
+- Browse، Edit، Create، Rename، Delete و Save کردن Project Files؛
+- کار با چند Editor Tab همراه با Unsaved State و Conflict Protection؛
+- جست‌وجو در کل Project و رفتن مستقیم به Match؛
+- اجرای Command در Scope پروژه و Stop کردن Processهای طولانی؛
+- Preview لوکال برای Static Site و Node dev serverهای پشتیبانی‌شده؛
+- ساخت و مدیریت Agent Sessionها؛
+- انتخاب Agent و Model؛
+- Attach کردن Image، PDF و فایل‌های Text/Code؛
+- مدیریت Custom Provider و Modelهای سازگار از Settings؛
+- مشاهده Live Reasoning، Tool و File Activity؛
+- پاسخ به Permission Request و Questionهای تعاملی؛
+- مشاهده Changes هر Session و Usage Summaryهای Local؛
+- Resume کردن Provider Failureهای Retryable بدون دورریختن File Work انجام‌شده؛
+- تنظیم Font جدا برای UI، Code و Terminal و انتخاب Editor Syntax Theme.
+
+## نسخه Stable فعلی
+
+**v0.2.0 نسخه Stable فعلی TL Agent است.**
+
+```bash
+npx --yes tl-agent
+```
+
+خط Stable روی `main` نگه داشته می‌شود و Development آزمایشی روی `dev` و Channelهای prerelease جدا ادامه دارد.
+
+## از کجا شروع کنم؟
+
+از [نصب](./getting-started/installation) و [اولین اجرا](./getting-started/first-run) شروع کنید و بعد [Workspace و Editor](./guides/workspace-editor)، [Project Search](./guides/project-search)، [Terminal](./guides/terminal) و [Live Preview](./guides/live-preview) را ببینید.

@@ -1,0 +1,47 @@
+---
+title: File Attachment
+description: Attach کردن Image، PDF و فایل Text/Code به Prompt در TL Agent.
+icon: Paperclip
+---
+
+TL Agent می‌تواند Fileهای Local را به‌صورت Structured Attachment همراه Prompt از Runtime Contract محلی Agent عبور دهد؛ بدون اینکه Project به Cloud Service متعلق به TL Agent منتقل شود.
+
+## روش‌های Attach
+
+از Composer می‌توانید:
+
+- روی دکمه **+** بزنید و یک یا چند File انتخاب کنید؛
+- File را Drag & Drop کنید؛
+- File را از Clipboard داخل Prompt Paste کنید.
+
+قبل از Send، Fileها به‌شکل Attachment Chip دیده می‌شوند و می‌توانید هرکدام را حذف کنید.
+
+## File Typeهای پشتیبانی‌شده
+
+UI فعلی این موارد را می‌پذیرد:
+
+- Image: PNG، JPEG، WebP و GIF؛
+- PDF؛
+- Text و فرمت‌های رایج Code/Config مثل Markdown، JSON، YAML، TOML، CSV، JavaScript/TypeScript، Python، Go، Rust، Java، C/C++، CSS، HTML، SQL، Shell Script، Patch، `.env` و فایل‌های متنی مشابه.
+
+SVG به‌عنوان Text پردازش می‌شود، نه Image Input.
+
+## Limitها
+
+TL Agent فعلاً این Limitها را اعمال می‌کند:
+
+- حداکثر **8 فایل** در هر Prompt؛
+- حداکثر **10 MB برای هر File**؛
+- حداکثر **20 MB مجموع** برای Attachmentهای Pending.
+
+Binary Format پشتیبانی‌نشده قبل از Send رد می‌شود.
+
+## رفتار هنگام Send
+
+Browser، Attachmentها را به Structured Part تبدیل می‌کند و همراه Text Prompt از Contract محلی Agent در TL Agent می‌فرستد. Filenameهای ارسال‌شده در Conversation History باقی می‌مانند.
+
+بعد از Send موفق، New Session یا Project Switch، Attachmentهای Pending پاک می‌شوند. اگر Send قبل از Accept شدن Prompt Fail شود، Fileها برای Retry باقی می‌مانند.
+
+## Privacy و Provider
+
+TL Agent Attachment را به Cloud Backend متعلق به خودش Upload نمی‌کند. با این حال بعد از Send، محتوای File ممکن است به Model/Provider انتخاب‌شده فرستاده شود. Attachment را از نظر Confidentiality مثل خود Prompt در نظر بگیرید.

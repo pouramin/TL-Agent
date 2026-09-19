@@ -1,0 +1,50 @@
+---
+title: First run
+description: Start TL Agent, open a local project, and get oriented in the workspace.
+icon: Play
+---
+
+## Start TL Agent
+
+Run the portable executable or use the one-command launcher. TL Agent starts its local services on loopback and opens the browser workspace automatically.
+
+```bash
+npx --yes tl-agent
+```
+
+## Choose a project
+
+The normal workflow is graphical: use TL Agent's Folder Picker and choose an existing local project directory.
+
+You can also preselect a project from the CLI:
+
+```bash
+tl-agent --project /path/to/project
+```
+
+On Windows:
+
+```powershell
+tl-agent.exe --project "C:\Users\you\Projects\my-project"
+```
+
+When you launch with `npx --yes tl-agent` from inside a project directory, that directory is selected automatically.
+
+## Get oriented
+
+After opening a project:
+
+1. use **Files** to open or edit project files;
+2. use **Search** or `Ctrl/Cmd+Shift+F` for project-wide text search;
+3. use **Terminal** for project-scoped commands;
+4. use **Preview** when the project supports a static or Node development preview;
+5. use the Agent composer for prompts, attachments, Agent/Model selection, and task execution;
+6. inspect **Changes** as the Agent or you modify the project.
+
+Unsaved editor buffers are protected when switching projects, and file revisions are checked before normal saves to reduce accidental overwrites.
+
+## What starts locally
+
+TL Agent starts a local control server and a bundled Agent engine on loopback. The browser talks to TL Agent, not directly to the engine. TL Agent owns the local project APIs and forwards Agent execution through its generic runtime contract.
+
+Stopping TL Agent also stops the bundled child process.

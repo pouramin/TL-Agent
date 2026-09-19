@@ -1,0 +1,50 @@
+---
+title: اولین اجرا
+description: اجرای TL Agent، بازکردن Project Local و آشنایی با Workspace.
+icon: Play
+---
+
+## اجرای TL Agent
+
+نسخه Portable را اجرا کنید یا از Launcher یک‌دستوری استفاده کنید. TL Agent سرویس‌های Local خودش را روی loopback بالا می‌آورد و Workspace را در Browser باز می‌کند.
+
+```bash
+npx --yes tl-agent
+```
+
+## انتخاب Project
+
+روش معمول گرافیکی است: داخل TL Agent از Folder Picker استفاده کنید و Directory پروژه را انتخاب کنید.
+
+برای Preselect کردن Project از CLI هم می‌توانید این دستور را بزنید:
+
+```bash
+tl-agent --project /path/to/project
+```
+
+در Windows:
+
+```powershell
+tl-agent.exe --project "C:\Users\you\Projects\my-project"
+```
+
+اگر `npx --yes tl-agent` را داخل Folder پروژه اجرا کنید، همان Directory به‌صورت خودکار انتخاب می‌شود.
+
+## آشنایی سریع با Workspace
+
+بعد از بازکردن Project:
+
+1. از **Files** برای بازکردن و Edit کردن Fileها استفاده کنید؛
+2. از **Search** یا `Ctrl/Cmd+Shift+F` برای Project-wide Search استفاده کنید؛
+3. Commandهای Project را در **Terminal** اجرا کنید؛
+4. اگر Project پشتیبانی می‌شود، از **Preview** برای Static Site یا Node dev server استفاده کنید؛
+5. Prompt، Attachment و Agent/Model را از Composer مدیریت کنید؛
+6. تغییرات خودتان و Agent را در **Changes** ببینید.
+
+هنگام Project Switch، Unsaved Bufferها محافظت می‌شوند و Save معمولی قبل از نوشتن Revision فایل را بررسی می‌کند تا تغییرات خارجی بی‌صدا Overwrite نشوند.
+
+## پشت صحنه چه اجرا می‌شود؟
+
+TL Agent یک Local Control Server و Agent Engine همراه برنامه را روی loopback اجرا می‌کند. Browser فقط با TL Agent حرف می‌زند و Agent Execution از Runtime Contract عمومی TL Agent عبور می‌کند.
+
+با بستن TL Agent، Child Process مربوط به Engine هم متوقف می‌شود.

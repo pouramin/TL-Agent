@@ -1,0 +1,40 @@
+---
+title: Runtime Integration
+description: مرجع Maintainer برای Replaceable Agent-engine Compatibility Boundary در TL Agent.
+icon: Cable
+---
+
+TL Agent جزئیات Implementation-specific مربوط به Engine را پشت Local Adapter نگه می‌دارد. Implementation همراه فعلی **Kilo Code 7.6.2** است. User معمولی لازم نیست آن Engine را جدا نصب، Configure یا مدیریت کند.
+
+## Public Local Contract
+
+Browser Moduleها از Routeهای متعلق به TL Agent استفاده می‌کنند:
+
+- `/local/*` برای Project Files، Search، Process/Terminal و Preview؛
+- `/runtime/*` برای Agent/Session Execution و Conceptهای Runtime-facing محصول.
+
+Launcher Prefix مربوط به Runtime را Translate می‌کند، Local Authentication را تزریق می‌کند و Project Context فعال را می‌فرستد. Browser Password مربوط به Engine را نمی‌بیند.
+
+## Browser Adapter
+
+Runtime Callها در `cmd/launcher/ui/runtime-api.ts` و Build خروجی Browser متمرکز شده‌اند. UI Moduleهای دیگر نباید Implementation-specific Route بسازند.
+
+CI این Boundary را بررسی می‌کند تا Product-facing JavaScript دوباره به Endpoint Name یا Account Wording مخصوص Vendor وابسته نشود.
+
+## Provider/Model Boundary
+
+تعریف Provider و Model حالا متعلق به TL Agent است و در Local Registry خود TL Agent ذخیره می‌شود. Launcher آن‌ها را برای Config موردنیاز Engine فعلی ترجمه می‌کند.
+
+Credential، Agent/Session Execution، Tool، Permission، Question و Model Inference در v0.2 هنوز به Engine همراه برنامه وابسته‌اند.
+
+## Advanced Override
+
+Maintainer می‌تواند Runtime Binary سازگار را مشخص کند:
+
+```bash
+tl-agent --runtime-bin /path/to/runtime
+```
+
+## Upgrade Rule
+
+قبل از تغییر Engine همراه برنامه، Compatibility Check باید Project Routing، Agent/Provider/Session Shape، Message، Permission/Question، Event، Provider Configuration و یک File-write Tool Flow واقعی را پوشش دهد.

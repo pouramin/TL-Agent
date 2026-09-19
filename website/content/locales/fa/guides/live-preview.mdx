@@ -1,0 +1,37 @@
+---
+title: Live Preview
+description: Preview کردن Web Projectهای پشتیبانی‌شده داخل TL Agent.
+icon: Play
+---
+
+Live Preview اجازه می‌دهد Web Project پشتیبانی‌شده را بدون خروج از Workspace ببینید.
+
+## مسیرهای Preview پشتیبانی‌شده
+
+TL Agent فعلاً دو حالت را تشخیص می‌دهد:
+
+1. **Static Project** — اگر در Root فایل `index.html` باشد، TL Agent آن را با Static Server لوکال خودش Serve می‌کند.
+2. **Node Development Project** — اگر `package.json` دارای Script به اسم `dev` باشد، TL Agent از طریق Local Process Manager دستور `npm run dev` را اجرا می‌کند و Loopback URL اعلام‌شده توسط dev server را پیدا می‌کند.
+
+## Controlها
+
+Preview این Controlها را دارد:
+
+- **Start**
+- **Stop**
+- **Reload**
+- **Open** در Browser
+
+Preview Window قابل Move و Resize است و Position و Size آن به‌صورت Local حفظ می‌شود.
+
+Static Preview بعد از تغییر Project Fileها Reload می‌شود.
+
+## Origin جداگانه
+
+Project Code داخل Preview روی Origin مربوط به Control API خود TL Agent اجرا نمی‌شود. Static Preview یک Loopback Server جدا دارد و Node Preview فقط Loopback URL را قبول می‌کند.
+
+این جداسازی باعث می‌شود JavaScript پروژه به Origin دارای دسترسی Local Control API شریک نشود.
+
+## وقتی Preview در دسترس نیست
+
+اگر Project نه `index.html` در Root داشته باشد و نه `package.json` با Script پشتیبانی‌شده‌ی `dev`، فعلاً Preview خودکار ندارد. در این حالت Workflow لازم را می‌توانید از Terminal اجرا کنید.

@@ -1,0 +1,41 @@
+---
+title: Release و Bundled Engine
+description: مدل Stable/Prerelease و Packaging نسخه Portable در TL Agent.
+icon: PackageCheck
+---
+
+**v0.2.0 نسخه Stable فعلی TL Agent است.**
+
+## Stable و Development Line
+
+- `main` خط Stable Production است؛
+- `dev` خط Development نسخه بعدی است؛
+- npm Stable از dist-tag برابر `latest` استفاده می‌کند؛
+- Build آزمایشی از Tag جدا مثل `alpha` استفاده می‌کند.
+
+اجرای Stable:
+
+```bash
+npx --yes tl-agent
+```
+
+اجرای Prerelease وقتی موجود باشد:
+
+```bash
+npx --yes tl-agent@alpha
+```
+
+پکیج npm فقط Launcher سبک Pin‌شده به GitHub Release متناظر است. OS/Architecture را تشخیص می‌دهد، Archive رسمی را می‌گیرد، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Agent را اجرا می‌کند.
+
+## Portable Release
+
+Archiveهای Portable شامل این‌ها هستند:
+
+- فایل اجرایی TL Agent؛
+- Agent Engine سازگار همراه برنامه؛
+- Licenseهای TL Agent؛
+- Third-party Notice/Licenseهای لازم.
+
+User لازم نیست Agent Engine را جدا نصب یا مدیریت کند.
+
+Stable Promotion فقط بعد از Checkهای خودکار و Validation دستی Release Candidate انجام می‌شود و Development آزمایشی بدون تغییر مسیر `latest` ادامه پیدا می‌کند.
