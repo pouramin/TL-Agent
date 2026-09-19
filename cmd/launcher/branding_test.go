@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTLAgentBrandAssets(t *testing.T) {
+func TestTLStudioBrandAssets(t *testing.T) {
 	mark, err := webFS.ReadFile("web/tl-studio-mark.svg")
 	if err != nil {
 		t.Fatalf("read embedded TL Studio mark: %v", err)

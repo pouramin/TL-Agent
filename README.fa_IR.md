@@ -7,7 +7,7 @@
 <h1 align="center">TL Studio</h1>
 
 <p align="center">
-  یک محیط مستقل و لوکال برای کار با Coding Agent؛ بدون نیاز به IDE.
+  یک محیط توسعه‌ی سریع و لوکال با AI داخلی.
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/pouramin/TL-Studio" alt="License"></a>
 </p>
 
-**TL Studio** یک Workspace اختصاصی در مرورگر برای کار Coding Agentها روی پروژه‌های لوکال است. می‌توانید فولدر پروژه را باز کنید، Agent و Model را انتخاب کنید، فایل ضمیمه کنید، فعالیت Toolها و تغییرات را ببینید، Sessionها را مدیریت کنید و Permissionها را پاسخ بدهید؛ درحالی‌که Workspace روی کامپیوتر خودتان باقی می‌ماند.
+**TL Studio** یک محیط توسعه‌ی لوکال در مرورگر است که هم خودتان می‌توانید داخلش کد را بخوانید و ویرایش کنید و هم در کنار آن از Agent کمک بگیرید. Project را باز کنید، فایل‌ها را مدیریت و ویرایش کنید، در کل کد جست‌وجو کنید، Command اجرا کنید، Preview بگیرید، Model و Provider انتخاب کنید و هرجا خواستید کار را به Agent بسپارید.
 
 برای استفاده‌ی معمول نیازی به VS Code، JetBrains، Cursor، Docker، Backend ابری TL Studio یا Database جداگانه نیست.
 
@@ -60,7 +60,7 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 
 ## قابلیت‌ها
 
-- **Workspace مستقل و لوکال** — رابط اختصاصی Coding Agent در مرورگر، بدون IDE.
+- **محیط توسعه‌ی مستقل و لوکال** — Editor، File Explorer، Search، Terminal، Preview و Agent در یک Workspace مرورگری.
 - **انتخاب مستقیم Project** — بازکردن فولدر با Folder Picker خود سیستم‌عامل.
 - **انتخاب Agent و Model** — تغییر Agent و مدل‌های Providerها از داخل Composer.
 - **Custom Provider** — اتصال Endpointهای سازگار با OpenAI، OpenAI Responses و Anthropic با Credential خود کاربر.

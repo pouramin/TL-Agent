@@ -193,6 +193,6 @@ jobs:
           if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc) ]]; then PRERELEASE="--prerelease"; fi
           gh release create "$RELEASE_TAG" dist/* \
             --target "$GITHUB_SHA" \
-            --title "$RELEASE_TAG" \
+            --title "TL Studio ${RELEASE_TAG}" \
             --generate-notes \
             $PRERELEASE

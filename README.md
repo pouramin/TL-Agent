@@ -7,7 +7,7 @@
 <h1 align="center">TL Studio</h1>
 
 <p align="center">
-  A local, standalone coding-agent workspace — no IDE required.
+  A fast local development workspace with AI built in.
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/github/license/pouramin/TL-Studio" alt="License"></a>
 </p>
 
-**TL Studio** gives coding agents a dedicated browser workspace for local projects. Open a folder, choose an agent and model, attach files, inspect tool activity and changes, manage sessions, answer permission requests, and keep the workspace on your own computer.
+**TL Studio** is a local browser-based development workspace where you can edit code yourself and work alongside an AI agent. Open a project, browse and edit files, search across the codebase, run commands, preview the app, choose models/providers, and hand work to the agent — all on your own computer.
 
 No VS Code, JetBrains, Cursor, Docker, hosted TL Studio backend, database, or project-owned cloud service is required.
 
@@ -60,7 +60,7 @@ The release already includes the pinned local agent runtime.
 
 ## Features
 
-- **Standalone local workspace** — dedicated coding-agent UI in the browser without an IDE.
+- **Standalone local development workspace** — edit files, search the project, run commands, preview the app, and work with an AI agent in one browser workspace.
 - **Local project picker** — open project folders with the operating-system folder picker.
 - **Agent & model selection** — switch agents and available provider models from the composer.
 - **Custom providers** — connect OpenAI-compatible, OpenAI Responses, and Anthropic-compatible endpoints with your own credentials.
