@@ -26,6 +26,13 @@ jobs:
         run: npm run check:web
       - name: Build browser UI
         run: npm run build:web
+      - name: Verify local Monaco bundle
+        run: |
+          test -s cmd/launcher/web/monaco-editor.js
+          test -s cmd/launcher/web/monaco-editor.css
+          test -s cmd/launcher/web/monaco-editor-worker.js
+          test -s cmd/launcher/web/monaco-ts-worker.js
+          ! grep -R -E 'https?://(cdn|unpkg|jsdelivr)' cmd/launcher/ui/monaco.ts scripts/monaco scripts/build-web.mjs
       - name: Test
         run: go test ./...
       - name: Vet

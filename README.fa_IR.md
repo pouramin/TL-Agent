@@ -71,7 +71,7 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 - **مدیریت Session** — ساخت، ادامه، تغییر نام، حذف و جابه‌جایی Sessionها بین Projectهای اخیر.
 - **Project Usage** — نمایش مصرف هر Turn و مجموع Project شامل Token، Request، Time، Reasoning و Cache.
 - **Changes panel** — مشاهده‌ی فایل‌های تغییرکرده، تعداد خطوط اضافه/حذف‌شده و Patch.
-- **Project Workspace داخلی** — File Explorer قابل‌نوشتن، Editor چندتب، Save/Create/Rename/Delete و هماهنگی با تغییرات خارجی فایل.
+- **Project Workspace داخلی** — File Explorer قابل‌نوشتن و Monaco Editor لوکال و Lazy-loaded با ویرایش چندتب، Find/Replace، Multi-cursor، Save/Create/Rename/Delete و هماهنگی با تغییرات خارجی فایل.
 - **Project Search** — جست‌وجوی سریع متن در کل Project با Include/Exclude و بازکردن مستقیم نتیجه در Editor.
 - **Terminal داخلی** — اجرای Command در Scope پروژه، تاریخچه‌ی خروجی، Stop و پایان Process tree.
 - **Live Preview** — Preview لوکال برای Static یا Node dev server در پنجره‌ی قابل‌جابجایی و تغییر اندازه.
@@ -132,7 +132,9 @@ tl-agent/
 ├─ LICENSE
 ├─ THIRD_PARTY_NOTICES.md
 └─ third_party/
-   └─ KILO_LICENSE.txt
+   ├─ KILO_LICENSE.txt
+   ├─ MONACO_LICENSE.txt
+   └─ MONACO_THIRD_PARTY_NOTICES.txt
 ```
 
 ## اجرا از سورس
