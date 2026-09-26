@@ -12,7 +12,7 @@ This file is a durable operating instruction for future TL Studio development se
 ## Branch and release discipline
 
 - `main` is stable production only and is promoted to the stable `v0.3.0` line after Phase 2 validation.
-- `dev` is the next private alpha line; the current feature line targets `0.4.0-alpha.4`.
+- `dev` is the next private alpha line; the current development target is `0.4.0-alpha.5`.
 - Feature/fix branches start from `dev`.
 - Experimental work must not be merged into `main`.
 - Private alpha builds use the GitHub Actions Preview Build artifact flow.
@@ -26,9 +26,21 @@ Current stable baseline after Phase 2 promotion:
 
 Current private development target:
 
-`0.4.0-alpha.4`
+`0.4.0-alpha.5`
 
-The alpha.4 provider-discovery and bundled-plugin foundation is merged into `dev`.
+The alpha.5 TypeSafe Jev milestone is merged into `dev`.
+
+Merged PR:
+
+`#97 — Add TypeSafe Jev support`
+
+Squash merge commit:
+
+`92e7297db240eecf1dc73b061bfea814df6d265b`
+
+The alpha.5 work adds Jev Router through TL Studio's existing generic OpenRouter-compatible provider path and adds a separate, default-off Decision Engine abstraction for direct structured Jev decisions. It does not replace or bypass the Native Agent, Tool Registry, Permission Engine, Tool Executor, provider registry, credential vault, or Kilo compatibility boundaries.
+
+The alpha.4 provider-discovery and bundled-plugin foundation remains merged into `dev`.
 
 Merged PR:
 
@@ -363,6 +375,139 @@ Remaining product validation:
 
 - hands-on Windows validation of Provider discovery, multi-model selection/refresh/manual fallback, bundled-vs-user Plugins grouping, and MCP enable/disable lifecycle
 - do not promote alpha.4 work to stable `main` before those hands-on checks pass
+
+## TypeSafe Jev milestone — alpha.5
+
+The `0.4.0-alpha.5` development line adds TypeSafe Jev in two deliberately separate layers.
+
+### Jev Router
+
+The normal generative integration uses the exact OpenRouter model ID:
+
+```text
+typesafe/jev-router
+```
+
+Implementation behavior:
+
+- reuses the existing generic `openai-compatible` provider path rather than adding a dedicated Agent backend
+- reuses an already configured official OpenRouter provider and its TL Studio-owned credential when present
+- otherwise pre-fills the existing provider form for `https://openrouter.ai/api/v1`
+- discovers Jev Router from the provider's live model catalog
+- stores `kind: "router"` as TL Studio model metadata
+- keeps Router selection in the normal model selector
+- preserves the current native streaming, system-prompt, conversation-history, and tool-definition path
+- reads tool/reasoning support from provider metadata when published and does not infer capability from the model name
+- disables the Jev setup flow's optimistic "assume unknown tools" behavior by default
+- records the provider-returned routed model as semantic model activity when the response actually supplies it
+- never hard-codes the underlying models Jev Router may select
+- never falls back automatically to a paid direct Jev model
+
+As of 2026-09-26, OpenRouter lists Jev Router with zero prompt/completion token pricing. Treat this as mutable upstream metadata, not a permanent product guarantee.
+
+### Optional direct Decision Engine
+
+Direct Jev System One decisions do not use the normal chat-model abstraction. TL Studio now owns a small provider-independent `decisionEngine` interface with a Jev/OpenRouter implementation.
+
+Launcher routes:
+
+```text
+GET  /local/decision-engine
+PUT  /local/decision-engine
+POST /local/decision-engine/evaluate
+```
+
+Current behavior:
+
+- default state is `off`
+- explicit Jev enablement is required
+- enabling reuses an existing official OpenRouter credential; no duplicate API key entry
+- default direct model alias is `~typesafe/jev-latest`
+- `typesafe/jev-1.13` is also accepted as an explicit direct model in the backend config
+- direct calls target OpenRouter's separate `/api/alpha/decisions` endpoint
+- Choice, Score, and Noul answers are normalized with probabilities/confidence/legend/usage when returned
+- validation, credential, auth, rate-limit, timeout, cancellation, network, upstream, and invalid-response failures are typed
+- Decision API credentials are not allowed to cross origin on redirects
+- no automatic model routing, tool routing, permission scoring, Agent continuation, or output-verification hook is enabled yet
+- deterministic TL Studio permission/security rules remain authoritative; Jev is never a security boundary
+
+Selecting Jev Router does not invoke the Decisions API and cannot silently substitute `typesafe/jev-1.13` or `~typesafe/jev-latest`.
+
+### UI
+
+Settings → Providers now contains a compact TypeSafe Jev card with:
+
+```text
+Set up Jev Router
+Decision Engine: Off / Jev via OpenRouter (paid)
+```
+
+No separate large settings section or unfinished feature toggles were added.
+
+### Automated validation
+
+Final feature head before merge:
+
+`d22f648365bfff4f3e042da1e7c261d71c1cdc5e`
+
+Passed:
+
+- CI
+- strict Browser TypeScript check
+- Browser build
+- generated Browser JavaScript cleanliness
+- local Monaco bundle verification
+- Go tests
+- Go vet
+- Browser JavaScript syntax
+- npm quick-launcher verification
+- TL Studio runtime-boundary enforcement
+- Python syntax checks
+- bundled-plugin manifest/staging validation
+- supported-platform cross-compiles
+- real bundled-runtime product contract
+- real bundled-runtime prompt/write-tool E2E
+- Custom Provider Contract
+- npm Package Contract
+
+The final implementation uses mocked/fixture upstream responses and does not require a live OpenRouter key or spend real Jev Decision API credits during automated tests.
+
+### Post-merge Windows Preview Build
+
+Workflow run:
+
+`36253274892`
+
+Result:
+
+`success`
+
+Head:
+
+`92e7297db240eecf1dc73b061bfea814df6d265b`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10910140359`
+
+GitHub artifact ZIP digest:
+
+`sha256:602ab05eb8b01c328bc1ded540ce7e645e9aa442dbbb876ffe7129b8f7f52885`
+
+All Windows Preview workflow stages passed, including Browser build, `go test ./...`, Windows launcher compilation, bundled Kilo staging, bundled-plugin staging, packaging, and artifact upload.
+
+Remaining product validation:
+
+- hands-on Windows test of Jev Router setup against a real user-configured OpenRouter account
+- confirm Jev Router appears in the normal model selector after live discovery
+- confirm normal chat/Agent behavior for the capabilities actually published by OpenRouter
+- confirm provider-returned routed-model metadata is displayed only when OpenRouter supplies it
+- optionally test direct paid Decision Engine manually only if the user explicitly wants to spend OpenRouter credits
+- do not promote alpha.5 work to stable `main` before hands-on validation
 
 ## Next product phase
 
