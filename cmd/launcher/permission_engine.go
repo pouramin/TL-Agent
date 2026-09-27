@@ -480,7 +480,7 @@ func (e *permissionEngine) listPending(ctx context.Context, sessionID string) ([
 	visible := e.nativePendingSnapshot(sessionID)
 	pending, err := e.rawPending(ctx)
 	if err != nil {
-		if len(visible) > 0 {
+		if len(visible) > 0 || errors.Is(err, errRuntimeUnavailable) {
 			return visible, nil
 		}
 		return nil, err

@@ -237,6 +237,10 @@ func decodeSessionCommandJSON(w http.ResponseWriter, r *http.Request, value any)
 }
 
 func writeSessionCommandError(w http.ResponseWriter, err error) {
+	if errors.Is(err, errRuntimeUnavailable) {
+		writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: err.Error()})
+		return
+	}
 	if errors.Is(err, errSessionCommandsUnsupported) {
 		writeJSON(w, http.StatusNotImplemented, jsonError{Error: err.Error()})
 		return

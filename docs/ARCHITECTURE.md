@@ -4,13 +4,15 @@
 
 ### Launcher
 
-A single Go binary using only the Go standard library. It owns the lifecycle of the bundled coding runtime, chooses ephemeral ports, serves embedded static UI assets, exposes project-scoped local workspace APIs, and reverse-proxies the runtime API behind TL Studio's local product boundary.
+A single Go binary using only the Go standard library. It is the mandatory TL Studio process: it chooses ephemeral ports, serves embedded static UI assets, exposes project-scoped local workspace APIs, owns the native Agent/provider/tool/session path, and can optionally start/reverse-proxy a compatibility runtime when one is installed. The launcher can boot and serve the complete native workspace without a compatibility-runtime binary.
 
 The launcher is also the filesystem trust boundary for browser IDE operations. Browser requests never receive arbitrary host filesystem access: file reads and mutations are resolved relative to the selected project, traversal and symlink escapes are rejected, and workspace mutations protect Git metadata.
 
-### Bundled coding runtime
+### Optional compatibility runtime
 
-The current implementation still starts the bundled runtime on loopback with a random per-launch password, but it is a compatibility engine rather than the owner of every Agent run. Supported TL Studio-managed custom providers use the TL Studio-native Agent loop and native Tool Executor. The bundled runtime remains responsible for hosted Kilo execution and compatibility-only capabilities that have not yet moved behind native handlers.
+Kilo Code 7.6.2 is the currently tested compatibility engine. It is no longer required for TL Studio startup. When its binary is available, the launcher starts it on loopback with a random per-launch password and exposes hosted Kilo plus remaining compatibility-only capabilities. When it is absent, fails to start, or the launcher is started with `--native-only`, TL Studio continues in native-only mode.
+
+Supported TL Studio-managed custom providers use the TL Studio-native Agent loop and native Tool Executor in either mode. Current stable/preview packaging may still include the pinned compatibility sidecar while distribution is migrated; packaging presence is not a core-runtime requirement.
 
 The runtime is behind TL Studio's product boundary. The browser never connects to it directly and never receives its server password. The bundled compatibility engine remains a third-party implementation detail; known startup output is relayed through the launcher as `TL Studio runtime listening on ...` rather than exposing the engine brand on the normal user-facing console surface.
 
@@ -84,17 +86,19 @@ Only loopback preview URLs are accepted. File serving remains project-boundary c
 ```text
 Browser TL Studio UI
   │
-  ├── /local/*  ───────────────► launcher project/files/search/process/preview/plugins/tool-registry/permission boundary
+  ├── /local/*  ───────────────► launcher workspace + native Agent/provider/session/tool boundary
   │
-  └── /runtime/*
-          │
-          ▼
-      launcher reverse proxy
-          │  strips /runtime
-          │  injects runtime authentication
-          │  injects selected project directory
-          ▼
-      bundled coding runtime on 127.0.0.1:<backend-port>
+  │                              ├── local health/path/agent bootstrap
+  │
+  │                              ├── native sessions/events/permissions
+  │
+  │                              └── files/search/process/preview/plugins
+  │
+  └── /runtime/* ──────────────► optional compatibility adapters/proxy
+                                      │
+                                      └── Kilo only when available
+
+Native-only mode has no backend runtime port and compatibility proxy requests return 503.
 
 Live Preview iframe
   │
@@ -123,7 +127,7 @@ TL Studio now owns both the Browser-facing **read model** and the Browser-facing
 - `POST /local/sessions/{sessionID}/runs`
 - `POST /local/sessions/{sessionID}/abort`
 
-The generic command contract does not contain engine-specific route names. The active runtime adapter translates these operations to its private implementation API. TL Studio now mirrors semantic session metadata, transcripts, activity/usage history, and changes into its own local persistence. Persisted history remains readable if the runtime loses its copy, and persisted-only sessions remain locally renameable/deletable. Model execution, tool execution, and the Agent loop still remain in the runtime. Live runtime events are consumed by the launcher and projected through TL Studio's semantic SSE boundary described below.
+The generic command contract does not contain engine-specific route names. The active runtime adapter translates these operations to its private implementation API. TL Studio now mirrors semantic session metadata, transcripts, activity/usage history, and changes into its own local persistence. Persisted history remains readable if the runtime loses its copy, and persisted-only sessions remain locally renameable/deletable. For supported TL Studio-managed custom providers, model execution, tool execution, and the Agent loop are TL Studio-native. Compatibility sessions can still be projected from the optional runtime when it is present. In native-only mode, session creation produces TL Studio-owned `tls_*` sessions and create/rename/delete/run/abort continue through local persistence and the native Agent.
 
 A narrow read-only compatibility bridge remains for sessions created during an older TL Studio alpha protocol window. Legacy parsing is isolated to that compatibility path rather than defining the current session contract.
 
@@ -133,7 +137,7 @@ TL Studio owns the Browser-facing live-event contract at:
 
 - `GET /local/events` (SSE)
 
-The launcher maintains the authenticated connection to the bundled runtime's implementation event stream and projects engine-specific events into a small, versioned semantic vocabulary:
+The launcher exposes one semantic event stream in both operating modes. Native Agent/tool/workspace events are published directly on TL Studio's local event bus. When the optional compatibility runtime is available, the launcher additionally maintains its authenticated implementation event stream and projects engine-specific events into the same small, versioned semantic vocabulary:
 
 - `stream.ready`
 - `session.changed`
@@ -145,7 +149,7 @@ Projected events expose only stable product metadata such as `sessionID`, `messa
 
 The event stream is intentionally a responsiveness signal rather than transcript authority. After a semantic event, Browser modules refresh the launcher-owned Session/Permission contracts; persisted semantic session reads remain the reconnect-safe source of truth. Unknown runtime event types are ignored instead of being surfaced as accidental product API.
 
-The runtime remains the source of execution events. TL Studio owns their translation and Browser-facing meaning.
+TL Studio is the source of native execution events. The compatibility runtime is only an additional event source when present; TL Studio owns its translation and all Browser-facing meaning.
 
 
 ## Interactive question ownership

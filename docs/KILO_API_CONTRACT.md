@@ -1,6 +1,6 @@
-# Bundled Runtime Contract — Kilo Code 7.6.2
+# Optional Compatibility Runtime Contract — Kilo Code 7.6.2
 
-This document records the **implementation-specific compatibility contract** for the engine currently bundled with TL Studio.
+This document records the **implementation-specific compatibility contract** for Kilo Code, the engine currently supported as TL Studio's optional compatibility runtime.
 
 It is intentionally not the public browser/product contract.
 
@@ -13,18 +13,18 @@ Current engine:
 - bundled Browser output: `cmd/launcher/web/browser.js`
 - launcher provider/hosted translation: `cmd/launcher/runtime_providers.go`
 
-TL Studio owns the browser-facing runtime namespace, provider/model registry, workspace APIs, release packaging, and product identity. Kilo-specific routes, environment variables, authentication, and provider implementation details stay behind that boundary.
+TL Studio owns native startup, browser bootstrap, provider/model registry, workspace APIs, native sessions/Agent/tools, release packaging, and product identity. Kilo-specific routes, environment variables, authentication, and provider implementation details stay behind an optional boundary. TL Studio must remain usable when that boundary is absent.
 
 ## Product boundary
 
 The browser talks to TL Studio through:
 
-- `/local/*` for TL Studio-owned workspace/files/search/process/preview/plugins/tool-registry/permission-policy capabilities;
-- `/runtime/*` for agent-runtime capabilities.
+- `/local/*` for TL Studio-owned health/path/agent bootstrap, workspace/files/search/process/preview/plugins/tool-registry/permission/session/event capabilities;
+- `/runtime/*` for optional compatibility/provider-adapter capabilities.
 
 The browser must not construct Kilo-specific route prefixes or depend on Kilo-specific authentication details.
 
-For generic runtime product routes, the launcher reverse proxy strips the `/runtime` prefix, injects runtime authentication, and injects the selected project directory before forwarding to the bundled engine.
+For generic compatibility routes, the launcher reverse proxy strips the `/runtime` prefix, injects runtime authentication, and injects the selected project directory before forwarding to Kilo. If no compatibility runtime is available, those generic proxy routes return HTTP 503 instead of preventing TL Studio from starting.
 
 For TL Studio-owned semantic provider routes, the launcher handles translation itself.
 
@@ -40,16 +40,21 @@ The launcher also starts the current engine with its required local server envir
 
 The browser reaches these through the TL Studio `/runtime/*` namespace:
 
-### Health and project routing
+### Health, project routing, and Agents
+
+Kilo compatibility tests still exercise:
 
 - `GET /runtime/global/health`
 - `GET /runtime/path?directory=...`
-
-### Agents
-
 - `GET /runtime/agent?directory=...`
 
-The current engine's product layer exposes the visible `code` agent rather than the lower-level raw `build` agent. CI treats that behavior as part of the pinned-engine compatibility contract.
+Normal Browser bootstrap no longer depends on those routes. It uses TL Studio-owned:
+
+- `GET /local/health`
+- `GET /local/path`
+- `GET /local/agents`
+
+This separation is what allows the Browser workspace to boot in native-only mode.
 
 ### Sessions and messages
 
@@ -176,7 +181,7 @@ The browser uses TL Studio semantic hosted-provider routes:
 - `POST /runtime/hosted/callback`
 - `DELETE /runtime/hosted`
 
-The launcher currently maps those calls to Kilo's hosted-provider/auth implementation.
+The launcher maps those calls to Kilo's hosted-provider/auth implementation only when the compatibility runtime is available. In native-only mode, status returns `available: false`, authorization mutations return HTTP 503, and the hosted Kilo provider/models are omitted from the selectable catalog.
 
 The current bundled engine exposes its hosted provider as `kilo` and currently advertises `kilo-auto/free` as the preferred Auto Free model. These IDs are returned to the browser as runtime metadata rather than hard-coded in browser modules.
 

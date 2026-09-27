@@ -24,7 +24,8 @@ import { K } from "./kernel";
   const THEME_KEY = "tl-studio.appearance";
   const FONT_KEY = "tl-studio.font-size";
   const systemTheme = window.matchMedia?.("(prefers-color-scheme: light)");
-  const hostedConnected = () => K.state.hostedAuth?.authenticated ?? K.state.connectedProviders.has(K.api.hosted.providerID);
+  const hostedAvailable = () => K.state.hostedAuth?.available ?? K.api.hosted.available;
+  const hostedConnected = () => hostedAvailable() && (K.state.hostedAuth?.authenticated ?? K.state.connectedProviders.has(K.api.hosted.providerID));
 
   const readSetting = (key: any, fallback: any) => {
     try { return window.localStorage.getItem(key) || fallback; }
@@ -169,17 +170,24 @@ import { K } from "./kernel";
     if (!button) return originalRenderAccount?.();
     button.textContent = "Account";
     button.classList.toggle("signed-in", connected);
-    button.title = connected ? "Hosted model account connected — open account settings" : "Connect hosted models";
+    button.title = connected
+      ? "Hosted model account connected — open account settings"
+      : hostedAvailable()
+        ? "Connect hosted models"
+        : "Hosted models require the optional compatibility runtime";
   };
 
   const renderAccountDialog = () => {
+    const available = hostedAvailable();
     const connected = hostedConnected();
     if (ui.accountStatus) {
-      ui.accountStatus.textContent = connected
-        ? "Your hosted model account is connected on this computer."
-        : "No hosted model account is connected.";
+      ui.accountStatus.textContent = !available
+        ? "Hosted models are unavailable because the optional compatibility runtime is not installed or running."
+        : connected
+          ? "Your hosted model account is connected on this computer."
+          : "No hosted model account is connected.";
     }
-    ui.accountSignIn?.classList.toggle("hidden", connected);
+    ui.accountSignIn?.classList.toggle("hidden", connected || !available);
     ui.accountSignOut?.classList.toggle("hidden", !connected);
   };
 
@@ -209,7 +217,7 @@ import { K } from "./kernel";
       K.state.authController = null;
 
       await K.api.hosted.disconnect();
-      K.applyHostedAuthStatus?.({ authenticated: false });
+      K.applyHostedAuthStatus?.({ available: true, authenticated: false });
 
       await K.api.runtime.dispose();
       await K.loadCatalog();

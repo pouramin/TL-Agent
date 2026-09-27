@@ -432,6 +432,16 @@ func (a *hybridSessionCommandAdapter) ownsRunPersistence(input sessionRunInput) 
 }
 
 func (a *hybridSessionCommandAdapter) CreateSession(ctx context.Context, backend *runtimeBackend, directory string, input sessionCreateInput) (string, error) {
+	if backend == nil || !backend.available() {
+		if a.native == nil || a.native.store == nil {
+			return "", errSessionCommandsUnsupported
+		}
+		session, err := a.native.store.createNativeSession(directory, input)
+		if err != nil {
+			return "", err
+		}
+		return session.ID, nil
+	}
 	if a.fallback == nil {
 		return "", errSessionCommandsUnsupported
 	}
@@ -440,7 +450,7 @@ func (a *hybridSessionCommandAdapter) CreateSession(ctx context.Context, backend
 
 func (a *hybridSessionCommandAdapter) UpdateSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionUpdateInput) error {
 	if strings.HasPrefix(strings.TrimSpace(sessionID), "tls_") {
-		return errSessionCommandsUnsupported
+		return &sessionRuntimeError{Status: 404}
 	}
 	if a.fallback == nil {
 		return errSessionCommandsUnsupported
@@ -470,6 +480,9 @@ func (a *hybridSessionCommandAdapter) RunSession(ctx context.Context, backend *r
 
 func (a *hybridSessionCommandAdapter) AbortSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionAbortInput) error {
 	if a.native != nil && a.native.Abort(sessionID) {
+		return nil
+	}
+	if strings.HasPrefix(strings.TrimSpace(sessionID), "tls_") {
 		return nil
 	}
 	if a.fallback == nil {

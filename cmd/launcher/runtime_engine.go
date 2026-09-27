@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -12,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 )
+
+var errRuntimeUnavailable = errors.New("optional compatibility runtime is unavailable")
 
 type runtimeCredentials struct {
 	Username string
@@ -34,12 +37,19 @@ type runtimeBackend struct {
 }
 
 func newRuntimeBackend(state *appState, backendURL string, credentials runtimeCredentials, engine runtimeEngine) (*runtimeBackend, error) {
-	target, err := url.Parse(backendURL)
-	if err != nil {
-		return nil, err
-	}
 	if engine == nil {
 		engine = defaultRuntimeEngine()
+	}
+	var target *url.URL
+	if strings.TrimSpace(backendURL) != "" {
+		parsed, err := url.Parse(backendURL)
+		if err != nil {
+			return nil, err
+		}
+		if parsed.Scheme == "" || parsed.Host == "" {
+			return nil, errors.New("runtime backend URL must be an absolute URL")
+		}
+		target = parsed
 	}
 	return &runtimeBackend{
 		state:       state,
@@ -50,6 +60,17 @@ func newRuntimeBackend(state *appState, backendURL string, credentials runtimeCr
 	}, nil
 }
 
+func (b *runtimeBackend) available() bool {
+	return b != nil && b.target != nil
+}
+
+func (b *runtimeBackend) persistenceRuntimeID() string {
+	if b == nil || !b.available() || b.engine == nil {
+		return "native"
+	}
+	return b.engine.ID()
+}
+
 func (b *runtimeBackend) newRequest(
 	ctx context.Context,
 	method string,
@@ -58,6 +79,9 @@ func (b *runtimeBackend) newRequest(
 	query url.Values,
 	body io.Reader,
 ) (*http.Request, error) {
+	if !b.available() {
+		return nil, errRuntimeUnavailable
+	}
 	target := *b.target
 	target.Path = route
 	if query != nil {
@@ -72,7 +96,12 @@ func (b *runtimeBackend) newRequest(
 	return req, nil
 }
 
-func (b *runtimeBackend) reverseProxy() *httputil.ReverseProxy {
+func (b *runtimeBackend) reverseProxy() http.Handler {
+	if !b.available() {
+		return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
+		})
+	}
 	proxy := httputil.NewSingleHostReverseProxy(b.target)
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
