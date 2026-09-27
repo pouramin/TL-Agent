@@ -512,6 +512,7 @@ interface TLStudioKernel {
   __editorEnhancementsInstalled?: boolean;
   __ideFoundationInstalled?: boolean;
   __legacySessionsInstalled?: boolean;
+  __mainWorkspaceInstalled?: boolean;
   __previewFloatingInstalled?: boolean;
   __previewInstalled?: boolean;
   __projectSearchInstalled?: boolean;
