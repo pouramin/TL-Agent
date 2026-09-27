@@ -42,6 +42,34 @@ func TestJevSettingsUseCompactControlAndRefreshAfterProviderChanges(t *testing.T
 }
 
 
+func TestJevSetupIsAutomaticAndDoesNotOpenGenericProviderForm(t *testing.T) {
+	source := readBrowserSource(t, "jev-ui.ts")
+	for _, required := range []string{
+		`K.api.providers.discover`,
+		`K.api.providers.upsert`,
+		`typesafe/jev-router`,
+		`No manual model selection was required.`,
+		`id="jevOpenRouterKeyInput"`,
+		`data-form-type="other"`,
+		`data-lpignore="true"`,
+		`data-1p-ignore`,
+		`-webkit-text-security:disc`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("one-click Jev setup contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`providersUI.openProvider`,
+		`discoverySelection?.discoverModel`,
+		`TypeSafe via OpenRouter`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("Jev setup must not require the generic provider/model UI; found %q", forbidden)
+		}
+	}
+}
+
 func TestProviderAPIKeyFieldAvoidsPasswordManagerSemantics(t *testing.T) {
 	source := readBrowserSource(t, "providers-ui.ts")
 	for _, required := range []string{

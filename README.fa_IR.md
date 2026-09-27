@@ -128,11 +128,11 @@ Manifest مربوط به این Pluginها هم داخل Launcher قرار می�
 ```text
 Settings
 → Providers
-→ TypeSafe Jev
-→ Set up Jev Router
+→ JEV
+→ Configure JEV
 ```
 
-اگر OpenRouter از قبل با Base URL رسمی خودش تنظیم شده باشد، TL Studio همان Provider و همان Credential را دوباره استفاده می‌کند و Provider تکراری نمی‌سازد. در غیر این صورت فرم عمومی Provider برای OpenRouter آماده می‌شود و API Key فقط یک‌بار در Credential Vault فعلی ذخیره می‌شود.
+Setup مربوط به JEV عمداً یک‌کلیکی است. اگر OpenRouter با Base URL رسمی خودش از قبل تنظیم شده باشد، TL Studio همان Provider و همان Credential را دوباره استفاده می‌کند. اگر OpenRouter وجود نداشته باشد، فقط API Key در پنجره‌ی JEV درخواست می‌شود. سپس TL Studio Catalog احراز هویت‌شده‌ی OpenRouter را می‌گیرد، مدل دقیق `typesafe/jev-router` را پیدا می‌کند، آن را به Provider اضافه می‌کند و Save را خودش انجام می‌دهد؛ کاربر وارد Model Picker عمومی نمی‌شود.
 
 مدل generative مورد استفاده:
 
@@ -140,7 +140,7 @@ Settings
 typesafe/jev-router
 ```
 
-این مدل از Catalog زنده‌ی OpenRouter کشف می‌شود، در Provider Registry مثل بقیه‌ی Modelها ذخیره می‌شود و با metadata نوع `router` در Model Selector عادی ظاهر می‌شود. در تاریخ `2026-09-26`، OpenRouter هزینه‌ی Prompt و Completion این Router را صفر اعلام می‌کند؛ TL Studio این وضعیت بیرونی را دائمی فرض نمی‌کند و «همیشه رایگان» را در منطق محصول هاردکد نمی‌کند. مدل‌های زیرین انتخاب‌شده توسط Jev در کد TL Studio هاردکد نمی‌شوند. Streaming، System Prompt، Conversation History و Tool Calling از همان مسیر OpenAI-compatible موجود استفاده می‌کنند. فقط اگر خود Provider مدل Routeشده را در Response برگرداند، TL Studio آن metadata را نمایش می‌دهد.
+این مدل از Catalog احراز هویت‌شده‌ی OpenRouter کشف می‌شود، با metadata نوع `router` در Provider Registry ذخیره می‌شود و در Model Selector عادی ظاهر می‌شود. در تاریخ `2026-09-26`، OpenRouter هزینه‌ی Prompt و Completion این Router را صفر اعلام می‌کند؛ TL Studio این وضعیت بیرونی را دائمی فرض نمی‌کند و «همیشه رایگان» را در منطق محصول هاردکد نمی‌کند. مدل‌های زیرین انتخاب‌شده توسط Jev در کد TL Studio هاردکد نمی‌شوند. برای اتصال رسمی OpenRouter، Jev Router از Responses API روی مسیر Native Agent خود TL Studio اجرا می‌شود تا System Prompt، Conversation History، Streaming و Function Tools حفظ شوند و درخواست به Kilo compatibility runtime نیفتد. اگر خود Provider مدل Routeشده را در Response برگرداند، TL Studio همان metadata را نمایش می‌دهد. پاسخ خالی upstream نیز دیگر بی‌صدا ناپدید نمی‌شود و به‌صورت Agent error قابل‌مشاهده ثبت می‌شود.
 
 Jev Router با Jev Decision Model یکی نیست. Decisionهای مستقیم از Endpoint جداگانه‌ی OpenRouter استفاده می‌کنند و خروجی‌شان typed probability است، نه متن تولیدی. برای همین یک abstraction کوچک و مستقل از Provider با نام Decision Engine اضافه شده است. مقدار پیش‌فرض آن **Off** است. فعال‌کردن گزینه‌ی **Jev via OpenRouter (paid)** فقط با Credential موجود OpenRouter ممکن است و به‌تنهایی هیچ Model Routing، Tool Routing، Permission Scoring، Agent Continuation یا Output Verification خودکاری را فعال نمی‌کند.
 

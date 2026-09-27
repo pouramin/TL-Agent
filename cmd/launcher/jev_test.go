@@ -82,6 +82,81 @@ func TestJevRouterRegistersAndResolvesThroughExistingProviderRegistry(t *testing
 	}
 }
 
+func TestOpenRouterJevRouterUsesResponsesNativePath(t *testing.T) {
+	request := nativeModelRequest{
+		Provider: tlProviderDefinition{
+			ID: "openrouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL,
+		},
+		Model: tlProviderModel{
+			ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router",
+		},
+	}
+	if !useOpenRouterJevResponses(request) {
+		t.Fatal("official OpenRouter Jev Router must use the Responses API native path")
+	}
+
+	request.Provider.BaseURL = "https://proxy.example/v1"
+	if useOpenRouterJevResponses(request) {
+		t.Fatal("generic proxies must keep their configured provider protocol")
+	}
+}
+
+func TestOpenRouterJevRouterResolvesWithoutCatalogToolFlag(t *testing.T) {
+	stateDir := t.TempDir()
+	store := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
+	if err := store.put(tlProviderDefinition{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL,
+		Models: []tlProviderModel{{
+			ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	credentials := newMemoryProviderCredentialStore()
+	if err := credentials.Put("openrouter", "shared-key"); err != nil {
+		t.Fatal(err)
+	}
+	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	_, model, key, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
+	if err != nil {
+		t.Fatalf("Jev Router must stay on TL Studio's native Agent path even when catalog tool metadata is absent: %v", err)
+	}
+	if model.ID != jevRouterModelID || key != "shared-key" {
+		t.Fatalf("unexpected Jev Router resolution: model=%#v key=%q", model, key)
+	}
+}
+
+func TestOpenAIResponsesFinalEventFallbackNormalizesTextAndTool(t *testing.T) {
+	payload := map[string]any{
+		"model": "openai/gpt-6-luna",
+		"output": []any{
+			map[string]any{
+				"type": "function_call",
+				"call_id": "call-final",
+				"name": "tl_files__write",
+				"arguments": "{\"path\":\"fallback.txt\"}",
+			},
+			map[string]any{
+				"type": "message",
+				"content": []any{
+					map[string]any{"type": "output_text", "text": "fallback text"},
+				},
+			},
+		},
+		"usage": map[string]any{"input_tokens": float64(21), "output_tokens": float64(7)},
+	}
+	result := normalizeOpenAIResponsesPayload(payload, []nativeModelToolDefinition{nativeTestToolDefinition()})
+	if result.Text != "fallback text" || result.RoutedModel != "openai/gpt-6-luna" {
+		t.Fatalf("unexpected final Responses payload normalization %#v", result)
+	}
+	if len(result.ToolCalls) != 1 || result.ToolCalls[0].Name != "files.write" {
+		t.Fatalf("final Responses payload tool call was not normalized %#v", result.ToolCalls)
+	}
+	if result.Usage.Input != 21 || result.Usage.Output != 7 {
+		t.Fatalf("unexpected final Responses usage %#v", result.Usage)
+	}
+}
+
 func TestJevRouterNativeRequestUsesExactFreeRouterModel(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -146,7 +146,13 @@ assert.equal(jevTsSource.includes('const selectOpenRouterProvider'), true, "Jev 
 assert.equal(jevTsSource.includes('providers.filter((provider) => isOpenRouter(provider?.baseURL))'), true, "Jev setup must reuse an existing OpenRouter provider rather than duplicate it");
 assert.equal(jevTsSource.includes('providerHasRouter'), true, "Jev setup must recognize an already-saved Jev Router");
 assert.equal(jevTsSource.includes('Jev via OpenRouter (paid)'), true, "direct Jev Decision Engine must be clearly labeled paid");
-assert.equal(jevTsSource.includes('setAssumeUnknownTools?.(false)'), true, "Jev setup must not silently assume unknown tool support");
+assert.equal(jevTsSource.includes('K.api.providers.discover'), true, "Jev setup must discover the exact router automatically");
+assert.equal(jevTsSource.includes('K.api.providers.upsert'), true, "Jev setup must save the discovered router automatically");
+assert.equal(jevTsSource.includes('Jev Router is active. No manual model selection was required.'), true, "Jev setup must complete without manual model selection");
+assert.equal(jevTsSource.includes('providersUI.openProvider'), false, "Jev setup must not fall back to the generic provider editor");
+assert.equal(jevTsSource.includes('discoverySelection?.discoverModel'), false, "Jev setup must not require the generic manual model picker");
+assert.equal(jevTsSource.includes('id="jevOpenRouterKeyInput"'), true, "Jev setup must own a focused OpenRouter API-key input when no credential exists");
+assert.equal(jevTsSource.includes('autocomplete="off"'), true, "Jev API-key input must avoid browser password-manager semantics");
 assert.equal(jevTsSource.includes("typesafe/jev-1.13"), false, "normal Jev Router UI must not silently fall back to a paid direct model");
 assert.equal(jevTsSource.includes("~typesafe/jev-latest"), false, "normal Jev Router UI must not silently invoke the paid latest decision alias");
 
