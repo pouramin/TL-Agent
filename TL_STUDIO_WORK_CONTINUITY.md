@@ -576,6 +576,81 @@ Inner product ZIP SHA256:
 
 Hands-on validation should continue from this preview, not the earlier alpha.5 artifact. Re-test provider persistence/visibility, selected-model filtering, invalid OpenRouter credential handling, both plugin groups, compact Jev setup/status, and the normal Agent/tool/permission path.
 
+## Alpha.5 provider-registry resilience fix
+
+A second hands-on Windows validation pass exposed a deeper ownership bug: TL Studio's product-owned provider registry was still blocked by Kilo/OpenCode compatibility synchronization. A runtime HTTP 400 could therefore make saved providers disappear from Settings, remove Kilo Auto Free from the model selector, make Jev status unreadable, and prevent adding any provider.
+
+Fixed in:
+
+`#101 — Make provider registry resilient to runtime sync failures`
+
+Squash merge commit:
+
+`9e7f8dec23f123e3816c4b52b95f3638fdcaef9f`
+
+Behavior now:
+
+- `providers.json` is authoritative and remains readable/editable even when runtime provider synchronization fails
+- legacy runtime-provider import is best-effort only when no TL Studio registry exists yet
+- runtime/Kilo provider synchronization is compatibility-only and cannot brick TL Studio Provider Settings
+- provider Save persists TL Studio registry + credential vault first; runtime sync errors are logged but do not reject the save
+- provider Delete removes TL Studio registry/vault/cache first; runtime cleanup is best-effort
+- Provider catalog can fall back entirely to TL Studio-owned state if runtime `/provider` fails
+- `kilo-auto/free` remains available as the only normal Kilo hosted model during runtime catalog failure
+- saved custom providers remain in the selector with only their explicitly saved models
+- vault-backed provider credentials remain reflected as connected even if Kilo's runtime auth catalog is unavailable
+- the Provider API-key field no longer uses `type=password` or `autocomplete=new-password`; it remains visually masked but requests no password-manager storage
+- Provider Settings security copy now correctly describes the TL Studio-owned credential vault
+
+Regression coverage deliberately forces HTTP 400 responses for runtime provider sync and catalog reads and proves that provider Settings, Kilo Auto Free, saved custom models, vault credentials, and new Provider saves remain functional.
+
+Validation for PR #101:
+
+- CI: success
+- Custom Provider Contract: success
+- strict Browser TypeScript/build: success
+- Go tests/vet: success
+- runtime product contract: success
+- runtime prompt/write E2E: success
+- supported-platform cross-compiles: success
+
+Post-merge Windows Preview Build:
+
+`36315553592`
+
+Head:
+
+`9e7f8dec23f123e3816c4b52b95f3638fdcaef9f`
+
+Result:
+
+`success`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10929939701`
+
+GitHub artifact digest:
+
+`sha256:4bc335499f90203691d96b4d031c4d91e711cd79f6f46de8b8c3ae38347ff582`
+
+Inner product ZIP SHA256:
+
+`5602bfabeb59ed99bc4ed6e416f25b6da12bbe5963bcf749d82111c3a7594ff1`
+
+Hands-on validation should continue from this Preview. Re-test:
+
+- previously saved Provider cards appear without hardcoding
+- Model Selector contains Backend default plus Kilo Auto Free and only saved custom models
+- API-key field does not trigger Chrome password generation/storage UX
+- OpenRouter can be saved manually
+- Jev setup can reuse/add OpenRouter without runtime 400 blocking it
+- invalid OpenRouter key still fails discovery before model listing
+
 ## Next product phase
 
 Phase 2 is complete according to its ownership criteria.
