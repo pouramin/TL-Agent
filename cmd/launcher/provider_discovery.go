@@ -131,7 +131,7 @@ func (e *providerDiscoveryHTTPError) Error() string {
 	}
 }
 
-func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[string]string) ([]byte, error) {
+func providerDiscoveryGETWithClient(ctx context.Context, client *http.Client, endpoint string, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,10 @@ func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[stri
 			req.Header.Set(key, value)
 		}
 	}
-	response, err := providerDiscoveryHTTPClient().Do(req)
+	if client == nil {
+		client = providerDiscoveryHTTPClient()
+	}
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +162,10 @@ func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[stri
 		return nil, errors.New("provider model catalog response is too large")
 	}
 	return data, nil
+}
+
+func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[string]string) ([]byte, error) {
+	return providerDiscoveryGETWithClient(ctx, providerDiscoveryHTTPClient(), endpoint, headers)
 }
 
 func providerDiscoveryPositiveInt(value any) int {
@@ -438,7 +445,7 @@ func normalizeProviderDiscoveredModels(records []map[string]any) []providerDisco
 	return result
 }
 
-func validateOpenRouterDiscoveryCredential(ctx context.Context, baseURL, apiKey string) error {
+func validateOpenRouterDiscoveryCredentialWithClient(ctx context.Context, baseURL, apiKey string, client *http.Client) error {
 	if !isOpenRouterBaseURL(baseURL) {
 		return nil
 	}
@@ -449,10 +456,14 @@ func validateOpenRouterDiscoveryCredential(ctx context.Context, baseURL, apiKey 
 	if err != nil {
 		return err
 	}
-	_, err = providerDiscoveryGET(ctx, endpoint, map[string]string{
+	_, err = providerDiscoveryGETWithClient(ctx, client, endpoint, map[string]string{
 		"Authorization": "Bearer " + strings.TrimSpace(apiKey),
 	})
 	return err
+}
+
+func validateOpenRouterDiscoveryCredential(ctx context.Context, baseURL, apiKey string) error {
+	return validateOpenRouterDiscoveryCredentialWithClient(ctx, baseURL, apiKey, providerDiscoveryHTTPClient())
 }
 
 func discoverOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string) ([]providerDiscoveredModel, error) {
