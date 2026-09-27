@@ -373,6 +373,64 @@ func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 	}
 }
 
+func TestDisabledJevRouterIsHiddenFromSelectableCatalog(t *testing.T) {
+	project := t.TempDir()
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false}); err != nil {
+		t.Fatal(err)
+	}
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/provider":
+			_, _ = io.WriteString(w, `{"all":[{"id":"kilo","name":"Hosted","models":{"kilo-auto/free":{"name":"Auto Free"}}}],"connected":[],"default":{},"failed":[]}`)
+		default:
+			t.Fatalf("unexpected runtime request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer backend.Close()
+
+	state := &appState{project: project}
+	manager, err := newRuntimeProviderManager(state, backend.URL, "runtime", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.credentials = newMemoryProviderCredentialStore()
+	if err := manager.store.replace([]tlProviderDefinition{{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL, ManagedBy: "jev",
+		Models: []tlProviderModel{{ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false}},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.credentials.Put("openrouter", "stored-key"); err != nil {
+		t.Fatal(err)
+	}
+
+	catalog, err := manager.catalog(context.Background(), project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, provider := range catalog.All {
+		if provider.ID != "openrouter" {
+			continue
+		}
+		model, ok := provider.Models[jevRouterModelID]
+		if !ok {
+			t.Fatalf("configured JEV metadata disappeared from backend catalog: %#v", provider.Models)
+		}
+		if model.Enabled == nil || *model.Enabled {
+			t.Fatalf("disabled JEV must be marked non-selectable in catalog: %#v", model)
+		}
+		found = true
+	}
+	if !found {
+		t.Fatalf("configured JEV provider missing from catalog: %#v", catalog.All)
+	}
+}
+
 func TestProviderRegistryAndCatalogSurviveRuntimeCompatibilityFailure(t *testing.T) {
 	project := t.TempDir()
 	stateDir := t.TempDir()
