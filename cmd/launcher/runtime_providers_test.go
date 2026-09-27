@@ -97,6 +97,101 @@ func TestProviderRegistryPersistsTLStudioSchema(t *testing.T) {
 	}
 }
 
+func TestLegacyJevOnlyProviderMigratesToManagedIntegration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "providers.json")
+	store := newProviderRegistryStore(path)
+	if err := store.put(tlProviderDefinition{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL,
+		Models: []tlProviderModel{{
+			ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false,
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	manager := &runtimeProviderManager{store: store}
+	providers, err := manager.ensureRegistryInitialized(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(providers) != 1 || providers[0].ManagedBy != "jev" {
+		t.Fatalf("legacy Jev-only provider was not migrated to managed integration metadata: %#v", providers)
+	}
+
+	reloaded := newProviderRegistryStore(path)
+	persisted, existed, err := reloaded.snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !existed || len(persisted) != 1 || persisted[0].ManagedBy != "jev" {
+		t.Fatalf("migrated managedBy metadata was not persisted: %#v", persisted)
+	}
+}
+
+func TestNativeProviderSaveSkipsKiloCompatibilitySync(t *testing.T) {
+	project := t.TempDir()
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+
+	var runtimeCalls int
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		runtimeCalls++
+		http.Error(w, "native provider should not touch compatibility runtime", http.StatusBadRequest)
+	}))
+	defer backend.Close()
+
+	state := &appState{project: project}
+	manager, err := newRuntimeProviderManager(state, backend.URL, "runtime", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.credentials = newMemoryProviderCredentialStore()
+	if err := manager.store.replace([]tlProviderDefinition{}); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	registerRuntimeProviderRoutes(mux, manager)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	definition := testProviderDefinition()
+	body, _ := json.Marshal(providerWriteRequest{Provider: definition, APIKey: "native-secret"})
+	req, _ := http.NewRequest(http.MethodPut, server.URL+"/runtime/providers/config/"+definition.ID, strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(res.Body)
+		t.Fatalf("native provider save failed: status=%d body=%s", res.StatusCode, data)
+	}
+	if runtimeCalls != 0 {
+		t.Fatalf("native provider save unexpectedly touched Kilo compatibility runtime %d times", runtimeCalls)
+	}
+	if stored, ok, err := manager.store.get(definition.ID); err != nil || !ok || stored.ID != definition.ID {
+		t.Fatalf("native provider was not persisted: stored=%#v ok=%v err=%v", stored, ok, err)
+	}
+	if key, err := manager.credentials.Get(definition.ID); err != nil || key != "native-secret" {
+		t.Fatalf("native provider credential was not persisted: key=%q err=%v", key, err)
+	}
+}
+
+func TestJevRouterNeverNeedsKiloCompatibilitySync(t *testing.T) {
+	provider := tlProviderDefinition{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL,
+		ManagedBy: "jev",
+		Models: []tlProviderModel{{
+			ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false,
+		}},
+	}
+	if providerNeedsRuntimeCompatibility(provider) {
+		t.Fatal("official OpenRouter Jev Router must stay entirely on TL Studio native execution")
+	}
+}
+
 func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 	project := t.TempDir()
 	stateDir := t.TempDir()
@@ -170,6 +265,7 @@ func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 	}
 
 	definition := testProviderDefinition()
+	definition.Models[0].ToolCall = false // exercise the compatibility-only runtime bridge
 	body, _ := json.Marshal(providerWriteRequest{Provider: definition, APIKey: "top-secret"})
 	req, _ := http.NewRequest(http.MethodPut, server.URL+"/runtime/providers/config/example-provider", strings.NewReader(string(body)))
 	req.Header.Set("Content-Type", "application/json")
