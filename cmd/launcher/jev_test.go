@@ -13,6 +13,12 @@ import (
 	"testing"
 )
 
+type jevRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f jevRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
 func TestJevRouterDiscoveryMetadataUsesProviderCapabilities(t *testing.T) {
 	model, ok := normalizeProviderDiscoveredModel(map[string]any{
 		"id":             jevRouterModelID,
@@ -60,6 +66,10 @@ func TestJevRouterPublishedCapabilitiesCanExplicitlyDisableTools(t *testing.T) {
 }
 
 func TestJevRouterRegistersAndResolvesThroughExistingProviderRegistry(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
 	stateDir := t.TempDir()
 	store := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
 	if err := store.put(tlProviderDefinition{
@@ -94,6 +104,10 @@ func TestJevRouterDoesNotOverrideConfiguredOpenAICompatibleProtocol(t *testing.T
 }
 
 func TestOpenRouterJevRouterResolvesWithoutCatalogToolFlag(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
 	stateDir := t.TempDir()
 	store := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
 	if err := store.put(tlProviderDefinition{
@@ -260,6 +274,195 @@ func TestOpenRouterCredentialReuseForDecisionEngine(t *testing.T) {
 	}
 	if provider.ID != "my-existing-openrouter" || key != "existing-secret" {
 		t.Fatalf("decision engine did not reuse existing OpenRouter configuration: provider=%#v key=%q", provider, key)
+	}
+}
+
+func TestJevRouterDefaultsOffAndPersistsExplicitToggle(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	config, err := loadJevRouterConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Enabled {
+		t.Fatalf("JEV must default off until explicitly activated: %#v", config)
+	}
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := loadJevRouterConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reloaded.Enabled {
+		t.Fatalf("JEV enablement did not persist: %#v", reloaded)
+	}
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false}); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err = loadJevRouterConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Enabled {
+		t.Fatalf("JEV disablement did not persist: %#v", reloaded)
+	}
+}
+
+func TestJevRouterFreeTierIsConfiguredButCannotActivate(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+	store := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
+	if err := store.put(tlProviderDefinition{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL, ManagedBy: "jev",
+		Models: []tlProviderModel{{ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	credentials := newMemoryProviderCredentialStore()
+	if err := credentials.Put("openrouter", "free-key"); err != nil {
+		t.Fatal(err)
+	}
+	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	var calls atomic.Int32
+	service := newJevRouterService(manager)
+	service.client = &http.Client{Transport: jevRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if request.Method != http.MethodGet || request.URL.String() != "https://openrouter.ai/api/v1/key" {
+			t.Fatalf("JEV activation must only inspect OpenRouter key status, got %s %s", request.Method, request.URL)
+		}
+		if request.Header.Get("Authorization") != "Bearer free-key" {
+			t.Fatal("OpenRouter key status did not use the stored credential")
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header: http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{"data":{"is_free_tier":true,"is_management_key":false}}`)),
+			Request: request,
+		}, nil
+	})}
+
+	_, err := service.configure(context.Background(), true)
+	var typed *jevRouterError
+	if !errors.As(err, &typed) || typed.Kind != "free-tier" || typed.Status != http.StatusPaymentRequired {
+		t.Fatalf("expected free-tier Jev block, got %v", err)
+	}
+	config, loadErr := loadJevRouterConfig()
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if config.Enabled || config.Blocked != "free-tier" || !strings.Contains(config.BlockMessage, "$0/token") {
+		t.Fatalf("free-tier block state was not persisted safely: %#v", config)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("JEV activation should perform one non-inference key-status check, got %d", calls.Load())
+	}
+
+	status, err := service.status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Active || status.Available || status.Access != "free-tier" {
+		t.Fatalf("free-tier Jev must remain configured but unavailable: %#v", status)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("disabled blocked JEV status must not poll OpenRouter again, got %d calls", calls.Load())
+	}
+}
+
+func TestJevRouterEligibleAccountCanEnableAndDisableWithoutDeletingConfig(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+	store := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
+	if err := store.put(tlProviderDefinition{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL, ManagedBy: "jev",
+		Models: []tlProviderModel{{ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	credentials := newMemoryProviderCredentialStore()
+	if err := credentials.Put("openrouter", "paid-tier-key"); err != nil {
+		t.Fatal(err)
+	}
+	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	var calls atomic.Int32
+	service := newJevRouterService(manager)
+	service.client = &http.Client{Transport: jevRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header: http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{"data":{"is_free_tier":false,"is_management_key":false,"limit_remaining":5}}`)),
+			Request: request,
+		}, nil
+	})}
+
+	status, err := service.configure(context.Background(), true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Enabled || !status.Active || !status.Available || status.Access != "ready" {
+		t.Fatalf("eligible JEV did not become active: %#v", status)
+	}
+	callsAfterEnable := calls.Load()
+	status, err = service.configure(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Enabled || status.Active || status.Access != "unchecked" {
+		t.Fatalf("disabled JEV status is wrong: %#v", status)
+	}
+	if calls.Load() != callsAfterEnable {
+		t.Fatalf("disabling JEV should not require another OpenRouter network check")
+	}
+	if _, ok, err := manager.store.get("openrouter"); err != nil || !ok {
+		t.Fatalf("disabling JEV must keep provider configuration: ok=%v err=%v", ok, err)
+	}
+	if key, err := credentials.Get("openrouter"); err != nil || key != "paid-tier-key" {
+		t.Fatalf("disabling JEV must keep the OpenRouter credential: key=%q err=%v", key, err)
+	}
+}
+
+func TestJevRouter402DisablesJevWithoutPaidFallback(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	var calls atomic.Int32
+	client := &nativeHTTPModelClient{httpClient: &http.Client{Transport: jevRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if request.URL.Path != "/api/v1/chat/completions" {
+			t.Fatalf("unexpected Jev endpoint %s", request.URL.Path)
+		}
+		return &http.Response{
+			StatusCode: http.StatusPaymentRequired,
+			Header: http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Insufficient credits. This account never purchased credits.","code":402}}`)),
+			Request: request,
+		}, nil
+	})}}
+
+	_, err := client.Complete(context.Background(), nativeModelRequest{
+		Provider: tlProviderDefinition{
+			ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL, ManagedBy: "jev",
+			Models: []tlProviderModel{{ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router"}},
+		},
+		Model: tlProviderModel{ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router"},
+		APIKey: "free-key",
+		Messages: []nativeConversationMessage{{Role: "user", Text: "hello"}},
+	}, nil)
+	if err == nil || !strings.Contains(err.Error(), "did not fall back to a paid Jev model") {
+		t.Fatalf("expected safe Jev 402 error, got %v", err)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("JEV 402 must not trigger any fallback request, got %d calls", calls.Load())
+	}
+	config, loadErr := loadJevRouterConfig()
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if config.Enabled || config.Blocked != "openrouter-credits" {
+		t.Fatalf("JEV 402 did not disable the router: %#v", config)
 	}
 }
 
