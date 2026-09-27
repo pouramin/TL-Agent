@@ -354,7 +354,7 @@ import { K } from "./kernel";
     notice("");
     try {
       const id = clean(value.providerID);
-      const existing = customProviderEntries(providerConfig).find((provider) => provider.id === (editingID || id)) || {};
+      const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === (editingID || id)) || {};
       const provider = buildProviderDefinition(value, existing);
       await K.api.providers.upsert(id, {
         provider,
