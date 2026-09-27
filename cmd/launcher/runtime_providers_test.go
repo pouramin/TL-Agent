@@ -506,7 +506,9 @@ func TestProviderManagerRestoresTLStudioCredentialIntoFreshRuntime(t *testing.T)
 	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
 
 	registry := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
-	if err := registry.put(testProviderDefinition()); err != nil {
+	compatibilityProvider := testProviderDefinition()
+	compatibilityProvider.Models[0].ToolCall = false
+	if err := registry.put(compatibilityProvider); err != nil {
 		t.Fatal(err)
 	}
 	credentials := newMemoryProviderCredentialStore()
