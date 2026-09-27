@@ -91,6 +91,25 @@ func TestManagedJevProviderIsHiddenAndRouterIsTopLevel(t *testing.T) {
 	}
 }
 
+func TestJevCompactSwitchActuallyTogglesPersistedEnablement(t *testing.T) {
+	source := readBrowserSource(t, "jev-ui.ts")
+	for _, required := range []string{
+		`K.api.jevRouter.status()`,
+		`K.api.jevRouter.configure(false)`,
+		`K.api.jevRouter.configure(true)`,
+		`const toggleJev = async () =>`,
+		`compactControl.addEventListener("click", () => { void toggleJev(); })`,
+		`JEV unavailable`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("JEV toggle contract missing %q", required)
+		}
+	}
+	if strings.Contains(source, `compactControl.addEventListener("click", () => { void openDialog(); })`) {
+		t.Fatal("compact JEV control must toggle active state instead of always opening configuration")
+	}
+}
+
 func TestProviderAPIKeyFieldAvoidsPasswordManagerSemantics(t *testing.T) {
 	source := readBrowserSource(t, "providers-ui.ts")
 	for _, required := range []string{
