@@ -263,6 +263,10 @@ interface TLStudioRuntimeContract {
     remove(providerID: string): Promise<any>;
     discover(input?: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
   };
+  jevRouter: {
+    status(): Promise<TLStudioDynamicRecord>;
+    configure(enabled: boolean): Promise<TLStudioDynamicRecord>;
+  };
   decisionEngine: {
     status(): Promise<TLStudioDynamicRecord>;
     configure(engine: "off" | "jev"): Promise<TLStudioDynamicRecord>;

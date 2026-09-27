@@ -106,6 +106,14 @@ import { K } from "./kernel";
       })),
     },
 
+    jevRouter: {
+      status: () => K.request("/local/jev-router"),
+      configure: (enabled: boolean) => K.request("/local/jev-router", {
+        method: "PUT",
+        ...body({ enabled }),
+      }),
+    },
+
     decisionEngine: {
       status: () => K.request("/local/decision-engine"),
       configure: (engine: "off" | "jev") => K.request("/local/decision-engine", {

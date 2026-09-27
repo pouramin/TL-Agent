@@ -158,6 +158,12 @@ assert.equal(jevTsSource.includes('autocomplete="off"'), true, "Jev API-key inpu
 assert.equal(jevTsSource.includes("typesafe/jev-1.13"), false, "normal Jev Router UI must not silently fall back to a paid direct model");
 assert.equal(jevTsSource.includes("~typesafe/jev-latest"), false, "normal Jev Router UI must not silently invoke the paid latest decision alias");
 assert.equal(jevTsSource.includes('managedBy: "jev"'), true, "auto-created JEV provider must be explicitly product-managed");
+assert.equal(jevTsSource.includes('K.api.jevRouter.status()'), true, "JEV settings must read persisted Router enablement instead of inferring active state from provider presence");
+assert.equal(jevTsSource.includes('K.api.jevRouter.configure(false)'), true, "JEV switch must support explicit disablement");
+assert.equal(jevTsSource.includes('K.api.jevRouter.configure(true)'), true, "JEV switch must support explicit enablement");
+assert.equal(jevTsSource.includes('const toggleJev = async () =>'), true, "JEV compact control must have a real toggle handler");
+assert.equal(jevTsSource.includes('compactControl.addEventListener("click", () => { void toggleJev(); })'), true, "JEV compact switch must toggle instead of always opening settings");
+assert.equal(jevTsSource.includes('"JEV unavailable"'), true, "JEV must distinguish configured-but-unavailable accounts from active routing");
 assert.equal(providerTsSource.includes('.filter((provider: any) => !clean(provider?.managedBy))'), true, "product-managed integration providers must be hidden from the generic provider list");
 assert.equal(coreTsSource.includes('const routers = K.state.models.filter((model) => model.kind === "router")'), true, "router models must be separated from provider groups");
 assert.equal(coreTsSource.includes('select.appendChild(option);'), true, "router models must be inserted directly into the selector");

@@ -23,10 +23,69 @@ const (
 	openRouterBaseURL             = "https://openrouter.ai/api/v1"
 	jevDecisionEngineID           = "jev"
 	jevDecisionDefaultModel       = "~typesafe/jev-latest"
+	jevRouterConfigVersion        = 1
+	jevRouterStatusTimeout        = 8 * time.Second
 	decisionEngineConfigVersion   = 1
 	decisionEngineRequestTimeout  = 20 * time.Second
 	decisionEngineMaxResponseSize = 8 << 20
 )
+
+type jevRouterConfig struct {
+	Version      int    `json:"version"`
+	Enabled      bool   `json:"enabled"`
+	Blocked      string `json:"blocked,omitempty"`
+	BlockMessage string `json:"blockMessage,omitempty"`
+}
+
+type jevRouterStatus struct {
+	Configured          bool   `json:"configured"`
+	Enabled             bool   `json:"enabled"`
+	Active              bool   `json:"active"`
+	Available           bool   `json:"available"`
+	CredentialConnected bool   `json:"credentialConnected"`
+	ProviderID          string `json:"providerID,omitempty"`
+	ProviderName        string `json:"providerName,omitempty"`
+	Model               string `json:"model"`
+	Access               string `json:"access"`
+	Message              string `json:"message,omitempty"`
+}
+
+type jevRouterConfigureRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+type jevRouterError struct {
+	Kind   string
+	Status int
+	Err    error
+}
+
+func (e *jevRouterError) Error() string {
+	if e == nil || e.Err == nil {
+		return "Jev Router error"
+	}
+	return e.Err.Error()
+}
+
+func (e *jevRouterError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Err
+}
+
+type openRouterKeyInfo struct {
+	Data struct {
+		IsFreeTier      bool     `json:"is_free_tier"`
+		IsManagementKey bool     `json:"is_management_key"`
+		LimitRemaining  *float64 `json:"limit_remaining"`
+	} `json:"data"`
+}
+
+type jevRouterService struct {
+	providers *runtimeProviderManager
+	client    *http.Client
+}
 
 type decisionQuestion struct {
 	Type         string `json:"type"`
@@ -314,6 +373,330 @@ func (m *runtimeProviderManager) findOpenRouterProvider() (tlProviderDefinition,
 		Kind: "credential", Status: http.StatusUnauthorized,
 		Err: fmt.Errorf("OpenRouter provider %q has no TL Studio-owned API key", candidates[0].ID),
 	}
+}
+
+var jevRouterConfigMu sync.Mutex
+
+func jevRouterConfigPath() string {
+	return filepath.Join(tlStudioStateDirectory(), "jev-router.json")
+}
+
+func defaultJevRouterConfig() jevRouterConfig {
+	// Explicit activation is required. Older alpha builds inferred "active"
+	// from provider presence, which made the switch impossible to turn off.
+	return jevRouterConfig{Version: jevRouterConfigVersion, Enabled: false}
+}
+
+func loadJevRouterConfig() (jevRouterConfig, error) {
+	jevRouterConfigMu.Lock()
+	defer jevRouterConfigMu.Unlock()
+	data, err := os.ReadFile(jevRouterConfigPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return defaultJevRouterConfig(), nil
+	}
+	if err != nil {
+		return jevRouterConfig{}, err
+	}
+	var config jevRouterConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return jevRouterConfig{}, fmt.Errorf("decode Jev Router config: %w", err)
+	}
+	if config.Version != 0 && config.Version != jevRouterConfigVersion {
+		return jevRouterConfig{}, fmt.Errorf("unsupported Jev Router config version %d", config.Version)
+	}
+	config.Version = jevRouterConfigVersion
+	return config, nil
+}
+
+func saveJevRouterConfig(input jevRouterConfig) (jevRouterConfig, error) {
+	input.Version = jevRouterConfigVersion
+	jevRouterConfigMu.Lock()
+	defer jevRouterConfigMu.Unlock()
+	path := jevRouterConfigPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return jevRouterConfig{}, err
+	}
+	data, err := json.MarshalIndent(input, "", "  ")
+	if err != nil {
+		return jevRouterConfig{}, err
+	}
+	temp, err := os.CreateTemp(filepath.Dir(path), "jev-router-*.tmp")
+	if err != nil {
+		return jevRouterConfig{}, err
+	}
+	name := temp.Name()
+	defer os.Remove(name)
+	if err := temp.Chmod(0o600); err != nil {
+		_ = temp.Close()
+		return jevRouterConfig{}, err
+	}
+	if _, err := temp.Write(data); err != nil {
+		_ = temp.Close()
+		return jevRouterConfig{}, err
+	}
+	if err := temp.Close(); err != nil {
+		return jevRouterConfig{}, err
+	}
+	if err := os.Rename(name, path); err != nil {
+		if writeErr := os.WriteFile(path, data, 0o600); writeErr != nil {
+			return jevRouterConfig{}, err
+		}
+	}
+	return input, nil
+}
+
+func providerHasJevRouter(provider tlProviderDefinition) bool {
+	if !isOpenRouterBaseURL(provider.BaseURL) {
+		return false
+	}
+	for _, model := range provider.Models {
+		if model.ID == jevRouterModelID && model.Kind == "router" {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *runtimeProviderManager) findJevRouterProvider() (tlProviderDefinition, string, error) {
+	providers, _, err := m.store.snapshot()
+	if err != nil {
+		return tlProviderDefinition{}, "", err
+	}
+	candidates := make([]tlProviderDefinition, 0)
+	for _, provider := range providers {
+		if providerHasJevRouter(provider) {
+			candidates = append(candidates, provider)
+		}
+	}
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].ManagedBy == "jev" && candidates[j].ManagedBy != "jev" {
+			return true
+		}
+		if candidates[j].ManagedBy == "jev" && candidates[i].ManagedBy != "jev" {
+			return false
+		}
+		if candidates[i].ID == "openrouter" {
+			return true
+		}
+		if candidates[j].ID == "openrouter" {
+			return false
+		}
+		return candidates[i].ID < candidates[j].ID
+	})
+	if len(candidates) == 0 {
+		return tlProviderDefinition{}, "", &jevRouterError{
+			Kind: "not_configured", Status: http.StatusConflict,
+			Err: errors.New("Jev Router is not configured"),
+		}
+	}
+	if m.credentials == nil {
+		return tlProviderDefinition{}, "", &jevRouterError{
+			Kind: "credential", Status: http.StatusUnauthorized,
+			Err: errors.New("TL Studio credential store is unavailable"),
+		}
+	}
+	for _, provider := range candidates {
+		key, getErr := m.credentials.Get(provider.ID)
+		if getErr == nil && strings.TrimSpace(key) != "" {
+			return provider, strings.TrimSpace(key), nil
+		}
+		if getErr != nil && !errors.Is(getErr, errCredentialNotFound) {
+			return tlProviderDefinition{}, "", getErr
+		}
+	}
+	return candidates[0], "", &jevRouterError{
+		Kind: "credential", Status: http.StatusUnauthorized,
+		Err: fmt.Errorf("OpenRouter provider %q has no TL Studio-owned API key", candidates[0].ID),
+	}
+}
+
+func newJevRouterService(providers *runtimeProviderManager) *jevRouterService {
+	return &jevRouterService{
+		providers: providers,
+		client: &http.Client{Timeout: jevRouterStatusTimeout},
+	}
+}
+
+func (s *jevRouterService) openRouterKeyInfo(ctx context.Context, provider tlProviderDefinition, key string) (openRouterKeyInfo, error) {
+	endpoint, err := nativeEndpoint(provider.BaseURL, "key")
+	if err != nil {
+		return openRouterKeyInfo{}, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return openRouterKeyInfo{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	req.Header.Set("Accept", "application/json")
+	response, err := s.client.Do(req)
+	if err != nil {
+		return openRouterKeyInfo{}, err
+	}
+	defer response.Body.Close()
+	body, readErr := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if readErr != nil {
+		return openRouterKeyInfo{}, readErr
+	}
+	if response.StatusCode == http.StatusUnauthorized || response.StatusCode == http.StatusForbidden {
+		return openRouterKeyInfo{}, &jevRouterError{
+			Kind: "credential", Status: http.StatusUnauthorized,
+			Err: errors.New("OpenRouter rejected this API key"),
+		}
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return openRouterKeyInfo{}, fmt.Errorf("OpenRouter key status returned %d", response.StatusCode)
+	}
+	var info openRouterKeyInfo
+	if err := json.Unmarshal(body, &info); err != nil {
+		return openRouterKeyInfo{}, fmt.Errorf("decode OpenRouter key status: %w", err)
+	}
+	return info, nil
+}
+
+func jevRouterAccountAccess(info openRouterKeyInfo) (bool, string, string) {
+	if info.Data.IsManagementKey {
+		return false, "management-key", "This OpenRouter key is a management key and cannot call model endpoints."
+	}
+	if info.Data.IsFreeTier {
+		return false, "free-tier", "Jev Router is priced at $0/token, but OpenRouter currently excludes auto-routing from its Free plan. This key is still on the OpenRouter Free tier."
+	}
+	if info.Data.LimitRemaining != nil && *info.Data.LimitRemaining <= 0 {
+		return false, "key-limit", "This OpenRouter API key has no remaining key-level credit allowance."
+	}
+	return true, "ready", "OpenRouter account access is eligible for Jev Router."
+}
+
+func (s *jevRouterService) status(ctx context.Context) (jevRouterStatus, error) {
+	config, err := loadJevRouterConfig()
+	if err != nil {
+		return jevRouterStatus{}, err
+	}
+	status := jevRouterStatus{
+		Enabled: config.Enabled,
+		Model:   jevRouterModelID,
+		Access:  "not-configured",
+	}
+	if s.providers == nil {
+		return status, nil
+	}
+	provider, key, providerErr := s.providers.findJevRouterProvider()
+	if providerErr != nil {
+		var typed *jevRouterError
+		if errors.As(providerErr, &typed) && (typed.Kind == "not_configured" || typed.Kind == "credential") {
+			if typed.Kind == "credential" {
+				status.Configured = true
+				status.ProviderID = provider.ID
+				status.ProviderName = provider.Name
+				status.Access = "credential-missing"
+				status.Message = typed.Error()
+			}
+			return status, nil
+		}
+		return jevRouterStatus{}, providerErr
+	}
+	status.Configured = true
+	status.CredentialConnected = strings.TrimSpace(key) != ""
+	status.ProviderID = provider.ID
+	status.ProviderName = provider.Name
+	if !status.CredentialConnected {
+		status.Access = "credential-missing"
+		status.Message = "Jev Router is configured, but its OpenRouter credential is missing."
+		return status, nil
+	}
+	if !config.Enabled {
+		if strings.TrimSpace(config.Blocked) != "" {
+			status.Access = config.Blocked
+			status.Message = config.BlockMessage
+			status.Available = false
+		} else {
+			status.Access = "unchecked"
+			status.Available = true
+			status.Message = "Jev Router is configured and off. Enable it to verify current OpenRouter router access."
+		}
+		return status, nil
+	}
+
+	info, infoErr := s.openRouterKeyInfo(ctx, provider, key)
+	if infoErr != nil {
+		status.Access = "unknown"
+		status.Message = "Jev Router is configured, but TL Studio could not verify the OpenRouter account tier."
+		return status, nil
+	}
+	status.Available, status.Access, status.Message = jevRouterAccountAccess(info)
+	status.Active = status.Enabled && status.Available
+	return status, nil
+}
+
+func (s *jevRouterService) configure(ctx context.Context, enabled bool) (jevRouterStatus, error) {
+	if !enabled {
+		if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false, Blocked: "", BlockMessage: ""}); err != nil {
+			return jevRouterStatus{}, err
+		}
+		return s.status(ctx)
+	}
+	if s.providers == nil {
+		return jevRouterStatus{}, &jevRouterError{Kind: "provider", Status: http.StatusServiceUnavailable, Err: errors.New("provider manager is unavailable")}
+	}
+	provider, key, err := s.providers.findJevRouterProvider()
+	if err != nil {
+		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false})
+		return jevRouterStatus{}, err
+	}
+	info, err := s.openRouterKeyInfo(ctx, provider, key)
+	if err != nil {
+		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false})
+		return jevRouterStatus{}, err
+	}
+	available, access, message := jevRouterAccountAccess(info)
+	if !available {
+		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false, Blocked: access, BlockMessage: message})
+		statusCode := http.StatusConflict
+		if access == "free-tier" || access == "key-limit" {
+			statusCode = http.StatusPaymentRequired
+		}
+		return jevRouterStatus{}, &jevRouterError{Kind: access, Status: statusCode, Err: errors.New(message)}
+	}
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true, Blocked: "", BlockMessage: ""}); err != nil {
+		return jevRouterStatus{}, err
+	}
+	return s.status(ctx)
+}
+
+func writeJevRouterError(w http.ResponseWriter, err error) {
+	var typed *jevRouterError
+	if errors.As(err, &typed) {
+		status := typed.Status
+		if status == 0 {
+			status = http.StatusBadGateway
+		}
+		writeJSON(w, status, map[string]any{"error": typed.Error(), "kind": typed.Kind})
+		return
+	}
+	writeJSON(w, http.StatusInternalServerError, jsonError{Error: err.Error()})
+}
+
+func registerJevRouterRoutes(mux *http.ServeMux, service *jevRouterService) {
+	mux.HandleFunc("GET /local/jev-router", func(w http.ResponseWriter, r *http.Request) {
+		status, err := service.status(r.Context())
+		if err != nil {
+			writeJevRouterError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, status)
+	})
+	mux.HandleFunc("PUT /local/jev-router", func(w http.ResponseWriter, r *http.Request) {
+		var input jevRouterConfigureRequest
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&input); err != nil {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid Jev Router JSON body"})
+			return
+		}
+		status, err := service.configure(r.Context(), input.Enabled)
+		if err != nil {
+			writeJevRouterError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, status)
+	})
 }
 
 var decisionEngineConfigMu sync.Mutex

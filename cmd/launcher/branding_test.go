@@ -42,3 +42,18 @@ func TestTLStudioBrandAssets(t *testing.T) {
 		}
 	}
 }
+
+
+func TestBundledRuntimeStartupLineUsesTLStudioBrand(t *testing.T) {
+	got := brandRuntimeConsoleLine("kilo server listening on http://127.0.0.1:8722")
+	if got != "TL Studio runtime listening on http://127.0.0.1:8722" {
+		t.Fatalf("unexpected branded runtime line %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "kilo") {
+		t.Fatalf("user-facing runtime startup line leaked engine brand: %q", got)
+	}
+	other := "runtime warning: something happened"
+	if brandRuntimeConsoleLine(other) != other {
+		t.Fatal("unrelated runtime diagnostics must be preserved")
+	}
+}

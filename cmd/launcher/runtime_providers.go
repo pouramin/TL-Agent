@@ -936,6 +936,10 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 	for _, provider := range managedDefinitions {
 		managed[provider.ID] = true
 	}
+	jevConfig, jevConfigErr := loadJevRouterConfig()
+	if jevConfigErr != nil {
+		return providerCatalogResponse{}, jevConfigErr
+	}
 
 	var upstream struct {
 		All       []json.RawMessage `json:"all"`
@@ -977,7 +981,15 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 	result.All = append(result.All, hostedCatalogProvider(hosted, result.Hosted.PreferredModels))
 	for _, definition := range managedDefinitions {
 		upstreamProvider, ok := upstreamByID[definition.ID]
-		result.All = append(result.All, managedCatalogProvider(definition, upstreamProvider, ok))
+		catalogProvider := managedCatalogProvider(definition, upstreamProvider, ok)
+		if !jevConfig.Enabled {
+			if model, exists := catalogProvider.Models[jevRouterModelID]; exists && providerHasJevRouter(definition) {
+				disabled := false
+				model.Enabled = &disabled
+				catalogProvider.Models[jevRouterModelID] = model
+			}
+		}
+		result.All = append(result.All, catalogProvider)
 		if m.credentials != nil {
 			if key, credentialErr := m.credentials.Get(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
 				result.Connected = appendUniqueString(result.Connected, definition.ID)

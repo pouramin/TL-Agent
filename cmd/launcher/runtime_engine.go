@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"io"
 	"net/http"
@@ -93,6 +94,24 @@ func (b *runtimeBackend) reverseProxy() *httputil.ReverseProxy {
 	return proxy
 }
 
+func brandRuntimeConsoleLine(line string) string {
+	const upstreamStartup = "kilo server listening on "
+	lower := strings.ToLower(line)
+	if index := strings.Index(lower, upstreamStartup); index >= 0 {
+		return line[:index] + "TL Studio runtime listening on " + line[index+len(upstreamStartup):]
+	}
+	return line
+}
+
+func relayRuntimeOutput(reader io.ReadCloser, writer io.Writer) {
+	defer reader.Close()
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 16*1024), 1<<20)
+	for scanner.Scan() {
+		_, _ = io.WriteString(writer, brandRuntimeConsoleLine(scanner.Text())+"\n")
+	}
+}
+
 func startRuntime(
 	ctx context.Context,
 	engine runtimeEngine,
@@ -101,13 +120,21 @@ func startRuntime(
 	credentials runtimeCredentials,
 ) (*exec.Cmd, error) {
 	cmd := engine.Command(ctx, binary, port, credentials)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
 	if runtime.GOOS == "windows" {
 		cmd.SysProcAttr = windowsHideProcess()
 	}
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
+	go relayRuntimeOutput(stdout, os.Stdout)
+	go relayRuntimeOutput(stderr, os.Stderr)
 	return cmd, nil
 }
