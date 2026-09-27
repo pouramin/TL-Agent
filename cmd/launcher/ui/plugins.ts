@@ -180,8 +180,13 @@ import { K } from "./kernel";
     return card;
   };
 
-  const appendSection = (titleText: string, subtitleText: string, plugins: TLStudioPluginView[]) => {
-    if (!plugins.length) return;
+  const appendSection = (
+    titleText: string,
+    subtitleText: string,
+    plugins: TLStudioPluginView[],
+    emptyTitle: string,
+    emptyText: string,
+  ) => {
     const section = document.createElement("section");
     section.className = "plugin-section";
     const head = document.createElement("div");
@@ -192,24 +197,39 @@ import { K } from "./kernel";
     subtitle.textContent = subtitleText;
     head.append(title, subtitle);
     section.appendChild(head);
-    for (const plugin of plugins) section.appendChild(renderCard(plugin));
+    if (plugins.length) {
+      for (const plugin of plugins) section.appendChild(renderCard(plugin));
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "plugin-empty";
+      const strong = document.createElement("strong");
+      strong.textContent = emptyTitle;
+      const span = document.createElement("span");
+      span.textContent = emptyText;
+      empty.append(strong, span);
+      section.appendChild(empty);
+    }
     list.appendChild(section);
   };
 
   const render = () => {
     list.textContent = "";
-    if (!K.state.plugins.length) {
-      const empty = document.createElement("div");
-      empty.className = "plugin-empty";
-      empty.innerHTML = "<strong>No plugins configured</strong><span>Add any stdio MCP server. Bundled plugins will also appear here when included in a TL Studio release.</span>";
-      list.appendChild(empty);
-      return;
-    }
-
     const bundled = K.state.plugins.filter((plugin) => plugin.origin === "bundled");
     const userAdded = K.state.plugins.filter((plugin) => plugin.origin !== "bundled");
-    appendSection("Included with TL Studio", "Version-pinned plugins shipped inside this TL Studio package.", bundled);
-    appendSection("Added by you", "External MCP servers configured by you for this project or globally.", userAdded);
+    appendSection(
+      "Included with TL Studio",
+      "Version-pinned plugins shipped inside this TL Studio package.",
+      bundled,
+      "No bundled plugins in this build",
+      "The bundled-plugin foundation is available, but this preview does not ship a third-party plugin yet.",
+    );
+    appendSection(
+      "Added by you",
+      "External MCP servers configured by you for this project or globally.",
+      userAdded,
+      "No plugins added yet",
+      "Add any compatible stdio MCP server with the button above.",
+    );
   };
 
   const load = async () => {
