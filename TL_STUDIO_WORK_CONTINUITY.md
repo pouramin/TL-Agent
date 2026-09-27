@@ -509,6 +509,73 @@ Remaining product validation:
 - optionally test direct paid Decision Engine manually only if the user explicitly wants to spend OpenRouter credits
 - do not promote alpha.5 work to stable `main` before hands-on validation
 
+## Alpha.5 hands-on fixes after Windows validation
+
+Hands-on Windows testing exposed several product-surface bugs in the first alpha.5 preview. They were fixed in:
+
+`#99 — Fix provider catalog leakage and compact Jev settings`
+
+Squash merge commit:
+
+`212ce1a68b8de3f291264b55e564a84be3411dd2`
+
+Fixes now merged into `dev`:
+
+- runtime-only provider catalogs no longer appear as if the user configured them in TL Studio
+- the normal model selector now contains only:
+  - Kilo's preferred hosted free route (`kilo-auto/free`)
+  - TL Studio-managed providers saved in `providers.json`
+- a managed provider contributes only the exact models the user selected/saved; unselected runtime catalog models are excluded
+- OpenRouter model discovery now validates the supplied bearer key through the official `GET /api/v1/key` endpoint before accepting the model catalog
+- an invalid OpenRouter key fails before `/models`; public catalog behavior can no longer make a bad key look valid
+- `Settings → Plugins` always renders both `Included with TL Studio` and `Added by you`, with explicit empty states when a group has no entries
+- the large permanent Jev card was replaced with a compact JEV status/control row
+- clicking the compact JEV control opens a focused Jev configuration dialog
+- Jev status refreshes after Provider Save/Delete and recognizes an already-saved `typesafe/jev-router`
+- no paid Kilo hosted models are intentionally exposed in the normal selector
+
+Validation for PR #99:
+
+- CI: success
+- Custom Provider Contract: success
+- TypeScript: success
+- Browser build: success
+- Go tests: success
+- Go vet: success
+- runtime product contract: success
+- runtime prompt/write E2E: success
+- supported-platform cross-compiles: success
+
+Post-merge Windows Preview Build:
+
+`36314019242`
+
+Head:
+
+`212ce1a68b8de3f291264b55e564a84be3411dd2`
+
+Result:
+
+`success`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10929718502`
+
+GitHub artifact digest:
+
+`sha256:8251aa431bb1f588efa9a77135849a2f365fc969320f654a141aa2febd921613`
+
+Inner product ZIP SHA256:
+
+`86a98d4a9ef970fb434b59433d1baacbb6d69d72130ff0955ffbcb0229a9bbaa`
+
+Hands-on validation should continue from this preview, not the earlier alpha.5 artifact. Re-test provider persistence/visibility, selected-model filtering, invalid OpenRouter credential handling, both plugin groups, compact Jev setup/status, and the normal Agent/tool/permission path.
+
 ## Next product phase
 
 Phase 2 is complete according to its ownership criteria.
