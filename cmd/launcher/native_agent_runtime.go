@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	nativeAgentMaxIterations     = 24
-	nativeAgentMaxToolRounds     = 16
-	nativeAgentMaxToolsPerRound  = 16
-	nativeAgentMaxRepeatedCalls  = 4
+	nativeAgentMaxIterations      = 24
+	nativeAgentMaxToolRounds      = 16
+	nativeAgentMaxToolsPerRound   = 16
+	nativeAgentMaxRepeatedCalls   = 4
+	nativeAgentModelTurnTimeout   = 2 * time.Minute
 )
 
 type nativeModelResolver interface {
@@ -239,7 +240,8 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		response, err := r.model.Complete(ctx, nativeModelRequest{
+		modelCtx, cancelModel := context.WithTimeout(ctx, nativeAgentModelTurnTimeout)
+		response, err := r.model.Complete(modelCtx, nativeModelRequest{
 			System:   nativeAgentSystemPrompt(),
 			Provider: provider,
 			Model:    model,
@@ -255,7 +257,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				})
 			}
 		})
+		cancelModel()
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				return fmt.Errorf("model request timed out after %s", nativeAgentModelTurnTimeout)
+			}
 			return err
 		}
 		if len(response.ToolCalls) == 0 {
