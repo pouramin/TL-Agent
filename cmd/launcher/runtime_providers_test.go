@@ -141,7 +141,7 @@ func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 			disposeCalls++
 			_, _ = io.WriteString(w, `{"ok":true}`)
 		case r.Method == http.MethodGet && r.URL.Path == "/provider":
-			_, _ = io.WriteString(w, `{"all":[{"id":"kilo","name":"Hosted","models":{"kilo-auto/free":{"name":"Auto Free"}}},{"id":"example-provider","name":"Example Provider","models":{"example-model":{"name":"Example Model"}}}],"connected":["kilo","example-provider"],"default":{"kilo":"kilo-auto/free"},"failed":[]}`)
+			_, _ = io.WriteString(w, `{"all":[{"id":"kilo","name":"Hosted","models":{"kilo-auto/free":{"name":"Auto Free"},"kilo-paid/model":{"name":"Paid Kilo Model"}}},{"id":"openrouter","name":"OpenRouter Runtime Catalog","models":{"openai/gpt-paid":{"name":"Runtime Only Paid Model"}}},{"id":"example-provider","name":"Example Provider","models":{"example-model":{"name":"Example Model"},"unselected-model":{"name":"Unselected Runtime Model"}}}],"connected":["kilo","openrouter","example-provider"],"default":{"kilo":"kilo-auto/free"},"failed":[]}`)
 		default:
 			t.Fatalf("unexpected runtime request: %s %s", r.Method, r.URL.String())
 		}
@@ -229,6 +229,35 @@ func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 	}
 	if !foundCustom {
 		t.Fatalf("custom provider was not marked as TL Studio-managed: %#v", catalog.All)
+	}
+	if len(catalog.All) != 2 {
+		t.Fatalf("runtime-only providers must not leak into the TL Studio selector catalog: %#v", catalog.All)
+	}
+	for _, provider := range catalog.All {
+		switch provider.ID {
+		case "kilo":
+			if len(provider.Models) != 1 {
+				t.Fatalf("hosted Kilo must expose only preferred free models: %#v", provider.Models)
+			}
+			if _, ok := provider.Models["kilo-auto/free"]; !ok {
+				t.Fatalf("Kilo Auto Free missing from hosted catalog: %#v", provider.Models)
+			}
+			if _, ok := provider.Models["kilo-paid/model"]; ok {
+				t.Fatalf("paid Kilo model leaked into normal selector: %#v", provider.Models)
+			}
+		case "example-provider":
+			if len(provider.Models) != 1 {
+				t.Fatalf("managed provider must expose only user-selected models: %#v", provider.Models)
+			}
+			if _, ok := provider.Models["example-model"]; !ok {
+				t.Fatalf("selected custom model missing: %#v", provider.Models)
+			}
+			if _, ok := provider.Models["unselected-model"]; ok {
+				t.Fatalf("unselected runtime model leaked into managed provider: %#v", provider.Models)
+			}
+		default:
+			t.Fatalf("unexpected runtime-only provider leaked into selector catalog: %#v", provider)
+		}
 	}
 
 	deleteReq, _ := http.NewRequest(http.MethodDelete, server.URL+"/runtime/providers/config/example-provider", nil)
