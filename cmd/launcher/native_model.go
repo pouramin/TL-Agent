@@ -96,6 +96,15 @@ func (m *runtimeProviderManager) resolveNativeModel(providerID, modelID string) 
 	if !providerModelUsesNativeAgent(provider, model) {
 		return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("model %q does not advertise tool calling", modelID)
 	}
+	if model.ID == jevRouterModelID && providerHasJevRouter(provider) {
+		jevConfig, configErr := loadJevRouterConfig()
+		if configErr != nil {
+			return tlProviderDefinition{}, tlProviderModel{}, "", configErr
+		}
+		if !jevConfig.Enabled {
+			return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("JEV is disabled; enable it in Settings → Providers before using Jev Router")
+		}
+	}
 	if m.credentials == nil {
 		return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("TL Studio credential store is unavailable")
 	}
