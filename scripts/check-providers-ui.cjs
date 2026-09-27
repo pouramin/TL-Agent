@@ -9,6 +9,7 @@ const productSource = readBrowserTypeScript("product-ui.ts");
 const providerTsSource = readBrowserTypeScript("providers-ui.ts");
 const discoveryTsSource = readBrowserTypeScript("provider-discovery-ui.ts");
 const jevTsSource = readBrowserTypeScript("jev-ui.ts");
+const coreTsSource = readBrowserTypeScript("core.ts");
 
 const K = { __providersUiInstalled: false };
 const context = vm.createContext({
@@ -116,10 +117,11 @@ assert.equal(routerDefinition.models[0].kind, "router", "router metadata must pe
 const entries = hooks.customProviderEntries({
   providers: [
     definition,
+    { id: "openrouter", name: "OpenRouter", managedBy: "jev", protocol: "openai-compatible", baseURL: "https://openrouter.ai/api/v1", models: [{ id: "typesafe/jev-router", kind: "router" }] },
     { id: "z-provider", name: "Zed", protocol: "openai-compatible", baseURL: "https://z.example/v1", models: [] },
   ],
 });
-assert.deepEqual(Array.from(entries, (entry) => entry.id), ["example-provider", "z-provider"]);
+assert.deepEqual(Array.from(entries, (entry) => entry.id), ["example-provider", "z-provider"], "product-managed JEV provider must stay out of the generic provider list");
 
 const removed = hooks.withoutProvider({ providers: [definition, { id: "keep-me", name: "Keep", models: [] }] }, "example-provider");
 assert.deepEqual(Array.from(removed.providers, (provider) => provider.id), ["keep-me"], "successful delete must remove the provider from visible TL Studio state immediately");
@@ -155,5 +157,10 @@ assert.equal(jevTsSource.includes('id="jevOpenRouterKeyInput"'), true, "Jev setu
 assert.equal(jevTsSource.includes('autocomplete="off"'), true, "Jev API-key input must avoid browser password-manager semantics");
 assert.equal(jevTsSource.includes("typesafe/jev-1.13"), false, "normal Jev Router UI must not silently fall back to a paid direct model");
 assert.equal(jevTsSource.includes("~typesafe/jev-latest"), false, "normal Jev Router UI must not silently invoke the paid latest decision alias");
+assert.equal(jevTsSource.includes('managedBy: "jev"'), true, "auto-created JEV provider must be explicitly product-managed");
+assert.equal(providerTsSource.includes('.filter((provider: any) => !clean(provider?.managedBy))'), true, "product-managed integration providers must be hidden from the generic provider list");
+assert.equal(coreTsSource.includes('const routers = K.state.models.filter((model) => model.kind === "router")'), true, "router models must be separated from provider groups");
+assert.equal(coreTsSource.includes('select.appendChild(option);'), true, "router models must be inserted directly into the selector");
+assert.equal(coreTsSource.includes('group!.appendChild(option);'), true, "ordinary models must remain grouped by provider");
 
 console.log("custom provider UI regressions: ok");
