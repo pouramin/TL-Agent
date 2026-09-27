@@ -277,6 +277,30 @@ func TestOpenRouterCredentialReuseForDecisionEngine(t *testing.T) {
 	}
 }
 
+func TestDisabledJevRouterCannotResolveForNativeExecution(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+	store := newProviderRegistryStore(filepath.Join(stateDir, "providers.json"))
+	if err := store.put(tlProviderDefinition{
+		ID: "openrouter", Name: "OpenRouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL, ManagedBy: "jev",
+		Models: []tlProviderModel{{ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router", ToolCall: false}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	credentials := newMemoryProviderCredentialStore()
+	if err := credentials.Put("openrouter", "stored-key"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false}); err != nil {
+		t.Fatal(err)
+	}
+	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	_, _, _, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
+	if err == nil || !strings.Contains(err.Error(), "JEV is disabled") {
+		t.Fatalf("disabled JEV must not resolve for native execution, got %v", err)
+	}
+}
+
 func TestJevRouterDefaultsOffAndPersistsExplicitToggle(t *testing.T) {
 	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
 	config, err := loadJevRouterConfig()
