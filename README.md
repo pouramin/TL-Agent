@@ -4,7 +4,7 @@
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center"><strong>Stable release: v0.4.0</strong></p>
+<p align="center"><strong>Development branch: 0.5.0-alpha.1</strong> · Stable release: v0.4.0.</p>
 
 <p align="center">
   A fast local development workspace with AI built in.

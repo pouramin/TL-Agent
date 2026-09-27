@@ -12,7 +12,7 @@ This file is a durable operating instruction for future TL Studio development se
 ## Branch and release discipline
 
 - `main` is stable production only. The current stable line is `v0.4.0`, promoted after automated gates and hands-on Windows validation.
-- `dev` is the development line. After the `v0.4.0` promotion it must advance to the next private alpha line before new architecture work begins.
+- `dev` is the active private development line; the current development target is `0.5.0-alpha.1`.
 - Feature/fix branches start from `dev`.
 - Experimental work must not be merged into `main`.
 - Private alpha builds use the GitHub Actions Preview Build artifact flow.
@@ -24,7 +24,7 @@ Current stable baseline after the validated 0.4 promotion:
 
 `0.4.0`
 
-Next private development target after promotion:
+Current private development target:
 
 `0.5.0-alpha.1`
 
@@ -40,6 +40,19 @@ The validated `0.4.0-alpha.5` development line was promoted to stable `v0.4.0` o
 - strict Browser TypeScript/build, Go test/vet, supported cross-compiles, real-runtime product contract, real prompt/write E2E, Custom Provider Contract, and real Chrome workbench smoke were green.
 
 The stable `v0.4.0` line is the checkpoint for the current native architecture plus the redesigned workspace. New Kilo-independence, provider-account authentication, and Smart Router work belongs to the next `0.5.0-alpha.*` development line and must not be developed directly on `main`.
+
+## v0.5.0-alpha.1 development direction
+
+The next development line starts from stable `v0.4.0`.
+
+Primary architecture goals:
+
+- remove the remaining mandatory Kilo runtime dependency from TL Studio startup and core session lifecycle;
+- make Kilo an optional provider/integration rather than a required bundled runtime;
+- add provider account authentication as a first-class alternative to API keys where an official supported login flow exists;
+- keep API-key, local, cloud-credential, and account-based auth behind one TL Studio-owned provider/auth abstraction;
+- build the future TL Smart Router on TL Studio-owned provider/model availability and direct TypeSafe Jev decisions rather than on OpenRouter as a mandatory routing layer;
+- preserve `main` as stable-only while this work proceeds through `dev` and feature branches.
 
 The alpha.5 TypeSafe Jev milestone is merged into `dev`.
 
