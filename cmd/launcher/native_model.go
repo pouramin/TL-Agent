@@ -451,6 +451,46 @@ func responseInput(request nativeModelRequest) []any {
 	return input
 }
 
+func normalizeOpenAIResponsesPayload(payload map[string]any, tools []nativeModelToolDefinition) nativeModelResponse {
+	result := nativeModelResponse{
+		FinishReason: "completed",
+		RoutedModel:  sessionString(payload["model"]),
+	}
+	if text, _ := payload["output_text"].(string); text != "" {
+		result.Text = text
+	}
+	for _, raw := range sessionArray(payload["output"]) {
+		item := sessionMap(raw)
+		if item == nil {
+			continue
+		}
+		switch sessionString(item["type"]) {
+		case "message":
+			for _, blockRaw := range sessionArray(item["content"]) {
+				block := sessionMap(blockRaw)
+				if block != nil && sessionString(block["type"]) == "output_text" {
+					text := sessionString(block["text"])
+					if text != "" && !strings.Contains(result.Text, text) {
+						result.Text += text
+					}
+				}
+			}
+		case "function_call":
+			args, _ := item["arguments"].(string)
+			result.ToolCalls = append(result.ToolCalls, nativeModelToolCall{
+				ID:        firstSessionString(item["call_id"], item["id"]),
+				Name:      nativeToolIDFromWire(sessionString(item["name"]), tools),
+				Arguments: json.RawMessage(args),
+			})
+		}
+	}
+	if usage := sessionMap(payload["usage"]); usage != nil {
+		result.Usage.Input = sessionInt64(usage["input_tokens"])
+		result.Usage.Output = sessionInt64(usage["output_tokens"])
+	}
+	return result
+}
+
 func (c *nativeHTTPModelClient) completeOpenAIResponses(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
 	endpoint, err := nativeEndpoint(request.Provider.BaseURL, "responses")
 	if err != nil {
@@ -534,12 +574,21 @@ func (c *nativeHTTPModelClient) completeOpenAIResponses(ctx context.Context, req
 		case "response.completed":
 			responseValue, _ := event["response"].(map[string]any)
 			result.FinishReason = "completed"
-			if routed := sessionString(responseValue["model"]); routed != "" {
-				result.RoutedModel = routed
+			final := normalizeOpenAIResponsesPayload(responseValue, request.Tools)
+			if final.RoutedModel != "" {
+				result.RoutedModel = final.RoutedModel
 			}
-			if usage, _ := responseValue["usage"].(map[string]any); usage != nil {
-				result.Usage.Input = int64(intFromAny(usage["input_tokens"]))
-				result.Usage.Output = int64(intFromAny(usage["output_tokens"]))
+			if result.Text == "" && final.Text != "" {
+				result.Text = final.Text
+				if onTextDelta != nil {
+					onTextDelta(final.Text)
+				}
+			}
+			if len(result.ToolCalls) == 0 && len(final.ToolCalls) > 0 {
+				result.ToolCalls = append(result.ToolCalls, final.ToolCalls...)
+			}
+			if final.Usage.Input > 0 || final.Usage.Output > 0 {
+				result.Usage = final.Usage
 			}
 		case "response.failed":
 			return nativeModelResponse{}, errors.New("OpenAI Responses request failed")
@@ -568,44 +617,9 @@ func parseOpenAIResponsesJSON(reader io.Reader, tools []nativeModelToolDefinitio
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return nativeModelResponse{}, fmt.Errorf("decode OpenAI Responses payload: %w", err)
 	}
-	result := nativeModelResponse{FinishReason: "completed", RoutedModel: sessionString(payload["model"])}
-	if text, _ := payload["output_text"].(string); text != "" {
-		result.Text = text
-		if onTextDelta != nil {
-			onTextDelta(text)
-		}
-	}
-	for _, raw := range sessionArray(payload["output"]) {
-		item := sessionMap(raw)
-		if item == nil {
-			continue
-		}
-		switch sessionString(item["type"]) {
-		case "message":
-			for _, blockRaw := range sessionArray(item["content"]) {
-				block := sessionMap(blockRaw)
-				if block != nil && sessionString(block["type"]) == "output_text" {
-					text := sessionString(block["text"])
-					if text != "" && !strings.Contains(result.Text, text) {
-						result.Text += text
-						if onTextDelta != nil {
-							onTextDelta(text)
-						}
-					}
-				}
-			}
-		case "function_call":
-			args, _ := item["arguments"].(string)
-			result.ToolCalls = append(result.ToolCalls, nativeModelToolCall{
-				ID: sessionString(item["call_id"]),
-				Name: nativeToolIDFromWire(sessionString(item["name"]), tools),
-				Arguments: json.RawMessage(args),
-			})
-		}
-	}
-	if usage := sessionMap(payload["usage"]); usage != nil {
-		result.Usage.Input = sessionInt64(usage["input_tokens"])
-		result.Usage.Output = sessionInt64(usage["output_tokens"])
+	result := normalizeOpenAIResponsesPayload(payload, tools)
+	if result.Text != "" && onTextDelta != nil {
+		onTextDelta(result.Text)
 	}
 	return result, nil
 }
