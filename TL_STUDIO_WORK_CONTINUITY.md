@@ -690,6 +690,106 @@ Hands-on validation should continue from this Preview. Priority retest:
 - confirm Kilo Auto Free remains present
 - confirm browser does not offer to generate/save a password for the API-key field
 
+## Alpha.5 one-click JEV and native response fix
+
+Hands-on Windows testing confirmed that the dedicated JEV flow still required manual model selection and that `typesafe/jev-router` could accept a user turn without producing a visible assistant response.
+
+Fixed in:
+
+`#105 — Make Jev Router one-click and fix native responses`
+
+Squash merge commit:
+
+`bc2c945bfa64462bd41b0102c4765bc35a7ca5b3`
+
+### One-click JEV setup
+
+The compact JEV dialog now owns Router setup end-to-end:
+
+- reuse an existing official OpenRouter provider and TL Studio-owned credential when present
+- otherwise request only the OpenRouter API key in the focused JEV dialog
+- query the authenticated OpenRouter user catalog
+- locate the exact `typesafe/jev-router` model automatically
+- merge it into the existing OpenRouter provider without deleting other selected models
+- create a normal `OpenRouter` provider if none exists
+- persist the provider and credential automatically
+- never open the generic Provider editor
+- never require the generic model picker
+- direct paid Decision Engine remains separate and defaults to `off`
+
+### Native Jev execution
+
+The official OpenRouter Jev Router now stays on TL Studio's native Agent path even when discovery metadata does not advertise tool calling.
+
+At the model-client integration edge only, the exact combination of official OpenRouter + `typesafe/jev-router` uses OpenRouter's Responses API. Other OpenRouter models and generic OpenAI-compatible providers continue using their configured protocol.
+
+The Responses implementation now also normalizes the final `response.completed` payload as a fallback for:
+
+- output text
+- function calls
+- routed-model metadata
+- usage
+
+This prevents providers that deliver final output in the completed response object from becoming silent blank assistant turns.
+
+A genuinely empty upstream model result now becomes a persisted visible native-Agent error:
+
+`model returned an empty response`
+
+instead of an invisible blank assistant message.
+
+### Validation
+
+PR #105 passed:
+
+- CI
+- Custom Provider Contract
+- strict Browser TypeScript
+- Browser build
+- Go tests
+- Go vet
+- runtime product contract
+- runtime prompt/write E2E
+- supported-platform cross-compiles
+
+Post-merge Windows Preview Build:
+
+`36318110840`
+
+Head:
+
+`bc2c945bfa64462bd41b0102c4765bc35a7ca5b3`
+
+Result:
+
+`success`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10931865133`
+
+GitHub artifact digest:
+
+`sha256:325b0d155f0901c27dae318dc497c1bdab722437385795f8bfb93b0f0dc4c398`
+
+Inner product ZIP SHA256:
+
+`279d0c278ecccb96c99408d69ea101aa3ed9e7ecf013bdd4b7f8a40522390993`
+
+Hands-on validation should continue from this Preview. Priority retest:
+
+- Configure JEV with an existing OpenRouter provider: no model picker should open
+- Configure JEV with no OpenRouter provider: only the OpenRouter API key should be requested
+- verify `typesafe/jev-router` is discovered and saved automatically
+- send a plain prompt with Jev Router and verify a visible assistant response
+- send a coding prompt that can use TL Studio tools and confirm the Native Agent/tool/permission path works
+- if upstream returns an empty response, confirm the Session shows an explicit Agent error instead of remaining silent
+- Decision Engine must remain Off unless explicitly enabled
+
 ## Next product phase
 
 Phase 2 is complete according to its ownership criteria.
