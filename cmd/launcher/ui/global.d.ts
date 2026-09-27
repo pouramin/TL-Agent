@@ -21,6 +21,7 @@ interface TLStudioModelRef {
 interface TLStudioModelOption extends TLStudioModelRef {
   name: string;
   providerName: string;
+  kind?: "router" | string;
 }
 
 interface TLStudioAgentOption {
@@ -150,6 +151,52 @@ interface TLStudioToolRegistry {
   unknown: TLStudioToolDescriptor | null;
 }
 
+interface TLStudioPluginEnvironmentRef {
+  name: string;
+  configured?: boolean;
+}
+
+interface TLStudioPluginAction {
+  id: string;
+  label: string;
+  kind: "server" | "preview" | string;
+  target?: string;
+  requiresConfirmation?: boolean;
+  confirmation?: string;
+}
+
+interface TLStudioPluginIntegration {
+  id: string;
+  status?: string;
+  summary?: string;
+  details?: Record<string, string>;
+  actions?: TLStudioPluginAction[];
+}
+
+interface TLStudioPluginView {
+  id: string;
+  name: string;
+  description?: string;
+  type: "mcp" | string;
+  enabled: boolean;
+  scope: "project" | "global" | string;
+  project?: string;
+  transport: "stdio" | string;
+  command: string;
+  arguments?: string[];
+  workingDirectory?: string;
+  environment?: TLStudioPluginEnvironmentRef[];
+  metadata?: Record<string, string>;
+  origin: "bundled" | "user" | string;
+  version?: string;
+  status: string;
+  error?: string;
+  discoveredTools: number;
+  resources: number;
+  tools?: string[];
+  integration?: TLStudioPluginIntegration;
+}
+
 interface TLStudioPermissionRule {
   id: string;
   project: string;
@@ -214,8 +261,28 @@ interface TLStudioRuntimeContract {
     config(): Promise<{ providers: TLStudioDynamicRecord[] }>;
     upsert(providerID: string, input?: TLStudioDynamicRecord): Promise<any>;
     remove(providerID: string): Promise<any>;
+    discover(input?: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
+  };
+  jevRouter: {
+    status(): Promise<TLStudioDynamicRecord>;
+    configure(enabled: boolean): Promise<TLStudioDynamicRecord>;
+  };
+  decisionEngine: {
+    status(): Promise<TLStudioDynamicRecord>;
+    configure(engine: "off" | "jev"): Promise<TLStudioDynamicRecord>;
+    evaluate(input: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
   };
   tools: { registry(): Promise<TLStudioToolRegistry> };
+  plugins: {
+    list(): Promise<TLStudioPluginView[]>;
+    create(plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
+    update(pluginID: string, plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
+    remove(pluginID: string): Promise<any>;
+    setEnabled(pluginID: string, enabled: boolean): Promise<TLStudioPluginView>;
+    testConfig(plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
+    test(pluginID: string): Promise<TLStudioPluginView>;
+    action(pluginID: string, actionID: string, confirmed?: boolean): Promise<any>;
+  };
   sessionView: {
     list(options?: { limit?: number }): Promise<TLStudioSessionView[]>;
     status(options?: { directory?: string }): Promise<Record<string, TLStudioSessionStatus>>;
@@ -350,6 +417,7 @@ interface TLStudioState {
   preview: TLStudioDynamicRecord;
   terminal: TLStudioDynamicRecord;
   toolRegistry: TLStudioToolRegistry | null;
+  plugins: TLStudioPluginView[];
   changesLoading: boolean;
   sseSettling: boolean;
 }
@@ -444,6 +512,7 @@ interface TLStudioKernel {
   __editorEnhancementsInstalled?: boolean;
   __ideFoundationInstalled?: boolean;
   __legacySessionsInstalled?: boolean;
+  __mainWorkspaceInstalled?: boolean;
   __previewFloatingInstalled?: boolean;
   __previewInstalled?: boolean;
   __projectSearchInstalled?: boolean;
@@ -453,4 +522,6 @@ interface TLStudioKernel {
   __settingsEnhancementsInstalled?: boolean;
   __terminalInstalled?: boolean;
   __toolRegistryInstalled?: boolean;
+  __pluginsInstalled?: boolean;
+  __jevUiInstalled?: boolean;
 }

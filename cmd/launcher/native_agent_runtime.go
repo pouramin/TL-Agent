@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	nativeAgentMaxIterations     = 24
-	nativeAgentMaxToolRounds     = 16
-	nativeAgentMaxToolsPerRound  = 16
-	nativeAgentMaxRepeatedCalls  = 4
+	nativeAgentMaxIterations      = 24
+	nativeAgentMaxToolRounds      = 16
+	nativeAgentMaxToolsPerRound   = 16
+	nativeAgentMaxRepeatedCalls   = 4
+	nativeAgentModelTurnTimeout   = 2 * time.Minute
 )
 
 type nativeModelResolver interface {
@@ -27,11 +28,12 @@ type nativeRunHandle struct {
 }
 
 type nativeAgentRuntime struct {
-	resolver nativeModelResolver
-	model    nativeModelClient
-	tools    *nativeToolExecutor
-	store    *sessionPersistenceStore
-	events   *liveEventBus
+	resolver          nativeModelResolver
+	model             nativeModelClient
+	tools             *nativeToolExecutor
+	store             *sessionPersistenceStore
+	events            *liveEventBus
+	modelTurnTimeout  time.Duration
 
 	mu   sync.Mutex
 	runs map[string]nativeRunHandle
@@ -49,8 +51,9 @@ func newNativeAgentRuntime(
 		model:    model,
 		tools:    tools,
 		store:    store,
-		events:   events,
-		runs:     map[string]nativeRunHandle{},
+		events:           events,
+		modelTurnTimeout: nativeAgentModelTurnTimeout,
+		runs:             map[string]nativeRunHandle{},
 	}
 }
 
@@ -178,6 +181,28 @@ func nativeToolSignature(call nativeModelToolCall) string {
 	return strings.TrimSpace(call.Name) + "\x00" + strings.TrimSpace(string(call.Arguments))
 }
 
+func nativeRoutedModelActivity(provider tlProviderDefinition, model tlProviderModel, response nativeModelResponse) []sessionActivityView {
+	routed := strings.TrimSpace(response.RoutedModel)
+	if model.Kind != "router" || routed == "" || routed == model.ID {
+		return []sessionActivityView{}
+	}
+	title := "Routed model"
+	if model.ID == jevRouterModelID {
+		title = "Routed by Jev"
+	}
+	return []sessionActivityView{{
+		Kind:   "model",
+		Status: "completed",
+		Title:  title,
+		Model:  &sessionModelRef{ProviderID: provider.ID, ID: routed},
+		Usage:  &response.Usage,
+		Metadata: map[string]any{
+			"routerModel": model.ID,
+			"source":      "provider-response",
+		},
+	}}
+}
+
 func nativeToolResultMessage(result nativeToolResult) string {
 	payload := map[string]any{
 		"ok":      result.Error == "",
@@ -206,7 +231,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		return err
 	}
 	conversation := nativeConversationFromMessages(messages)
-	tools := r.tools.ToolDefinitions()
+	tools := r.tools.ToolDefinitionsForProject(directory)
 	if len(tools) == 0 {
 		return errors.New("native Agent runtime has no executable tools")
 	}
@@ -217,7 +242,12 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		response, err := r.model.Complete(ctx, nativeModelRequest{
+		modelTurnTimeout := r.modelTurnTimeout
+		if modelTurnTimeout <= 0 {
+			modelTurnTimeout = nativeAgentModelTurnTimeout
+		}
+		modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
+		response, err := r.model.Complete(modelCtx, nativeModelRequest{
 			System:   nativeAgentSystemPrompt(),
 			Provider: provider,
 			Model:    model,
@@ -233,10 +263,17 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				})
 			}
 		})
+		cancelModel()
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				return fmt.Errorf("model request timed out after %s", modelTurnTimeout)
+			}
 			return err
 		}
 		if len(response.ToolCalls) == 0 {
+			if strings.TrimSpace(response.Text) == "" {
+				return errors.New("model returned an empty response")
+			}
 			now := time.Now().UnixMilli()
 			messageID, _ := randomSecret(10)
 			if err := r.store.putNativeMessage(sessionID, directory, sessionMessageView{
@@ -248,7 +285,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				CreatedAt:   now,
 				CompletedAt: now,
 				Text:        strings.TrimSpace(response.Text),
-				Activities:  []sessionActivityView{},
+				Activities:  nativeRoutedModelActivity(provider, model, response),
 				Attachments: []sessionAttachmentView{},
 				Usage:       response.Usage,
 				Changes:     []sessionChangeView{},
@@ -283,7 +320,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			Model:       &sessionModelRef{ProviderID: provider.ID, ID: model.ID},
 			CreatedAt:   now,
 			Text:        strings.TrimSpace(response.Text),
-			Activities:  []sessionActivityView{},
+			Activities:  nativeRoutedModelActivity(provider, model, response),
 			Attachments: []sessionAttachmentView{},
 			Usage:       response.Usage,
 			Changes:     []sessionChangeView{},
@@ -299,7 +336,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				return fmt.Errorf("native Agent repeated the same tool call more than %d times", nativeAgentMaxRepeatedCalls)
 			}
 
-			descriptor, _ := toolDescriptorForID(modelCall.Name)
+			descriptor, _ := r.tools.Descriptor(directory, modelCall.Name)
 			decodedInput, _ := decodeNativeToolArguments(modelCall.Arguments)
 			started := time.Now().UnixMilli()
 			r.publish(liveEventView{Type: "message.changed", Action: "content", SessionID: sessionID})

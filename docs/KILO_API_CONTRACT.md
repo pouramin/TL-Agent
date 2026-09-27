@@ -19,7 +19,7 @@ TL Studio owns the browser-facing runtime namespace, provider/model registry, wo
 
 The browser talks to TL Studio through:
 
-- `/local/*` for TL Studio-owned workspace/files/search/process/preview/tool-registry/permission-policy capabilities;
+- `/local/*` for TL Studio-owned workspace/files/search/process/preview/plugins/tool-registry/permission-policy capabilities;
 - `/runtime/*` for agent-runtime capabilities.
 
 The browser must not construct Kilo-specific route prefixes or depend on Kilo-specific authentication details.
@@ -111,6 +111,14 @@ Tool identity and product-facing metadata are no longer inferred directly in the
 
 For the TL Studio native path, the registry now feeds executable TL Studio tool definitions and the native dispatcher. Core file/search/terminal tools execute without Kilo's Agent tool executor. On the Kilo compatibility path, runtime tool parts are still normalized through this registry for presentation. Unknown native tool IDs are rejected rather than silently executed.
 
+### Native Plugins and MCP
+
+Plugin configuration and MCP execution are **not** Kilo compatibility APIs. Settings uses TL Studio-owned `/local/plugins*` routes. Enabled MCP tools are discovered by the TL Studio Plugin/MCP managers, merged into `/local/tools`, authorized by the native permission engine, and executed through the TL Studio native Tool Executor.
+
+Kilo does not need a plugin-specific adapter for these tools. Hosted/compatibility Agent runs continue to use the Kilo capability set, while supported TL Studio-native Agent runs can receive enabled MCP tool definitions directly. MCP transport details and plugin secrets must not be translated into Kilo configuration as a side effect of the generic Plugin feature.
+
+Bundled/default plugins are also outside the Kilo compatibility contract. Their only special behavior is TL Studio-owned release packaging and executable resolution; after startup they are ordinary MCP clients entering the same native Tool Registry/permission/executor path as user-added MCP plugins.
+
 ### Questions
 
 The current engine implementation still provides these private compatibility routes:
@@ -147,8 +155,15 @@ The browser uses TL Studio semantic routes:
 - `GET /runtime/providers/config`
 - `PUT /runtime/providers/config/{id}`
 - `DELETE /runtime/providers/config/{id}`
+- `POST /runtime/providers/discover`
 
 The launcher translates those definitions to the currently bundled engine internally. Current engine package identifiers such as `@ai-sdk/*`, overlay config shapes, and auth routes are not part of the browser contract.
+
+Model discovery through `POST /runtime/providers/discover` is implemented by TL Studio itself. Generic OpenAI-compatible listing and provider-specific discovery adapters must not be translated into Kilo configuration or depend on Kilo's provider catalog. Only the selected configured model definitions are synchronized to the compatibility runtime.
+
+Jev Router support is also not a Kilo-specific integration. `typesafe/jev-router` is configured through the existing TL Studio OpenAI-compatible provider contract and may carry TL Studio metadata identifying it as a router. The normal native Agent sends that exact model ID through the configured OpenRouter provider; selecting it must not invoke a direct Jev decision model as a fallback.
+
+The optional direct Jev Decision Engine is entirely outside the Kilo compatibility contract. Its `/local/decision-engine*` routes, explicit default-off state, OpenRouter credential reuse, and structured Choice/Score/Noul responses are TL Studio-owned. Decision output is not permission authority and must not be translated into Kilo permission rules or Kilo provider configuration.
 
 Credentials remain intentionally excluded from `providers.json` and browser storage. Custom-provider API keys are now owned by TL Studio's credential vault and synchronized into Kilo's auth store only as an execution copy. Kilo's existing pre-migration secrets are not reverse-readable, so a legacy provider keeps working through the runtime store until the user saves a credential through TL Studio. Hosted Kilo OAuth remains an engine-specific account integration behind the hosted-provider adapter rather than part of the custom-provider API-key vault.
 

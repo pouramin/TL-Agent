@@ -76,6 +76,7 @@ import { K } from "./kernel";
           id: String(id),
           name: model?.name || String(id),
           providerName: provider.name || provider.id,
+          ...(model?.kind ? { kind: String(model.kind) } : {}),
           ...(model?.variant ? { variant: model.variant } : {}),
         });
       }
@@ -146,9 +147,24 @@ import { K } from "./kernel";
     const select = K.els.modelSelect;
     const current = select.value;
     select.innerHTML = '<option value="">Backend default</option>';
+
+    const routers = K.state.models.filter((model) => model.kind === "router");
+    const regular = K.state.models.filter((model) => model.kind !== "router");
+
+    // Routers are product-level choices rather than one fixed underlying LLM,
+    // so keep them at the top of the selector instead of nesting them under a
+    // provider group such as OpenRouter.
+    for (const model of routers) {
+      const option = document.createElement("option");
+      option.value = K.modelValue(model);
+      option.textContent = `${model.name || model.id} · Router`;
+      option.title = `${model.providerName || model.providerID} · Router · ${model.id}`;
+      select.appendChild(option);
+    }
+
     let group: HTMLOptGroupElement | null = null;
     let last = "";
-    for (const model of K.state.models) {
+    for (const model of regular) {
       if (model.providerID !== last) {
         group = document.createElement("optgroup");
         group.label = model.providerName || model.providerID;

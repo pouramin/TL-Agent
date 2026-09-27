@@ -4,6 +4,8 @@
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
+<p align="center"><strong>نسخه Stable: v0.4.0</strong></p>
+
 <p align="center">
   یک محیط توسعه‌ی سریع و لوکال با AI داخلی.
 </p>
@@ -55,7 +57,8 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 - **محیط توسعه‌ی مستقل و لوکال** — Editor، File Explorer، Search، Terminal، Preview و Agent در یک Workspace مرورگری.
 - **انتخاب مستقیم Project** — بازکردن فولدر با Folder Picker خود سیستم‌عامل.
 - **انتخاب Agent و Model** — تغییر Agent و مدل‌های Providerها از داخل Composer.
-- **Custom Provider** — اتصال Endpointهای سازگار با OpenAI، OpenAI Responses و Anthropic با Credential خود کاربر.
+- **Custom Provider و کشف مدل** — اتصال Endpointهای سازگار با OpenAI، OpenAI Responses و Anthropic، تست و کشف مدل قبل از Save، جست‌وجو و انتخاب چند مدل، Refresh کردن Catalog و نگه‌داشتن ورود دستی Model ID به‌عنوان fallback.
+- **Plugin و MCP** — اضافه‌کردن MCP serverهای دلخواه و پشتیبانی از Pluginهای bundled و version-pinned از همان Plugin Manager؛ Toolها به‌صورت Dynamic کشف و namespace می‌شوند و همگی از همان Tool Registry، Permission Engine و Native Agent موجود عبور می‌کنند.
 - **File attachment** — ارسال تصویر، PDF و فایل‌های متنی/کد؛ همراه با Multi-select، Drag & Drop و Paste از Clipboard.
 - **اجرای Native Agent متعلق به TL Studio** — برای Custom Providerهای پشتیبانی‌شده، حلقه‌ی Model/Tool/Model، توقف، Loop guard، Session persistence و Live Event مستقیماً توسط TL Studio اجرا می‌شود؛ مسیر Hosted Kilo همچنان از Adapter سازگاری استفاده می‌کند.
 - **Tool Executor خود TL Studio** — Toolهای اصلی کدنویسی شامل Read/List/Write/Edit فایل، Project Search و Terminal Command با Handlerهای خود TL Studio، محدودیت Project، Validation، Cancellation و Permission اجرا می‌شوند.
@@ -79,6 +82,87 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 - **معماری Local-first** — اجرای Loopback-only، رمز تصادفی Backend در هر اجرا، کنترل Origin و CSP محدودکننده.
 - **بدون Cloud یا Telemetry اختصاصی TL Studio** — ترافیک Model براساس Provider و Runtime انتخاب‌شده‌ی کاربر انجام می‌شود و از زیرساخت TL Studio عبور نمی‌کند.
 
+## Plugin و MCP
+
+برای اضافه‌کردن Plugin از این مسیر استفاده کنید:
+
+```text
+Settings
+→ Plugins
+→ + Add Plugin
+```
+
+در نسخه‌ی فعلی، transport اولیه **MCP روی stdio** است. کاربر Command، Argumentها، Environment Variableهای اختیاری، Working Directory و Scope را وارد می‌کند، قبل از ذخیره **Test Connection** می‌زند و سپس Plugin را جداگانه Enable می‌کند. مقدار Environment Variableها از طریق Credential Vault خود TL Studio نگه‌داری می‌شود و بعد از ذخیره دوباره به Browser برگردانده نمی‌شود.
+
+Toolهای MCP هنگام اتصال به‌صورت Dynamic کشف می‌شوند و شناسه‌ای با این ساختار می‌گیرند:
+
+```text
+mcp.<plugin-id>.<tool-name>
+```
+
+این معماری مخصوص Graphify نیست؛ یک MCP server دلخواه دیگر هم باید از همین صفحه و بدون Agent integration اختصاصی قابل اضافه‌شدن باشد.
+
+### Pluginهای همراه TL Studio
+
+در Settings دو گروه جدا نمایش داده می‌شوند:
+
+```text
+Included with TL Studio
+Added by you
+```
+
+Plugin همراه TL Studio یک Sidecar MCP version-pinned است که executable آن از داخل همان Release پیدا می‌شود و به PATH کاربر وابسته نیست. بعد از شروع Process هیچ مسیر جداگانه‌ای برای Agent ندارد و از همان MCP Client Manager، Tool Registry، Permission Engine و Native Tool Executor عبور می‌کند.
+
+Manifest مربوط به این Pluginها هم داخل Launcher قرار می‌گیرد و هم در Release pipeline استفاده می‌شود. برای هر Plugin شخص ثالث، Artifact تمام Platformهای پشتیبانی‌شده، SHA-256 دقیق و License نگه‌داری‌شده در Repository اجباری است. در نسخه `0.4.0` هنوز هیچ Plugin شخص ثالثی به‌صورت پیش‌فرض Bundle نشده است؛ زیرساخت کامل شده ولی حجم Release و Trusted Computing Base بی‌دلیل بزرگ نشده است.
+
+### رفتار کشف مدل
+
+برای Endpointهای OpenAI-compatible و OpenAI Responses ابتدا مسیر `/models` امتحان می‌شود. برای Anthropic Messages از Adapter مخصوص و Pagination رسمی Model List استفاده می‌شود. Discovery قبل از Save انجام می‌شود، API Key در Browser storage یا Catalog cache ذخیره نمی‌شود و فقط Modelهایی که کاربر انتخاب می‌کند وارد `providers.json` می‌شوند.
+
+برای Provider ذخیره‌شده، آخرین Catalog موفق Cache می‌شود. خطای موقت Network یا Rate Limit می‌تواند Catalog قبلی را با هشدار نمایش دهد، اما خطای Authentication هرگز با Cache پنهان نمی‌شود. مدلی که قبلاً انتخاب شده ولی در Refresh بعدی برنگردد نیز خودکار حذف نمی‌شود.
+
+### پشتیبانی TypeSafe Jev
+
+برای استفاده از Router، مسیر زیر در همان بخش Providerها قرار دارد:
+
+```text
+Settings
+→ Providers
+→ JEV
+→ Configure JEV
+```
+
+Setup مربوط به JEV عمداً یک‌کلیکی است. اگر OpenRouter با Base URL رسمی خودش از قبل تنظیم شده باشد، TL Studio همان Provider و همان Credential را دوباره استفاده می‌کند. اگر OpenRouter وجود نداشته باشد، فقط API Key در پنجره‌ی JEV درخواست می‌شود. سپس TL Studio Catalog احراز هویت‌شده‌ی OpenRouter را می‌گیرد، مدل دقیق `typesafe/jev-router` را پیدا می‌کند، آن را به Provider اضافه می‌کند و Save را خودش انجام می‌دهد؛ کاربر وارد Model Picker عمومی نمی‌شود.
+
+مدل generative مورد استفاده:
+
+```text
+typesafe/jev-router
+```
+
+این مدل از Catalog احراز هویت‌شده‌ی OpenRouter کشف می‌شود و با metadata نوع `router` در Provider Registry ذخیره می‌شود. Routerها در بالای Model Selector نمایش داده می‌شوند و زیر گروه یک Provider خاص قرار نمی‌گیرند. اگر TL Studio یک OpenRouter فقط برای JEV بسازد، آن Provider به‌عنوان product-managed علامت می‌خورد و در لیست عمومی Providerها نمایش داده نمی‌شود؛ مدیریت JEV از همان کنترل جمع‌وجور خودش انجام می‌شود.
+
+وضعیت JEV حالا سه مفهوم جدا دارد: configured، enabled و available. خاموش‌کردن JEV، Provider و API Key مربوط به OpenRouter را حذف نمی‌کند؛ فقط Router را از Model Selector خارج می‌کند و اجرای Native آن را تا فعال‌سازی دوباره می‌بندد. هنگام فعال‌سازی، TL Studio با endpoint غیرمولد وضعیت Key در OpenRouter، وضعیت حساب/کلید را بررسی می‌کند. در تاریخ `2026-09-27`، OpenRouter همچنان Prompt و Completion مربوط به Jev Router را با قیمت صفر نمایش می‌دهد، اما پلن Free قابلیت auto-routing ندارد و خود OpenRouter می‌تواند برای حساب یا Key فاقد دسترسی مناسب Router/Credit پاسخ HTTP 402 برگرداند. بنابراین TL Studio عبارت «قیمت صفر» را تضمین دسترسی رایگان برای همه‌ی حساب‌ها تلقی نمی‌کند. اگر OpenRouter پاسخ 402 بدهد، JEV خاموش می‌شود و خطای Account Access به‌صورت واضح نمایش داده می‌شود؛ TL Studio هرگز در پس‌زمینه به مدل پولی مستقیم Jev سوییچ نمی‌کند.
+
+مدل‌های زیرین انتخاب‌شده توسط Jev در کد TL Studio هاردکد نمی‌شوند. برای اتصال رسمی OpenRouter، Jev Router از مسیر OpenAI-compatible Chat Completions روی Native Agent خود TL Studio اجرا می‌شود تا System Prompt، Conversation History، Streaming و Function Tools حفظ شوند و درخواست به Compatibility Runtime نیفتد. اگر خود Provider مدل Routeشده را در Response برگرداند، TL Studio همان metadata را نمایش می‌دهد. پاسخ خالی upstream و timeout محدود هر Model turn نیز به‌صورت Agent error قابل‌مشاهده ثبت می‌شوند و بی‌صدا باقی نمی‌مانند.
+
+Jev Router با Jev Decision Model یکی نیست. Decisionهای مستقیم از Endpoint جداگانه‌ی OpenRouter استفاده می‌کنند و خروجی‌شان typed probability است، نه متن تولیدی. برای همین یک abstraction کوچک و مستقل از Provider با نام Decision Engine اضافه شده است. مقدار پیش‌فرض آن **Off** است. فعال‌کردن گزینه‌ی **Jev via OpenRouter (paid)** فقط با Credential موجود OpenRouter ممکن است و به‌تنهایی هیچ Model Routing، Tool Routing، Permission Scoring، Agent Continuation یا Output Verification خودکاری را فعال نمی‌کند.
+
+انتخاب Jev Router هیچ تماس خودکاری با مدل‌های پولی `typesafe/jev-1.13` یا `~typesafe/jev-latest` ایجاد نمی‌کند. خروجی Decision Engine احتمالی است و تضمین امنیتی محسوب نمی‌شود؛ Permission Ruleها و کنترل‌های deterministic خود TL Studio همچنان مرجع نهایی هستند.
+
+### نمونه‌ی Graphify
+
+اگر Graphify و MCP executable آن از قبل روی سیستم نصب باشند، یک Plugin در Scope پروژه می‌تواند چنین تنظیمی داشته باشد:
+
+```text
+Name: Graphify
+Command: graphify-mcp
+Arguments:
+graphify-out/graph.json
+```
+
+لیست Toolهای Graphify در کد TL Studio هاردکد نشده و از خود MCP server کشف می‌شود. کارت Graphify فقط چند Convenience Action اضافه دارد: **Build/Rebuild Graph** و **Open Graph**. ساخت Graph بعد از تأیید صریح کاربر با Command ثابت `graphify extract . --code-only` انجام می‌شود و **Open Graph** برای `graphify-out/graph.html` از Preview فعلی TL Studio استفاده می‌کند.
+
 ## معماری
 
 ```text
@@ -87,26 +171,34 @@ Browser workspace
     ▼
 TL Studio launcher (Go)
     │
-    ├─ TL Studio provider/model registry
-    ├─ TL Studio tool registry
-    ├─ TL Studio semantic session read model
-    ├─ TL Studio semantic live event projection
-    ├─ TL Studio permission policy engine
+    ├─ provider registry + credential vault
+    │    └─ Model Discovery Service
+    │         ├─ generic OpenAI-compatible adapter
+    │         └─ provider-specific edge adapters
+    │
+    ├─ Plugin Manager
+    │    ├─ bundled executable resolver
+    │    ├─ user command resolver
+    │    └─ MCP Client Manager
+    │         ├─ stdio MCP servers
+    │         └─ transportهای آینده پشت MCP client interface
+    │
+    ├─ Tool Registry ← MCP tools
+    ├─ Permission Engine
+    ├─ Native Tool Executor
+    ├─ Native Agent loop
+    ├─ semantic sessions / persistence / live events
     ├─ project files / search / terminal / preview
     │
-    └─ runtime adapter محلی و احراز‌شده
-            ▼
-        Local agent runtime
-            ├─ agents / sessions / tool execution
-            ├─ permission enforcement / questions / live events
-            └─ provider execution / model inference
+    ├─ supported custom providers → direct model APIs
+    │
+    └─ compatibility adapter → bundled Kilo engine
+                              → hosted Kilo / compatibility capabilities
 ```
 
-TL Studio مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تعریف Provider و Model، semantic metadata مربوط به Toolها، semantic read model مربوط به Session، semantic projection مربوط به Live Eventها، Permission Policy در Scope هر Project، تجربه‌ی Project و Session، Recovery و Release packaging.
+TL Studio مالک Plugin Manager، نرمال‌سازی MCP، Tool Registry و Permission path است. Toolهای MCP وارد همان مسیر Native Agent و Tool Executor موجود می‌شوند و یک Agent architecture موازی ایجاد نمی‌کنند. تعریف Plugin در State خود TL Studio ذخیره می‌شود، اما Secretهای Environment در Credential Vault جداگانه باقی می‌مانند.
 
-تعریف Custom Providerها و API Keyهای آن‌ها اکنون تحت مالکیت TL Studio هستند. تعریف Provider داخل Registry خود TL Studio می‌ماند و Credential در Vault جداگانه نگه‌داری می‌شود؛ Launcher در زمان لازم آن را برای اجرای مدل به Runtime فعال sync می‌کند.
-
-Runtime به‌عنوان یک لایه‌ی زیرساختی جدا پشت این مرز قرار می‌گیرد.
+برای Custom Providerهای پشتیبانی‌شده، Agent loop و Tool execution اصلی مستقیماً در اختیار TL Studio است. Kilo همچنان به‌عنوان Compatibility Engine برای Hosted Kilo و Capabilityهایی که هنوز Native نشده‌اند Bundle می‌شود.
 
 Project انتخاب‌شده روی سیستم کاربر باقی می‌ماند و TL Studio ترافیک Model را از زیرساخت خودش عبور نمی‌دهد.
 
@@ -133,6 +225,10 @@ tl-studio/
 ├─ tl-studio[.exe]
 ├─ bin/
 │  └─ kilo[.exe]
+├─ plugins/                 # فقط وقتی Release شامل Bundled Plugin باشد
+│  └─ <plugin-id>/
+│     ├─ bin/
+│     └─ LICENSE
 ├─ LICENSE
 ├─ THIRD_PARTY_NOTICES.md
 └─ third_party/

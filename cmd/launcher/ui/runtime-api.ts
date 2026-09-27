@@ -95,6 +95,35 @@ import { K } from "./kernel";
         ...body({ provider, ...(apiKey ? { apiKey } : {}) }),
       })),
       remove: async (providerID: any) => unwrapData(await request(`/providers/config/${enc(providerID)}`, { method: "DELETE" })),
+      discover: async ({ providerID, protocol, baseURL, apiKey }: any = {}) => unwrapData(await request("/providers/discover", {
+        method: "POST",
+        ...body({
+          ...(providerID ? { providerID } : {}),
+          protocol,
+          baseURL,
+          ...(apiKey ? { apiKey } : {}),
+        }),
+      })),
+    },
+
+    jevRouter: {
+      status: () => K.request("/local/jev-router"),
+      configure: (enabled: boolean) => K.request("/local/jev-router", {
+        method: "PUT",
+        ...body({ enabled }),
+      }),
+    },
+
+    decisionEngine: {
+      status: () => K.request("/local/decision-engine"),
+      configure: (engine: "off" | "jev") => K.request("/local/decision-engine", {
+        method: "PUT",
+        ...body({ engine }),
+      }),
+      evaluate: (input: TLStudioDynamicRecord) => K.request("/local/decision-engine/evaluate", {
+        method: "POST",
+        ...body(input),
+      }),
     },
 
     tools: {
@@ -102,6 +131,35 @@ import { K } from "./kernel";
         const payload = await K.request<any>("/local/tools");
         return payload && typeof payload === "object" ? payload : { version: 0, tools: [], unknown: null };
       },
+    },
+
+    plugins: {
+      list: async () => {
+        const payload = await K.request("/local/plugins");
+        return Array.isArray(payload) ? payload : [];
+      },
+      create: (plugin: any, environment?: Record<string, string>) => K.request("/local/plugins", {
+        method: "POST",
+        ...body({ plugin, ...(environment !== undefined ? { environment } : {}) }),
+      }),
+      update: (pluginID: string, plugin: any, environment?: Record<string, string>) => K.request(`/local/plugins/${enc(pluginID)}`, {
+        method: "PUT",
+        ...body({ plugin, ...(environment !== undefined ? { environment } : {}) }),
+      }),
+      remove: (pluginID: string) => K.request(`/local/plugins/${enc(pluginID)}`, { method: "DELETE" }),
+      setEnabled: (pluginID: string, enabled: boolean) => K.request(`/local/plugins/${enc(pluginID)}/enabled`, {
+        method: "POST",
+        ...body({ enabled, ...(enabled ? { confirmed: true } : {}) }),
+      }),
+      testConfig: (plugin: any, environment?: Record<string, string>) => K.request("/local/plugins/test", {
+        method: "POST",
+        ...body({ plugin, ...(environment !== undefined ? { environment } : {}) }),
+      }),
+      test: (pluginID: string) => K.request(`/local/plugins/${enc(pluginID)}/test`, { method: "POST" }),
+      action: (pluginID: string, actionID: string, confirmed = false) => K.request(`/local/plugins/${enc(pluginID)}/actions/${enc(actionID)}`, {
+        method: "POST",
+        ...body({ confirmed }),
+      }),
     },
 
     sessionView: {

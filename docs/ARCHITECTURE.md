@@ -10,9 +10,9 @@ The launcher is also the filesystem trust boundary for browser IDE operations. B
 
 ### Bundled coding runtime
 
-The current implementation starts the bundled runtime on loopback with a random per-launch password. The runtime remains responsible for active agent execution, actual tool execution, provider execution, model inference, and filesystem operations initiated by the agent. TL Studio owns semantic session persistence/history, product-facing session commands, interactive-question semantics, custom-provider credentials, and the semantic identity/presentation metadata for known tools.
+The current implementation still starts the bundled runtime on loopback with a random per-launch password, but it is a compatibility engine rather than the owner of every Agent run. Supported TL Studio-managed custom providers use the TL Studio-native Agent loop and native Tool Executor. The bundled runtime remains responsible for hosted Kilo execution and compatibility-only capabilities that have not yet moved behind native handlers.
 
-The runtime is behind TL Studio's product boundary. The browser never connects to it directly and never receives its server password.
+The runtime is behind TL Studio's product boundary. The browser never connects to it directly and never receives its server password. The bundled compatibility engine remains a third-party implementation detail; known startup output is relayed through the launcher as `TL Studio runtime listening on ...` rather than exposing the engine brand on the normal user-facing console surface.
 
 Implementation-specific API compatibility details are documented in [`KILO_API_CONTRACT.md`](./KILO_API_CONTRACT.md).
 
@@ -84,7 +84,7 @@ Only loopback preview URLs are accepted. File serving remains project-boundary c
 ```text
 Browser TL Studio UI
   │
-  ├── /local/*  ───────────────► launcher project/files/search/process/preview/tool-registry/permission boundary
+  ├── /local/*  ───────────────► launcher project/files/search/process/preview/plugins/tool-registry/permission boundary
   │
   └── /runtime/*
           │
@@ -174,6 +174,7 @@ The browser uses only TL Studio routes for this surface:
 - `GET /runtime/providers/config`
 - `PUT /runtime/providers/config/{id}`
 - `DELETE /runtime/providers/config/{id}`
+- `POST /runtime/providers/discover`
 - `GET /runtime/hosted/status`
 - `POST /runtime/hosted/authorize`
 - `POST /runtime/hosted/callback`
@@ -181,9 +182,96 @@ The browser uses only TL Studio routes for this surface:
 
 The launcher translates managed definitions to the current engine's provider config internally. Hosted provider IDs and preferred hosted models (including the current Auto Free route) are returned as runtime metadata rather than hard-coded by the browser.
 
+Model discovery is a TL Studio-owned edge service, not a Kilo capability. A draft provider can call `POST /runtime/providers/discover` before it has been saved. OpenAI-compatible and OpenAI Responses protocols first use the generic `<baseURL>/models` contract; Anthropic Messages uses a provider-specific model-list adapter with pagination and Anthropic authentication headers. Both paths normalize results into one discovered-model shape. Unknown tool/reasoning/vision capabilities stay unknown during discovery rather than being invented from model names.
+
+Discovered catalogs and configured models are deliberately separate concepts. The Browser can search a large discovered catalog and select only the models that should enter `providers.json`. Manual model IDs remain available for providers with no listing endpoint or private/unlisted models. For saved providers, TL Studio keeps a private last-good model-catalog cache with no credentials. Transient discovery failures may fall back to that cache with a stale warning; authentication failures remain explicit. Configured models that disappear from a later provider response are shown as unavailable instead of being silently deleted.
+
 API keys are deliberately excluded from TL Studio's provider registry and browser storage. TL Studio now owns custom-provider credentials in a separate local credential vault. Windows uses user-scoped DPAPI; macOS uses Keychain; Linux uses Secret Service when available; environments without a usable keyring use an AES-GCM encrypted private-file fallback with a separate `0600` local master key. The launcher restores owned credentials into the active runtime's execution store when needed. Existing legacy runtime-only credentials cannot be reverse-read or silently imported because the engine does not expose their plaintext; saving that provider again moves the credential under TL Studio ownership.
 
+### Jev Router and Decision Engine
+
+TypeSafe Jev is integrated at two different architectural boundaries.
+
+**Jev Router** is a normal generative model from TL Studio's point of view. The model ID is `typesafe/jev-router` and the provider connection is the official OpenRouter endpoint at `https://openrouter.ai/api/v1`. The focused JEV setup reuses an existing OpenRouter definition/credential when present, or asks only for an OpenRouter key, discovers the exact router from the authenticated user catalog, merges it into the OpenRouter provider, and persists it automatically. It never requires the generic model picker and never hard-codes Jev's underlying routed models. A provider created solely by the JEV integration carries `managedBy: "jev"`, stays out of the generic Providers list, and is managed from the JEV control. Router models are rendered above provider-grouped fixed models in the normal selector.
+
+JEV Router enablement is persisted independently in `jev-router.json`. Provider/credential presence means **configured**, the persisted switch means **enabled**, and OpenRouter account/key eligibility means **available**. The Router is selectable and resolvable only while enabled. Disabling it keeps the provider and vault credential so re-enabling does not require setup again. Activation checks OpenRouter's `GET /api/v1/key` metadata without spending inference credits. A known Free-tier, management-key, exhausted key limit, or model-level HTTP 402 condition is surfaced as unavailable; the 402 path also disables JEV. No failure path substitutes `typesafe/jev-1.13`, `~typesafe/jev-latest`, or another paid model.
+
+Jev does not introduce a second Agent loop. The official OpenRouter Jev Router follows the provider's configured `openai-compatible` Chat Completions path while continuing to use TL Studio's existing native Agent, Tool Registry, Permission Engine, and Tool Executor. Missing catalog tool metadata is handled by the Jev integration boundary so the Router does not accidentally fall back to the compatibility runtime. Other providers and models continue to follow their configured protocol. Native model turns are bounded; a timeout or a truly empty model result is persisted as a visible Agent error instead of becoming a silent blank turn. OpenAI Responses remains supported for providers explicitly configured with the `openai-responses` protocol, but Jev Router is not forced onto it.
+
+The native model client also records the provider-returned top-level model identifier when available. Router models can project that value as semantic `kind: "model"` activity. This is observability only; no routed model is inferred when the provider does not return one.
+
+Direct Jev System One models are not chat models and therefore do not enter `nativeModelClient`. TL Studio owns a small provider-independent `decisionEngine` interface with a Jev/OpenRouter implementation behind:
+
+- `GET /local/decision-engine`
+- `PUT /local/decision-engine`
+- `POST /local/decision-engine/evaluate`
+
+The persisted Decision Engine setting defaults to `off`. Enabling Jev is explicit and reuses the API key from an existing official OpenRouter provider. The Jev implementation targets the OpenRouter Decisions API and uses `~typesafe/jev-latest` by default. This direct path is paid and is never invoked merely because the user selected Jev Router. The current product has no automatic Decision Engine hooks in model routing, tool routing, permission decisions, loop continuation, or output verification.
+
+Decision answers normalize Choice, Score, and Noul results plus probabilities/confidence/usage. They are probabilistic signals, not security facts. The existing deterministic Permission Engine remains the authoritative boundary and is intentionally not replaced or bypassed by Jev.
+
 Semantic session persistence is now TL Studio-owned. The runtime remains the active execution binding for resumable Agent work, while TL Studio retains its own semantic history independently. Permission request generation and enforcement still happen in the runtime, but permission policy and remembered approval semantics are owned by TL Studio as described below.
+
+## Plugin and MCP ownership
+
+TL Studio owns a generic Plugin domain at `/local/plugins*`. The first plugin type is `mcp`, and the first transport is `stdio`. Plugin definitions are product data rather than Agent/runtime-specific configuration: ID, display metadata, enabled state, scope, transport, command, argument vector, project-relative working directory, environment-variable names, and optional metadata.
+
+Project-scoped definitions are matched only to their configured project. Global scope is represented in the schema so a user can intentionally expose the same plugin across projects. Saving a new plugin does **not** execute it. Starting a configured local MCP command requires a separate explicit enable action, and Graphify build actions require a separate explicit confirmation.
+
+Secret environment values are not written to `plugins.json`, browser storage, session history, or normal API responses. Only environment-variable names and configured-state metadata are persisted with the plugin. Values use the existing TL Studio credential infrastructure: DPAPI on Windows, Keychain on macOS, Secret Service on Linux when available, or the encrypted private-file fallback.
+
+The MCP Client Manager is transport-isolated behind an internal client interface. The initial stdio implementation:
+
+1. starts the configured executable directly with an argument vector rather than shell-concatenating user input;
+2. performs MCP `initialize` and `notifications/initialized`;
+3. discovers `tools/list` and optional `resources/list`;
+4. converts discovered tool schemas to native model-tool definitions;
+5. namespaces tool IDs as `mcp.<plugin-id>.<tool-name>`;
+6. invokes `tools/call` and returns structured results to the native Agent loop;
+7. propagates timeout/cancellation and sends the MCP cancellation notification best-effort;
+8. observes process exit, reports useful errors, and reconnects once after a transport/process failure;
+9. terminates the plugin process on disable, removal, project switch where relevant, and TL Studio shutdown.
+
+The Plugin Manager depends on that client interface rather than on stdio details. A future Streamable HTTP MCP transport can therefore implement the same client contract without changing the native Agent loop, Tool Registry, or Browser plugin model.
+
+Discovered MCP tools are merged into the existing TL Studio Tool Registry. MCP annotations are used when available to classify tools as read-like, write-like, or open-world/network-capable; conservative name-based classification is used only as a fallback. Unclassified tools use a safer `unknown` permission class with execution-sensitive behavior. Every MCP tool invocation still passes through the existing native permission authorizer before the MCP server receives the call.
+
+The native Agent remains the decision maker. Enabling an MCP plugin only adds its discovered tool definitions to the same model request that already contains TL Studio's built-in tools. No prompt router forces code questions through a plugin, which keeps plugin OFF/ON a clean benchmarking boundary.
+
+### Graphify validation integration
+
+Graphify validates the generic path rather than defining it. TL Studio does not hardcode Graphify's MCP tool inventory; `graphify-mcp` is initialized like any other MCP server and its actual tools are discovered at runtime.
+
+Graphify-specific convenience behavior is kept at the product edge:
+
+- detect whether `graphify` and the configured MCP executable are available;
+- detect `graphify-out/graph.json`, `graphify-out/graph.html`, and `graphify-out/GRAPH_REPORT.md`;
+- run the fixed local graph-build command `graphify extract . --code-only` through the existing project process manager after explicit confirmation;
+- reopen/reconnect its MCP client after a graph rebuild;
+- open the generated interactive HTML using the existing TL Studio Preview surface.
+
+These conveniences are not part of the generic Plugin core and do not change how the Agent executes MCP tools.
+
+### Bundled plugins
+
+The generic Plugin domain now has two origins:
+
+- `bundled`: version-pinned MCP sidecar executables shipped inside the TL Studio release package;
+- `user`: externally installed/configured MCP commands supplied by the user.
+
+Origin only affects configuration ownership and executable resolution. Once a process starts, both origins use the same MCP Client Manager, dynamic `tools/list`, Tool Registry, Permission Engine, Native Tool Executor, and Native Agent path. Bundled tools do not receive an Agent bypass or a privileged tool-execution path.
+
+Bundled plugin metadata is loaded from the versioned embedded `cmd/launcher/bundled_plugins.json` manifest. User plugin metadata cannot claim reserved bundled origin/version/license fields or shadow a bundled plugin ID. Bundled enable/disable state is stored separately from user `plugins.json`; bundled plugins cannot be removed through Settings.
+
+Release archives resolve bundled executables from:
+
+```text
+plugins/<plugin-id>/bin/<executable>
+```
+
+The release staging script validates that each third-party bundled plugin declares every TL Studio-supported platform, HTTPS artifact URLs, exact SHA-256 checksums, and a repository-retained license before packaging. The same staging path is used by stable release and Windows Preview Build workflows. The current alpha manifest is intentionally empty until a real candidate passes those packaging/security gates.
+
+Bundled plugin child processes inherit a reduced ordinary OS/runtime environment rather than the launcher's entire environment, limiting accidental exposure of unrelated user secrets. This is defense in depth only: a bundled executable is still part of TL Studio's trusted computing base and is not OS-sandboxed by the Permission Engine.
 
 ## Tool Registry ownership
 

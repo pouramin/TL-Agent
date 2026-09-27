@@ -39,6 +39,7 @@ var runtimePackageProtocols = func() map[string]string {
 type tlProviderModel struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
+	Kind         string `json:"kind,omitempty"`
 	ToolCall     bool   `json:"toolCall"`
 	Reasoning    bool   `json:"reasoning"`
 	ContextLimit int    `json:"contextLimit,omitempty"`
@@ -46,11 +47,12 @@ type tlProviderModel struct {
 }
 
 type tlProviderDefinition struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name"`
-	Protocol string            `json:"protocol"`
-	BaseURL  string            `json:"baseURL"`
-	Models   []tlProviderModel `json:"models"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Protocol  string            `json:"protocol"`
+	BaseURL   string            `json:"baseURL"`
+	ManagedBy string            `json:"managedBy,omitempty"`
+	Models    []tlProviderModel `json:"models"`
 }
 
 type providerRegistryFile struct {
@@ -272,6 +274,10 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 		return tlProviderDefinition{}, errors.New("provider base URL must be a valid http(s) URL")
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
+	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
+	if input.ManagedBy != "" && input.ManagedBy != "jev" {
+		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
+	}
 	if len(input.Models) == 0 {
 		return tlProviderDefinition{}, errors.New("provider must define at least one model")
 	}
@@ -281,6 +287,10 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	for _, model := range input.Models {
 		model.ID = strings.TrimSpace(model.ID)
 		model.Name = strings.TrimSpace(model.Name)
+		model.Kind = strings.ToLower(strings.TrimSpace(model.Kind))
+		if model.Kind != "" && model.Kind != "router" {
+			return tlProviderDefinition{}, fmt.Errorf("unsupported model kind %q", model.Kind)
+		}
 		if model.ID == "" {
 			return tlProviderDefinition{}, errors.New("model ID is required")
 		}
@@ -301,6 +311,22 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	return input, nil
 }
 
+func providerModelUsesNativeAgent(provider tlProviderDefinition, model tlProviderModel) bool {
+	if model.ToolCall {
+		return true
+	}
+	return model.ID == jevRouterModelID && model.Kind == "router" && isOpenRouterBaseURL(provider.BaseURL)
+}
+
+func providerNeedsRuntimeCompatibility(provider tlProviderDefinition) bool {
+	for _, model := range provider.Models {
+		if !providerModelUsesNativeAgent(provider, model) {
+			return true
+		}
+	}
+	return false
+}
+
 type runtimeProviderError struct {
 	Status int
 	Body   string
@@ -318,6 +344,7 @@ type runtimeProviderManager struct {
 	backend      *runtimeBackend
 	store        *providerRegistryStore
 	credentials  providerCredentialStore
+	registryMu   sync.Mutex
 	bootstrapMu  sync.Mutex
 	bootstrapped bool
 }
@@ -500,7 +527,13 @@ func (m *runtimeProviderManager) syncProvider(ctx context.Context, provider tlPr
 }
 
 func (m *runtimeProviderManager) syncAll(ctx context.Context, providers []tlProviderDefinition) error {
-	if len(providers) == 0 {
+	compatibility := make([]tlProviderDefinition, 0, len(providers))
+	for _, provider := range providers {
+		if providerNeedsRuntimeCompatibility(provider) {
+			compatibility = append(compatibility, provider)
+		}
+	}
+	if len(compatibility) == 0 {
 		return nil
 	}
 	overlay, err := m.fetchOverlay(ctx)
@@ -509,7 +542,7 @@ func (m *runtimeProviderManager) syncAll(ctx context.Context, providers []tlProv
 	}
 	current := effectiveProviderMap(overlay)
 	disabled := effectiveDisabledProviders(overlay)
-	for _, provider := range providers {
+	for _, provider := range compatibility {
 		current[provider.ID] = runtimeConfigForProvider(provider)
 		disabled = withoutString(disabled, provider.ID)
 	}
@@ -624,6 +657,64 @@ func importRuntimeProviders(overlay map[string]any) []tlProviderDefinition {
 	return result
 }
 
+func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProviderDefinition, bool) {
+	result := make([]tlProviderDefinition, len(providers))
+	copy(result, providers)
+	changed := false
+	for index := range result {
+		provider := &result[index]
+		if provider.ManagedBy != "" || !isOpenRouterBaseURL(provider.BaseURL) || len(provider.Models) != 1 {
+			continue
+		}
+		model := provider.Models[0]
+		if model.ID == jevRouterModelID && model.Kind == "router" {
+			provider.ManagedBy = "jev"
+			changed = true
+		}
+	}
+	return result, changed
+}
+
+func providerCompatibilityWarning(operation string, err error) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "[TL Studio] provider runtime compatibility %s failed: %v\n", operation, err)
+}
+
+func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) ([]tlProviderDefinition, error) {
+	m.registryMu.Lock()
+	defer m.registryMu.Unlock()
+
+	providers, existed, err := m.store.snapshot()
+	if err != nil {
+		return nil, err
+	}
+	if existed {
+		if migrated, changed := migrateManagedProviderMetadata(providers); changed {
+			if err := m.store.replace(migrated); err != nil {
+				return nil, err
+			}
+			return migrated, nil
+		}
+		return providers, nil
+	}
+
+	// Legacy migration is best-effort. A runtime problem must never make the
+	// TL Studio-owned provider registry unreadable or uneditable.
+	overlay, importErr := m.fetchOverlay(ctx)
+	if importErr != nil {
+		providerCompatibilityWarning("legacy import", importErr)
+		return providers, nil
+	}
+	imported := importRuntimeProviders(overlay)
+	imported, _ = migrateManagedProviderMetadata(imported)
+	if err := m.store.replace(imported); err != nil {
+		return nil, err
+	}
+	return imported, nil
+}
+
 func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
 	m.bootstrapMu.Lock()
 	defer m.bootstrapMu.Unlock()
@@ -631,28 +722,26 @@ func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
 		return nil
 	}
 
-	providers, existed, err := m.store.snapshot()
+	providers, err := m.ensureRegistryInitialized(ctx)
 	if err != nil {
 		return err
 	}
-	if !existed {
-		overlay, err := m.fetchOverlay(ctx)
-		if err != nil {
-			return err
-		}
-		providers = importRuntimeProviders(overlay)
-		if err := m.store.replace(providers); err != nil {
-			return err
-		}
-	}
+
+	// Kilo/OpenCode remains a compatibility runtime, not the source of truth for
+	// user provider configuration. Keep its overlay synchronized when possible,
+	// but never brick TL Studio's provider UI/native Agent if that bridge rejects
+	// an old or newly valid TL Studio provider.
 	if err := m.syncAll(ctx, providers); err != nil {
-		return err
+		providerCompatibilityWarning("provider sync", err)
 	}
 
 	restoredCredential := false
 	for _, provider := range providers {
 		if m.credentials == nil {
 			break
+		}
+		if !providerNeedsRuntimeCompatibility(provider) {
+			continue
 		}
 		key, credentialErr := m.credentials.Get(provider.ID)
 		if errors.Is(credentialErr, errCredentialNotFound) {
@@ -662,13 +751,14 @@ func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
 			return credentialErr
 		}
 		if err := m.setCredential(ctx, provider.ID, key); err != nil {
-			return err
+			providerCompatibilityWarning("credential sync for "+provider.ID, err)
+			continue
 		}
 		restoredCredential = true
 	}
 	if restoredCredential {
 		if err := m.dispose(ctx); err != nil {
-			return err
+			providerCompatibilityWarning("runtime reload", err)
 		}
 	}
 
@@ -678,6 +768,7 @@ func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
 
 type catalogModel struct {
 	Name    string `json:"name"`
+	Kind    string `json:"kind,omitempty"`
 	Enabled *bool  `json:"enabled,omitempty"`
 	Variant any    `json:"variant,omitempty"`
 }
@@ -774,31 +865,95 @@ func normalizeCatalogProvider(raw json.RawMessage, managed map[string]bool) (cat
 	return result, true
 }
 
-func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) (providerCatalogResponse, error) {
-	if err := m.ensureBootstrapped(ctx); err != nil {
-		return providerCatalogResponse{}, err
+func hostedCatalogProvider(upstream catalogProvider, preferredModels []string) catalogProvider {
+	result := catalogProvider{
+		ID:     runtimeHostedProviderID,
+		Name:   upstream.Name,
+		Source: "hosted",
+		Models: map[string]catalogModel{},
 	}
-	raw, err := m.requestRaw(ctx, http.MethodGet, "/provider", m.runtimeQuery(directory), nil)
-	if err != nil {
-		return providerCatalogResponse{}, err
+	if result.Name == "" {
+		result.Name = "Kilo"
 	}
-	var upstream struct {
-		All       []json.RawMessage `json:"all"`
-		Connected []string          `json:"connected"`
-		Default   map[string]string `json:"default"`
-		Failed    []json.RawMessage `json:"failed"`
+	for _, modelID := range preferredModels {
+		if model, ok := upstream.Models[modelID]; ok {
+			result.Models[modelID] = model
+			continue
+		}
+		name := modelID
+		if modelID == "kilo-auto/free" {
+			name = "Auto Free"
+		}
+		result.Models[modelID] = catalogModel{Name: name}
 	}
-	if err := json.Unmarshal(unwrapRuntimePayload(raw), &upstream); err != nil {
-		return providerCatalogResponse{}, fmt.Errorf("decode runtime provider catalog: %w", err)
-	}
+	return result
+}
 
-	managedDefinitions, _, err := m.store.snapshot()
+func managedCatalogProvider(definition tlProviderDefinition, upstream catalogProvider, hasUpstream bool) catalogProvider {
+	result := catalogProvider{
+		ID:     definition.ID,
+		Name:   definition.Name,
+		Source: "custom",
+		Models: map[string]catalogModel{},
+	}
+	for _, configured := range definition.Models {
+		model := catalogModel{
+			Name: configured.Name,
+			Kind: configured.Kind,
+		}
+		if model.Name == "" {
+			model.Name = configured.ID
+		}
+		if hasUpstream {
+			if runtimeModel, ok := upstream.Models[configured.ID]; ok {
+				model.Enabled = runtimeModel.Enabled
+				model.Variant = runtimeModel.Variant
+				if model.Name == configured.ID && runtimeModel.Name != "" {
+					model.Name = runtimeModel.Name
+				}
+			}
+		}
+		result.Models[configured.ID] = model
+	}
+	return result
+}
+
+func appendUniqueString(values []string, value string) []string {
+	for _, existing := range values {
+		if existing == value {
+			return values
+		}
+	}
+	return append(values, value)
+}
+
+func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) (providerCatalogResponse, error) {
+	managedDefinitions, err := m.ensureRegistryInitialized(ctx)
 	if err != nil {
 		return providerCatalogResponse{}, err
 	}
 	managed := map[string]bool{}
 	for _, provider := range managedDefinitions {
 		managed[provider.ID] = true
+	}
+	jevConfig, jevConfigErr := loadJevRouterConfig()
+	if jevConfigErr != nil {
+		return providerCatalogResponse{}, jevConfigErr
+	}
+
+	var upstream struct {
+		All       []json.RawMessage `json:"all"`
+		Connected []string          `json:"connected"`
+		Default   map[string]string `json:"default"`
+		Failed    []json.RawMessage `json:"failed"`
+	}
+	raw, runtimeErr := m.requestRaw(ctx, http.MethodGet, "/provider", m.runtimeQuery(directory), nil)
+	if runtimeErr == nil {
+		if err := json.Unmarshal(unwrapRuntimePayload(raw), &upstream); err != nil {
+			providerCompatibilityWarning("catalog decode", err)
+		}
+	} else {
+		providerCompatibilityWarning("catalog read", runtimeErr)
 	}
 
 	result := providerCatalogResponse{
@@ -811,9 +966,34 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 	}
 	result.Hosted.ProviderID = runtimeHostedProviderID
 	result.Hosted.PreferredModels = append([]string(nil), runtimeHostedPreferredModels...)
+	if len(result.Hosted.PreferredModels) > 0 {
+		result.Default[runtimeHostedProviderID] = result.Hosted.PreferredModels[0]
+	}
+
+	upstreamByID := make(map[string]catalogProvider, len(upstream.All))
 	for _, rawProvider := range upstream.All {
 		if provider, ok := normalizeCatalogProvider(rawProvider, managed); ok {
-			result.All = append(result.All, provider)
+			upstreamByID[provider.ID] = provider
+		}
+	}
+
+	hosted := upstreamByID[runtimeHostedProviderID]
+	result.All = append(result.All, hostedCatalogProvider(hosted, result.Hosted.PreferredModels))
+	for _, definition := range managedDefinitions {
+		upstreamProvider, ok := upstreamByID[definition.ID]
+		catalogProvider := managedCatalogProvider(definition, upstreamProvider, ok)
+		if !jevConfig.Enabled {
+			if model, exists := catalogProvider.Models[jevRouterModelID]; exists && providerHasJevRouter(definition) {
+				disabled := false
+				model.Enabled = &disabled
+				catalogProvider.Models[jevRouterModelID] = model
+			}
+		}
+		result.All = append(result.All, catalogProvider)
+		if m.credentials != nil {
+			if key, credentialErr := m.credentials.Get(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
+				result.Connected = appendUniqueString(result.Connected, definition.ID)
+			}
 		}
 	}
 	sort.Slice(result.All, func(i, j int) bool {
@@ -873,11 +1053,7 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("GET /runtime/providers/config", func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.ensureBootstrapped(r.Context()); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		providers, _, err := manager.store.snapshot()
+		providers, err := manager.ensureRegistryInitialized(r.Context())
 		if err != nil {
 			writeProviderManagerError(w, err)
 			return
@@ -886,7 +1062,7 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("PUT /runtime/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.ensureBootstrapped(r.Context()); err != nil {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil {
 			writeProviderManagerError(w, err)
 			return
 		}
@@ -923,31 +1099,31 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 				return
 			}
 		}
-		if err := manager.syncProvider(r.Context(), provider); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		if manager.credentials != nil {
-			key, credentialErr := manager.credentials.Get(provider.ID)
-			if credentialErr == nil {
-				if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
-					writeProviderManagerError(w, err)
-					return
+		if providerNeedsRuntimeCompatibility(provider) {
+			if err := manager.syncProvider(r.Context(), provider); err != nil {
+				providerCompatibilityWarning("save sync for "+provider.ID, err)
+			} else {
+				if manager.credentials != nil {
+					key, credentialErr := manager.credentials.Get(provider.ID)
+					if credentialErr == nil {
+						if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
+							providerCompatibilityWarning("credential sync for "+provider.ID, err)
+						}
+					} else if !errors.Is(credentialErr, errCredentialNotFound) {
+						writeProviderManagerError(w, credentialErr)
+						return
+					}
 				}
-			} else if !errors.Is(credentialErr, errCredentialNotFound) {
-				writeProviderManagerError(w, credentialErr)
-				return
+				if err := manager.dispose(r.Context()); err != nil {
+					providerCompatibilityWarning("runtime reload after save for "+provider.ID, err)
+				}
 			}
-		}
-		if err := manager.dispose(r.Context()); err != nil {
-			writeProviderManagerError(w, err)
-			return
 		}
 		writeJSON(w, http.StatusOK, provider)
 	})
 
 	mux.HandleFunc("DELETE /runtime/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.ensureBootstrapped(r.Context()); err != nil {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil {
 			writeProviderManagerError(w, err)
 			return
 		}
@@ -963,10 +1139,6 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider is not managed by TL Studio"})
 			return
 		}
-		if err := manager.deleteRuntimeProvider(r.Context(), id); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
 		if manager.credentials != nil {
 			if err := manager.credentials.Delete(id); err != nil {
 				writeProviderManagerError(w, err)
@@ -976,6 +1148,13 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 		if err := manager.store.remove(id); err != nil {
 			writeProviderManagerError(w, err)
 			return
+		}
+		if err := removeProviderDiscoveryCache(id); err != nil {
+			writeProviderManagerError(w, err)
+			return
+		}
+		if err := manager.deleteRuntimeProvider(r.Context(), id); err != nil {
+			providerCompatibilityWarning("delete cleanup for "+id, err)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"removed": id})
 	})
