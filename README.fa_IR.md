@@ -4,7 +4,7 @@
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center"><strong>Development branch: 0.4.0-alpha.5</strong> · نسخه Stable: v0.3.0.</p>
+<p align="center"><strong>نسخه Stable: v0.4.0</strong></p>
 
 <p align="center">
   یک محیط توسعه‌ی سریع و لوکال با AI داخلی.
@@ -113,7 +113,7 @@ Added by you
 
 Plugin همراه TL Studio یک Sidecar MCP version-pinned است که executable آن از داخل همان Release پیدا می‌شود و به PATH کاربر وابسته نیست. بعد از شروع Process هیچ مسیر جداگانه‌ای برای Agent ندارد و از همان MCP Client Manager، Tool Registry، Permission Engine و Native Tool Executor عبور می‌کند.
 
-Manifest مربوط به این Pluginها هم داخل Launcher قرار می‌گیرد و هم در Release pipeline استفاده می‌شود. برای هر Plugin شخص ثالث، Artifact تمام Platformهای پشتیبانی‌شده، SHA-256 دقیق و License نگه‌داری‌شده در Repository اجباری است. در نسخه `0.4.0-alpha.4` هنوز هیچ Plugin شخص ثالثی به‌صورت پیش‌فرض Bundle نشده است؛ زیرساخت کامل شده ولی حجم Release و Trusted Computing Base بی‌دلیل بزرگ نشده است.
+Manifest مربوط به این Pluginها هم داخل Launcher قرار می‌گیرد و هم در Release pipeline استفاده می‌شود. برای هر Plugin شخص ثالث، Artifact تمام Platformهای پشتیبانی‌شده، SHA-256 دقیق و License نگه‌داری‌شده در Repository اجباری است. در نسخه `0.4.0` هنوز هیچ Plugin شخص ثالثی به‌صورت پیش‌فرض Bundle نشده است؛ زیرساخت کامل شده ولی حجم Release و Trusted Computing Base بی‌دلیل بزرگ نشده است.
 
 ### رفتار کشف مدل
 

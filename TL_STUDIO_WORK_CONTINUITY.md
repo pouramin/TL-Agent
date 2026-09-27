@@ -11,8 +11,8 @@ This file is a durable operating instruction for future TL Studio development se
 
 ## Branch and release discipline
 
-- `main` is stable production only and is promoted to the stable `v0.3.0` line after Phase 2 validation.
-- `dev` is the next private alpha line; the current development target is `0.4.0-alpha.5`.
+- `main` is stable production only. The current stable line is `v0.4.0`, promoted after automated gates and hands-on Windows validation.
+- `dev` is the development line. After the `v0.4.0` promotion it must advance to the next private alpha line before new architecture work begins.
 - Feature/fix branches start from `dev`.
 - Experimental work must not be merged into `main`.
 - Private alpha builds use the GitHub Actions Preview Build artifact flow.
@@ -20,13 +20,26 @@ This file is a durable operating instruction for future TL Studio development se
 
 ## Current development state
 
-Current stable baseline after Phase 2 promotion:
+Current stable baseline after the validated 0.4 promotion:
 
-`0.3.0`
+`0.4.0`
 
-Current private development target:
+Next private development target after promotion:
 
-`0.4.0-alpha.5`
+`0.5.0-alpha.1`
+
+## v0.4.0 stable promotion checkpoint
+
+The validated `0.4.0-alpha.5` development line was promoted to stable `v0.4.0` only after:
+
+- the TL Studio-native provider/model/tool path remained green;
+- TypeSafe Jev / OpenRouter compatibility work remained green;
+- the redesigned editor-centered workspace was merged through PR #111;
+- the Windows x64 Preview was hands-on tested;
+- the follow-up UI spacing, Activity Rail sizing, About website link, and cleanup pass were validated;
+- strict Browser TypeScript/build, Go test/vet, supported cross-compiles, real-runtime product contract, real prompt/write E2E, Custom Provider Contract, and real Chrome workbench smoke were green.
+
+The stable `v0.4.0` line is the checkpoint for the current native architecture plus the redesigned workspace. New Kilo-independence, provider-account authentication, and Smart Router work belongs to the next `0.5.0-alpha.*` development line and must not be developed directly on `main`.
 
 The alpha.5 TypeSafe Jev milestone is merged into `dev`.
 

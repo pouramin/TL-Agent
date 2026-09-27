@@ -4,7 +4,7 @@
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center"><strong>Development branch: 0.4.0-alpha.5</strong> · Stable release: v0.3.0.</p>
+<p align="center"><strong>Stable release: v0.4.0</strong></p>
 
 <p align="center">
   A fast local development workspace with AI built in.
@@ -106,7 +106,7 @@ This is a generic plugin path, not a Graphify-specific integration. Another stdi
 
 Settings separates **Included with TL Studio** from **Added by you**. Bundled plugins are version-pinned sidecar MCP executables resolved from the TL Studio release package, not from the user's PATH. They still use the same MCP Client Manager, Tool Registry, Permission Engine, Native Tool Executor, and Native Agent path as user-added plugins.
 
-The bundled-plugin manifest is embedded in the launcher and also consumed by release engineering. Every third-party bundled plugin must declare all supported TL Studio platform artifacts, exact SHA-256 checksums, and a repository-retained license file before packaging succeeds. The current `0.4.0-alpha.4` manifest intentionally contains no third-party bundled plugin yet; the infrastructure is ready without increasing the release size or silently adding a new trusted executable.
+The bundled-plugin manifest is embedded in the launcher and also consumed by release engineering. Every third-party bundled plugin must declare all supported TL Studio platform artifacts, exact SHA-256 checksums, and a repository-retained license file before packaging succeeds. The current `0.4.0` manifest intentionally contains no third-party bundled plugin yet; the infrastructure is ready without increasing the release size or silently adding a new trusted executable.
 
 ### Model discovery behavior
 
