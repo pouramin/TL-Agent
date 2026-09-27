@@ -207,11 +207,13 @@ import { K } from "./kernel";
       compactControl.setAttribute("aria-pressed", currentRouterReady ? "true" : "false");
       compactControlLabel.textContent = currentRouterReady
         ? "Active JEV"
-        : currentRouterConfigured && currentRouterAccess === "free-tier"
+        : currentRouterEnabled
           ? "JEV unavailable"
-          : currentRouterConfigured
-            ? "Enable JEV"
-            : "Configure JEV";
+          : currentRouterConfigured && ["free-tier", "key-limit", "management-key", "openrouter-credits"].includes(currentRouterAccess)
+            ? "JEV unavailable"
+            : currentRouterConfigured
+              ? "Enable JEV"
+              : "Configure JEV";
 
       compactStatus.textContent = currentRouterReady
         ? `Jev Router ready via ${router?.providerName || router?.providerID || currentProvider?.name || "OpenRouter"}`
@@ -224,9 +226,9 @@ import { K } from "./kernel";
 
       const shouldShowKey = !currentCredentialConnected || currentRouterAccess === "free-tier" || currentRouterAccess === "credential-missing";
       apiKeyField.classList.toggle("hidden", !shouldShowKey);
-      setupButton.textContent = currentRouterReady
+      setupButton.textContent = currentRouterReady || currentRouterEnabled
         ? "Disable JEV"
-        : currentRouterConfigured && currentRouterAccess === "free-tier"
+        : currentRouterConfigured && ["free-tier", "key-limit", "management-key", "openrouter-credits"].includes(currentRouterAccess)
           ? "Recheck access"
           : currentRouterConfigured
             ? "Enable JEV"
