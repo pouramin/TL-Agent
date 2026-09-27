@@ -790,6 +790,119 @@ Hands-on validation should continue from this Preview. Priority retest:
 - if upstream returns an empty response, confirm the Session shows an explicit Agent error instead of remaining silent
 - Decision Engine must remain Off unless explicitly enabled
 
+## Alpha.5 Jev chat execution + provider presentation fix
+
+Hands-on Windows testing after the one-click JEV build showed that Jev Router could still accept a user turn without producing a visible assistant response. The same run also showed noisy Kilo compatibility sync warnings for TL Studio-native providers. A follow-up UX request was to hide the OpenRouter provider created only for JEV and show Router models above provider groups.
+
+Fixed in:
+
+`#107 — Fix Jev chat execution and provider presentation`
+
+Squash merge commit:
+
+`9cddcb885d93ef99d5dfff91ef5447ba0f519ac6`
+
+### Jev execution
+
+OpenRouter's current official Jev Router page documents the normal generative streaming path on:
+
+```text
+POST https://openrouter.ai/api/v1/chat/completions
+model: typesafe/jev-router
+```
+
+TL Studio therefore no longer forces Jev Router onto Responses merely because the provider is the official OpenRouter base URL. The Router now follows the configured `openai-compatible` Chat Completions path while remaining on TL Studio's native Agent loop.
+
+The Jev-specific native-eligibility exception remains in place so missing/unknown catalog tool metadata does not accidentally send Jev Router to the Kilo compatibility runtime.
+
+Native model turns are bounded to two minutes. If a provider stalls past the bound, TL Studio persists a visible Agent error instead of leaving a silent user-only turn. Truly empty model responses remain visible failures as well.
+
+### Provider/runtime ownership
+
+TL Studio-owned providers whose configured models are fully supported by the native Agent no longer synchronize provider definitions or credentials into Kilo.
+
+Kilo provider/credential synchronization now applies only to models that still require the compatibility execution path.
+
+This removes the misleading `provider runtime compatibility save sync ... 400` warnings for native OpenRouter/JEV providers without removing compatibility support for non-native models.
+
+### JEV-owned provider presentation
+
+`tlProviderDefinition` now supports optional product ownership metadata:
+
+```json
+{"managedBy":"jev"}
+```
+
+When JEV creates an OpenRouter provider solely for `typesafe/jev-router`, it marks the provider as JEV-managed. Legacy official OpenRouter providers containing only Jev Router are migrated to that metadata automatically.
+
+Product-managed providers are hidden from the generic Settings → Providers list. JEV stays visible through the compact `Active JEV / Configure JEV` control.
+
+If the JEV setup reuses a user-created OpenRouter provider that also contains ordinary user-selected models, the provider remains user-managed and visible.
+
+### Model selector
+
+Models marked `kind: "router"` are now inserted at the top level of the model selector before provider optgroups.
+
+Jev Router therefore appears near the top as:
+
+`Jev Router · Router`
+
+instead of being nested under an OpenRouter provider group.
+
+Ordinary fixed models remain grouped by provider.
+
+### Validation
+
+PR #107 passed:
+
+- Custom Provider Contract
+- strict Browser TypeScript
+- Browser build
+- Go tests
+- Go vet
+- runtime boundary checks
+- runtime product contract
+- runtime prompt/write E2E
+- supported-platform cross-compiles
+
+Post-merge Windows Preview Build:
+
+`36320758638`
+
+Head:
+
+`9cddcb885d93ef99d5dfff91ef5447ba0f519ac6`
+
+Result:
+
+`success`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10931653120`
+
+GitHub artifact digest:
+
+`sha256:b7f10d5d1f61684540c4d4062c1138ced59ab6b3a40746d7564490dc171cc0d5`
+
+Inner product ZIP SHA256:
+
+`2d4799ccd818089d20eeffd58ef226f7a668d254471d323dc1255d5fed487fa8`
+
+Hands-on validation should continue from this Preview. Priority retest:
+
+- Settings → Providers should not show an OpenRouter card that exists only for JEV
+- the user-created `op` provider must remain visible
+- Jev Router must appear above provider groups in the Model selector
+- JEV should remain `Active JEV`
+- sending a simple prompt through Jev Router should produce a visible assistant response
+- no new Kilo provider-sync 400 warning should appear for JEV/native OpenRouter saves
+- if OpenRouter stalls for the entire native model-turn bound, the Session must show a timeout error instead of remaining silent
+
 ## Next product phase
 
 Phase 2 is complete according to its ownership criteria.
