@@ -181,7 +181,7 @@ func modelHTTPError(response *http.Response, request nativeModelRequest) error {
 	if response.StatusCode == http.StatusPaymentRequired &&
 		request.Model.ID == jevRouterModelID &&
 		providerHasJevRouter(request.Provider) {
-		message := "OpenRouter rejected Jev Router for this account (402). Jev Router is listed at $0/token, but OpenRouter's current Free plan does not include auto-routing. TL Studio disabled JEV and did not fall back to a paid Jev model"
+		message := "OpenRouter rejected Jev Router for this account (402: insufficient router access or credits). Jev Router is listed at $0/token, but OpenRouter can still require eligible account access for auto-routing. TL Studio disabled JEV and did not fall back to a paid Jev model"
 		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false, Blocked: "openrouter-credits", BlockMessage: message})
 		return errors.New(message)
 	}
