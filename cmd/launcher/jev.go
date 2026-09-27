@@ -31,8 +31,10 @@ const (
 )
 
 type jevRouterConfig struct {
-	Version int  `json:"version"`
-	Enabled bool `json:"enabled"`
+	Version      int    `json:"version"`
+	Enabled      bool   `json:"enabled"`
+	Blocked      string `json:"blocked,omitempty"`
+	BlockMessage string `json:"blockMessage,omitempty"`
 }
 
 type jevRouterStatus struct {
@@ -601,6 +603,18 @@ func (s *jevRouterService) status(ctx context.Context) (jevRouterStatus, error) 
 		status.Message = "Jev Router is configured, but its OpenRouter credential is missing."
 		return status, nil
 	}
+	if !config.Enabled {
+		if strings.TrimSpace(config.Blocked) != "" {
+			status.Access = config.Blocked
+			status.Message = config.BlockMessage
+			status.Available = false
+		} else {
+			status.Access = "unchecked"
+			status.Available = true
+			status.Message = "Jev Router is configured and off. Enable it to verify current OpenRouter router access."
+		}
+		return status, nil
+	}
 
 	info, infoErr := s.openRouterKeyInfo(ctx, provider, key)
 	if infoErr != nil {
@@ -615,7 +629,7 @@ func (s *jevRouterService) status(ctx context.Context) (jevRouterStatus, error) 
 
 func (s *jevRouterService) configure(ctx context.Context, enabled bool) (jevRouterStatus, error) {
 	if !enabled {
-		if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false}); err != nil {
+		if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false, Blocked: "", BlockMessage: ""}); err != nil {
 			return jevRouterStatus{}, err
 		}
 		return s.status(ctx)
@@ -635,14 +649,14 @@ func (s *jevRouterService) configure(ctx context.Context, enabled bool) (jevRout
 	}
 	available, access, message := jevRouterAccountAccess(info)
 	if !available {
-		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false})
+		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false, Blocked: access, BlockMessage: message})
 		statusCode := http.StatusConflict
 		if access == "free-tier" || access == "key-limit" {
 			statusCode = http.StatusPaymentRequired
 		}
 		return jevRouterStatus{}, &jevRouterError{Kind: access, Status: statusCode, Err: errors.New(message)}
 	}
-	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true}); err != nil {
+	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: true, Blocked: "", BlockMessage: ""}); err != nil {
 		return jevRouterStatus{}, err
 	}
 	return s.status(ctx)
