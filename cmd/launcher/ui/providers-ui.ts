@@ -361,6 +361,7 @@ import { K } from "./kernel";
       await K.loadCatalog();
       providerConfig = await K.api.providers.config();
       renderList();
+      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
       const savedModelIDs = provider.models.map((model: any) => String(model.id));
       const loadedModelIDs = savedModelIDs.filter((modelID: string) =>
         K.state.models.some((model) => model.providerID === id && model.id === modelID));
@@ -401,6 +402,7 @@ import { K } from "./kernel";
       }
       renderList();
       K.renderModels?.();
+      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
       clearForm();
       notice(`${entry.name || entry.id} removed.`);
 
