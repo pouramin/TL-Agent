@@ -657,6 +657,24 @@ func importRuntimeProviders(overlay map[string]any) []tlProviderDefinition {
 	return result
 }
 
+func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProviderDefinition, bool) {
+	result := make([]tlProviderDefinition, len(providers))
+	copy(result, providers)
+	changed := false
+	for index := range result {
+		provider := &result[index]
+		if provider.ManagedBy != "" || !isOpenRouterBaseURL(provider.BaseURL) || len(provider.Models) != 1 {
+			continue
+		}
+		model := provider.Models[0]
+		if model.ID == jevRouterModelID && model.Kind == "router" {
+			provider.ManagedBy = "jev"
+			changed = true
+		}
+	}
+	return result, changed
+}
+
 func providerCompatibilityWarning(operation string, err error) {
 	if err == nil {
 		return
@@ -673,6 +691,12 @@ func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) 
 		return nil, err
 	}
 	if existed {
+		if migrated, changed := migrateManagedProviderMetadata(providers); changed {
+			if err := m.store.replace(migrated); err != nil {
+				return nil, err
+			}
+			return migrated, nil
+		}
 		return providers, nil
 	}
 
@@ -684,6 +708,7 @@ func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) 
 		return providers, nil
 	}
 	imported := importRuntimeProviders(overlay)
+	imported, _ = migrateManagedProviderMetadata(imported)
 	if err := m.store.replace(imported); err != nil {
 		return nil, err
 	}
