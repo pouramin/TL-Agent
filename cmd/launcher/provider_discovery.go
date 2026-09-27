@@ -438,7 +438,27 @@ func normalizeProviderDiscoveredModels(records []map[string]any) []providerDisco
 	return result
 }
 
+func validateOpenRouterDiscoveryCredential(ctx context.Context, baseURL, apiKey string) error {
+	if !isOpenRouterBaseURL(baseURL) {
+		return nil
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return &providerDiscoveryHTTPError{Status: http.StatusUnauthorized}
+	}
+	endpoint, err := nativeEndpoint(baseURL, "key")
+	if err != nil {
+		return err
+	}
+	_, err = providerDiscoveryGET(ctx, endpoint, map[string]string{
+		"Authorization": "Bearer " + strings.TrimSpace(apiKey),
+	})
+	return err
+}
+
 func discoverOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string) ([]providerDiscoveredModel, error) {
+	if err := validateOpenRouterDiscoveryCredential(ctx, baseURL, apiKey); err != nil {
+		return nil, err
+	}
 	endpoint, err := nativeEndpoint(baseURL, "models")
 	if err != nil {
 		return nil, err
