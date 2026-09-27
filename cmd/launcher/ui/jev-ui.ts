@@ -123,6 +123,10 @@ import { K } from "./kernel";
 
   let currentProvider: TLStudioDynamicRecord | null = null;
   let currentRouterReady = false;
+  let currentRouterEnabled = false;
+  let currentRouterConfigured = false;
+  let currentRouterAvailable = false;
+  let currentRouterAccess = "";
   let currentCredentialConnected = false;
 
   const setText = (element: HTMLElement, message = "", kind = "") => {
@@ -183,37 +187,67 @@ import { K } from "./kernel";
 
   const refreshStatus = async () => {
     try {
-      const [config, decision] = await Promise.all([
+      const [config, router, decision] = await Promise.all([
         K.api.providers.config(),
+        K.api.jevRouter.status(),
         K.api.decisionEngine.status(),
       ]);
       const providers = Array.isArray(config?.providers) ? config.providers : [];
       currentProvider = selectOpenRouterProvider(providers, decision || {});
       const hasRouter = providerHasRouter(currentProvider);
-      currentCredentialConnected = !!currentProvider && (
-        K.state.connectedProviders?.has?.(currentProvider.id)
-        || (decision?.providerConfigured === true && clean(decision?.providerID) === clean(currentProvider.id))
-      );
-      currentRouterReady = hasRouter && currentCredentialConnected;
+
+      currentRouterConfigured = router?.configured === true && hasRouter;
+      currentCredentialConnected = router?.credentialConnected === true;
+      currentRouterEnabled = router?.enabled === true;
+      currentRouterAvailable = router?.available === true;
+      currentRouterReady = router?.active === true;
+      currentRouterAccess = clean(router?.access);
 
       compactControl.classList.toggle("active", currentRouterReady);
-      compactControlLabel.textContent = currentRouterReady ? "Active JEV" : "Configure JEV";
-      compactStatus.textContent = currentRouterReady
-        ? `Jev Router ready via ${currentProvider?.name || currentProvider?.id || "OpenRouter"}`
-        : hasRouter
-          ? "Jev Router is saved, but the OpenRouter credential is not connected."
-          : currentProvider
-            ? "OpenRouter is configured. Activate JEV to add the router automatically."
-            : "Not configured";
+      compactControl.setAttribute("aria-pressed", currentRouterReady ? "true" : "false");
+      compactControlLabel.textContent = currentRouterReady
+        ? "Active JEV"
+        : currentRouterConfigured && currentRouterAccess === "free-tier"
+          ? "JEV unavailable"
+          : currentRouterConfigured
+            ? "Enable JEV"
+            : "Configure JEV";
 
-      apiKeyField.classList.toggle("hidden", currentCredentialConnected);
-      setupButton.textContent = currentRouterReady ? "Refresh JEV" : "Activate JEV";
-      setText(routerStatus, currentRouterReady
-        ? `Ready. TL Studio uses ${JEV_ROUTER_MODEL} through ${currentProvider?.name || currentProvider?.id}.`
-        : currentCredentialConnected
-          ? "OpenRouter credential found. Click Activate JEV; TL Studio will discover and save Jev Router automatically."
-          : "Enter an OpenRouter API key. TL Studio will validate it, find Jev Router, and save it automatically.",
-        currentRouterReady ? "ok" : "");
+      compactStatus.textContent = currentRouterReady
+        ? `Jev Router ready via ${router?.providerName || router?.providerID || currentProvider?.name || "OpenRouter"}`
+        : clean(router?.message)
+          || (currentRouterConfigured
+            ? "Jev Router is configured but currently off."
+            : currentProvider
+              ? "OpenRouter is configured. Activate JEV to add the router automatically."
+              : "Not configured");
+
+      const shouldShowKey = !currentCredentialConnected || currentRouterAccess === "free-tier" || currentRouterAccess === "credential-missing";
+      apiKeyField.classList.toggle("hidden", !shouldShowKey);
+      setupButton.textContent = currentRouterReady
+        ? "Disable JEV"
+        : currentRouterConfigured && currentRouterAccess === "free-tier"
+          ? "Recheck access"
+          : currentRouterConfigured
+            ? "Enable JEV"
+            : "Activate JEV";
+
+      const routerMessage = clean(router?.message);
+      const routerMessageKind = currentRouterReady
+        ? "ok"
+        : ["free-tier", "key-limit", "management-key", "credential-missing"].includes(currentRouterAccess)
+          ? "error"
+          : "";
+      setText(routerStatus,
+        currentRouterReady
+          ? `Ready. TL Studio uses ${JEV_ROUTER_MODEL} through ${router?.providerName || router?.providerID || currentProvider?.name || currentProvider?.id}.`
+          : routerMessage
+            || (currentRouterConfigured
+              ? "Jev Router is configured but disabled."
+              : currentCredentialConnected
+                ? "OpenRouter credential found. Click Activate JEV; TL Studio will discover and save Jev Router automatically."
+                : "Enter an OpenRouter API key. TL Studio will validate it, find Jev Router, and save it automatically."),
+        routerMessageKind);
 
       decisionSelect.value = decision?.engine === "jev" ? "jev" : "off";
       if (decision?.engine === "jev") {
@@ -228,8 +262,13 @@ import { K } from "./kernel";
     } catch (error) {
       currentProvider = null;
       currentRouterReady = false;
+      currentRouterEnabled = false;
+      currentRouterConfigured = false;
+      currentRouterAvailable = false;
+      currentRouterAccess = "";
       currentCredentialConnected = false;
       compactControl.classList.remove("active");
+      compactControl.setAttribute("aria-pressed", "false");
       compactControlLabel.textContent = "Configure JEV";
       compactStatus.textContent = "Could not read Jev status";
       apiKeyField.classList.remove("hidden");
@@ -243,16 +282,39 @@ import { K } from "./kernel";
     if (!dialog.open) dialog.showModal();
   };
 
+  const refreshJevSurfaces = async () => {
+    await K.loadCatalog();
+    await providersUI.reload?.();
+    window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
+    await refreshStatus();
+  };
+
   const setupRouter = async () => {
     if (setupButton.disabled) return;
     setupButton.disabled = true;
-    setText(routerStatus, "Checking OpenRouter and locating Jev Router…");
+    let providerChanged = false;
+    setText(routerStatus, "Checking OpenRouter and Jev Router access…");
     try {
       const config = await K.api.providers.config();
       const providers = Array.isArray(config?.providers) ? config.providers : [];
       const key = clean(apiKeyInput.value);
 
       await refreshStatus();
+
+      if (currentRouterReady && !key) {
+        await K.api.jevRouter.configure(false);
+        await refreshJevSurfaces();
+        setText(routerStatus, "JEV is off. The OpenRouter configuration and API key were kept.", "ok");
+        return;
+      }
+
+      if (currentRouterConfigured && currentCredentialConnected && !key) {
+        await K.api.jevRouter.configure(true);
+        await refreshJevSurfaces();
+        setText(routerStatus, "Jev Router is active.", "ok");
+        return;
+      }
+
       if (!currentCredentialConnected && !key) {
         throw new Error("Enter your OpenRouter API key.");
       }
@@ -283,17 +345,53 @@ import { K } from "./kernel";
         provider,
         ...(key ? { apiKey: key } : {}),
       });
-
+      providerChanged = true;
       apiKeyInput.value = "";
-      await K.loadCatalog();
-      await providersUI.reload?.();
-      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
-      await refreshStatus();
+
+      await K.api.jevRouter.configure(true);
+      await refreshJevSurfaces();
       setText(routerStatus, "Jev Router is active. No manual model selection was required.", "ok");
     } catch (error) {
+      if (providerChanged) {
+        await refreshJevSurfaces().catch(() => undefined);
+      } else {
+        await refreshStatus().catch(() => undefined);
+      }
       setText(routerStatus, `Could not activate Jev Router: ${error instanceof Error ? error.message : String(error)}`, "error");
     } finally {
       setupButton.disabled = false;
+    }
+  };
+
+  const toggleJev = async () => {
+    if (compactControl.disabled) return;
+    compactControl.disabled = true;
+    try {
+      await refreshStatus();
+
+      if (currentRouterReady || currentRouterEnabled) {
+        await K.api.jevRouter.configure(false);
+        await refreshJevSurfaces();
+        return;
+      }
+
+      if (!currentRouterConfigured || !currentCredentialConnected) {
+        await openDialog();
+        return;
+      }
+
+      if (!currentRouterAvailable) {
+        await openDialog();
+        return;
+      }
+
+      await K.api.jevRouter.configure(true);
+      await refreshJevSurfaces();
+    } catch (error) {
+      await openDialog().catch(() => undefined);
+      setText(routerStatus, `Could not update JEV: ${error instanceof Error ? error.message : String(error)}`, "error");
+    } finally {
+      compactControl.disabled = false;
     }
   };
 
@@ -321,7 +419,7 @@ import { K } from "./kernel";
     }
   };
 
-  compactControl.addEventListener("click", () => { void openDialog(); });
+  compactControl.addEventListener("click", () => { void toggleJev(); });
   setupButton.addEventListener("click", () => { void setupRouter(); });
   decisionSelect.addEventListener("change", () => { void changeDecisionEngine(); });
   closeButton.addEventListener("click", () => dialog.close());
