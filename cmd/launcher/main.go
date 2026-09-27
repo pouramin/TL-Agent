@@ -190,6 +190,7 @@ func newServerWithRuntime(state *appState, backendURL string, credentials runtim
 	proxy := backend.reverseProxy()
 
 	providerManager := newRuntimeProviderManagerWithBackend(state, backend)
+	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
 	permissionEngine := newPermissionEngineWithBackend(state, backend)
 	sessionRead := newSessionReadContractWithBackend(state, backend)
@@ -251,6 +252,7 @@ func newServerWithRuntime(state *appState, backendURL string, credentials runtim
 	registerLocalProcessRoutesWithManager(mux, state, processes)
 	registerRuntimeProviderRoutes(mux, providerManager)
 	registerProviderDiscoveryRoutes(mux, providerManager)
+	registerJevRouterRoutes(mux, jevRouter)
 	registerDecisionEngineRoutes(mux, decisionEngines)
 	registerPluginRoutes(mux, state, plugins)
 	registerToolRegistryRoutesWithPlugins(mux, plugins, state.projectPath)
