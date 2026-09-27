@@ -70,6 +70,27 @@ func TestJevSetupIsAutomaticAndDoesNotOpenGenericProviderForm(t *testing.T) {
 	}
 }
 
+func TestManagedJevProviderIsHiddenAndRouterIsTopLevel(t *testing.T) {
+	providers := readBrowserSource(t, "providers-ui.ts")
+	core := readBrowserSource(t, "core.ts")
+	jev := readBrowserSource(t, "jev-ui.ts")
+
+	for _, required := range []string{
+		`.filter((provider: any) => !clean(provider?.managedBy))`,
+		`managedBy: "jev"`,
+	} {
+		if !strings.Contains(providers+jev, required) {
+			t.Fatalf("managed JEV provider UI contract missing %q", required)
+		}
+	}
+	if !strings.Contains(core, `const routers = K.state.models.filter((model) => model.kind === "router")`) {
+		t.Fatal("model selector must separate routers from provider-grouped models")
+	}
+	if !strings.Contains(core, `select.appendChild(option);`) {
+		t.Fatal("router models must be appended directly at the top level")
+	}
+}
+
 func TestProviderAPIKeyFieldAvoidsPasswordManagerSemantics(t *testing.T) {
 	source := readBrowserSource(t, "providers-ui.ts")
 	for _, required := range []string{

@@ -93,7 +93,7 @@ func (m *runtimeProviderManager) resolveNativeModel(providerID, modelID string) 
 	if !found {
 		return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("model %q is not configured for provider %q", modelID, providerID)
 	}
-	if !model.ToolCall && !(model.ID == jevRouterModelID && model.Kind == "router" && isOpenRouterBaseURL(provider.BaseURL)) {
+	if !providerModelUsesNativeAgent(provider, model) {
 		return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("model %q does not advertise tool calling", modelID)
 	}
 	if m.credentials == nil {
@@ -134,16 +134,7 @@ func nativeEndpoint(baseURL, suffix string) (string, error) {
 	return base.String(), nil
 }
 
-func useOpenRouterJevResponses(request nativeModelRequest) bool {
-	return request.Model.ID == jevRouterModelID &&
-		request.Model.Kind == "router" &&
-		isOpenRouterBaseURL(request.Provider.BaseURL)
-}
-
 func (c *nativeHTTPModelClient) Complete(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
-	if useOpenRouterJevResponses(request) {
-		return c.completeOpenAIResponses(ctx, request, onTextDelta)
-	}
 	switch request.Provider.Protocol {
 	case "openai-compatible":
 		return c.completeOpenAIChat(ctx, request, onTextDelta)

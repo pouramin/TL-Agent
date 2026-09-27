@@ -134,6 +134,15 @@ import { K } from "./kernel";
     !!provider && Array.isArray(provider.models) &&
     provider.models.some((model: TLStudioDynamicRecord) => clean(model?.id) === JEV_ROUTER_MODEL);
 
+  const isJevOnlyProvider = (provider: TLStudioDynamicRecord | null) =>
+    !!provider && isOpenRouter(provider?.baseURL) &&
+    Array.isArray(provider.models) &&
+    provider.models.length === 1 &&
+    clean(provider.models[0]?.id) === JEV_ROUTER_MODEL;
+
+  const jevManagedBy = (provider: TLStudioDynamicRecord | null) =>
+    clean(provider?.managedBy) === "jev" || isJevOnlyProvider(provider);
+
   const selectOpenRouterProvider = (
     providers: TLStudioDynamicRecord[],
     decision: TLStudioDynamicRecord,
@@ -267,6 +276,7 @@ import { K } from "./kernel";
         name: clean(currentProvider?.name) || "OpenRouter",
         protocol,
         baseURL: OPENROUTER_BASE_URL,
+        ...(jevManagedBy(currentProvider) || !currentProvider ? { managedBy: "jev" } : {}),
         models: mergeJevModel(currentProvider, jev),
       };
       await K.api.providers.upsert(providerID, {

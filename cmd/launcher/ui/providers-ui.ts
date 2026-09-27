@@ -89,7 +89,9 @@ import { K } from "./kernel";
   };
 
   const customProviderEntries = (config: any) => Array.isArray(config?.providers)
-    ? [...config.providers].sort((a, b) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
+    ? config.providers
+      .filter((provider: any) => !clean(provider?.managedBy))
+      .sort((a: any, b: any) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
     : [];
 
   const withoutProvider = (config: any, providerID: any) => ({
@@ -127,7 +129,7 @@ import { K } from "./kernel";
     <div class="settings-panel-head providers-panel-head">
       <div>
         <h3>Providers</h3>
-        <p>Add OpenAI-compatible, OpenAI Responses, or Anthropic-compatible endpoints to TL Studio. Models saved here appear in TL Studio's model selector.</p>
+        <p>Add OpenAI-compatible, OpenAI Responses, or Anthropic-compatible endpoints to TL Studio. Models saved here appear in TL Studio's model selector. Product-managed integrations such as JEV are configured from their own control.</p>
       </div>
       <button id="providerAddButton" class="primary provider-add-button" type="button">Add provider</button>
     </div>
@@ -352,7 +354,7 @@ import { K } from "./kernel";
     notice("");
     try {
       const id = clean(value.providerID);
-      const existing = customProviderEntries(providerConfig).find((provider) => provider.id === (editingID || id)) || {};
+      const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === (editingID || id)) || {};
       const provider = buildProviderDefinition(value, existing);
       await K.api.providers.upsert(id, {
         provider,

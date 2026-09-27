@@ -47,11 +47,12 @@ type tlProviderModel struct {
 }
 
 type tlProviderDefinition struct {
-	ID       string            `json:"id"`
-	Name     string            `json:"name"`
-	Protocol string            `json:"protocol"`
-	BaseURL  string            `json:"baseURL"`
-	Models   []tlProviderModel `json:"models"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	Protocol  string            `json:"protocol"`
+	BaseURL   string            `json:"baseURL"`
+	ManagedBy string            `json:"managedBy,omitempty"`
+	Models    []tlProviderModel `json:"models"`
 }
 
 type providerRegistryFile struct {
@@ -273,6 +274,10 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 		return tlProviderDefinition{}, errors.New("provider base URL must be a valid http(s) URL")
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
+	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
+	if input.ManagedBy != "" && input.ManagedBy != "jev" {
+		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
+	}
 	if len(input.Models) == 0 {
 		return tlProviderDefinition{}, errors.New("provider must define at least one model")
 	}
@@ -304,6 +309,22 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	sort.Slice(models, func(i, j int) bool { return models[i].ID < models[j].ID })
 	input.Models = models
 	return input, nil
+}
+
+func providerModelUsesNativeAgent(provider tlProviderDefinition, model tlProviderModel) bool {
+	if model.ToolCall {
+		return true
+	}
+	return model.ID == jevRouterModelID && model.Kind == "router" && isOpenRouterBaseURL(provider.BaseURL)
+}
+
+func providerNeedsRuntimeCompatibility(provider tlProviderDefinition) bool {
+	for _, model := range provider.Models {
+		if !providerModelUsesNativeAgent(provider, model) {
+			return true
+		}
+	}
+	return false
 }
 
 type runtimeProviderError struct {
@@ -506,7 +527,13 @@ func (m *runtimeProviderManager) syncProvider(ctx context.Context, provider tlPr
 }
 
 func (m *runtimeProviderManager) syncAll(ctx context.Context, providers []tlProviderDefinition) error {
-	if len(providers) == 0 {
+	compatibility := make([]tlProviderDefinition, 0, len(providers))
+	for _, provider := range providers {
+		if providerNeedsRuntimeCompatibility(provider) {
+			compatibility = append(compatibility, provider)
+		}
+	}
+	if len(compatibility) == 0 {
 		return nil
 	}
 	overlay, err := m.fetchOverlay(ctx)
@@ -515,7 +542,7 @@ func (m *runtimeProviderManager) syncAll(ctx context.Context, providers []tlProv
 	}
 	current := effectiveProviderMap(overlay)
 	disabled := effectiveDisabledProviders(overlay)
-	for _, provider := range providers {
+	for _, provider := range compatibility {
 		current[provider.ID] = runtimeConfigForProvider(provider)
 		disabled = withoutString(disabled, provider.ID)
 	}
@@ -630,6 +657,24 @@ func importRuntimeProviders(overlay map[string]any) []tlProviderDefinition {
 	return result
 }
 
+func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProviderDefinition, bool) {
+	result := make([]tlProviderDefinition, len(providers))
+	copy(result, providers)
+	changed := false
+	for index := range result {
+		provider := &result[index]
+		if provider.ManagedBy != "" || !isOpenRouterBaseURL(provider.BaseURL) || len(provider.Models) != 1 {
+			continue
+		}
+		model := provider.Models[0]
+		if model.ID == jevRouterModelID && model.Kind == "router" {
+			provider.ManagedBy = "jev"
+			changed = true
+		}
+	}
+	return result, changed
+}
+
 func providerCompatibilityWarning(operation string, err error) {
 	if err == nil {
 		return
@@ -646,6 +691,12 @@ func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) 
 		return nil, err
 	}
 	if existed {
+		if migrated, changed := migrateManagedProviderMetadata(providers); changed {
+			if err := m.store.replace(migrated); err != nil {
+				return nil, err
+			}
+			return migrated, nil
+		}
 		return providers, nil
 	}
 
@@ -657,6 +708,7 @@ func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) 
 		return providers, nil
 	}
 	imported := importRuntimeProviders(overlay)
+	imported, _ = migrateManagedProviderMetadata(imported)
 	if err := m.store.replace(imported); err != nil {
 		return nil, err
 	}
@@ -687,6 +739,9 @@ func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
 	for _, provider := range providers {
 		if m.credentials == nil {
 			break
+		}
+		if !providerNeedsRuntimeCompatibility(provider) {
+			continue
 		}
 		key, credentialErr := m.credentials.Get(provider.ID)
 		if errors.Is(credentialErr, errCredentialNotFound) {
@@ -1032,22 +1087,24 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 				return
 			}
 		}
-		if err := manager.syncProvider(r.Context(), provider); err != nil {
-			providerCompatibilityWarning("save sync for "+provider.ID, err)
-		} else {
-			if manager.credentials != nil {
-				key, credentialErr := manager.credentials.Get(provider.ID)
-				if credentialErr == nil {
-					if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
-						providerCompatibilityWarning("credential sync for "+provider.ID, err)
+		if providerNeedsRuntimeCompatibility(provider) {
+			if err := manager.syncProvider(r.Context(), provider); err != nil {
+				providerCompatibilityWarning("save sync for "+provider.ID, err)
+			} else {
+				if manager.credentials != nil {
+					key, credentialErr := manager.credentials.Get(provider.ID)
+					if credentialErr == nil {
+						if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
+							providerCompatibilityWarning("credential sync for "+provider.ID, err)
+						}
+					} else if !errors.Is(credentialErr, errCredentialNotFound) {
+						writeProviderManagerError(w, credentialErr)
+						return
 					}
-				} else if !errors.Is(credentialErr, errCredentialNotFound) {
-					writeProviderManagerError(w, credentialErr)
-					return
 				}
-			}
-			if err := manager.dispose(r.Context()); err != nil {
-				providerCompatibilityWarning("runtime reload after save for "+provider.ID, err)
+				if err := manager.dispose(r.Context()); err != nil {
+					providerCompatibilityWarning("runtime reload after save for "+provider.ID, err)
+				}
 			}
 		}
 		writeJSON(w, http.StatusOK, provider)

@@ -199,6 +199,60 @@ func TestNativeAgentTurnsEmptyModelResponseIntoVisibleFailure(t *testing.T) {
 	}
 }
 
+type nativeBlockingModel struct{}
+
+func (nativeBlockingModel) Complete(ctx context.Context, _ nativeModelRequest, _ func(string)) (nativeModelResponse, error) {
+	<-ctx.Done()
+	return nativeModelResponse{}, ctx.Err()
+}
+
+func TestNativeAgentPersistsVisibleModelTimeout(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-timeout-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Timeout proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resolver := nativeTestResolver{
+		provider: tlProviderDefinition{
+			ID: "test", Protocol: "openai-compatible", BaseURL: "http://127.0.0.1:1/v1",
+		},
+		model: tlProviderModel{ID: "test-model", ToolCall: true},
+	}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, nativeBlockingModel{}, executor, store, newLiveEventBus())
+	runtime.modelTurnTimeout = 30 * time.Millisecond
+
+	input := sessionRunInput{
+		Text: "Say hello", Agent: "code",
+		Model: &sessionModelRef{ProviderID: "test", ID: "test-model"},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role == "assistant" && message.Error != nil &&
+					strings.Contains(message.Error.Message, "model request timed out after") {
+					return
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("model timeout failure was not persisted visibly: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestNativeToolExecutorRejectsTraversalAndUnknownTools(t *testing.T) {
 	project := t.TempDir()
 	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})

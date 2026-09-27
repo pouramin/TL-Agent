@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	nativeAgentMaxIterations     = 24
-	nativeAgentMaxToolRounds     = 16
-	nativeAgentMaxToolsPerRound  = 16
-	nativeAgentMaxRepeatedCalls  = 4
+	nativeAgentMaxIterations      = 24
+	nativeAgentMaxToolRounds      = 16
+	nativeAgentMaxToolsPerRound   = 16
+	nativeAgentMaxRepeatedCalls   = 4
+	nativeAgentModelTurnTimeout   = 2 * time.Minute
 )
 
 type nativeModelResolver interface {
@@ -27,11 +28,12 @@ type nativeRunHandle struct {
 }
 
 type nativeAgentRuntime struct {
-	resolver nativeModelResolver
-	model    nativeModelClient
-	tools    *nativeToolExecutor
-	store    *sessionPersistenceStore
-	events   *liveEventBus
+	resolver          nativeModelResolver
+	model             nativeModelClient
+	tools             *nativeToolExecutor
+	store             *sessionPersistenceStore
+	events            *liveEventBus
+	modelTurnTimeout  time.Duration
 
 	mu   sync.Mutex
 	runs map[string]nativeRunHandle
@@ -49,8 +51,9 @@ func newNativeAgentRuntime(
 		model:    model,
 		tools:    tools,
 		store:    store,
-		events:   events,
-		runs:     map[string]nativeRunHandle{},
+		events:           events,
+		modelTurnTimeout: nativeAgentModelTurnTimeout,
+		runs:             map[string]nativeRunHandle{},
 	}
 }
 
@@ -239,7 +242,12 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		response, err := r.model.Complete(ctx, nativeModelRequest{
+		modelTurnTimeout := r.modelTurnTimeout
+		if modelTurnTimeout <= 0 {
+			modelTurnTimeout = nativeAgentModelTurnTimeout
+		}
+		modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
+		response, err := r.model.Complete(modelCtx, nativeModelRequest{
 			System:   nativeAgentSystemPrompt(),
 			Provider: provider,
 			Model:    model,
@@ -255,7 +263,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				})
 			}
 		})
+		cancelModel()
 		if err != nil {
+			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
+				return fmt.Errorf("model request timed out after %s", modelTurnTimeout)
+			}
 			return err
 		}
 		if len(response.ToolCalls) == 0 {

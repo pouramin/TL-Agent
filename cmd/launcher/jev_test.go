@@ -82,22 +82,14 @@ func TestJevRouterRegistersAndResolvesThroughExistingProviderRegistry(t *testing
 	}
 }
 
-func TestOpenRouterJevRouterUsesResponsesNativePath(t *testing.T) {
-	request := nativeModelRequest{
-		Provider: tlProviderDefinition{
-			ID: "openrouter", Protocol: "openai-compatible", BaseURL: openRouterBaseURL,
-		},
-		Model: tlProviderModel{
-			ID: jevRouterModelID, Name: jevRouterDisplayName, Kind: "router",
-		},
+func TestJevRouterDoesNotOverrideConfiguredOpenAICompatibleProtocol(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/native_model.go")
+	if strings.Contains(source, "useOpenRouterJevResponses") {
+		t.Fatal("Jev Router must not override the configured OpenAI-compatible protocol")
 	}
-	if !useOpenRouterJevResponses(request) {
-		t.Fatal("official OpenRouter Jev Router must use the Responses API native path")
-	}
-
-	request.Provider.BaseURL = "https://proxy.example/v1"
-	if useOpenRouterJevResponses(request) {
-		t.Fatal("generic proxies must keep their configured provider protocol")
+	if !strings.Contains(source, `case "openai-compatible":`) ||
+		!strings.Contains(source, "completeOpenAIChat") {
+		t.Fatal("OpenAI-compatible providers must continue through Chat Completions")
 	}
 }
 
