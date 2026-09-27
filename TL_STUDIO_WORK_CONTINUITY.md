@@ -576,6 +576,120 @@ Inner product ZIP SHA256:
 
 Hands-on validation should continue from this preview, not the earlier alpha.5 artifact. Re-test provider persistence/visibility, selected-model filtering, invalid OpenRouter credential handling, both plugin groups, compact Jev setup/status, and the normal Agent/tool/permission path.
 
+## Alpha.5 provider/runtime resilience and OpenRouter discovery fixes
+
+Hands-on Windows testing after the initial alpha.5 Jev merge exposed two deeper integration problems.
+
+### Provider registry ownership fix
+
+Merged PR:
+
+`#101 — Make provider registry resilient to runtime sync failures`
+
+Squash merge commit:
+
+`9e7f8dec23f123e3816c4b52b95f3638fdcaef9f`
+
+The TL Studio-owned provider registry is now authoritative even when Kilo/OpenCode compatibility sync fails. Runtime HTTP 400 responses can no longer make saved providers disappear, remove Kilo Auto Free from the selector, block adding providers, or make Jev status unreadable.
+
+Current behavior:
+
+- `providers.json` remains readable/editable independently of Kilo runtime provider sync
+- legacy runtime-provider import is best-effort only when no TL Studio registry exists
+- provider Save persists TL Studio registry + credential vault first
+- provider Delete is authoritative in TL Studio; runtime cleanup is best-effort
+- runtime catalog failure falls back to TL Studio-owned provider definitions
+- `kilo-auto/free` remains the only normal Kilo hosted model in the selector
+- managed providers expose only explicitly saved models
+- vault-backed custom providers remain connected even if runtime auth/catalog state is unavailable
+- API key input is visually masked without browser password/new-password semantics
+
+### OpenRouter authenticated discovery fix
+
+Merged PR:
+
+`#103 — Fix OpenRouter authenticated model discovery`
+
+Squash merge commit:
+
+`295974467f0e10426f407b8fc1f9b9b5d92b8a92`
+
+The first OpenRouter auth guard used `GET /api/v1/key` before reading the public `/models` catalog. Live Windows testing showed that this extra metadata check rejected the user's otherwise valid OpenRouter setup and blocked both manual OpenRouter discovery and Jev setup.
+
+OpenRouter discovery now uses the authenticated per-user model catalog directly:
+
+```text
+GET https://openrouter.ai/api/v1/models/user
+Authorization: Bearer <OpenRouter API key>
+```
+
+This single request both authenticates the bearer credential and returns the model catalog filtered by that user's provider preferences, privacy settings, and guardrails. Generic OpenAI-compatible providers remain on their normal `/models` path.
+
+Regression coverage proves:
+
+- invalid OpenRouter key returns auth failure and no catalog
+- valid OpenRouter key returns the authenticated user catalog
+- no OpenRouter `/key` preflight is performed
+- no public OpenRouter `/models` request is used as an auth signal
+- `typesafe/jev-router` remains recognized as a router when returned
+
+### Validation
+
+PR #101:
+
+- CI: success
+- Custom Provider Contract: success
+- runtime product contract: success
+- runtime prompt/write E2E: success
+- supported-platform cross-compiles: success
+
+PR #103:
+
+- CI: success
+- Custom Provider Contract: success
+- runtime product contract: success
+- runtime prompt/write E2E: success
+- strict Browser TypeScript/build: success
+- Go tests/vet: success
+- supported-platform cross-compiles: success
+
+Latest post-merge Windows Preview Build:
+
+`36316381520`
+
+Head:
+
+`295974467f0e10426f407b8fc1f9b9b5d92b8a92`
+
+Result:
+
+`success`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10930567897`
+
+GitHub artifact digest:
+
+`sha256:05a028624604c8ab895fba43dd4827510b33153af40e61edeef3e24b95ce9d69`
+
+Inner product ZIP SHA256:
+
+`4d50568eb608f5fa6d86e7b3a2dac8e9f865d1fa969af655902a959aee0ee429`
+
+Hands-on validation should continue from this Preview. Priority retest:
+
+- manual OpenRouter provider → valid key → Test / Discover Models
+- invalid OpenRouter key still fails cleanly
+- Jev Configure → Set up Router → existing/new OpenRouter credential → Jev Router discovery
+- Save only selected OpenRouter models and verify only those appear in the normal selector
+- confirm Kilo Auto Free remains present
+- confirm browser does not offer to generate/save a password for the API-key field
+
 ## Next product phase
 
 Phase 2 is complete according to its ownership criteria.
