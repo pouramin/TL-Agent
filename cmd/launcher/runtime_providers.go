@@ -986,11 +986,7 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("GET /runtime/providers/config", func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.ensureBootstrapped(r.Context()); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		providers, _, err := manager.store.snapshot()
+		providers, err := manager.ensureRegistryInitialized(r.Context())
 		if err != nil {
 			writeProviderManagerError(w, err)
 			return
@@ -999,7 +995,7 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("PUT /runtime/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.ensureBootstrapped(r.Context()); err != nil {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil {
 			writeProviderManagerError(w, err)
 			return
 		}
@@ -1037,30 +1033,28 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 			}
 		}
 		if err := manager.syncProvider(r.Context(), provider); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		if manager.credentials != nil {
-			key, credentialErr := manager.credentials.Get(provider.ID)
-			if credentialErr == nil {
-				if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
-					writeProviderManagerError(w, err)
+			providerCompatibilityWarning("save sync for "+provider.ID, err)
+		} else {
+			if manager.credentials != nil {
+				key, credentialErr := manager.credentials.Get(provider.ID)
+				if credentialErr == nil {
+					if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
+						providerCompatibilityWarning("credential sync for "+provider.ID, err)
+					}
+				} else if !errors.Is(credentialErr, errCredentialNotFound) {
+					writeProviderManagerError(w, credentialErr)
 					return
 				}
-			} else if !errors.Is(credentialErr, errCredentialNotFound) {
-				writeProviderManagerError(w, credentialErr)
-				return
 			}
-		}
-		if err := manager.dispose(r.Context()); err != nil {
-			writeProviderManagerError(w, err)
-			return
+			if err := manager.dispose(r.Context()); err != nil {
+				providerCompatibilityWarning("runtime reload after save for "+provider.ID, err)
+			}
 		}
 		writeJSON(w, http.StatusOK, provider)
 	})
 
 	mux.HandleFunc("DELETE /runtime/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if err := manager.ensureBootstrapped(r.Context()); err != nil {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil {
 			writeProviderManagerError(w, err)
 			return
 		}
@@ -1076,10 +1070,6 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider is not managed by TL Studio"})
 			return
 		}
-		if err := manager.deleteRuntimeProvider(r.Context(), id); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
 		if manager.credentials != nil {
 			if err := manager.credentials.Delete(id); err != nil {
 				writeProviderManagerError(w, err)
@@ -1093,6 +1083,9 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 		if err := removeProviderDiscoveryCache(id); err != nil {
 			writeProviderManagerError(w, err)
 			return
+		}
+		if err := manager.deleteRuntimeProvider(r.Context(), id); err != nil {
+			providerCompatibilityWarning("delete cleanup for "+id, err)
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"removed": id})
 	})
