@@ -93,7 +93,7 @@ func (m *runtimeProviderManager) resolveNativeModel(providerID, modelID string) 
 	if !found {
 		return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("model %q is not configured for provider %q", modelID, providerID)
 	}
-	if !model.ToolCall && !(model.ID == jevRouterModelID && model.Kind == "router" && isOpenRouterBaseURL(provider.BaseURL)) {
+	if !providerModelUsesNativeAgent(provider, model) {
 		return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("model %q does not advertise tool calling", modelID)
 	}
 	if m.credentials == nil {
