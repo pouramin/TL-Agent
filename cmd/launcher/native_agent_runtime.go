@@ -28,11 +28,12 @@ type nativeRunHandle struct {
 }
 
 type nativeAgentRuntime struct {
-	resolver nativeModelResolver
-	model    nativeModelClient
-	tools    *nativeToolExecutor
-	store    *sessionPersistenceStore
-	events   *liveEventBus
+	resolver          nativeModelResolver
+	model             nativeModelClient
+	tools             *nativeToolExecutor
+	store             *sessionPersistenceStore
+	events            *liveEventBus
+	modelTurnTimeout  time.Duration
 
 	mu   sync.Mutex
 	runs map[string]nativeRunHandle
@@ -50,8 +51,9 @@ func newNativeAgentRuntime(
 		model:    model,
 		tools:    tools,
 		store:    store,
-		events:   events,
-		runs:     map[string]nativeRunHandle{},
+		events:           events,
+		modelTurnTimeout: nativeAgentModelTurnTimeout,
+		runs:             map[string]nativeRunHandle{},
 	}
 }
 
@@ -240,7 +242,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		modelCtx, cancelModel := context.WithTimeout(ctx, nativeAgentModelTurnTimeout)
+		modelTurnTimeout := r.modelTurnTimeout
+		if modelTurnTimeout <= 0 {
+			modelTurnTimeout = nativeAgentModelTurnTimeout
+		}
+		modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
 		response, err := r.model.Complete(modelCtx, nativeModelRequest{
 			System:   nativeAgentSystemPrompt(),
 			Provider: provider,
@@ -260,7 +266,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		cancelModel()
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
-				return fmt.Errorf("model request timed out after %s", nativeAgentModelTurnTimeout)
+				return fmt.Errorf("model request timed out after %s", modelTurnTimeout)
 			}
 			return err
 		}
