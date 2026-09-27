@@ -134,16 +134,7 @@ func nativeEndpoint(baseURL, suffix string) (string, error) {
 	return base.String(), nil
 }
 
-func useOpenRouterJevResponses(request nativeModelRequest) bool {
-	return request.Model.ID == jevRouterModelID &&
-		request.Model.Kind == "router" &&
-		isOpenRouterBaseURL(request.Provider.BaseURL)
-}
-
 func (c *nativeHTTPModelClient) Complete(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
-	if useOpenRouterJevResponses(request) {
-		return c.completeOpenAIResponses(ctx, request, onTextDelta)
-	}
 	switch request.Provider.Protocol {
 	case "openai-compatible":
 		return c.completeOpenAIChat(ctx, request, onTextDelta)
