@@ -68,6 +68,7 @@ jobs:
             scripts/check-kilo-project-routing.py \
             scripts/fake-openai-server.py \
             scripts/check-kilo-prompt-e2e.py \
+            scripts/check-native-only-product-contract.py \
             scripts/stage-bundled-plugins.py \
             scripts/check-bundled-plugin-staging.py
       - name: Validate bundled plugin release manifest
@@ -83,6 +84,102 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o /tmp/tl-studio-linux-arm64 ./cmd/launcher
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/tl-studio-darwin-x64 ./cmd/launcher
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/tl-studio-darwin-arm64 ./cmd/launcher
+
+  native-only-product-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Build launcher without compatibility runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/tl-native-only
+          go build -trimpath -o /tmp/tl-native-only/tl-studio ./cmd/launcher
+          chmod +x /tmp/tl-native-only/tl-studio
+          test ! -e /tmp/tl-native-only/bin/kilo
+      - name: Run native-only product contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG="$(mktemp)"
+          STATE_DIR="$(mktemp -d)"
+          START_DIR="$PWD"
+          cd /tmp
+          TL_STUDIO_STATE_DIR="$STATE_DIR" /tmp/tl-native-only/tl-studio --no-browser --native-only --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          PID=$!
+          cd "$START_DIR"
+          cleanup() {
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+            echo "--- native-only launcher log ---"
+            cat "$LOG"
+          }
+          trap cleanup EXIT
+
+          LOCAL_URL=""
+          for _ in $(seq 1 100); do
+            LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/health" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+          test -n "$LOCAL_URL"
+          python3 scripts/check-native-only-product-contract.py "$LOCAL_URL" "$GITHUB_WORKSPACE"
+
+  native-only-browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Browser and launcher without compatibility runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check:web
+          npm run build:web
+          mkdir -p /tmp/tl-native-browser
+          go build -trimpath -o /tmp/tl-native-browser/tl-studio ./cmd/launcher
+          chmod +x /tmp/tl-native-browser/tl-studio
+          test ! -e /tmp/tl-native-browser/bin/kilo
+      - name: Run real Browser smoke in native-only mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG="$(mktemp)"
+          STATE_DIR="$(mktemp -d)"
+          START_DIR="$PWD"
+          cd /tmp
+          TL_STUDIO_STATE_DIR="$STATE_DIR" /tmp/tl-native-browser/tl-studio --no-browser --native-only --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          PID=$!
+          cd "$START_DIR"
+          cleanup() {
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+            echo "--- native-only launcher log ---"
+            cat "$LOG"
+          }
+          trap cleanup EXIT
+
+          LOCAL_URL=""
+          for _ in $(seq 1 100); do
+            LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/health" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+          test -n "$LOCAL_URL"
+          node scripts/check-workbench-browser-runtime.mjs "$LOCAL_URL"
 
   runtime-product-contract:
     runs-on: ubuntu-latest

@@ -32,11 +32,13 @@ var version = "dev"
 var webFS embed.FS
 
 type appState struct {
-	mu          sync.RWMutex
-	project     string
-	backendURL  string
-	frontendURL string
-	ctx         context.Context
+	mu                   sync.RWMutex
+	project              string
+	backendURL           string
+	frontendURL          string
+	compatRuntimeEngine  string
+	compatRuntimeEnabled bool
+	ctx                  context.Context
 }
 
 func (s *appState) snapshot() map[string]any {
@@ -48,6 +50,11 @@ func (s *appState) snapshot() map[string]any {
 		"frontendURL": s.frontendURL,
 		"platform":    runtime.GOOS,
 		"arch":        runtime.GOARCH,
+		"runtime": map[string]any{
+			"mode":                   map[bool]string{true: "hybrid", false: "native-only"}[s.compatRuntimeEnabled],
+			"compatibilityAvailable": s.compatRuntimeEnabled,
+			"compatibilityEngine":    s.compatRuntimeEngine,
+		},
 	}
 }
 
@@ -72,10 +79,12 @@ func main() {
 	var noBrowser bool
 	var listenAddr string
 	var runtimeOverride string
+	var nativeOnly bool
 	flag.StringVar(&projectArg, "project", "", "project directory to open")
 	flag.BoolVar(&noBrowser, "no-browser", false, "do not open the browser automatically")
 	flag.StringVar(&listenAddr, "listen", "127.0.0.1", "frontend listen address")
-	flag.StringVar(&runtimeOverride, "runtime-bin", "", "override path to the bundled agent runtime (advanced)")
+	flag.StringVar(&runtimeOverride, "runtime-bin", "", "override path to the optional compatibility runtime (advanced)")
+	flag.BoolVar(&nativeOnly, "native-only", false, "start without the optional compatibility runtime")
 	flag.Parse()
 	if !isLoopbackHost(listenAddr) {
 		log.Fatalf("listen: %q is not a loopback address; this UI intentionally binds only to localhost", listenAddr)
@@ -90,15 +99,6 @@ func main() {
 	}
 
 	engine := defaultRuntimeEngine()
-	runtimePath, err := engine.FindBinary(runtimeOverride)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	backendPort, err := freePort("127.0.0.1")
-	if err != nil {
-		log.Fatalf("find backend port: %v", err)
-	}
 	frontendPort, err := freePort(listenAddr)
 	if err != nil {
 		log.Fatalf("find frontend port: %v", err)
@@ -111,32 +111,56 @@ func main() {
 	}
 	credentials.Password = password
 
-	backendURL := fmt.Sprintf("http://127.0.0.1:%d", backendPort)
+	backendURL := ""
 	frontendURL := "http://" + net.JoinHostPort(listenAddr, fmt.Sprint(frontendPort))
 	state := &appState{
-		project:     project,
-		backendURL:  backendURL,
-		frontendURL: frontendURL,
+		project:             project,
+		frontendURL:         frontendURL,
+		compatRuntimeEngine: engine.ID(),
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	state.ctx = ctx
 
-	runtimeCmd, err := startRuntime(ctx, engine, runtimePath, backendPort, credentials)
-	if err != nil {
-		log.Fatalf("start bundled runtime: %v", err)
+	var runtimeCmd *exec.Cmd
+	if !nativeOnly {
+		runtimePath, findErr := engine.FindBinary(runtimeOverride)
+		if findErr != nil {
+			if strings.TrimSpace(runtimeOverride) != "" {
+				log.Fatalf("compatibility runtime override: %v", findErr)
+			}
+			log.Printf("optional compatibility runtime unavailable; starting native-only: %v", findErr)
+		} else {
+			backendPort, portErr := freePort("127.0.0.1")
+			if portErr != nil {
+				log.Fatalf("find compatibility runtime port: %v", portErr)
+			}
+			backendURL = fmt.Sprintf("http://127.0.0.1:%d", backendPort)
+			runtimeCmd, err = startRuntime(ctx, engine, runtimePath, backendPort, credentials)
+			if err != nil {
+				log.Printf("optional compatibility runtime failed to start; continuing native-only: %v", err)
+				runtimeCmd = nil
+				backendURL = ""
+			} else if err := waitForPort(ctx, "127.0.0.1", backendPort, 12*time.Second); err != nil {
+				stopProcess(runtimeCmd)
+				runtimeCmd = nil
+				backendURL = ""
+				log.Printf("optional compatibility runtime did not become ready; continuing native-only: %v", err)
+			}
+		}
 	}
-	defer stopProcess(runtimeCmd)
-
-	if err := waitForPort(ctx, "127.0.0.1", backendPort, 12*time.Second); err != nil {
-		stopProcess(runtimeCmd)
-		log.Fatalf("bundled runtime did not start: %v", err)
+	if runtimeCmd != nil {
+		defer stopProcess(runtimeCmd)
+		state.compatRuntimeEnabled = true
+		state.backendURL = backendURL
 	}
 
 	server, err := newServerWithRuntime(state, backendURL, credentials, engine)
 	if err != nil {
-		stopProcess(runtimeCmd)
+		if runtimeCmd != nil {
+			stopProcess(runtimeCmd)
+		}
 		log.Fatalf("create local server: %v", err)
 	}
 
@@ -156,7 +180,11 @@ func main() {
 	fmt.Printf("TL Studio %s\n", version)
 	fmt.Printf("  Project: %s\n", project)
 	fmt.Printf("  Local:   %s\n", frontendURL)
-	fmt.Printf("  Runtime: bundled\n")
+	if state.compatRuntimeEnabled {
+		fmt.Printf("  Runtime: native core + optional compatibility\n")
+	} else {
+		fmt.Printf("  Runtime: native-only\n")
+	}
 
 	if !noBrowser {
 		go func() {
@@ -210,6 +238,27 @@ func newServerWithRuntime(state *appState, backendURL string, credentials runtim
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /local/status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, state.snapshot())
+	})
+	mux.HandleFunc("GET /local/health", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"healthy":                true,
+			"mode":                   map[bool]string{true: "hybrid", false: "native-only"}[state.compatRuntimeEnabled],
+			"compatibilityAvailable": state.compatRuntimeEnabled,
+			"compatibilityEngine":    state.compatRuntimeEngine,
+		})
+	})
+	mux.HandleFunc("GET /local/path", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"directory": state.projectPath()})
+	})
+	mux.HandleFunc("GET /local/agents", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, []map[string]any{{
+			"id":          "code",
+			"name":        "code",
+			"displayName": "Code",
+			"description": "TL Studio native coding agent",
+			"mode":        "primary",
+			"hidden":      false,
+		}})
 	})
 	mux.HandleFunc("POST /local/project", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {

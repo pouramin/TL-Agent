@@ -64,7 +64,7 @@ func newQuestionContract(state *appState, backend *runtimeBackend) *questionCont
 }
 
 func (c *questionContract) requireAdapter() (runtimeQuestionAdapter, error) {
-	if c.adapter == nil {
+	if c.backend == nil || !c.backend.available() || c.adapter == nil {
 		return nil, errQuestionsUnsupported
 	}
 	return c.adapter, nil
@@ -78,6 +78,9 @@ func (c *questionContract) directory() string {
 }
 
 func (c *questionContract) list(ctx context.Context, sessionID string) ([]questionRequestView, error) {
+	if c.backend == nil || !c.backend.available() {
+		return []questionRequestView{}, nil
+	}
 	adapter, err := c.requireAdapter()
 	if err != nil {
 		return nil, err

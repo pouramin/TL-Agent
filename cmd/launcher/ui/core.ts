@@ -112,7 +112,7 @@ import { K } from "./kernel";
   K.modelValue = (model?: TLStudioModelRef | TLStudioSessionModelRef) => model ? `${model.providerID}::${model.id}${model.variant ? `::${model.variant}` : ""}` : "";
 
   K.preferredHostedModel = () => {
-    if (!K.state.connectedProviders.has(K.api.hosted.providerID)) return undefined;
+    if (!K.api.hosted.available || !K.state.connectedProviders.has(K.api.hosted.providerID)) return undefined;
     const candidates = [...(K.api.hosted.preferredModels || []), K.state.providerDefaults?.[K.api.hosted.providerID]].filter(Boolean);
     for (const id of candidates) {
       const match = K.state.models.find((model) => model.providerID === K.api.hosted.providerID && model.id === id);

@@ -62,6 +62,9 @@ jobs:
           RUNTIME_BIN="$(find staging/upstream/extracted -type f -name 'kilo.exe' | head -n 1)"
           test -n "$RUNTIME_BIN"
           cp "$RUNTIME_BIN" staging/package/bin/kilo.exe
+
+      - name: Stage licenses and notices
+        run: |
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp -R third_party/. staging/package/third_party/

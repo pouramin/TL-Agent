@@ -8,6 +8,11 @@ interface TLStudioLocalStatus {
   platform: string;
   arch: string;
   frontendURL?: string;
+  runtime?: {
+    mode?: "hybrid" | "native-only" | string;
+    compatibilityAvailable?: boolean;
+    compatibilityEngine?: string;
+  };
   [key: string]: unknown;
 }
 
@@ -313,9 +318,10 @@ interface TLStudioRuntimeContract {
     reject(sessionID: string, requestID: string): Promise<{ resolved: boolean }>;
   };
   hosted: {
+    readonly available: boolean;
     readonly providerID: string;
     readonly preferredModels: readonly string[];
-    status(): Promise<{ authenticated: boolean; type: string; organizationId: string }>;
+    status(): Promise<{ available: boolean; authenticated: boolean; type: string; organizationId: string }>;
     authorize(): Promise<any>;
     callback(signal?: AbortSignal): Promise<any>;
     disconnect(): Promise<any>;

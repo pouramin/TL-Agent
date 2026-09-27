@@ -9,7 +9,8 @@ import { K } from "./kernel";
 
   K.applyHostedAuthStatus = (status) => {
     const normalized = {
-      authenticated: status?.authenticated === true,
+      available: status?.available === true,
+      authenticated: status?.available === true && status?.authenticated === true,
       type: status?.type || "",
       organizationId: status?.organizationId || "",
     };
@@ -31,6 +32,7 @@ import { K } from "./kernel";
       K.showError(`Unable to verify hosted account state: ${(err as any).message || String(err)}`);
       return;
     }
+    if (!status.available) return K.showError("The optional hosted-model compatibility runtime is not available.");
     if (status.authenticated) return K.showError("The hosted model account is already connected on this computer.");
 
     K.state.authController?.abort();

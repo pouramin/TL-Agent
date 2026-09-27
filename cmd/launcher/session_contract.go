@@ -153,7 +153,7 @@ func newSessionReadContractWithBackend(state *appState, backend *runtimeBackend)
 		state:   state,
 		backend: backend,
 		history: recentProjects,
-		store:   newSessionPersistenceStore(sessionPersistenceRoot(), backend.engine.ID()),
+		store:   newSessionPersistenceStore(sessionPersistenceRoot(), backend.persistenceRuntimeID()),
 	}
 }
 
@@ -707,10 +707,13 @@ func (c *sessionReadContract) listProjectSessions(ctx context.Context, directory
 						}
 					}
 				}
-				if len(result) > 0 {
+				if len(result) > 0 || errors.Is(err, errRuntimeUnavailable) {
 					return result, nil
 				}
 			}
+		}
+		if errors.Is(err, errRuntimeUnavailable) {
+			return []sessionView{}, nil
 		}
 		return nil, err
 	}
@@ -897,9 +900,12 @@ func (c *sessionReadContract) getStatuses(ctx context.Context, directory string)
 	if err != nil {
 		if c.nativeStatus != nil {
 			native := c.nativeStatus.NativeStatuses(directory)
-			if len(native) > 0 {
+			if len(native) > 0 || errors.Is(err, errRuntimeUnavailable) {
 				return native, nil
 			}
+		}
+		if errors.Is(err, errRuntimeUnavailable) {
+			return map[string]sessionStatusView{}, nil
 		}
 		return nil, err
 	}

@@ -28,6 +28,52 @@ Current private development target:
 
 `0.5.0-alpha.1`
 
+## v0.5.0-alpha.1 Kilo-free core checkpoint
+
+Feature branch:
+
+`feature/kilo-free-core`
+
+Review PR:
+
+`#113 — Make Kilo an optional compatibility runtime`
+
+Implemented on the feature branch:
+
+- launcher boot no longer requires a Kilo binary;
+- explicit `--native-only` mode skips compatibility-runtime discovery/startup;
+- missing or failed optional runtime falls back to native-only startup unless the user supplied an invalid explicit `--runtime-bin` override;
+- Browser bootstrap health, project path, and visible Agent list are TL Studio-owned `/local/*` semantics;
+- supported custom providers and credentials remain available without Kilo;
+- hosted Kilo is omitted from the selectable catalog when compatibility is unavailable;
+- compatibility-only custom models are disabled in native-only mode instead of failing mysteriously at run time;
+- native-only session create/rename/delete/run/abort uses TL Studio-owned `tls_*` sessions and persistence;
+- native permission polling, question polling, and semantic SSE remain healthy without a runtime stream;
+- generic `/runtime/*` proxy requests return 503 when no compatibility runtime exists rather than preventing startup;
+- Kilo-present hybrid behavior remains covered by the existing real-runtime contracts.
+
+New automated proof:
+
+- full Go semantic-server test performs a real custom-provider Native Agent run with no compatibility backend;
+- `native-only-product-contract` builds the launcher without downloading Kilo and exercises native health, provider catalog, session lifecycle, permissions/questions, and compatibility-unavailable semantics;
+- `native-only-browser-smoke` builds without Kilo and runs the real Chrome workbench smoke test;
+- existing real-runtime product contract, real prompt/write E2E, Browser workbench smoke, and Custom Provider Contract remain green.
+
+Validated CI checkpoint:
+
+- CI run `36358375105`: success across native-only product contract, native-only Browser smoke, normal Browser smoke, real-runtime product contract, prompt/write E2E, Go tests/vet/cross-compiles;
+- Custom Provider Contract on the same code line remained green.
+
+Native-only Windows review build:
+
+- Preview Build run: `36358698660`
+- artifact ID: `10943804936`
+- inner package: `TL-Studio-v0.5.0-alpha.1-Windows-x64-NativeOnly-Preview.zip`
+- inner package SHA-256: `c34a405a311c4c4eafde5d72ab05f4e2a237bdf82bf522644ea42683cb67cc06`
+- package intentionally contains no `bin/kilo.exe`.
+
+The remaining gate for this checkpoint is hands-on Windows validation of the native-only package. Do not merge PR #113 to `dev` until that review is complete.
+
 ## v0.4.0 stable promotion checkpoint
 
 The validated `0.4.0-alpha.5` development line was promoted to stable `v0.4.0` only after:

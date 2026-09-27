@@ -294,14 +294,6 @@ func projectedRuntimeEvents(response *http.Response, output chan<- liveEventView
 
 func registerLiveEventRoutes(mux *http.ServeMux, contract *liveEventContract) {
 	mux.HandleFunc("GET /local/events", func(w http.ResponseWriter, r *http.Request) {
-		directory := contract.state.projectPath()
-		response, err := contract.runtimeStream(r.Context(), directory)
-		if err != nil {
-			writeJSON(w, http.StatusBadGateway, jsonError{Error: err.Error()})
-			return
-		}
-		defer response.Body.Close()
-
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
@@ -315,12 +307,34 @@ func registerLiveEventRoutes(mux *http.ServeMux, contract *liveEventContract) {
 			defer contract.bus.unsubscribe(subscriptionID)
 		}
 
-		runtimeEvents := make(chan liveEventView, 32)
-		runtimeDone := make(chan struct{})
-		go func() {
-			_ = projectedRuntimeEvents(response, runtimeEvents)
-			close(runtimeDone)
-		}()
+		var runtimeEvents <-chan liveEventView
+		var runtimeDone <-chan struct{}
+		var response *http.Response
+		if contract.backend != nil && contract.backend.available() {
+			directory := contract.state.projectPath()
+			runtimeResponse, err := contract.runtimeStream(r.Context(), directory)
+			if err == nil {
+				response = runtimeResponse
+				defer response.Body.Close()
+				events := make(chan liveEventView, 32)
+				done := make(chan struct{})
+				runtimeEvents = events
+				runtimeDone = done
+				go func() {
+					_ = projectedRuntimeEvents(response, events)
+					close(done)
+				}()
+			}
+		}
+
+		if response == nil {
+			if err := writeLiveEvent(w, liveEventView{Version: liveEventContractVersion, Type: "stream.ready"}); err != nil {
+				return
+			}
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
 
 		keepalive := time.NewTicker(20 * time.Second)
 		defer keepalive.Stop()
@@ -350,6 +364,7 @@ func registerLiveEventRoutes(mux *http.ServeMux, contract *liveEventContract) {
 				}
 			case <-runtimeDone:
 				runtimeDone = nil
+				runtimeEvents = nil
 			case <-keepalive.C:
 				_, _ = io.WriteString(w, ": keepalive\n\n")
 				if flusher != nil {

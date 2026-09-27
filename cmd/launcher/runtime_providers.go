@@ -371,6 +371,10 @@ func newRuntimeProviderManagerWithBackend(state *appState, backend *runtimeBacke
 	}
 }
 
+func (m *runtimeProviderManager) compatibilityAvailable() bool {
+	return m != nil && m.backend != nil && m.backend.available()
+}
+
 func (m *runtimeProviderManager) requestRaw(ctx context.Context, method, route string, query url.Values, body any) (json.RawMessage, error) {
 	var reader io.Reader
 	if body != nil {
@@ -702,6 +706,9 @@ func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) 
 
 	// Legacy migration is best-effort. A runtime problem must never make the
 	// TL Studio-owned provider registry unreadable or uneditable.
+	if !m.compatibilityAvailable() {
+		return providers, nil
+	}
 	overlay, importErr := m.fetchOverlay(ctx)
 	if importErr != nil {
 		providerCompatibilityWarning("legacy import", importErr)
@@ -725,6 +732,10 @@ func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
 	providers, err := m.ensureRegistryInitialized(ctx)
 	if err != nil {
 		return err
+	}
+	if !m.compatibilityAvailable() {
+		m.bootstrapped = true
+		return nil
 	}
 
 	// Kilo/OpenCode remains a compatibility runtime, not the source of truth for
@@ -786,6 +797,7 @@ type providerCatalogResponse struct {
 	Default   map[string]string `json:"default"`
 	Failed    []json.RawMessage `json:"failed,omitempty"`
 	Hosted    struct {
+		Available       bool     `json:"available"`
 		ProviderID      string   `json:"providerID"`
 		PreferredModels []string `json:"preferredModels"`
 	} `json:"hosted"`
@@ -947,27 +959,34 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 		Default   map[string]string `json:"default"`
 		Failed    []json.RawMessage `json:"failed"`
 	}
-	raw, runtimeErr := m.requestRaw(ctx, http.MethodGet, "/provider", m.runtimeQuery(directory), nil)
-	if runtimeErr == nil {
-		if err := json.Unmarshal(unwrapRuntimePayload(raw), &upstream); err != nil {
-			providerCompatibilityWarning("catalog decode", err)
+	if m.compatibilityAvailable() {
+		raw, runtimeErr := m.requestRaw(ctx, http.MethodGet, "/provider", m.runtimeQuery(directory), nil)
+		if runtimeErr == nil {
+			if err := json.Unmarshal(unwrapRuntimePayload(raw), &upstream); err != nil {
+				providerCompatibilityWarning("catalog decode", err)
+			}
+		} else {
+			providerCompatibilityWarning("catalog read", runtimeErr)
 		}
-	} else {
-		providerCompatibilityWarning("catalog read", runtimeErr)
 	}
 
 	result := providerCatalogResponse{
-		Connected: append([]string(nil), upstream.Connected...),
+		All:       []catalogProvider{},
+		Connected: append([]string{}, upstream.Connected...),
 		Default:   upstream.Default,
-		Failed:    upstream.Failed,
+		Failed:    append([]json.RawMessage{}, upstream.Failed...),
 	}
 	if result.Default == nil {
 		result.Default = map[string]string{}
 	}
+	result.Hosted.Available = m.compatibilityAvailable()
 	result.Hosted.ProviderID = runtimeHostedProviderID
-	result.Hosted.PreferredModels = append([]string(nil), runtimeHostedPreferredModels...)
-	if len(result.Hosted.PreferredModels) > 0 {
-		result.Default[runtimeHostedProviderID] = result.Hosted.PreferredModels[0]
+	result.Hosted.PreferredModels = []string{}
+	if result.Hosted.Available {
+		result.Hosted.PreferredModels = append([]string(nil), runtimeHostedPreferredModels...)
+		if len(result.Hosted.PreferredModels) > 0 {
+			result.Default[runtimeHostedProviderID] = result.Hosted.PreferredModels[0]
+		}
 	}
 
 	upstreamByID := make(map[string]catalogProvider, len(upstream.All))
@@ -977,11 +996,25 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 		}
 	}
 
-	hosted := upstreamByID[runtimeHostedProviderID]
-	result.All = append(result.All, hostedCatalogProvider(hosted, result.Hosted.PreferredModels))
+	if result.Hosted.Available {
+		hosted := upstreamByID[runtimeHostedProviderID]
+		result.All = append(result.All, hostedCatalogProvider(hosted, result.Hosted.PreferredModels))
+	}
 	for _, definition := range managedDefinitions {
 		upstreamProvider, ok := upstreamByID[definition.ID]
 		catalogProvider := managedCatalogProvider(definition, upstreamProvider, ok)
+		if !m.compatibilityAvailable() {
+			for _, configured := range definition.Models {
+				if providerModelUsesNativeAgent(definition, configured) {
+					continue
+				}
+				if model, exists := catalogProvider.Models[configured.ID]; exists {
+					disabled := false
+					model.Enabled = &disabled
+					catalogProvider.Models[configured.ID] = model
+				}
+			}
+		}
 		if !jevConfig.Enabled {
 			if model, exists := catalogProvider.Models[jevRouterModelID]; exists && providerHasJevRouter(definition) {
 				disabled := false
@@ -1012,6 +1045,7 @@ type providerConfigResponse struct {
 }
 
 type hostedStatusResponse struct {
+	Available       bool     `json:"available"`
 	Authenticated   bool     `json:"authenticated"`
 	Type            string   `json:"type"`
 	OrganizationID  string   `json:"organizationId"`
@@ -1160,6 +1194,15 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("GET /runtime/hosted/status", func(w http.ResponseWriter, r *http.Request) {
+		if !manager.compatibilityAvailable() {
+			writeJSON(w, http.StatusOK, hostedStatusResponse{
+				Available:       false,
+				Authenticated:   false,
+				ProviderID:      runtimeHostedProviderID,
+				PreferredModels: []string{},
+			})
+			return
+		}
 		raw, err := manager.requestRaw(r.Context(), http.MethodGet, "/kilo/auth-status", manager.runtimeQuery(r.URL.Query().Get("directory")), nil)
 		if err != nil {
 			writeProviderManagerError(w, err)
@@ -1175,6 +1218,7 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 			return
 		}
 		writeJSON(w, http.StatusOK, hostedStatusResponse{
+			Available:       true,
 			Authenticated:   upstream.Authenticated,
 			Type:            upstream.Type,
 			OrganizationID:  upstream.OrganizationID,
@@ -1184,6 +1228,10 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("POST /runtime/hosted/authorize", func(w http.ResponseWriter, r *http.Request) {
+		if !manager.compatibilityAvailable() {
+			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
+			return
+		}
 		raw, err := manager.requestRaw(r.Context(), http.MethodPost, "/provider/kilo/oauth/authorize", manager.runtimeQuery(r.URL.Query().Get("directory")), map[string]any{"method": 0})
 		if err != nil {
 			writeProviderManagerError(w, err)
@@ -1193,6 +1241,10 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("POST /runtime/hosted/callback", func(w http.ResponseWriter, r *http.Request) {
+		if !manager.compatibilityAvailable() {
+			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
+			return
+		}
 		raw, err := manager.requestRaw(r.Context(), http.MethodPost, "/provider/kilo/oauth/callback", manager.runtimeQuery(r.URL.Query().Get("directory")), map[string]any{"method": 0})
 		if err != nil {
 			writeProviderManagerError(w, err)
@@ -1202,6 +1254,10 @@ func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderM
 	})
 
 	mux.HandleFunc("DELETE /runtime/hosted", func(w http.ResponseWriter, r *http.Request) {
+		if !manager.compatibilityAvailable() {
+			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
+			return
+		}
 		if _, err := manager.requestRaw(r.Context(), http.MethodDelete, "/auth/kilo", url.Values{}, nil); err != nil {
 			writeProviderManagerError(w, err)
 			return

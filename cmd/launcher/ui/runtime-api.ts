@@ -9,8 +9,9 @@ import { K } from "./kernel";
   const body = (value: any) => ({ body: json(value) });
   const unwrapData = (payload: any) => payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
   const request = (path: string, options: RequestInit = {}) => K.request(`/runtime${path}`, options);
-  const hostedMeta = { providerID: "", preferredModels: [] };
+  const hostedMeta = { available: false, providerID: "", preferredModels: [] as string[] };
   const applyHostedMeta = (value: any) => {
+    if (typeof value?.available === "boolean") hostedMeta.available = value.available;
     if (value?.providerID) hostedMeta.providerID = String(value.providerID);
     if (Array.isArray(value?.preferredModels)) hostedMeta.preferredModels = value.preferredModels.map(String);
   };
@@ -62,15 +63,15 @@ import { K } from "./kernel";
   K.api = Object.freeze({
     version: "bundled-runtime-adapter-v1",
 
-    health: () => request("/global/health"),
-    path: () => request(route("/path")),
+    health: () => K.request("/local/health"),
+    path: () => K.request("/local/path"),
 
     runtime: {
       dispose: async () => unwrapData(await request("/global/dispose", { method: "POST" })),
     },
 
     agents: async () => {
-      const payload = unwrapData(await request(route("/agent")));
+      const payload = await K.request("/local/agents");
       return Array.isArray(payload) ? payload : [];
     },
 
@@ -241,12 +242,14 @@ import { K } from "./kernel";
     },
 
     hosted: {
+      get available() { return hostedMeta.available; },
       get providerID() { return hostedMeta.providerID; },
       get preferredModels() { return [...hostedMeta.preferredModels]; },
       status: async () => {
         const payload = unwrapData(await request(route("/hosted/status"))) || {};
         applyHostedMeta(payload);
         return {
+          available: payload.available === true,
           authenticated: payload.authenticated === true,
           type: payload.type || "",
           organizationId: payload.organizationId || "",
