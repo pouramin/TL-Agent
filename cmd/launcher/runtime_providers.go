@@ -780,6 +780,24 @@ func normalizeCatalogProvider(raw json.RawMessage, managed map[string]bool) (cat
 	return result, true
 }
 
+func hostedCatalogProvider(upstream catalogProvider, preferredModels []string) catalogProvider {
+	result := catalogProvider{
+		ID:     upstream.ID,
+		Name:   upstream.Name,
+		Source: "hosted",
+		Models: map[string]catalogModel{},
+	}
+	if result.Name == "" {
+		result.Name = runtimeHostedProviderID
+	}
+	for _, modelID := range preferredModels {
+		if model, ok := upstream.Models[modelID]; ok {
+			result.Models[modelID] = model
+		}
+	}
+	return result
+}
+
 func managedCatalogProvider(definition tlProviderDefinition, upstream catalogProvider, hasUpstream bool) catalogProvider {
 	result := catalogProvider{
 		ID:     definition.ID,
@@ -858,8 +876,7 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 	// compatibility provider, then project every managed provider down to exactly
 	// the models the user saved in providers.json.
 	if hosted, ok := upstreamByID[runtimeHostedProviderID]; ok {
-		hosted.Source = "hosted"
-		result.All = append(result.All, hosted)
+		result.All = append(result.All, hostedCatalogProvider(hosted, result.Hosted.PreferredModels))
 	}
 	for _, definition := range managedDefinitions {
 		upstreamProvider, ok := upstreamByID[definition.ID]
