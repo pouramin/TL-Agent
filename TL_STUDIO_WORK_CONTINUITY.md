@@ -903,6 +903,144 @@ Hands-on validation should continue from this Preview. Priority retest:
 - no new Kilo provider-sync 400 warning should appear for JEV/native OpenRouter saves
 - if OpenRouter stalls for the entire native model-turn bound, the Session must show a timeout error instead of remaining silent
 
+## Alpha.5 JEV toggle, OpenRouter availability, and launcher branding fix
+
+Hands-on Windows testing after PR #107 confirmed that Jev Router now reaches OpenRouter correctly, but OpenRouter returned HTTP 402 for an account that had never purchased credits. The same test also showed that the compact `Active JEV` control was not a real toggle and that the bundled compatibility engine leaked `kilo server listening on ...` into the normal launcher console.
+
+Fixed in:
+
+`#109 — Make JEV toggle real and clarify OpenRouter availability`
+
+Squash merge commit:
+
+`daaa1d23cd280c407b47dc22d57fc41d87e8f408`
+
+### Persisted JEV Router state
+
+JEV now has distinct product states:
+
+- configured — provider/model and TL Studio-owned credential exist
+- enabled — the user explicitly enabled JEV
+- available — the current OpenRouter account/key is eligible for router access
+- active — enabled and available
+
+Router enablement is persisted separately in:
+
+`jev-router.json`
+
+JEV defaults to off when no persisted enablement exists.
+
+Turning JEV off:
+
+- keeps the OpenRouter provider
+- keeps the TL Studio-owned API key
+- marks `typesafe/jev-router` non-selectable in the provider catalog
+- removes it from the browser Model Selector
+- prevents stale/direct Native Agent execution until explicitly re-enabled
+
+The compact Settings control is now a real switch. It only opens the configuration dialog when setup or access repair is required.
+
+### OpenRouter access gate
+
+Activation uses OpenRouter's authenticated non-inference key-status endpoint:
+
+`GET /api/v1/key`
+
+The credential remains server-side.
+
+Known unavailable states include:
+
+- OpenRouter Free-tier key while the current Free plan excludes auto-routing
+- management key
+- exhausted key-level allowance
+
+OpenRouter can still reject an actual Jev Router request with HTTP 402. When that happens:
+
+- TL Studio surfaces a clear account/router-access error
+- JEV is disabled
+- the blocked state is persisted for truthful Settings UI
+- no paid Jev Decision model or alternate paid model is invoked
+
+The model's currently advertised zero prompt/completion token price is treated as mutable provider metadata and not as a guarantee that every OpenRouter account has router access.
+
+### Launcher branding
+
+The bundled compatibility runtime remains an implementation detail.
+
+Known upstream startup output:
+
+`kilo server listening on http://...`
+
+is relayed through the launcher as:
+
+`TL Studio runtime listening on http://...`
+
+Other diagnostic output is preserved for debugging.
+
+### Validation
+
+PR #109 passed:
+
+- Custom Provider Contract
+- strict Browser TypeScript
+- Browser build
+- Go tests
+- Go vet
+- runtime boundary checks
+- runtime product contract
+- runtime prompt/write E2E
+- supported-platform cross-compiles
+
+New deterministic coverage includes:
+
+- JEV default-off and persisted toggle state
+- disabled JEV rejected by Native Agent resolution
+- disabled Router marked non-selectable in provider catalog
+- Free-tier account cannot become active
+- OpenRouter key-status check uses stored credential and makes no inference call
+- eligible account can enable/disable without deleting provider/key
+- model HTTP 402 disables JEV with no paid fallback
+- compact UI uses the persisted Router status/configure APIs
+- bundled runtime startup line is TL Studio-branded
+
+Post-merge Windows Preview Build:
+
+`36322974052`
+
+Head:
+
+`daaa1d23cd280c407b47dc22d57fc41d87e8f408`
+
+Result:
+
+`success`
+
+Artifact:
+
+`TL-Studio-0.4.0-alpha.5-Windows-x64-Preview`
+
+Artifact ID:
+
+`10933710122`
+
+GitHub artifact digest:
+
+`sha256:11576243c9972909ef1b7ced4f1f1eb0078f6e332c832d566657c1f890c2f90b`
+
+Inner product ZIP SHA256:
+
+`752d4443c5eb7162d18fc76397632592a5a58576199d83b195f41de5dc69e25b`
+
+Priority hands-on retest:
+
+- existing JEV configuration should no longer be assumed active merely because the provider/key exist
+- activating with the currently tested OpenRouter account should become `JEV unavailable` rather than falsely green when OpenRouter reports Free-tier/router-access restriction
+- the compact JEV switch must turn an active eligible JEV off without deleting provider/key
+- when off, Jev Router must disappear from the Model Selector
+- stale/direct attempts to execute Jev Router while off must be rejected
+- a real OpenRouter HTTP 402 must disable JEV and never trigger a paid fallback
+- launcher console should show `TL Studio runtime listening on ...`, not `kilo server listening on ...`
+
 ## Next product phase
 
 Phase 2 is complete according to its ownership criteria.
