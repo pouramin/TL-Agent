@@ -40,3 +40,25 @@ func TestJevSettingsUseCompactControlAndRefreshAfterProviderChanges(t *testing.T
 		t.Fatal("legacy full-height Jev card should not remain in Providers settings")
 	}
 }
+
+
+func TestProviderAPIKeyFieldAvoidsPasswordManagerSemantics(t *testing.T) {
+	source := readBrowserSource(t, "providers-ui.ts")
+	for _, required := range []string{
+		`id="providerApiKeyInput"`,
+		`type="text"`,
+		`autocomplete="off"`,
+		`data-form-type="other"`,
+		`data-lpignore="true"`,
+		`data-1p-ignore`,
+		`-webkit-text-security:disc`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("provider API key field must avoid password-manager semantics; missing %q", required)
+		}
+	}
+	if strings.Contains(source, `id="providerApiKeyInput" type="password"`) ||
+		strings.Contains(source, `autocomplete="new-password"`) {
+		t.Fatal("provider API key field must not be presented to the browser as a login password")
+	}
+}
