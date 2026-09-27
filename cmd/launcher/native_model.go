@@ -175,9 +175,16 @@ func (c *nativeHTTPModelClient) doJSON(ctx context.Context, endpoint string, hea
 	return c.httpClient.Do(req)
 }
 
-func modelHTTPError(response *http.Response) error {
+func modelHTTPError(response *http.Response, request nativeModelRequest) error {
 	body, _ := io.ReadAll(io.LimitReader(response.Body, 2<<20))
-	return fmt.Errorf("model request failed with status %d: %s", response.StatusCode, strings.TrimSpace(string(body)))
+	detail := strings.TrimSpace(string(body))
+	if response.StatusCode == http.StatusPaymentRequired &&
+		request.Model.ID == jevRouterModelID &&
+		providerHasJevRouter(request.Provider) {
+		_, _ = saveJevRouterConfig(jevRouterConfig{Enabled: false})
+		return errors.New("OpenRouter rejected Jev Router for this account (402). Jev Router is listed at $0/token, but OpenRouter's current Free plan does not include auto-routing. TL Studio disabled JEV and did not fall back to a paid Jev model")
+	}
+	return fmt.Errorf("model request failed with status %d: %s", response.StatusCode, detail)
 }
 
 func openAITools(tools []nativeModelToolDefinition) []map[string]any {
@@ -263,7 +270,7 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nativeModelResponse{}, modelHTTPError(response)
+		return nativeModelResponse{}, modelHTTPError(response, request)
 	}
 	if !strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
 		return parseOpenAIChatJSON(response.Body, request.Tools, onTextDelta)
@@ -510,7 +517,7 @@ func (c *nativeHTTPModelClient) completeOpenAIResponses(ctx context.Context, req
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nativeModelResponse{}, modelHTTPError(response)
+		return nativeModelResponse{}, modelHTTPError(response, request)
 	}
 	if !strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
 		return parseOpenAIResponsesJSON(response.Body, request.Tools, onTextDelta)
@@ -704,7 +711,7 @@ func (c *nativeHTTPModelClient) completeAnthropic(ctx context.Context, request n
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nativeModelResponse{}, modelHTTPError(response)
+		return nativeModelResponse{}, modelHTTPError(response, request)
 	}
 	if !strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
 		return parseAnthropicJSON(response.Body, request.Tools, onTextDelta)
