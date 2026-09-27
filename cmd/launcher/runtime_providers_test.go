@@ -277,6 +277,133 @@ func TestRuntimeProviderRoutesTranslateTLStudioConfig(t *testing.T) {
 	}
 }
 
+func TestProviderRegistryAndCatalogSurviveRuntimeCompatibilityFailure(t *testing.T) {
+	project := t.TempDir()
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/config/overlay":
+			_, _ = io.WriteString(w, `{"effective":{"provider":{},"disabled_providers":[]}}`)
+		case r.Method == http.MethodPatch && r.URL.Path == "/config/overlay":
+			http.Error(w, "runtime rejected provider overlay", http.StatusBadRequest)
+		case r.Method == http.MethodGet && r.URL.Path == "/provider":
+			http.Error(w, "runtime provider catalog unavailable", http.StatusBadRequest)
+		case r.Method == http.MethodPost && r.URL.Path == "/global/dispose":
+			http.Error(w, "runtime reload unavailable", http.StatusBadRequest)
+		default:
+			http.Error(w, "runtime compatibility unavailable", http.StatusBadRequest)
+		}
+	}))
+	defer backend.Close()
+
+	state := &appState{project: project}
+	manager, err := newRuntimeProviderManager(state, backend.URL, "runtime", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.credentials = newMemoryProviderCredentialStore()
+
+	existing := testProviderDefinition()
+	if err := manager.store.put(existing); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.credentials.Put(existing.ID, "existing-secret"); err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	registerRuntimeProviderRoutes(mux, manager)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	configRes, err := http.Get(server.URL + "/runtime/providers/config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer configRes.Body.Close()
+	if configRes.StatusCode != http.StatusOK {
+		t.Fatalf("provider registry must remain readable when runtime sync fails: status=%d", configRes.StatusCode)
+	}
+	var config providerConfigResponse
+	if err := json.NewDecoder(configRes.Body).Decode(&config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Providers) != 1 || config.Providers[0].ID != existing.ID {
+		t.Fatalf("saved providers disappeared after runtime compatibility failure: %#v", config.Providers)
+	}
+
+	catalogRes, err := http.Get(server.URL + "/runtime/providers/catalog?directory=" + url.QueryEscape(project))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer catalogRes.Body.Close()
+	if catalogRes.StatusCode != http.StatusOK {
+		t.Fatalf("catalog fallback must survive runtime failure: status=%d", catalogRes.StatusCode)
+	}
+	var catalog providerCatalogResponse
+	if err := json.NewDecoder(catalogRes.Body).Decode(&catalog); err != nil {
+		t.Fatal(err)
+	}
+	foundHosted := false
+	foundExisting := false
+	for _, provider := range catalog.All {
+		switch provider.ID {
+		case runtimeHostedProviderID:
+			foundHosted = true
+			if len(provider.Models) != 1 {
+				t.Fatalf("fallback Kilo catalog should expose only Auto Free: %#v", provider.Models)
+			}
+			if model, ok := provider.Models["kilo-auto/free"]; !ok || model.Name != "Auto Free" {
+				t.Fatalf("fallback Kilo Auto Free missing: %#v", provider.Models)
+			}
+		case existing.ID:
+			foundExisting = true
+			if len(provider.Models) != 1 {
+				t.Fatalf("managed provider must retain only saved models: %#v", provider.Models)
+			}
+		}
+	}
+	if !foundHosted || !foundExisting {
+		t.Fatalf("catalog fallback missing hosted/custom providers: %#v", catalog.All)
+	}
+	connected := false
+	for _, id := range catalog.Connected {
+		if id == existing.ID {
+			connected = true
+		}
+	}
+	if !connected {
+		t.Fatalf("TL Studio vault credential should mark saved provider connected: %#v", catalog.Connected)
+	}
+
+	next := tlProviderDefinition{
+		ID: "second-provider", Name: "Second Provider", Protocol: "openai-compatible",
+		BaseURL: "https://api.second.example/v1",
+		Models: []tlProviderModel{{ID: "second-model", Name: "Second Model", ToolCall: true}},
+	}
+	body, _ := json.Marshal(providerWriteRequest{Provider: next, APIKey: "second-secret"})
+	req, _ := http.NewRequest(http.MethodPut, server.URL+"/runtime/providers/config/"+next.ID, strings.NewReader(string(body)))
+	req.Header.Set("Content-Type", "application/json")
+	saveRes, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer saveRes.Body.Close()
+	if saveRes.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(saveRes.Body)
+		t.Fatalf("TL Studio provider save must not fail because runtime compatibility rejected it: status=%d body=%s", saveRes.StatusCode, data)
+	}
+	if stored, ok, err := manager.store.get(next.ID); err != nil || !ok || stored.ID != next.ID {
+		t.Fatalf("new provider was not persisted after runtime compatibility failure: stored=%#v ok=%v err=%v", stored, ok, err)
+	}
+	if key, err := manager.credentials.Get(next.ID); err != nil || key != "second-secret" {
+		t.Fatalf("new provider credential was not persisted in TL Studio vault: key=%q err=%v", key, err)
+	}
+}
+
 func TestProviderManagerRestoresTLStudioCredentialIntoFreshRuntime(t *testing.T) {
 	project := t.TempDir()
 	stateDir := t.TempDir()
