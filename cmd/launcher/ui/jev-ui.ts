@@ -39,8 +39,9 @@ import { K } from "./kernel";
     .jev-config-dialog::backdrop{background:rgba(0,0,0,.58)}
     .jev-config-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--line-soft)}
     .jev-config-head h3{margin:0;font-size:14px}.jev-config-head p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.45}
-    .jev-config-body{display:grid;gap:12px;padding:16px 18px 18px}.jev-config-section{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
+    .jev-config-body{display:grid;gap:12px;padding:16px 18px 18px}.jev-config-section{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
     .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:10px}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1.45}
+    .jev-key-field{display:grid;gap:5px}.jev-key-field span{color:var(--muted);font-size:9px}.jev-key-field input{width:100%;height:34px}.jev-api-key{-webkit-text-security:disc}
     .jev-config-status{min-height:12px;color:var(--muted);font-size:9px;line-height:1.45}.jev-config-status.ok{color:color-mix(in srgb,var(--accent),var(--text) 35%)}.jev-config-status.error{color:var(--danger)}
     .jev-config-row select{min-width:190px;height:32px}.jev-config-actions{display:flex;justify-content:flex-end;gap:8px}
     @media(max-width:760px){.jev-compact-row{align-items:flex-start}.jev-config-row{display:grid;align-items:stretch}.jev-config-row select,.jev-config-row button{width:100%}}
@@ -68,7 +69,7 @@ import { K } from "./kernel";
     <div class="jev-config-head">
       <div>
         <h3>TypeSafe Jev</h3>
-        <p>Jev Router uses the normal OpenRouter model path. Direct Jev decisions are separate and optional.</p>
+        <p>Jev Router is configured automatically through OpenRouter. Direct Jev decisions remain a separate optional capability.</p>
       </div>
       <button id="jevConfigClose" type="button" class="ghost small">Close</button>
     </div>
@@ -77,10 +78,14 @@ import { K } from "./kernel";
         <div class="jev-config-row">
           <div class="jev-config-copy">
             <strong>Jev Router</strong>
-            <span>Generative router model: typesafe/jev-router</span>
+            <span>TL Studio automatically discovers and saves typesafe/jev-router. No model selection is required.</span>
           </div>
-          <button id="jevRouterSetupButton" type="button" class="primary small">Set up Router</button>
+          <button id="jevRouterSetupButton" type="button" class="primary small">Activate JEV</button>
         </div>
+        <label id="jevApiKeyField" class="jev-key-field">
+          <span>OpenRouter API key</span>
+          <input id="jevOpenRouterKeyInput" class="jev-api-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" data-form-type="other" data-lpignore="true" data-1p-ignore placeholder="Enter OpenRouter API key" />
+        </label>
         <div id="jevRouterStatus" class="jev-config-status"></div>
       </section>
       <section class="jev-config-section">
@@ -107,6 +112,8 @@ import { K } from "./kernel";
   const compactControl = document.getElementById("jevCompactControl") as HTMLButtonElement;
   const compactControlLabel = document.getElementById("jevCompactControlLabel") as HTMLElement;
   const setupButton = document.getElementById("jevRouterSetupButton") as HTMLButtonElement;
+  const apiKeyField = document.getElementById("jevApiKeyField") as HTMLElement;
+  const apiKeyInput = document.getElementById("jevOpenRouterKeyInput") as HTMLInputElement;
   const routerStatus = document.getElementById("jevRouterStatus") as HTMLElement;
   const decisionSelect = document.getElementById("jevDecisionEngineSelect") as HTMLSelectElement;
   const decisionStatus = document.getElementById("jevDecisionStatus") as HTMLElement;
@@ -116,6 +123,7 @@ import { K } from "./kernel";
 
   let currentProvider: TLStudioDynamicRecord | null = null;
   let currentRouterReady = false;
+  let currentCredentialConnected = false;
 
   const setText = (element: HTMLElement, message = "", kind = "") => {
     element.textContent = message;
@@ -133,6 +141,7 @@ import { K } from "./kernel";
     const candidates = providers.filter((provider) => isOpenRouter(provider?.baseURL));
     return candidates.find(providerHasRouter)
       || candidates.find((provider) => clean(provider?.id) === clean(decision?.providerID))
+      || candidates.find((provider) => clean(provider?.id) === "openrouter")
       || candidates[0]
       || null;
   };
@@ -140,26 +149,27 @@ import { K } from "./kernel";
   const nextProviderID = (providers: TLStudioDynamicRecord[]) => {
     const used = new Set(providers.map((provider) => clean(provider?.id)));
     if (!used.has("openrouter")) return "openrouter";
-    if (!used.has("typesafe-openrouter")) return "typesafe-openrouter";
     let suffix = 2;
-    while (used.has(`typesafe-openrouter-${suffix}`)) suffix++;
-    return `typesafe-openrouter-${suffix}`;
+    while (used.has(`openrouter-${suffix}`)) suffix++;
+    return `openrouter-${suffix}`;
   };
 
-  const providerFormValue = (provider: TLStudioDynamicRecord) => {
-    const first = Array.isArray(provider?.models) && provider.models.length ? provider.models[0] : {};
-    return {
-      providerID: provider.id,
-      name: provider.name || provider.id,
-      protocol: provider.protocol || "openai-compatible",
-      baseURL: provider.baseURL || OPENROUTER_BASE_URL,
-      modelID: first.id || "",
-      modelName: first.name || first.id || "",
-      contextLimit: first.contextLimit || "",
-      outputLimit: first.outputLimit || "",
-      toolCall: first.toolCall !== false,
-      reasoning: first.reasoning === true,
-    };
+  const configuredJevModel = (model: TLStudioDynamicRecord) => ({
+    id: JEV_ROUTER_MODEL,
+    name: clean(model?.name) || "Jev Router",
+    kind: "router",
+    toolCall: model?.toolCall === true,
+    reasoning: model?.reasoning === true,
+    ...(Number(model?.contextLimit) > 0 ? { contextLimit: Number(model.contextLimit) } : {}),
+    ...(Number(model?.outputLimit) > 0 ? { outputLimit: Number(model.outputLimit) } : {}),
+  });
+
+  const mergeJevModel = (provider: TLStudioDynamicRecord | null, discovered: TLStudioDynamicRecord) => {
+    const existing = Array.isArray(provider?.models) ? provider.models : [];
+    return [
+      ...existing.filter((model: TLStudioDynamicRecord) => clean(model?.id) !== JEV_ROUTER_MODEL),
+      configuredJevModel(discovered),
+    ];
   };
 
   const refreshStatus = async () => {
@@ -171,11 +181,11 @@ import { K } from "./kernel";
       const providers = Array.isArray(config?.providers) ? config.providers : [];
       currentProvider = selectOpenRouterProvider(providers, decision || {});
       const hasRouter = providerHasRouter(currentProvider);
-      const credentialConnected = !!currentProvider && (
+      currentCredentialConnected = !!currentProvider && (
         K.state.connectedProviders?.has?.(currentProvider.id)
         || (decision?.providerConfigured === true && clean(decision?.providerID) === clean(currentProvider.id))
       );
-      currentRouterReady = hasRouter && credentialConnected;
+      currentRouterReady = hasRouter && currentCredentialConnected;
 
       compactControl.classList.toggle("active", currentRouterReady);
       compactControlLabel.textContent = currentRouterReady ? "Active JEV" : "Configure JEV";
@@ -184,17 +194,16 @@ import { K } from "./kernel";
         : hasRouter
           ? "Jev Router is saved, but the OpenRouter credential is not connected."
           : currentProvider
-            ? "OpenRouter is configured. Jev Router is not selected yet."
+            ? "OpenRouter is configured. Activate JEV to add the router automatically."
             : "Not configured";
 
-      setupButton.textContent = hasRouter ? "Manage Provider" : (currentProvider ? "Add Jev Router" : "Set up Router");
+      apiKeyField.classList.toggle("hidden", currentCredentialConnected);
+      setupButton.textContent = currentRouterReady ? "Refresh JEV" : "Activate JEV";
       setText(routerStatus, currentRouterReady
-        ? `Ready. TL Studio will use ${JEV_ROUTER_MODEL} through ${currentProvider?.name || currentProvider?.id}.`
-        : hasRouter
-          ? "Jev Router is saved, but its OpenRouter credential is not connected."
-          : currentProvider
-            ? `OpenRouter provider “${currentProvider.name || currentProvider.id}” is available. Add Jev Router to its selected models.`
-            : "Configure an OpenRouter provider and select Jev Router. The same OpenRouter credential is reused.",
+        ? `Ready. TL Studio uses ${JEV_ROUTER_MODEL} through ${currentProvider?.name || currentProvider?.id}.`
+        : currentCredentialConnected
+          ? "OpenRouter credential found. Click Activate JEV; TL Studio will discover and save Jev Router automatically."
+          : "Enter an OpenRouter API key. TL Studio will validate it, find Jev Router, and save it automatically.",
         currentRouterReady ? "ok" : "");
 
       decisionSelect.value = decision?.engine === "jev" ? "jev" : "off";
@@ -210,62 +219,69 @@ import { K } from "./kernel";
     } catch (error) {
       currentProvider = null;
       currentRouterReady = false;
+      currentCredentialConnected = false;
       compactControl.classList.remove("active");
       compactControlLabel.textContent = "Configure JEV";
       compactStatus.textContent = "Could not read Jev status";
+      apiKeyField.classList.remove("hidden");
       setText(routerStatus, error instanceof Error ? error.message : String(error), "error");
     }
   };
 
   const openDialog = async () => {
+    apiKeyInput.value = "";
     await refreshStatus();
     if (!dialog.open) dialog.showModal();
   };
 
-  const openExistingProvider = async (provider: TLStudioDynamicRecord, discoverRouter: boolean) => {
-    dialog.close();
-    providersUI.discoverySelection?.reset?.();
-    providersUI.discoverySelection?.setAssumeUnknownTools?.(false);
-    providersUI.openProvider?.(providerFormValue(provider), provider.id);
-    if (!discoverRouter) return;
-    const found = await providersUI.discoverySelection?.discoverModel?.(JEV_ROUTER_MODEL);
-    if (!found) {
-      compactStatus.textContent = "Jev Router was not returned by OpenRouter.";
-    }
-  };
-
-  const openNewProvider = async () => {
-    const config = await K.api.providers.config();
-    const providers = Array.isArray(config?.providers) ? config.providers : [];
-    dialog.close();
-    providersUI.discoverySelection?.reset?.();
-    providersUI.discoverySelection?.setAssumeUnknownTools?.(false);
-    providersUI.openProvider?.({
-      providerID: nextProviderID(providers),
-      name: "TypeSafe via OpenRouter",
-      protocol: "openai-compatible",
-      baseURL: OPENROUTER_BASE_URL,
-      modelID: "",
-      modelName: "",
-      contextLimit: "",
-      outputLimit: "",
-      toolCall: true,
-      reasoning: false,
-    });
-    (document.getElementById("providerApiKeyInput") as HTMLInputElement | null)?.focus();
-  };
-
   const setupRouter = async () => {
+    if (setupButton.disabled) return;
     setupButton.disabled = true;
+    setText(routerStatus, "Checking OpenRouter and locating Jev Router…");
     try {
+      const config = await K.api.providers.config();
+      const providers = Array.isArray(config?.providers) ? config.providers : [];
+      const key = clean(apiKeyInput.value);
+
       await refreshStatus();
-      if (currentProvider) {
-        await openExistingProvider(currentProvider, !providerHasRouter(currentProvider));
-      } else {
-        await openNewProvider();
+      if (!currentCredentialConnected && !key) {
+        throw new Error("Enter your OpenRouter API key.");
       }
+
+      const providerID = clean(currentProvider?.id) || nextProviderID(providers);
+      const protocol = clean(currentProvider?.protocol) || "openai-compatible";
+      const discovery = await K.api.providers.discover({
+        ...(currentProvider ? { providerID } : {}),
+        protocol,
+        baseURL: OPENROUTER_BASE_URL,
+        ...(key ? { apiKey: key } : {}),
+      });
+      const models = Array.isArray(discovery?.models) ? discovery.models : [];
+      const jev = models.find((model: TLStudioDynamicRecord) => clean(model?.id) === JEV_ROUTER_MODEL);
+      if (!jev) {
+        throw new Error("Jev Router is not available for this OpenRouter account.");
+      }
+
+      const provider = {
+        id: providerID,
+        name: clean(currentProvider?.name) || "OpenRouter",
+        protocol,
+        baseURL: OPENROUTER_BASE_URL,
+        models: mergeJevModel(currentProvider, jev),
+      };
+      await K.api.providers.upsert(providerID, {
+        provider,
+        ...(key ? { apiKey: key } : {}),
+      });
+
+      apiKeyInput.value = "";
+      await K.loadCatalog();
+      await providersUI.reload?.();
+      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
+      await refreshStatus();
+      setText(routerStatus, "Jev Router is active. No manual model selection was required.", "ok");
     } catch (error) {
-      setText(routerStatus, `Could not prepare Jev Router: ${error instanceof Error ? error.message : String(error)}`, "error");
+      setText(routerStatus, `Could not activate Jev Router: ${error instanceof Error ? error.message : String(error)}`, "error");
     } finally {
       setupButton.disabled = false;
     }
