@@ -445,38 +445,27 @@ func normalizeProviderDiscoveredModels(records []map[string]any) []providerDisco
 	return result
 }
 
-func validateOpenRouterDiscoveryCredentialWithClient(ctx context.Context, baseURL, apiKey string, client *http.Client) error {
-	if !isOpenRouterBaseURL(baseURL) {
-		return nil
-	}
-	if strings.TrimSpace(apiKey) == "" {
-		return &providerDiscoveryHTTPError{Status: http.StatusUnauthorized}
-	}
-	endpoint, err := nativeEndpoint(baseURL, "key")
-	if err != nil {
-		return err
-	}
-	_, err = providerDiscoveryGETWithClient(ctx, client, endpoint, map[string]string{
-		"Authorization": "Bearer " + strings.TrimSpace(apiKey),
-	})
-	return err
-}
-
-func validateOpenRouterDiscoveryCredential(ctx context.Context, baseURL, apiKey string) error {
-	return validateOpenRouterDiscoveryCredentialWithClient(ctx, baseURL, apiKey, providerDiscoveryHTTPClient())
-}
-
 func discoverOpenAICompatibleModelsWithClient(ctx context.Context, baseURL, apiKey string, client *http.Client) ([]providerDiscoveredModel, error) {
-	if err := validateOpenRouterDiscoveryCredentialWithClient(ctx, baseURL, apiKey, client); err != nil {
-		return nil, err
+	suffix := "models"
+	headers := map[string]string{}
+	if strings.TrimSpace(apiKey) != "" {
+		headers["Authorization"] = "Bearer " + strings.TrimSpace(apiKey)
 	}
-	endpoint, err := nativeEndpoint(baseURL, "models")
+
+	// OpenRouter's ordinary /models catalog is public, so it cannot validate the
+	// user's API key. Use the authenticated per-user catalog instead. Besides
+	// rejecting invalid credentials, it respects the user's provider preferences,
+	// privacy settings, and guardrails.
+	if isOpenRouterBaseURL(baseURL) {
+		if strings.TrimSpace(apiKey) == "" {
+			return nil, &providerDiscoveryHTTPError{Status: http.StatusUnauthorized}
+		}
+		suffix = "models/user"
+	}
+
+	endpoint, err := nativeEndpoint(baseURL, suffix)
 	if err != nil {
 		return nil, err
-	}
-	headers := map[string]string{}
-	if apiKey != "" {
-		headers["Authorization"] = "Bearer " + apiKey
 	}
 	data, err := providerDiscoveryGETWithClient(ctx, client, endpoint, headers)
 	if err != nil {
