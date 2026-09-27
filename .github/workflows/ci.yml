@@ -250,3 +250,59 @@ jobs:
           test -n "$LOCAL_URL"
           python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
           python3 scripts/check-kilo-prompt-e2e.py "$LOCAL_URL"
+
+  browser-workbench-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Browser and launcher with pinned runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check:web
+          npm run build:web
+          mkdir -p /tmp/tl-ui-smoke/bin /tmp/tl-ui-runtime
+          go build -trimpath -o /tmp/tl-ui-smoke/tl-studio ./cmd/launcher
+          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
+          ASSET="kilo-linux-x64.tar.gz"
+          curl --fail --location --retry 3             "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}"             -o "/tmp/tl-ui-runtime/${ASSET}"
+          tar -xzf "/tmp/tl-ui-runtime/${ASSET}" -C /tmp/tl-ui-runtime
+          KILO_BIN="$(find /tmp/tl-ui-runtime -type f -name kilo | head -n 1)"
+          test -n "$KILO_BIN"
+          cp "$KILO_BIN" /tmp/tl-ui-smoke/bin/kilo
+          chmod +x /tmp/tl-ui-smoke/tl-studio /tmp/tl-ui-smoke/bin/kilo
+      - name: Run real Browser workbench smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOG="$(mktemp)"
+          START_DIR="$PWD"
+          cd /tmp
+          /tmp/tl-ui-smoke/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          PID=$!
+          cd "$START_DIR"
+          cleanup() {
+            kill "$PID" 2>/dev/null || true
+            wait "$PID" 2>/dev/null || true
+            echo "--- launcher log ---"
+            cat "$LOG"
+          }
+          trap cleanup EXIT
+
+          LOCAL_URL=""
+          for _ in $(seq 1 100); do
+            LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/runtime/global/health" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+          test -n "$LOCAL_URL"
+          node scripts/check-workbench-browser-runtime.mjs "$LOCAL_URL"

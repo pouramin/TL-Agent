@@ -129,10 +129,13 @@ import { K } from "./kernel";
 
   for (const handle of resizeHandles) {
     handle.addEventListener("pointerdown", startResize);
-    handle.addEventListener("pointermove", moveResize);
-    handle.addEventListener("pointerup", endEdgeResize);
-    handle.addEventListener("pointercancel", endEdgeResize);
   }
+  // Keep the resize lifecycle on the document after pointerdown. Pointer
+  // capture remains a useful browser hint, but geometry updates must not depend
+  // on the pointer remaining over the thin visual handle.
+  document.addEventListener("pointermove", moveResize);
+  document.addEventListener("pointerup", endEdgeResize);
+  document.addEventListener("pointercancel", endEdgeResize);
 
   let drag: { id: number; dx: number; dy: number } | null = null;
   head.addEventListener("pointerdown", (event: PointerEvent) => {
@@ -144,7 +147,7 @@ import { K } from "./kernel";
     event.preventDefault();
   });
 
-  head.addEventListener("pointermove", (event: PointerEvent) => {
+  const moveDrag = (event: PointerEvent) => {
     if (!drag || drag.id !== event.pointerId) return;
     const r = panel.getBoundingClientRect();
     const vp = viewport();
@@ -152,7 +155,7 @@ import { K } from "./kernel";
     const top = clamp(event.clientY - drag.dy, 8, Math.max(8, vp.height - r.height - 8));
     panel.style.left = `${left}px`;
     panel.style.top = `${top}px`;
-  });
+  };
 
   const endDrag = (event: any) => {
     if (!drag || drag.id !== event.pointerId) return;
@@ -160,8 +163,9 @@ import { K } from "./kernel";
     panel.classList.remove("preview-dragging");
     write();
   };
-  head.addEventListener("pointerup", endDrag);
-  head.addEventListener("pointercancel", endDrag);
+  document.addEventListener("pointermove", moveDrag);
+  document.addEventListener("pointerup", endDrag);
+  document.addEventListener("pointercancel", endDrag);
 
   let resizeTimer: number | null = null;
   if ("ResizeObserver" in window) {
