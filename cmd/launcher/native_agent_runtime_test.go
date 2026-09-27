@@ -138,6 +138,67 @@ func TestNativeAgentLoopExecutesToolAndContinuesWithoutKilo(t *testing.T) {
 	}
 }
 
+type nativeEmptyResponseModel struct {
+	finished chan struct{}
+}
+
+func (m *nativeEmptyResponseModel) Complete(context.Context, nativeModelRequest, func(string)) (nativeModelResponse, error) {
+	close(m.finished)
+	return nativeModelResponse{FinishReason: "stop"}, nil
+}
+
+func TestNativeAgentTurnsEmptyModelResponseIntoVisibleFailure(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-empty-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Empty response proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	model := &nativeEmptyResponseModel{finished: make(chan struct{})}
+	resolver := nativeTestResolver{
+		provider: tlProviderDefinition{
+			ID: "test", Protocol: "openai-compatible", BaseURL: "http://127.0.0.1:1/v1",
+		},
+		model: tlProviderModel{ID: "test-model", ToolCall: true},
+	}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, model, executor, store, newLiveEventBus())
+
+	input := sessionRunInput{
+		Text: "Say hello", Agent: "code",
+		Model: &sessionModelRef{ProviderID: "test", ID: "test-model"},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-model.finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("native Agent did not receive the model response")
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role == "assistant" && message.Error != nil &&
+					strings.Contains(message.Error.Message, "model returned an empty response") {
+					return
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("empty response failure was not persisted visibly: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestNativeToolExecutorRejectsTraversalAndUnknownTools(t *testing.T) {
 	project := t.TempDir()
 	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
