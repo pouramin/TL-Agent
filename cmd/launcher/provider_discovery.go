@@ -131,7 +131,7 @@ func (e *providerDiscoveryHTTPError) Error() string {
 	}
 }
 
-func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[string]string) ([]byte, error) {
+func providerDiscoveryGETWithClient(ctx context.Context, client *http.Client, endpoint string, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err
@@ -142,7 +142,10 @@ func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[stri
 			req.Header.Set(key, value)
 		}
 	}
-	response, err := providerDiscoveryHTTPClient().Do(req)
+	if client == nil {
+		client = providerDiscoveryHTTPClient()
+	}
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -159,6 +162,10 @@ func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[stri
 		return nil, errors.New("provider model catalog response is too large")
 	}
 	return data, nil
+}
+
+func providerDiscoveryGET(ctx context.Context, endpoint string, headers map[string]string) ([]byte, error) {
+	return providerDiscoveryGETWithClient(ctx, providerDiscoveryHTTPClient(), endpoint, headers)
 }
 
 func providerDiscoveryPositiveInt(value any) int {
@@ -438,7 +445,31 @@ func normalizeProviderDiscoveredModels(records []map[string]any) []providerDisco
 	return result
 }
 
-func discoverOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string) ([]providerDiscoveredModel, error) {
+func validateOpenRouterDiscoveryCredentialWithClient(ctx context.Context, baseURL, apiKey string, client *http.Client) error {
+	if !isOpenRouterBaseURL(baseURL) {
+		return nil
+	}
+	if strings.TrimSpace(apiKey) == "" {
+		return &providerDiscoveryHTTPError{Status: http.StatusUnauthorized}
+	}
+	endpoint, err := nativeEndpoint(baseURL, "key")
+	if err != nil {
+		return err
+	}
+	_, err = providerDiscoveryGETWithClient(ctx, client, endpoint, map[string]string{
+		"Authorization": "Bearer " + strings.TrimSpace(apiKey),
+	})
+	return err
+}
+
+func validateOpenRouterDiscoveryCredential(ctx context.Context, baseURL, apiKey string) error {
+	return validateOpenRouterDiscoveryCredentialWithClient(ctx, baseURL, apiKey, providerDiscoveryHTTPClient())
+}
+
+func discoverOpenAICompatibleModelsWithClient(ctx context.Context, baseURL, apiKey string, client *http.Client) ([]providerDiscoveredModel, error) {
+	if err := validateOpenRouterDiscoveryCredentialWithClient(ctx, baseURL, apiKey, client); err != nil {
+		return nil, err
+	}
 	endpoint, err := nativeEndpoint(baseURL, "models")
 	if err != nil {
 		return nil, err
@@ -447,7 +478,7 @@ func discoverOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string)
 	if apiKey != "" {
 		headers["Authorization"] = "Bearer " + apiKey
 	}
-	data, err := providerDiscoveryGET(ctx, endpoint, headers)
+	data, err := providerDiscoveryGETWithClient(ctx, client, endpoint, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -460,6 +491,10 @@ func discoverOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string)
 		return nil, errors.New("provider returned no usable models")
 	}
 	return models, nil
+}
+
+func discoverOpenAICompatibleModels(ctx context.Context, baseURL, apiKey string) ([]providerDiscoveredModel, error) {
+	return discoverOpenAICompatibleModelsWithClient(ctx, baseURL, apiKey, providerDiscoveryHTTPClient())
 }
 
 func discoverAnthropicModels(ctx context.Context, baseURL, apiKey string) ([]providerDiscoveredModel, error) {

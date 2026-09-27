@@ -53,6 +53,51 @@ func boolPointerValue(value *bool) (bool, bool) {
 	return *value, true
 }
 
+type discoveryRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn discoveryRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
+func TestOpenRouterDiscoveryRejectsInvalidKeyBeforeListingModels(t *testing.T) {
+	requests := []string{}
+	client := &http.Client{Transport: discoveryRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requests = append(requests, request.URL.Path)
+		if request.URL.Path != "/api/v1/key" {
+			t.Fatalf("invalid OpenRouter key must be rejected before /models, got %s", request.URL.Path)
+		}
+		if got := request.Header.Get("Authorization"); got != "Bearer definitely-wrong" {
+			t.Fatalf("unexpected OpenRouter auth header %q", got)
+		}
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Header:     make(http.Header),
+			Body:       http.NoBody,
+			Request:    request,
+		}, nil
+	})}
+
+	models, err := discoverOpenAICompatibleModelsWithClient(
+		context.Background(),
+		openRouterBaseURL,
+		"definitely-wrong",
+		client,
+	)
+	if err == nil {
+		t.Fatal("expected invalid OpenRouter credential to fail discovery")
+	}
+	if len(models) != 0 {
+		t.Fatalf("invalid OpenRouter credential returned models: %#v", models)
+	}
+	var httpErr *providerDiscoveryHTTPError
+	if !errors.As(err, &httpErr) || httpErr.Status != http.StatusUnauthorized {
+		t.Fatalf("expected OpenRouter 401, got %v", err)
+	}
+	if len(requests) != 1 || requests[0] != "/api/v1/key" {
+		t.Fatalf("OpenRouter discovery should stop after key validation failure: %#v", requests)
+	}
+}
+
 func TestDiscoverOpenAICompatibleModelsNormalizesMetadata(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/models" {
