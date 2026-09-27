@@ -59,12 +59,12 @@ func (fn discoveryRoundTripFunc) RoundTrip(request *http.Request) (*http.Respons
 	return fn(request)
 }
 
-func TestOpenRouterDiscoveryRejectsInvalidKeyBeforeListingModels(t *testing.T) {
+func TestOpenRouterDiscoveryRejectsInvalidKeyOnAuthenticatedUserCatalog(t *testing.T) {
 	requests := []string{}
 	client := &http.Client{Transport: discoveryRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		requests = append(requests, request.URL.Path)
-		if request.URL.Path != "/api/v1/key" {
-			t.Fatalf("invalid OpenRouter key must be rejected before /models, got %s", request.URL.Path)
+		if request.URL.Path != "/api/v1/models/user" {
+			t.Fatalf("OpenRouter discovery must use the authenticated user catalog, got %s", request.URL.Path)
 		}
 		if got := request.Header.Get("Authorization"); got != "Bearer definitely-wrong" {
 			t.Fatalf("unexpected OpenRouter auth header %q", got)
@@ -93,8 +93,59 @@ func TestOpenRouterDiscoveryRejectsInvalidKeyBeforeListingModels(t *testing.T) {
 	if !errors.As(err, &httpErr) || httpErr.Status != http.StatusUnauthorized {
 		t.Fatalf("expected OpenRouter 401, got %v", err)
 	}
-	if len(requests) != 1 || requests[0] != "/api/v1/key" {
-		t.Fatalf("OpenRouter discovery should stop after key validation failure: %#v", requests)
+	if len(requests) != 1 || requests[0] != "/api/v1/models/user" {
+		t.Fatalf("OpenRouter discovery should make one authenticated catalog request: %#v", requests)
+	}
+}
+
+func TestOpenRouterDiscoveryUsesAuthenticatedUserCatalogForValidKey(t *testing.T) {
+	requests := []string{}
+	client := &http.Client{Transport: discoveryRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requests = append(requests, request.URL.Path)
+		if request.URL.Path != "/api/v1/models/user" {
+			t.Fatalf("unexpected OpenRouter discovery path %s", request.URL.Path)
+		}
+		if got := request.Header.Get("Authorization"); got != "Bearer valid-openrouter-key" {
+			t.Fatalf("unexpected OpenRouter auth header %q", got)
+		}
+		body := `{"data":[
+			{"id":"typesafe/jev-router","name":"TypeSafe: Jev Router","supported_parameters":["tools","reasoning"]},
+			{"id":"openai/example:free","name":"Example Free"}
+		]}`
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(body)),
+			Request:    request,
+		}, nil
+	})}
+
+	models, err := discoverOpenAICompatibleModelsWithClient(
+		context.Background(),
+		openRouterBaseURL,
+		"valid-openrouter-key",
+		client,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("expected authenticated OpenRouter models, got %#v", models)
+	}
+	if len(requests) != 1 || requests[0] != "/api/v1/models/user" {
+		t.Fatalf("OpenRouter discovery must not call public /models or /key: %#v", requests)
+	}
+	foundJev := false
+	for _, model := range models {
+		if model.ID == jevRouterModelID {
+			foundJev = true
+			if model.Kind != "router" {
+				t.Fatalf("Jev Router must retain router metadata: %#v", model)
+			}
+		}
+	}
+	if !foundJev {
+		t.Fatalf("Jev Router missing from authenticated OpenRouter catalog: %#v", models)
 	}
 }
 
