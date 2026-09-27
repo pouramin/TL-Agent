@@ -259,6 +259,9 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			return err
 		}
 		if len(response.ToolCalls) == 0 {
+			if strings.TrimSpace(response.Text) == "" {
+				return errors.New("model returned an empty response")
+			}
 			now := time.Now().UnixMilli()
 			messageID, _ := randomSecret(10)
 			if err := r.store.putNativeMessage(sessionID, directory, sessionMessageView{
