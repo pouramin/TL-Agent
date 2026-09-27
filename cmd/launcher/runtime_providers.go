@@ -780,6 +780,35 @@ func normalizeCatalogProvider(raw json.RawMessage, managed map[string]bool) (cat
 	return result, true
 }
 
+func managedCatalogProvider(definition tlProviderDefinition, upstream catalogProvider, hasUpstream bool) catalogProvider {
+	result := catalogProvider{
+		ID:     definition.ID,
+		Name:   definition.Name,
+		Source: "custom",
+		Models: map[string]catalogModel{},
+	}
+	for _, configured := range definition.Models {
+		model := catalogModel{
+			Name: configured.Name,
+			Kind: configured.Kind,
+		}
+		if model.Name == "" {
+			model.Name = configured.ID
+		}
+		if hasUpstream {
+			if runtimeModel, ok := upstream.Models[configured.ID]; ok {
+				model.Enabled = runtimeModel.Enabled
+				model.Variant = runtimeModel.Variant
+				if model.Name == configured.ID && runtimeModel.Name != "" {
+					model.Name = runtimeModel.Name
+				}
+			}
+		}
+		result.Models[configured.ID] = model
+	}
+	return result
+}
+
 func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) (providerCatalogResponse, error) {
 	if err := m.ensureBootstrapped(ctx); err != nil {
 		return providerCatalogResponse{}, err
@@ -817,30 +846,24 @@ func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) 
 	}
 	result.Hosted.ProviderID = runtimeHostedProviderID
 	result.Hosted.PreferredModels = append([]string(nil), runtimeHostedPreferredModels...)
+	upstreamByID := make(map[string]catalogProvider, len(upstream.All))
 	for _, rawProvider := range upstream.All {
 		if provider, ok := normalizeCatalogProvider(rawProvider, managed); ok {
-			result.All = append(result.All, provider)
+			upstreamByID[provider.ID] = provider
 		}
 	}
-	managedByID := make(map[string]tlProviderDefinition, len(managedDefinitions))
-	for _, provider := range managedDefinitions {
-		managedByID[provider.ID] = provider
+
+	// The normal TL Studio model selector is intentionally based on product-owned
+	// configuration, not the runtime's giant provider catalog. Keep the hosted
+	// compatibility provider, then project every managed provider down to exactly
+	// the models the user saved in providers.json.
+	if hosted, ok := upstreamByID[runtimeHostedProviderID]; ok {
+		hosted.Source = "hosted"
+		result.All = append(result.All, hosted)
 	}
-	for providerIndex := range result.All {
-		definition, ok := managedByID[result.All[providerIndex].ID]
-		if !ok {
-			continue
-		}
-		for _, model := range definition.Models {
-			catalogModel, exists := result.All[providerIndex].Models[model.ID]
-			if !exists {
-				continue
-			}
-			if model.Kind != "" {
-				catalogModel.Kind = model.Kind
-			}
-			result.All[providerIndex].Models[model.ID] = catalogModel
-		}
+	for _, definition := range managedDefinitions {
+		upstreamProvider, ok := upstreamByID[definition.ID]
+		result.All = append(result.All, managedCatalogProvider(definition, upstreamProvider, ok))
 	}
 	sort.Slice(result.All, func(i, j int) bool {
 		return strings.ToLower(result.All[i].Name+"\x00"+result.All[i].ID) < strings.ToLower(result.All[j].Name+"\x00"+result.All[j].ID)
