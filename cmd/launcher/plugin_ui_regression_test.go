@@ -139,7 +139,9 @@ func TestPluginEditorResetsAfterCompletion(t *testing.T) {
 		"commandInput.value = \"\"",
 		"argsInput.value = \"\"",
 		"envInput.value = \"\"",
-		"settingsDialog?.addEventListener(\"close\", closeEditor)",
+		`pluginDialog.addEventListener("close", resetEditor)`,
+		`settingsDialog?.addEventListener("close", () => {`,
+		`if (pluginDialog.open) pluginDialog.close()`,
 		"closeEditor();",
 	} {
 		if !strings.Contains(source, expected) {
