@@ -42,6 +42,20 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 			t.Fatalf("generic Plugins UI is missing %q", expected)
 		}
 	}
+
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, expected := range []string{
+		".plugin-arguments-field {",
+		".plugin-arguments-field textarea:focus",
+		"background: var(--panel-3);",
+		".plugin-empty { display: grid; gap: 3px; padding: 11px 13px;",
+	} {
+		if !strings.Contains(css, expected) {
+			t.Fatalf("Plugins settings styling is missing %q", expected)
+		}
+	}
 }
 
 func TestPluginsUIKeepsIntegrationsGeneric(t *testing.T) {
