@@ -24,7 +24,6 @@ TL Studio Go Launcher / Local Core
   ├─ Semantic Event Bus
   ├─ Tool Registry + Tool Executor
   ├─ Plugin Manager + MCP Clients
-  ├─ JEV / Decision Integrations
   └─ Native Agent + Direct Model Clients
         │
         ├─ Configured Provider Endpoints
@@ -129,7 +128,7 @@ TL Studio مالک این موارد است:
 - Credential؛
 - Direct Native Model Call.
 
-Protocolهای مستقیم فعلی OpenAI-compatible Chat Completions، OpenAI Responses و Anthropic Messages compatible هستند.
+Direct Model Execution از Native Protocol Adapterهایی استفاده می‌کند که داخل TL Studio پیاده‌سازی و نگه‌داری می‌شوند.
 
 Generic Provider Account Adapter برای Integration رسمی آینده وجود دارد، اما Build فعلی v0.5.0 هیچ Account Adapter ثبت نمی‌کند.
 
@@ -151,7 +150,7 @@ Static/File Content روی Loopback Origin جدا از Control Server اجرا �
 
 ## State و Storage
 
-Product State در Local Application State خود TL Studio نگه‌داری می‌شود؛ مثل Provider، Credential، Session، Permission Rule، Plugin Config/Secret، Model Catalog Cache، JEV State و Preferenceهای Local.
+Product State در Local Application State خود TL Studio نگه‌داری می‌شود؛ مثل Model Connection، Credential، Session، Permission Rule، Plugin Config/Secret، Model Catalog Cache و Preferenceهای Local.
 
 Secret از JSON Config معمولی جداست و Credential Vault استفاده می‌کند.
 
@@ -159,4 +158,4 @@ Secret از JSON Config معمولی جداست و Credential Vault استفاد
 
 TL Studio برای کارکرد Product به VPS، Application Backend، Database، Telemetry Collector، Model Proxy یا Hosted Workspace متعلق به پروژه نیاز ندارد.
 
-Network Traffic خارجی فقط از Configuration صریح User مثل Provider، JEV/OpenRouter یا رفتار Plugin ایجاد می‌شود.
+Network Traffic فقط از Configuration صریح User مثل Model Endpoint یا رفتار Plugin ایجاد می‌شود.
