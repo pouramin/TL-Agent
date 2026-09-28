@@ -6,7 +6,6 @@ icon: Network
 
 Stable v0.5 یک **Local Application واحد از TL Studio** است که Browser Asset و Coding-agent Core کاملاً Native دارد.
 
-زیر Product دیگر Coding Runtime محلی دومی وجود ندارد.
 
 ```text
 Browser Workspace
@@ -45,7 +44,7 @@ Startup عادی:
 4. Control Server فقط روی Loopback Bind می‌شود؛
 5. اگر `--no-browser` نداده باشید Browser باز می‌شود.
 
-Coding Runtime Server دوم یا Reverse Proxy بین Browser و Agent Service دیگری وجود ندارد.
+Browser مستقیماً با Local Product Domainهای متعلق به TL Studio ارتباط دارد.
 
 ## Local Product Domainها
 
@@ -109,7 +108,7 @@ Provider Protocol یا Capability پشتیبانی‌نشده Error صریح م�
 
 Create، Select، Rename/Delete، Run/Abort، Status، Message، Activity، Usage Metadata، Changes و Persistence همگی در Session Domain خود TL Studio هستند.
 
-Live Session Adapter برای ترجمه Session Model یک Engine دیگر وجود ندارد.
+Session State مستقیماً با Semantic Session Model خود TL Studio نمایش داده می‌شود.
 
 ## Native Question و Permission
 
