@@ -151,3 +151,59 @@ func TestProviderSettingsUseDedicatedModalEditor(t *testing.T) {
 		t.Fatal("provider form must not remain as a hidden inline Settings form")
 	}
 }
+
+
+func TestCustomProviderSetupStaysSimpleAndAutoDiscoversModels(t *testing.T) {
+	providers := readBrowserSource(t, "providers-ui.ts")
+	discovery := readBrowserSource(t, "provider-discovery-ui.ts")
+
+	for _, required := range []string{
+		`id="providerIdInput" type="hidden"`,
+		`OpenAI-compatible`,
+		`Anthropic-compatible`,
+		`TL Studio will discover the available models automatically.`,
+		`discoverySelection?.discoverAll?.()`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("simplified provider setup missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`discoverySelection.discoverAll = () => discover()`,
+		`if (!existingModels.length) {`,
+		`for (const model of catalog) selectedIDs.add(model.id)`,
+		`Manual model entry`,
+	} {
+		if !strings.Contains(discovery, required) {
+			t.Fatalf("automatic provider discovery contract missing %q", required)
+		}
+	}
+	if !strings.Contains(providers, `<option value="openai-responses" hidden>OpenAI Responses</option>`) {
+		t.Fatal("existing OpenAI Responses providers must remain editable without exposing the advanced protocol in the new-provider UI")
+	}
+}
+
+func TestProviderAccountBrowserUsesSemanticLoginLifecycle(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
+	for _, required := range []string{
+		`beginLogin(account.id)`,
+		`pollLogin(account.id, login.loginId`,
+		`cancelLogin(providerID, loginID)`,
+		`needs_reauthentication`,
+	} {
+		if !strings.Contains(source+runtimeAPI, required) {
+			t.Fatalf("provider account semantic lifecycle missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`.authorize(account.id)`,
+		`.callback(account.id`,
+		`accessToken`,
+		`refreshToken`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("browser provider account UI must not handle provider secrets or raw auth payloads; found %q", forbidden)
+		}
+	}
+}
