@@ -306,11 +306,17 @@ func TestChatGPTIntegrationAvoidsPrivateAuthSurfaces(t *testing.T) {
 		`"account/read"`,
 		`"model/list"`,
 		`"account/logout"`,
-		`"--ignore-user-config"`,
-		`"--ignore-rules"`,
-		`"--sandbox", "read-only"`,
-		`approval_policy="never"`,
-		`web_search="disabled"`,
+		`"thread/start"`,
+		`"turn/start"`,
+		`"thread/unsubscribe"`,
+		`"approvalPolicy": "never"`,
+		`"sandbox": "read-only"`,
+		`"features.shell_tool"`,
+		`"features.unified_exec"`,
+		`"features.standalone_web_search"`,
+		`"features.plugins"`,
+		`"features.multi_agent"`,
+		`"web_search"`,
 	} {
 		if !strings.Contains(combined, required) {
 			t.Fatalf("official Codex account lifecycle missing %q", required)
