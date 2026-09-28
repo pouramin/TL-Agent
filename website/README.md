@@ -1,43 +1,46 @@
 # TL Studio documentation site
 
-This directory contains the public documentation and product site for **TL Studio**. It is intentionally isolated from the Go application and from internal engineering notes under `../docs/`.
+This directory contains the public documentation and product site for **TL Studio**. It is isolated from the Go application and from internal engineering/design notes under `../docs/`.
 
-The public site treats **TL Studio as the product identity**. Third-party execution/runtime implementation details stay behind TL Studio-owned contracts and should not dominate user-facing documentation.
+## Source of truth
 
-## Documentation source of truth
+The repository is the final source of truth. Before release-oriented documentation work, reconcile this site with current `main`, current `dev`, `VERSION`, the root READMEs, `docs/ARCHITECTURE.md`, and relevant implementation files.
 
-The repository is the final source of truth. Before release-oriented documentation changes, reconcile the public site with current `main`, current `dev`, `VERSION`, the root READMEs, and `docs/ARCHITECTURE.md`.
-
-Current documented lines:
+Current documented state:
 
 ```text
-Stable: v0.3.0 on main
-Dev:    v0.4.0-alpha.1 on dev
+Stable: v0.5.0
+main:   v0.5.0
+dev:    aligned with v0.5.0 immediately after promotion
 ```
 
-Phase 3 implementation has not started; do not invent v0.4 features.
+Do not invent a next version or unreleased feature set before `dev` actually advances.
 
-## Stable v0.3 areas covered
+## v0.5 public coverage
 
-- Browser IDE and locally bundled Monaco;
-- Project files, Search, Terminal, and capability-driven Preview;
-- Provider/Model registry and TL Studio credential vault;
-- Tool Registry and native core Tool Executor;
-- Project-scoped Permission policy;
-- semantic Sessions, persistence, Questions, and live events;
-- native Agent execution for supported custom Providers;
-- compatibility fallback for hosted/legacy/runtime-only capabilities;
-- local network/filesystem/process/Preview security boundaries;
+The public site covers:
+
+- one-process fully native TL Studio architecture;
+- Editor-centered workbench and locally bundled Monaco;
+- Project files, Search, Terminal, Changes, Command Palette, and Preview;
+- native Sessions, Questions, Permissions, Events, and Agent execution;
+- Provider Registry, model discovery, discovery cache, and credential vault;
+- Native Tool Registry/Executor;
+- Plugins/MCP with current stdio transport and Project/Global scope;
+- Graphify integration behavior without claiming it is bundled;
+- optional JEV/OpenRouter Router and separate Decision Engine;
+- Provider Account foundation without claiming an account adapter exists;
+- local security/trust boundaries;
 - stable npm launcher and portable release model.
 
-Implementation-specific compatibility-engine naming should remain isolated to the maintainer Runtime Integration reference unless legal attribution genuinely requires it.
+The public site should not preserve removed compatibility-runtime architecture or vendor implementation branding from historical releases.
 
 ## Languages
 
 - English: `/` and `/docs/...`
 - فارسی: `/fa/` and `/fa/docs/...` with RTL layout
 
-The language switcher is part of the top navigation beside the appearance and social controls. Persian uses Vazirmatn and keeps established technical terms in English where that reads more naturally.
+The language switcher is in the top navigation beside social/appearance controls. Persian uses Vazirmatn and established technical terms where natural.
 
 ## Stack
 

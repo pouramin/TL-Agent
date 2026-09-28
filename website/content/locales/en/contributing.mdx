@@ -1,12 +1,12 @@
 ---
 title: Contributing
-description: Contribute while preserving TL Studio v0.3 ownership, local security, and compatibility boundaries.
+description: Contribute to the fully native TL Studio v0.5 architecture without weakening local security or product boundaries.
 icon: GitPullRequest
 ---
 
-## Product source
+## Source layout
 
-The Go launcher and TL Studio-owned local capabilities live under:
+The Go launcher and native local product domains live under:
 
 ```text
 cmd/launcher/
@@ -18,7 +18,7 @@ Browser source is strict TypeScript under:
 cmd/launcher/ui/
 ```
 
-Generated Browser output lives under:
+Generated Browser JavaScript is emitted under:
 
 ```text
 cmd/launcher/web/
@@ -26,17 +26,15 @@ cmd/launcher/web/
 
 Do not edit generated JavaScript as the primary source.
 
-## Browser architecture
+Public Fumadocs documentation lives under:
 
-The Browser no longer depends on a global `window.KLU` kernel.
+```text
+website/
+```
 
-- `kernel.ts` exports the shared typed kernel;
-- feature modules use real ES imports;
-- `browser.ts` defines the module graph;
-- esbuild emits the primary `browser.js` bundle;
-- TypeScript is checked with `strict: true`.
+## Local checks
 
-## Before proposing changes
+Before proposing product changes:
 
 ```bash
 npm install --ignore-scripts --no-audit --no-fund
@@ -46,44 +44,51 @@ go test ./...
 go vet ./...
 ```
 
-Run the relevant contract/regression scripts when changing runtime, Provider, Session, Permission, Tool, or release behavior.
+Run the relevant contract/regression scripts when changing Provider, Session, Question, Permission, Tool, Plugin/MCP, Browser, or release behavior.
 
-## Stable architecture rules
+## Native architecture rules
 
-- Project filesystem/Search/process/Preview stay behind TL Studio-owned local APIs.
-- Provider/Model definitions and credentials belong to TL Studio-owned state.
-- Native core Tool execution must reuse Project-boundary, process, Search, and Permission infrastructure rather than duplicating it.
-- Tool Registry metadata is descriptive; it must not bypass execution enforcement.
-- Browser Session/Question/Permission/Event features must use TL Studio semantic contracts.
-- Engine-specific routes, auth details, headers, and protocol quirks stay behind compatibility adapters.
-- Monaco remains a replaceable Editor engine, not a filesystem authority.
-- Preview Project code stays on a separate local origin from the privileged control API.
-- No new Editor/runtime assets should be loaded from a CDN.
+- New Browser behavior should use TL Studio-owned `/local/*` product domains.
+- Do not recreate a reverse-proxy dependency on another local coding runtime.
+- Provider definitions, Model discovery, credentials, and direct model execution belong to TL Studio.
+- Sessions, Questions, Permissions, and semantic Events belong to TL Studio.
+- Built-in Tool execution should reuse Project filesystem/Search/process/Permission infrastructure.
+- Plugin/MCP tools must continue through the TL Studio Tool Registry and Permission path.
+- Secrets must stay out of ordinary JSON configuration and Browser storage.
+- Monaco is an Editor engine, not a filesystem authority.
+- Previewed Project code stays on a separate loopback origin from the privileged control server.
+- Do not load Editor/runtime assets from a CDN.
 
-## Native Agent changes
+## Plugin/MCP rules
 
-When changing the native path, preserve:
+The current Plugin contract is MCP over stdio.
 
-- supported Provider protocol normalization;
-- strict Tool IDs and input schemas;
-- unknown Tool rejection;
-- Project confinement and symlink protections;
-- Permission enforcement;
-- cancellation/timeouts;
-- Agent/Tool loop guards;
-- semantic Session persistence and live events;
-- no API secrets in Session history.
+Saving a Plugin must not start arbitrary local code. Enablement remains an explicit confirmed action.
 
-## Current dev line
+Project/Global scoping, working-directory confinement, credential references, Tool discovery, and process cleanup must preserve the existing trust boundary.
 
-The private next line is `v0.4.0-alpha.1`.
+Bundled Plugins must be version-pinned and declared through the release manifest; do not silently introduce a bundled executable.
 
-Phase 3 implementation has not started. Do not document Phase 3 goals as shipped behavior.
+## Provider Account rule
 
-Preview alphas remain GitHub Actions artifacts only; stable npm/GitHub Releases change only after deliberate promotion.
+The generic Provider Account adapter domain exists without a concrete adapter in v0.5.0.
 
-## Public documentation
+Do not add undocumented Provider OAuth flows or reverse-engineer private account protocols. An account integration should be an explicit, documented adapter.
 
-The Fumadocs site lives under `website/` and is bilingual.
+## Release rules
 
-Keep user-facing language centered on **TL Studio**. Name the bundled compatibility implementation only where maintainer compatibility or legal attribution actually requires it.
+`main` is stable production. `dev` is the next integration line.
+
+The current `main` and `dev` are aligned at v0.5.0 immediately after promotion.
+
+Stable npm publishing comes from `main`; development builds use Preview artifacts until a deliberate stable promotion.
+
+Release/CI gates enforce the native architecture and reject removed compatibility-runtime references or binaries in production packaging.
+
+## Documentation rules
+
+The repository is the source of truth.
+
+Keep public language centered on **TL Studio** and document only behavior that exists in the current stable source or clearly identified active development code.
+
+Do not preserve obsolete architecture wording merely for historical continuity.

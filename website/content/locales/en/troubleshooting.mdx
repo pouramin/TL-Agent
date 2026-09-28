@@ -1,12 +1,14 @@
 ---
 title: Troubleshooting
-description: Diagnose common TL Studio v0.3 startup, editor, Preview, Provider, Session, permission, and Agent issues.
+description: Diagnose common TL Studio v0.5 startup, workspace, Provider, Plugin/MCP, JEV, Session, Permission, and Agent problems.
 icon: Wrench
 ---
 
 ## Browser does not open
 
-The local server may still be running. Open the `Local:` URL printed in the terminal manually. If you used `--no-browser`, this is expected.
+The local server may still be running. Open the `Local:` URL printed in the terminal manually.
+
+If you used `--no-browser`, this is expected.
 
 ## Project picker rejects a folder
 
@@ -14,70 +16,126 @@ Choose an existing directory. TL Studio normalizes and validates the path before
 
 ## Monaco does not appear
 
-TL Studio keeps a lightweight Editor fallback. If the enhanced Monaco bundle cannot load, file editing should remain available through the fallback surface.
+TL Studio keeps a lightweight Editor fallback.
 
-Official builds bundle Monaco and its workers locally; no CDN is required.
+Official builds bundle Monaco and its workers locally, so no Editor CDN is required.
 
 ## A file will not save because it changed on disk
 
-TL Studio detected that the file revision changed after you opened it. Review the newer disk content first. Use force-save only if you deliberately want your buffer to replace it.
+TL Studio detected that the disk revision changed after you opened the file.
+
+Review the newer disk content. Use force-save only when you intentionally want the current buffer to replace it.
 
 ## Unsaved tabs block Project switching
 
-Save the dirty tabs or explicitly discard them. TL Studio protects unsaved Editor state before changing Project context.
+Save the dirty tabs or explicitly discard them. TL Studio protects unsaved Editor work before switching Projects.
 
 ## Project Search misses a file
 
-Search skips binary/non-UTF-8 files, symlinks, and common generated/heavy directories such as `.git`, `node_modules`, `dist`, `build`, `out`, `coverage`, and `.next`. Check include/exclude patterns and case sensitivity too.
+Search skips common heavy/generated directories, symlinks, binary/non-text content, and files larger than the native search limit.
 
-## A Terminal app needs an interactive TTY
+Check Include/Exclude filters and Match Case too.
 
-The current Terminal is a command runner, not a full PTY. Interactive TUI applications may not work correctly.
+## A Terminal app needs a real TTY
 
-## Preview does not open the file
+The current Terminal is a command runner, not a full PTY terminal emulator.
 
-Only registered Preview capabilities are opened automatically. Stable v0.3 recognizes HTML, SVG/raster images, PDF, supported video/audio, Markdown, and plain text/log files.
+Interactive TUI applications may not work correctly.
 
-For a Node dev server, make sure `package.json` contains a `dev` script and that the server reports a loopback URL.
+## Preview cannot open a file
 
-## PDF Preview behaves strangely
+Automatic file Preview is capability-driven. Current supported categories include HTML, SVG/raster images, PDF, supported video/audio, Markdown, and plain text/log files.
 
-TL Studio serves PDF inline with HTTP range support. Browser PDF viewer behavior can still vary by Browser. Use **Open in Browser** if the embedded view is limited.
+For a Node dev server, verify that `package.json` has a `dev` script and that the server prints a loopback URL.
 
-## A custom Provider is missing
+## PDF Preview behaves differently across Browsers
 
-Check **Settings → Providers**, the Provider ID, protocol, Base URL, Model ID, and credential state.
+TL Studio serves PDF inline with HTTP range support, but the embedded rendering is still the Browser's native PDF viewer.
 
-Provider definitions live in TL Studio's own registry. API keys live separately in the TL Studio credential vault.
+Use **Open in Browser** if the embedded surface is limited.
 
-## A credential cannot be restored
+## Custom Provider connection fails
 
-On Windows, the vault uses DPAPI. On macOS it prefers Keychain; on Linux it prefers Secret Service when `secret-tool` is available, otherwise TL Studio uses an encrypted private-file fallback.
+Check:
 
-A credential created under a different OS user/account context may not be decryptable by the current environment.
+- protocol;
+- Base URL;
+- API key;
+- Model ID;
+- whether the Provider actually supports the selected API family.
 
-## Why did a run use the compatibility path?
+Use **Test / Discover Models** to validate a Provider that exposes model discovery.
 
-Native execution is used only when TL Studio can resolve the selected custom Provider/Model and supports its protocol/model path.
+## Model discovery fails
 
-Hosted accounts, unresolved legacy runtime Providers, or capabilities without native handlers use the compatibility adapter.
+TL Studio blocks unsafe redirect behavior and treats authentication failures as real failures.
+
+For a previously saved Provider, a matching cached catalog may be used only for eligible non-auth live-discovery failures.
+
+For OpenRouter, discovery requires a valid key because TL Studio uses the authenticated user catalog.
+
+## An account-based Provider is not shown
+
+That is expected in v0.5.0.
+
+The generic Provider Account domain exists, but the current stable build registers no account adapter.
+
+## Plugin is saved but does not run
+
+Saving a Plugin intentionally leaves it disabled.
+
+Enable it separately and confirm the local command before TL Studio starts the MCP process.
+
+## Plugin Test Connection fails
+
+Check the configured command, arguments, working directory, and required environment secrets.
+
+The current Plugin architecture supports stdio MCP only. The MCP server must successfully initialize and expose `tools/list`.
+
+## A Project-scoped Plugin appears under another saved Project
+
+TL Studio can show saved Project Plugins from elsewhere so you can explicitly attach/move one to the current Project.
+
+It does not silently run that Plugin against the wrong Project.
+
+## Graphify cannot be enabled
+
+The Graphify integration expects an existing graph before Graphify MCP queries are enabled.
+
+Use **Build Graph / Rebuild Graph** if Graphify is installed and available in your environment.
+
+Graphify is not bundled in v0.5.0.
+
+## JEV cannot be activated
+
+Check the JEV status message.
+
+Activation can be blocked by an invalid/missing OpenRouter key, a management key, an OpenRouter Free-tier restriction on auto-routing, missing Router availability, or exhausted key-level allowance.
+
+## Jev Decision Engine is off
+
+This is the default.
+
+The separate Decision Engine is a paid, explicitly enabled capability. It is not automatically enabled by Jev Router.
 
 ## Agent is waiting
 
-Check for an active Permission request or interactive Question.
+Check for a pending Permission request or interactive Question.
 
 ## “Always allow” is unavailable
 
-Persistent approval is intentionally disabled for sensitive execution/network requests and for compatibility requests that do not provide safe reusable matchers.
+Persistent approval is intentionally unavailable for sensitive execute/network requests and other requests that cannot be safely remembered.
 
-## Session history exists after engine history disappeared
+## Session history remains after restart
 
-This can be expected in v0.3. TL Studio mirrors semantic Session history into its own local persistence. Persisted-only Sessions can still be read, renamed, or deleted locally.
+This is expected. TL Studio owns local semantic Session persistence.
 
-## Attachment rejected
+## Attachment is rejected
 
-The composer currently limits attachments to **8 files**, **10 MB per file**, and **20 MB total**, and rejects unsupported binary types.
+Current limits are **8 files**, **10 MiB per file**, and **20 MiB total**. Unsupported binary formats are rejected before send.
 
 ## Reporting a bug
 
-Include your operating system, TL Studio version, reproduction steps, execution path if known, and non-secret error output. Never publish Provider API keys or credentials.
+Include your operating system, TL Studio version, reproduction steps, and non-secret error output.
+
+For Provider or Plugin problems, include the protocol/transport and non-secret configuration details. Never publish API keys or secret environment values.

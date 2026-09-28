@@ -1,42 +1,40 @@
 ---
 title: مشارکت در پروژه
-description: مشارکت با حفظ Ownership، Local Security و Compatibility Boundary در TL Studio v0.3.
+description: مشارکت در معماری کاملاً Native نسخه v0.5 با حفظ Local Security و Product Boundary.
 icon: GitPullRequest
 ---
 
-## Product Source
+## Source Layout
 
-Go Launcher و Capabilityهای Local خود TL Studio زیر این مسیر هستند:
+Go Launcher و Native Local Product Domainها زیر این مسیر هستند:
 
 ```text
 cmd/launcher/
 ```
 
-Browser Source با Strict TypeScript زیر این مسیر است:
+Browser Source با Strict TypeScript:
 
 ```text
 cmd/launcher/ui/
 ```
 
-Generated Browser Output زیر این مسیر قرار می‌گیرد:
+Generated Browser JavaScript:
 
 ```text
 cmd/launcher/web/
 ```
 
-JavaScript تولیدشده را Source اصلی تغییر Product در نظر نگیرید.
+Generated JavaScript را Source اصلی تغییر Product در نظر نگیرید.
 
-## Browser Architecture
+Public Fumadocs Documentation:
 
-Browser دیگر به Global Kernel با نام `window.KLU` وابسته نیست.
+```text
+website/
+```
 
-- فایل `kernel.ts` هسته تایپ‌شده مشترک را Export می‌کند؛
-- Feature Moduleها از ES Import واقعی استفاده می‌کنند؛
-- فایل `browser.ts` Module Graph را مشخص می‌کند؛
-- esbuild Bundle اصلی `browser.js` را می‌سازد؛
-- TypeScript با `strict: true` بررسی می‌شود.
+## Local Check
 
-## قبل از تغییر
+قبل از Product Change:
 
 ```bash
 npm install --ignore-scripts --no-audit --no-fund
@@ -46,48 +44,51 @@ go test ./...
 go vet ./...
 ```
 
-هنگام تغییر Runtime، Provider، Session، Permission، Tool یا Release، Contract/Regression Script مربوط را هم اجرا کنید.
+برای تغییر Provider، Session، Question، Permission، Tool، Plugin/MCP، Browser یا Release، Contract/Regression Test مربوط را هم اجرا کنید.
 
-## Ruleهای معماری Stable
+## Native Architecture Rule
 
-- Project Filesystem/Search/Process/Preview باید پشت Local APIهای خود TL Studio بمانند.
-- Provider/Model Definition و Credential متعلق به State خود TL Studio هستند.
-- Core Tool Execution در Native Path باید از Project Boundary، Process، Search و Permission Infrastructure موجود استفاده کند و سیستم موازی نسازد.
-- Tool Registry فقط Metadata توصیفی است و نباید Enforcement را دور بزند.
-- Featureهای Browser مربوط به Session/Question/Permission/Event باید از Contractهای Semantic خود TL Studio استفاده کنند.
-- Route، Auth، Header و Protocol Quirk مخصوص Engine فقط داخل Compatibility Adapter بماند.
-- Monaco یک Editor Engine قابل تعویض است، نه Filesystem Authority.
-- Project Code در Preview باید روی Origin جدا از Control API دارای دسترسی Privileged بماند.
-- Asset مربوط به Editor/Runtime از CDN جدید Load نشود.
+- Browser Behavior جدید باید از Product Domainهای `/local/*` خود TL Studio استفاده کند.
+- Reverse-proxy Dependency به Coding Runtime محلی دیگر دوباره ایجاد نشود.
+- Provider Definition، Model Discovery، Credential و Direct Model Execution متعلق به TL Studio هستند.
+- Session، Question، Permission و Semantic Event متعلق به TL Studio هستند.
+- Built-in Tool باید Project Filesystem/Search/Process/Permission Infrastructure موجود را Reuse کند.
+- Plugin/MCP Tool باید از Tool Registry و Permission Path خود TL Studio عبور کند.
+- Secret داخل JSON Config معمولی یا Browser Storage نرود.
+- Monaco فقط Editor Engine است، نه Filesystem Authority.
+- Project Code در Preview روی Loopback Origin جدا از Privileged Control Server بماند.
+- Editor/Runtime Asset از CDN Load نشود.
 
-## تغییر Native Agent
+## Rule مربوط به Plugin/MCP
 
-هنگام تغییر Native Path این موارد حفظ شوند:
+Contract فعلی MCP روی stdio است.
 
-- Provider Protocol Normalization؛
-- Tool ID و Input Schema دقیق؛
-- Reject کردن Tool ناشناخته؛
-- Project Confinement و Symlink Protection؛
-- Permission Enforcement؛
-- Cancellation/Timeout؛
-- Agent/Tool Loop Guard؛
-- Semantic Session Persistence و Live Event؛
-- عدم ذخیره API Secret در Session History.
+Save کردن Plugin نباید Arbitrary Local Code را Start کند. Enable باید Explicit و Confirm‌شده باقی بماند.
 
-## خط Development فعلی
+Project/Global Scope، Working Directory Confinement، Credential Reference، Tool Discovery و Process Cleanup باید Trust Boundary فعلی را حفظ کنند.
 
-خط خصوصی بعدی:
+Bundled Plugin باید Version-pinned و در Release Manifest تعریف شده باشد و Executable مخفیانه وارد Package نشود.
 
-```text
-v0.4.0-alpha.1
-```
+## Rule مربوط به Provider Account
 
-پیاده‌سازی فاز 3 هنوز شروع نشده است. Goalهای فاز 3 را به‌عنوان Feature موجود مستند نکنید.
+Generic Provider Account Adapter Domain وجود دارد ولی در v0.5.0 Concrete Adapter ندارد.
 
-Alphaهای Preview فقط Artifactهای GitHub Actions هستند و npm/GitHub Release پایدار فقط بعد از Promotion آگاهانه تغییر می‌کنند.
+OAuth Flow مستندنشده یا Private Account Protocol نباید Reverse-engineer شود. Account Integration باید Adapter صریح و مستند داشته باشد.
 
-## Public Documentation
+## Release Rule
 
-سایت Fumadocs زیر `website/` و دو‌زبانه است.
+`main` خط Stable Production و `dev` خط Integration بعدی است.
 
-متن User-facing باید روی **TL Studio** متمرکز بماند. اسم Implementation مربوط به Compatibility Engine فقط جایی بیاید که Maintainer Compatibility یا Attribution قانونی واقعاً لازم است.
+بلافاصله بعد از Promotion، هر دو روی v0.5.0 Align هستند.
+
+Stable npm Publish از `main` انجام می‌شود و Development تا Promotion از Preview Artifact استفاده می‌کند.
+
+Release/CI Gate معماری Native را Enforce می‌کند و Reference/Binary مربوط به Runtime حذف‌شده را در Production Packaging رد می‌کند.
+
+## Documentation Rule
+
+Repository Source of Truth است.
+
+Public Language روی **TL Studio** متمرکز بماند و فقط Behavior موجود در Stable Source یا Active Development مشخص مستند شود.
+
+Architecture Wording منسوخ فقط به‌خاطر History حفظ نشود.
