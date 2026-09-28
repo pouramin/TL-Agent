@@ -1,0 +1,69 @@
+---
+title: JEV و OpenRouter
+description: تنظیم Jev Router اختیاری و Jev Decision Engine پولی و جداگانه از مسیر Native OpenRouter در TL Studio.
+icon: Network
+---
+
+در TL Studio v0.5، Integration اختیاری **TypeSafe Jev** از همان Native Provider Path مربوط به OpenRouter استفاده می‌کند.
+
+اینجا **دو Feature جدا** داریم: Jev Router و Jev Decision Engine. فعال‌کردن یکی، دیگری را مخفیانه فعال نمی‌کند.
+
+## Jev Router
+
+Router Model:
+
+```text
+typesafe/jev-router
+```
+
+از **Settings → Providers**، بخش JEV می‌تواند با OpenRouter API Key این کارها را انجام دهد:
+
+1. Credential را با OpenRouter بررسی کند؛
+2. Model Catalog مخصوص همان User را دریافت کند؛
+3. `typesafe/jev-router` را پیدا کند؛
+4. OpenRouter Provider را داخل TL Studio Save یا Update کند؛
+5. Router Model را اضافه کند؛
+6. Toggle مربوط به JEV را Enable کند.
+
+اگر Router برای Account در دسترس باشد، این Setup به Manual Model Selection نیاز ندارد.
+
+بعد از فعال‌شدن، Router از همان Native Agent، Tool Executor، Permission، Session و Event System عادی TL Studio استفاده می‌کند.
+
+## خاموش‌کردن JEV
+
+Disable کردن JEV فقط Router را خاموش می‌کند و OpenRouter Provider و API Key ذخیره‌شده باقی می‌مانند.
+
+## بررسی Account
+
+هنگام Enable کردن JEV، TL Studio وضعیت OpenRouter Key را بررسی می‌کند.
+
+Router در این حالت‌ها Active نمی‌شود:
+
+- Key از نوع Management باشد؛
+- Account روی Free Tier باشد که Auto-routing را اجازه نمی‌دهد؛
+- Key-level Allowance باقی‌مانده نداشته باشد.
+
+اگر TL Studio نتواند وضعیت Account را Verify کند، همان حالت نامشخص را گزارش می‌کند و Router را Ready فرض نمی‌کند.
+
+## Model Discovery در OpenRouter
+
+برای OpenRouter از Catalog احراز‌شده مخصوص User استفاده می‌شود، نه Catalog عمومی. این کار هم API Key را Validate می‌کند و هم Availability/Preference همان Account را در نظر می‌گیرد.
+
+Credential نامعتبر با Cached Catalog قدیمی پنهان نمی‌شود.
+
+## Jev Decision Engine
+
+**Decision Engine یک Feature جدا و به‌صورت پیش‌فرض Off است.**
+
+اگر User صریحاً آن را Enable کند، از OpenRouter Decisions API با Jev Decision Model پشتیبانی‌شده استفاده می‌شود. UI این مسیر را Paid نشان می‌دهد و قبل از Enable تأیید می‌گیرد.
+
+Modelهای Decision فعلی:
+
+```text
+~typesafe/jev-latest
+typesafe/jev-1.13
+```
+
+Decision Engine در v0.5 به‌صورت خودکار Agent Routing یا Permission Decision را کنترل نمی‌کند و Status آن `automaticUse: false` است.
+
+این یک Capability صریح برای Decision API است، نه Policy Layer خودکار.

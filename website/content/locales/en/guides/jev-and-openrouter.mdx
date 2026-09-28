@@ -1,0 +1,65 @@
+---
+title: JEV and OpenRouter
+description: Configure the optional Jev Router and the separate paid Jev Decision Engine through TL Studio's native OpenRouter provider path.
+icon: Network
+---
+
+TL Studio v0.5 includes optional product integration for **TypeSafe Jev** through the normal native OpenRouter Provider path.
+
+There are **two separate features**: Jev Router and Jev Decision Engine. Enabling one does not silently enable the other.
+
+## Jev Router
+
+The Router model is:
+
+```text
+typesafe/jev-router
+```
+
+From **Settings → Providers**, the JEV control can use an OpenRouter API key to:
+
+1. authenticate to OpenRouter;
+2. request the authenticated user model catalog;
+3. find `typesafe/jev-router`;
+4. save or update the OpenRouter Provider in TL Studio;
+5. add the Router model;
+6. enable the JEV Router switch.
+
+No manual model selection is required for this setup when the Router is available to the account.
+
+The Router uses the same Native Agent, Tool Executor, Permission, Session, and Event systems as any other supported Provider model.
+
+## Turning JEV off
+
+Disabling JEV turns off the Router feature but keeps the saved OpenRouter Provider and API key.
+
+## Account eligibility checks
+
+When enabling JEV, TL Studio checks OpenRouter key status.
+
+The Router is not activated when the key is a management key, when the account is on a Free tier that does not allow auto-routing, or when the API key reports no remaining key-level allowance.
+
+If TL Studio cannot verify current account status, it reports that state instead of pretending the Router is ready.
+
+## OpenRouter model discovery
+
+For OpenRouter, TL Studio uses the authenticated per-user catalog rather than the public generic catalog. This validates the key and respects the user's OpenRouter availability/preferences.
+
+Invalid credentials are not replaced with stale cached results.
+
+## Jev Decision Engine
+
+The **Decision Engine is separate and off by default**.
+
+When explicitly enabled, it uses the OpenRouter Decisions API with a supported Jev Decision model. This path is marked as paid in the UI and requires confirmation.
+
+Current supported Decision models:
+
+```text
+~typesafe/jev-latest
+typesafe/jev-1.13
+```
+
+The Decision Engine does **not** automatically control Agent routing or Permission decisions in v0.5. Its status reports `automaticUse: false`.
+
+It is an explicit Decision API capability, not an autonomous policy layer.

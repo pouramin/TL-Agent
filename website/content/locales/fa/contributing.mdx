@@ -1,0 +1,93 @@
+---
+title: مشارکت در پروژه
+description: مشارکت در معماری کاملاً Native نسخه v0.5 با حفظ Local Security و Product Boundary.
+icon: GitPullRequest
+---
+
+## Source Layout
+
+Go Launcher و Native Local Product Domainها زیر این مسیر هستند:
+
+```text
+cmd/launcher/
+```
+
+Browser Source با Strict TypeScript:
+
+```text
+cmd/launcher/ui/
+```
+
+Generated Browser JavaScript:
+
+```text
+cmd/launcher/web/
+```
+
+Generated JavaScript را Source اصلی تغییر Product در نظر نگیرید.
+
+Public Fumadocs Documentation:
+
+```text
+website/
+```
+
+## Local Check
+
+قبل از Product Change:
+
+```bash
+npm install --ignore-scripts --no-audit --no-fund
+npm run check:web
+npm run build:web
+go test ./...
+go vet ./...
+```
+
+برای تغییر Provider، Session، Question، Permission، Tool، Plugin/MCP، Browser یا Release، Contract/Regression Test مربوط را هم اجرا کنید.
+
+## Native Architecture Rule
+
+- Browser Behavior جدید باید از Product Domainهای `/local/*` خود TL Studio استفاده کند.
+- Provider Definition، Model Discovery، Credential و Direct Model Execution متعلق به TL Studio هستند.
+- Session، Question، Permission و Semantic Event متعلق به TL Studio هستند.
+- Built-in Tool باید Project Filesystem/Search/Process/Permission Infrastructure موجود را Reuse کند.
+- Plugin/MCP Tool باید از Tool Registry و Permission Path خود TL Studio عبور کند.
+- Secret داخل JSON Config معمولی یا Browser Storage نرود.
+- Monaco فقط Editor Engine است، نه Filesystem Authority.
+- Project Code در Preview روی Loopback Origin جدا از Privileged Control Server بماند.
+- Editor Asset از CDN Load نشود.
+
+## Rule مربوط به Plugin/MCP
+
+Contract فعلی MCP روی stdio است.
+
+Save کردن Plugin نباید Arbitrary Local Code را Start کند. Enable باید Explicit و Confirm‌شده باقی بماند.
+
+Project/Global Scope، Working Directory Confinement، Credential Reference، Tool Discovery و Process Cleanup باید Trust Boundary فعلی را حفظ کنند.
+
+Bundled Plugin باید Version-pinned و در Release Manifest تعریف شده باشد و Executable مخفیانه وارد Package نشود.
+
+## Rule مربوط به Provider Account
+
+Generic Provider Account Adapter Domain وجود دارد ولی در v0.5.0 Concrete Adapter ندارد.
+
+OAuth Flow مستندنشده یا Private Account Protocol نباید Reverse-engineer شود. Account Integration باید Adapter صریح و مستند داشته باشد.
+
+## Release Rule
+
+`main` خط Stable Production و `dev` خط Integration بعدی است.
+
+`main` روی Stable v0.5.0 است. `dev` در حال حاضر `0.6.0-alpha.1` است و Commitهای فعلی آن Version/Release-readiness bookkeeping هستند، نه Feature Set جدید User-facing.
+
+Stable npm Publish از `main` انجام می‌شود و Development تا Promotion از Preview Artifact استفاده می‌کند.
+
+Release/CI Gate معماری فعلی TL Studio را Enforce و Production Packaging را Validate می‌کند.
+
+## Documentation Rule
+
+Repository Source of Truth است.
+
+Public Language روی **TL Studio** متمرکز بماند و فقط Behavior موجود در Stable Source یا Active Development مشخص مستند شود.
+
+Architecture Wording منسوخ فقط به‌خاطر History حفظ نشود.

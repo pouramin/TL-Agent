@@ -1,0 +1,80 @@
+---
+title: Projects and sessions
+description: Understand Project scoping and the fully native Session domain in TL Studio v0.5.
+icon: FolderCode
+---
+
+## Project boundary
+
+The selected Project is the working boundary for TL Studio.
+
+Files, Editor state, Search, Terminal processes, Preview, Sessions, Changes, Agent context, Permissions, Questions, and Project-scoped Plugins follow the active Project.
+
+Project switching preserves the existing safety rules: unsaved Editor work is protected, Terminal/Preview lifecycle is cleaned up, Plugin processes are restarted or re-scoped, and workspace state reloads for the new Project.
+
+## Native Session domain
+
+All active Sessions in v0.5 are **TL Studio Sessions**.
+
+TL Studio owns:
+
+- Session IDs;
+- create, select, rename, and delete;
+- run and abort;
+- status;
+- Messages and activity;
+- usage metadata;
+- file Changes;
+- persistence.
+
+The Browser uses semantic local routes under:
+
+```text
+/local/sessions*
+```
+
+There is no separate live Session owner underneath the product.
+
+## Local persistence
+
+TL Studio stores semantic Session snapshots in its own local state.
+
+Snapshots can contain:
+
+- Session metadata;
+- user and assistant transcript;
+- Agent/Model selection;
+- activity and usage data;
+- file Changes.
+
+Persistence is bounded and intended to preserve the product transcript across restarts.
+
+Inline `data:` attachment payloads are removed before Session snapshots are written; attachment metadata can remain associated with the Message.
+
+## Native Agent lifecycle
+
+A normal run is:
+
+```text
+Browser
+→ TL Studio Session
+→ Native Agent
+→ selected Provider
+→ optional Tool / Question / Permission work
+→ final assistant response
+→ Session persistence + semantic events
+```
+
+Abort requests cancel the active native run.
+
+## Live activity
+
+The Browser receives semantic updates through:
+
+```text
+/local/events
+```
+
+The local Event Bus is the single product event source for Agent, Tool, Session, Question, Permission, and Workspace changes.
+
+Persisted Session data remains the transcript authority; SSE is the responsiveness channel.

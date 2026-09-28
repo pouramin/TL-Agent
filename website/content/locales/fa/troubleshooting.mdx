@@ -1,0 +1,141 @@
+---
+title: رفع مشکل
+description: بررسی مشکل‌های Startup، Workspace، Provider، Plugin/MCP، JEV، Session، Permission و Agent در TL Studio v0.5.
+icon: Wrench
+---
+
+## Browser خودکار باز نشد
+
+ممکن است Local Server همچنان در حال اجرا باشد. آدرس `Local:` چاپ‌شده در Terminal را دستی باز کنید.
+
+اگر `--no-browser` داده‌اید، این رفتار طبیعی است.
+
+## Folder Picker پوشه را قبول نمی‌کند
+
+یک Directory موجود انتخاب کنید. TL Studio قبل از Project Switch مسیر را Normalize و Validate می‌کند.
+
+## Monaco دیده نمی‌شود
+
+TL Studio Editor سبک Fallback دارد.
+
+Build رسمی Monaco و Workerها را Local Bundle می‌کند و Editor CDN لازم نیست.
+
+## File به‌دلیل تغییر روی Disk Save نمی‌شود
+
+TL Studio تشخیص داده Disk Revision بعد از Open شدن File تغییر کرده است.
+
+نسخه جدید Disk را بررسی کنید و Force Save را فقط وقتی بزنید که عمداً می‌خواهید Buffer فعلی جایگزین شود.
+
+## Unsaved Tab جلوی Project Switch را می‌گیرد
+
+Dirty Tabها را Save کنید یا صریحاً Discard کنید. TL Studio قبل از Project Switch از Unsaved Work محافظت می‌کند.
+
+## Project Search یک File را پیدا نمی‌کند
+
+Search، Directoryهای سنگین/Generated، Symlink، Binary/Non-text Content و File بزرگ‌تر از Limit Search را Skip می‌کند.
+
+Include/Exclude و Match Case را هم بررسی کنید.
+
+## برنامه Terminal به TTY واقعی نیاز دارد
+
+Terminal فعلی Command Runner است، نه Full PTY Terminal Emulator.
+
+Interactive TUI ممکن است درست کار نکند.
+
+## Preview یک File را باز نمی‌کند
+
+Automatic File Preview مبتنی بر Capability است. Categoryهای فعلی شامل HTML، SVG/Raster Image، PDF، Video/Audio پشتیبانی‌شده، Markdown و Plain Text/Log هستند.
+
+برای Node Dev Server بررسی کنید `package.json` دارای `dev` Script باشد و Server یک Loopback URL چاپ کند.
+
+## PDF Preview بین Browserها متفاوت است
+
+TL Studio فایل PDF را Inline و با HTTP Range Support Serve می‌کند، اما Render داخل Surface همچنان به Native PDF Viewer خود Browser وابسته است.
+
+در صورت نیاز از **Open in Browser** استفاده کنید.
+
+## Custom Provider وصل نمی‌شود
+
+این موارد را بررسی کنید:
+
+- Protocol؛
+- Base URL؛
+- API Key؛
+- Model ID؛
+- پشتیبانی واقعی Provider از API Family انتخاب‌شده.
+
+برای Provider دارای Model Discovery از **Test / Discover Models** استفاده کنید.
+
+## Model Discovery Fail می‌شود
+
+TL Studio Redirect ناامن را Block می‌کند و Authentication Failure را Failure واقعی در نظر می‌گیرد.
+
+برای Provider ذخیره‌شده، Cache فقط در Failureهای Live غیرAuthentication و Matching قابل استفاده است.
+
+در OpenRouter، Discovery به Key معتبر نیاز دارد چون Catalog مخصوص User استفاده می‌شود.
+
+## Account-based Provider دیده نمی‌شود
+
+در v0.5.0 این رفتار طبیعی است.
+
+Generic Provider Account Domain وجود دارد، ولی Stable Build فعلی هیچ Account Adapter ثبت نمی‌کند.
+
+## Plugin Save شده ولی اجرا نمی‌شود
+
+Save کردن Plugin عمداً آن را Disabled نگه می‌دارد.
+
+Enable را جدا انجام دهید و Local Command را Confirm کنید تا MCP Process Start شود.
+
+## Test Connection برای Plugin Fail می‌شود
+
+Command، Argument، Working Directory و Environment Secretهای لازم را بررسی کنید.
+
+Plugin Architecture فعلی فقط stdio MCP را پشتیبانی می‌کند و MCP Server باید Initialize شود و `tools/list` ارائه دهد.
+
+## Plugin مربوط به Project دیگر دیده می‌شود
+
+TL Studio می‌تواند Saved Project Pluginهای جای دیگر را نشان دهد تا در صورت نیاز Explicit آن را به Project فعلی Attach/Move کنید.
+
+Plugin بدون تصمیم شما روی Project اشتباه Run نمی‌شود.
+
+## Graphify Enable نمی‌شود
+
+Graphify Integration قبل از MCP Query به Project Graph نیاز دارد.
+
+اگر Graphify در Environment نصب است از **Build Graph / Rebuild Graph** استفاده کنید.
+
+Graphify داخل v0.5.0 Bundle نشده است.
+
+## JEV فعال نمی‌شود
+
+Status Message مربوط به JEV را بررسی کنید.
+
+Activation ممکن است به دلیل OpenRouter Key نامعتبر/گمشده، Management Key، محدودیت Free Tier برای Auto-routing، در دسترس نبودن Router یا تمام‌شدن Key-level Allowance Block شود.
+
+## Jev Decision Engine خاموش است
+
+این حالت پیش‌فرض است.
+
+Decision Engine یک Capability جدا، Paid و Explicit است و با Jev Router خودکار فعال نمی‌شود.
+
+## Agent منتظر مانده
+
+Pending Permission یا Interactive Question را بررسی کنید.
+
+## Always allow در دسترس نیست
+
+Persistent Approval برای Execute/Network حساس و Requestهایی که Safe Remember ندارند عمداً غیرفعال است.
+
+## Session History بعد از Restart باقی مانده
+
+این رفتار طبیعی است. TL Studio مالک Local Semantic Session Persistence است.
+
+## Attachment رد می‌شود
+
+Limit فعلی **8 فایل**، **10 MiB برای هر File** و **20 MiB مجموع** است. Binary Format پشتیبانی‌نشده قبل از Send Reject می‌شود.
+
+## گزارش Bug
+
+OS، نسخه TL Studio، مراحل Reproduce و Error غیرحساس را بفرستید.
+
+برای مشکل Provider یا Plugin، Protocol/Transport و Configuration غیرSecret را هم اضافه کنید. API Key یا Secret Environment Value را منتشر نکنید.

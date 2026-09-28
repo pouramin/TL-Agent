@@ -1,0 +1,162 @@
+---
+title: Architecture
+description: Understand the fully native TL Studio v0.5 local architecture, product domains, Agent loop, Providers, and Plugins/MCP.
+icon: Network
+---
+
+Stable v0.5 is a **single TL Studio local application** with embedded Browser assets and a fully native coding-agent core.
+
+
+```text
+Browser Workspace
+        │ same local control origin
+        ▼
+TL Studio Go Launcher / Local Core
+  ├─ Workspace + Project filesystem
+  ├─ Project Search
+  ├─ Terminal / Process Manager
+  ├─ Preview Manager
+  ├─ Provider Registry + Model Discovery
+  ├─ Credential Vault
+  ├─ Session Domain + Persistence
+  ├─ Question Manager
+  ├─ Permission Engine
+  ├─ Semantic Event Bus
+  ├─ Tool Registry + Tool Executor
+  ├─ Plugin Manager + MCP clients
+  ├─ JEV / Decision integrations
+  └─ Native Agent + direct Model clients
+        │
+        ├─ configured Provider endpoints
+        └─ enabled local MCP processes
+
+Previewed Project content
+        └────────► separate loopback origin
+```
+
+## Startup model
+
+Normal startup:
+
+1. resolves the selected Project;
+2. creates the TL Studio application state;
+3. initializes native product services;
+4. binds the control server to loopback;
+5. opens the Browser unless `--no-browser` is set.
+
+The Browser communicates directly with TL Studio-owned local product domains.
+
+## Local product domains
+
+Important Browser-facing local surfaces include:
+
+```text
+/local/status
+/local/health
+/local/project
+/local/providers/*
+/local/provider-accounts*
+/local/sessions*
+/local/questions*
+/local/permissions*
+/local/events
+/local/plugins*
+/local/tools
+/local/search
+/local/process*
+/local/preview*
+```
+
+## Browser application
+
+Browser source lives under:
+
+```text
+cmd/launcher/ui/
+```
+
+It is strict TypeScript and uses real ES-module imports.
+
+`browser.ts` defines the module graph, shared types/kernel state live in TypeScript modules, and esbuild produces the embedded Browser JavaScript.
+
+Generated `cmd/launcher/web/*.js` is build output and is intentionally not tracked as source.
+
+Monaco and its workers are bundled locally rather than loaded from a CDN.
+
+## Native Agent
+
+The Agent path is fully TL Studio-owned:
+
+```text
+Browser Session Run
+→ Session Domain
+→ Native Agent
+→ selected Provider
+→ Model response
+→ optional Tool call
+→ Permission / Question handling when needed
+→ Tool Executor or MCP Plugin
+→ structured Tool result
+→ Provider continuation
+→ final response
+→ Session persistence + Event Bus
+```
+
+Unsupported Provider protocols or capabilities fail explicitly.
+
+## Native Sessions
+
+TL Studio owns Session creation, selection, rename/delete, run/abort, status, Messages, activity, usage metadata, Changes, and persistence.
+
+Session state is represented directly by TL Studio's semantic Session model.
+
+## Native Questions and Permissions
+
+`interaction.question` pauses the Native Agent and registers a Session-scoped Question in the TL Studio Question Manager.
+
+Permission requests and remembered Project-scoped allow rules are owned by the TL Studio Permission Engine.
+
+Both domains emit semantic attention events through the local Event Bus.
+
+## Providers
+
+TL Studio owns:
+
+- Provider definitions;
+- configured Models;
+- authenticated Model discovery;
+- discovery cache;
+- credentials;
+- direct native model calls.
+
+Current direct protocols are OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages compatible.
+
+The generic Provider Account adapter domain exists for future official account integrations, but v0.5.0 registers no account adapter.
+
+## Tools and Plugins/MCP
+
+Built-in executable native Tools currently include file read/list/write/edit, content Search, Terminal command, and interactive Question.
+
+Enabled stdio MCP Plugins can add dynamic Tool definitions. Plugin tools enter the same Tool Registry and Permission system before execution.
+
+The Plugin store, Plugin credentials, Project/Global scoping, process lifecycle, Tool discovery, and invocation are TL Studio-owned.
+
+The release system can stage version-pinned bundled Plugins, although the v0.5.0 bundled catalog is empty.
+
+## Preview isolation
+
+Preview is intentionally a separate local trust boundary.
+
+Static/file content is served on a different loopback origin from the TL Studio control server. Supported Node dev-server Preview also accepts loopback URLs only.
+
+## State and storage
+
+TL Studio keeps product state under its local application state directory, including Provider definitions, credentials, Sessions, Permission rules, Plugin configuration/secrets, model-catalog cache, JEV state, and other local preferences.
+
+Secrets are separated from normal JSON configuration and use the credential vault.
+
+## Zero-infrastructure rule
+
+TL Studio does not require a project-owned VPS, application backend, database, telemetry collector, Model proxy, or hosted workspace.
+
+External network traffic is driven by explicit user configuration such as Provider endpoints, JEV/OpenRouter, or Plugin behavior.

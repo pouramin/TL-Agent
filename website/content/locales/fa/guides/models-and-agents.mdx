@@ -1,0 +1,67 @@
+---
+title: Model و Agent
+description: انتخاب Model و اجرای TL Studio Native Agent در v0.5.
+icon: Bot
+---
+
+در Stable v0.5 فقط یک Core Execution Mode داریم: **TL Studio Native Agent**.
+
+Local Fallback Coding Engine وجود ندارد. Provider/Model انتخاب‌شده باید از Protocol و Capabilityهای Native پشتیبانی‌شده توسط TL Studio قابل اجرا باشد.
+
+## Provider Protocolها
+
+Direct Model Protocolهای فعلی:
+
+- OpenAI-compatible Chat Completions؛
+- OpenAI Responses؛
+- Anthropic Messages.
+
+Model Request مستقیم از TL Studio به Endpoint همان Provider می‌رود.
+
+## Model Catalog
+
+Provider Definition و Modelهای Configure‌شده داخل Local Provider Registry خود TL Studio هستند.
+
+Provider UI همچنین می‌تواند Remote Model Catalog را Discover کند، Metadata مفید را Normalize کند و اجازه دهد فقط Modelهای موردنظر Save شوند.
+
+Metadata می‌تواند شامل این موارد باشد:
+
+- Context Limit؛
+- Output Limit؛
+- Tool Calling؛
+- Reasoning؛
+- Vision؛
+- Router Kind.
+
+اگر Provider Metadata مربوط به Tool Calling را منتشر نکند، UI اجازه می‌دهد هنگام Save مشخص کنید Capability ناشناخته به‌صورت Tool-capable در نظر گرفته شود یا نه.
+
+## Agent Execution
+
+برای Model پشتیبانی‌شده:
+
+```text
+Session Prompt
+→ Native Agent
+→ Provider Model Response
+→ Tool Calls when requested
+→ TL Studio Tool Executor
+→ Tool Results back to Provider
+→ Final Response
+```
+
+Agent از Cancellation و Guard برای Maximum Iteration، Tool Round، تعداد Tool در هر Round و تکرار Tool Call یکسان استفاده می‌کند.
+
+## Native Interaction
+
+Agent می‌تواند Tool داخلی `interaction.question` را Call کند تا Pause شود و Structured Input از User بگیرد.
+
+Question می‌تواند Choice، Multiple Selection، Custom Text و Default داشته باشد.
+
+## Tool Sourceها
+
+Agent Tool Definition را از دو منبع می‌گیرد:
+
+1. Built-in Native Toolهای TL Studio؛
+2. MCP Pluginهای فعال و سازگار برای Project.
+
+هر دو وارد همان Tool Model و Permission System می‌شوند.

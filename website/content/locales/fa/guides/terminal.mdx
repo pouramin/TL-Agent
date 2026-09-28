@@ -1,0 +1,49 @@
+---
+title: Terminal
+description: اجرای Command در Scope پروژه با Native Local Process Manager خود TL Studio.
+icon: Terminal
+---
+
+TL Studio یک Project-scoped Command Runner دارد که روی Local Process Manager خود برنامه ساخته شده است.
+
+## Command در Scope Project
+
+Command با Project فعال به‌عنوان Working Directory اجرا می‌شود.
+
+Terminal قابلیت واقعی Run، Stop، Clear، Command History، Process Output و Bounded Transcript دارد.
+
+Process Manager برای هر Managed Process حدود **1 MiB** Output نگه می‌دارد و State مربوط به Process تمام‌شده بعد از مدت محدود Cleanup می‌شود.
+
+## رفتار Stop
+
+Command طولانی را می‌توانید از داخل TL Studio Stop کنید.
+
+در Platformهای پشتیبانی‌شده، Stop به Process Tree هم اعمال می‌شود تا Child Processهایی مثل Dev Server عمداً باقی نمانند. Windows Process-tree Termination هم در Implementation پوشش داده شده است.
+
+## Native Agent Command Tool
+
+Native Agent از همین Process Layer برای Tool زیر استفاده می‌کند:
+
+```text
+terminal.command
+```
+
+Command Tool قبل از اجرا از Permission Authorizer خود TL Studio عبور می‌کند.
+
+Native Terminal Execution حساس است و Approval آن به Remembered Rule قابل‌استفاده‌ی دائمی تبدیل نمی‌شود.
+
+Agent Tool همچنین Command Deadline محدود دارد و Shell نامحدود Background ایجاد نمی‌کند.
+
+## محدودیت فعلی
+
+Terminal فعلی **Command Runner است، نه Full PTY Terminal Emulator**.
+
+برای Build، Test، Script، Package Manager، Local Dev Process و Commandهایی که Terminal Device واقعی لازم ندارند مناسب است.
+
+Interactive TUI ممکن است درست کار نکند.
+
+## Security
+
+Command با Permissionهای OS User فعلی اجرا می‌شود.
+
+قبل از Run یا Approval، Commandهای مخرب، Network، Package Manager، Installation و Credential-sensitive را بررسی کنید.

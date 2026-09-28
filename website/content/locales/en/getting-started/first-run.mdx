@@ -1,0 +1,69 @@
+---
+title: First run
+description: Start TL Studio v0.5, open a Project, and get oriented in the native workspace.
+icon: Play
+---
+
+## Start TL Studio
+
+Run the portable executable, or start from a Project directory with:
+
+```bash
+npx --yes tl-studio
+```
+
+TL Studio starts its loopback local server and opens the Browser workspace.
+
+## Choose a Project
+
+The normal workflow is graphical: use the operating-system Folder Picker.
+
+If you started from inside a Project with `npx --yes tl-studio`, that directory is selected automatically.
+
+You can also preselect a Project:
+
+```bash
+tl-studio --project /path/to/project
+```
+
+Windows:
+
+```powershell
+tl-studio.exe --project "C:\Users\you\Projects\my-project"
+```
+
+## Get oriented
+
+The v0.5 workspace is Editor-centered:
+
+1. choose **Explorer**, **Search**, **Sessions**, **Changes**, or **Settings** from the Activity Rail;
+2. work with files in the Monaco Editor;
+3. use the Agent panel in Collapsed, Compact, or Focused mode;
+4. run Project commands from the resizable bottom Terminal;
+5. open Live Preview when the active file or Project is previewable;
+6. use the Status Bar for local status, changes, Agent state, selected Model, cursor position, and Terminal access.
+
+Open the Command Palette with `Ctrl/Cmd+K`. Project Search uses `Ctrl/Cmd+Shift+F`.
+
+## Configure a Provider
+
+Open **Settings → Providers**.
+
+You can enter a Provider manually or use **Test / Discover Models** to validate the connection and load its model catalog. Select the Models you want to keep, then save the Provider.
+
+Provider definitions and credentials are stored separately. API keys go to TL Studio's credential vault, not Browser storage.
+
+## Run the Agent
+
+Choose a configured Model and send a prompt.
+
+```text
+Browser
+→ TL Studio Session
+→ Native Agent
+→ selected Provider
+→ Tool Executor when needed
+→ Session persistence + local events
+```
+
+A Tool that needs approval pauses at TL Studio's Permission UI. The Agent can also ask a native interactive Question and resume after your answer.

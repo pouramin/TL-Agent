@@ -1,0 +1,94 @@
+---
+title: Custom Provider
+description: تنظیم Native Provider، Model Discovery و Credential Vault محلی در TL Studio.
+icon: Cable
+---
+
+در v0.5، Provider Definition، Model Discovery، Model Catalog مربوط به Product و Provider Credential متعلق به خود TL Studio هستند.
+
+## Native Protocolهای پشتیبانی‌شده
+
+Protocolهای فعلی:
+
+- **OpenAI Compatible**؛
+- **OpenAI Responses**؛
+- **Anthropic Messages**.
+
+Provider Form به Vendor خاصی وابسته نیست. Base URL، API Key و یک یا چند Model را Configure می‌کنید.
+
+## Discover Models
+
+اگر Provider دارای Model-list API باشد، قبل از Save از **Test / Discover Models** استفاده کنید.
+
+TL Studio، Base URL را Validate می‌کند، Discovery Request می‌فرستد، Modelها را Normalize می‌کند و Catalog قابل Search نشان می‌دهد.
+
+Metadata قابل Normalize شامل:
+
+- Model ID و Name؛
+- Context/Output Limit؛
+- Tool Calling؛
+- Reasoning؛
+- Vision؛
+- Router Kind.
+
+می‌توانید Visible Modelها را Select کنید، Selection را Clear کنید، Catalog را Search کنید یا برای Private/Unlisted Model از Manual Entry استفاده کنید.
+
+## Security مربوط به Discovery
+
+Provider Discovery:
+
+- فقط HTTP(S) Base URL معتبر و بدون Embedded Credential را قبول می‌کند؛
+- Request Timeout برابر 15 ثانیه دارد؛
+- Response Catalog را به 8 MiB محدود می‌کند؛
+- حداکثر 5000 Model Normalize می‌کند؛
+- Cross-origin Redirect را Block می‌کند؛
+- Redirect Chain محدود دارد.
+
+برای Anthropic-compatible Discovery، Model Listing صفحه‌بندی‌شده با Page Count محدود پشتیبانی می‌شود.
+
+## Cache Fallback
+
+Catalog موفق می‌تواند در این فایل Local Cache شود:
+
+```text
+model-catalog-cache.json
+```
+
+اگر Discovery زنده بعداً به دلیل غیرAuthentication Fail شود، TL Studio می‌تواند Catalog Cache‌شده‌ی Matching را به‌عنوان Stale Data برگرداند.
+
+Authentication/Authorization Failure با Cache قدیمی پنهان نمی‌شود.
+
+## رفتار OpenRouter
+
+برای OpenRouter از Authenticated User Model Catalog استفاده می‌شود، نه Public Generic Catalog. بنابراین API Key برای Discovery لازم است و Credential نامعتبر تشخیص داده می‌شود.
+
+این Catalog همچنین Availability/Preference فعلی User در OpenRouter را بهتر منعکس می‌کند.
+
+## Provider Registry
+
+Definitionهای ذخیره‌شده داخل فایل Versioned زیر هستند:
+
+```text
+providers.json
+```
+
+Registry، Provider ID/Name، Protocol، Base URL، Model Definition، Capability Flag و Limit اختیاری را نگه می‌دارد.
+
+API Key داخل آن قرار نمی‌گیرد.
+
+## Credential Vault
+
+API Key داخل Credential Vault خود TL Studio ذخیره می‌شود:
+
+- Windows با DPAPI؛
+- macOS با Keychain در صورت دسترسی؛
+- Linux با Secret Service از طریق `secret-tool` در صورت وجود؛
+- در غیر این صورت Encrypted Private-file Fallback.
+
+Provider Call مستقیم از Credential متعلق به TL Studio استفاده می‌کند.
+
+## Provider Account Foundation
+
+یک Domain عمومی با Routeهای `/local/provider-accounts*` برای Integrationهای رسمی Account-backed آینده وجود دارد.
+
+**در Build فعلی v0.5.0 هیچ Account Adapter ثبت نشده است.** بنابراین Providers UI هم اعلام می‌کند که Account-based Provider Integration در این Build موجود نیست.

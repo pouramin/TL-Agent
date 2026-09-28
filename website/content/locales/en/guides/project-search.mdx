@@ -1,0 +1,54 @@
+---
+title: Project Search
+description: Search text across the active Project with TL Studio's native local search.
+icon: Search
+---
+
+Project Search is implemented directly by TL Studio. It does not require an external search binary or an Agent Tool call.
+
+Open it from the Activity Rail or use:
+
+```text
+Ctrl/Cmd + Shift + F
+```
+
+## Search controls
+
+The search surface supports:
+
+- literal text search;
+- case-sensitive matching;
+- include patterns;
+- exclude patterns;
+- direct navigation to the exact file, line, and column.
+
+The UI cancels stale in-flight searches when a newer query replaces them.
+
+## Built-in limits
+
+Current native limits are:
+
+- maximum query size: **512 bytes**;
+- maximum scanned file size: **2 MiB**;
+- maximum returned matches: **500**;
+- result snippet: up to **240 runes**.
+
+Common generated/heavy directories are ignored by default:
+
+```text
+.git
+node_modules
+dist
+build
+out
+coverage
+.next
+```
+
+Symlinks and files that cannot be treated as normal searchable text are not traversed as ordinary Project content.
+
+## Include and exclude patterns
+
+Use include/exclude filters to narrow large Projects. Exclude patterns are also useful for generated folders that are specific to your stack.
+
+Project Search is read-only. **Replace in Files is not implemented in v0.5.**

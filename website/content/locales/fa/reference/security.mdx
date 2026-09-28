@@ -1,0 +1,97 @@
+---
+title: مدل Security
+description: Network، Filesystem، Provider، Plugin/MCP، Credential، Permission، Session و Preview Boundary در TL Studio v0.5.
+icon: ShieldCheck
+---
+
+TL Studio یک Local Application است، نه Coding Service که از راه دور Expose شود.
+
+## Loopback-only Control Surface
+
+Server مربوط به Browser فقط روی Loopback Bind می‌شود.
+
+مقدار Non-loopback برای `--listen` Reject می‌شود.
+
+Request دارای Origin با Local Control Origin بررسی می‌شود و UI با Content Security Policy محدودکننده Serve می‌شود.
+
+
+## Project Filesystem Boundary
+
+Browser Filesystem Operation و Built-in Native Tool به Project انتخاب‌شده محدود هستند.
+
+TL Studio، Path Traversal، Symlink Escape، Protected Root Mutation و Protected Git Metadata Mutation را در محل مربوط Reject می‌کند.
+
+Editor Save از SHA-256 Revision Check استفاده می‌کند تا Disk Content جدید با Buffer قدیمی Silent Overwrite نشود.
+
+## Native Permission Boundary
+
+Native Tool فقط‌خواندنی بدون Write/Execute/Network می‌تواند بدون Human Prompt اجرا شود.
+
+Write/Edit و Command Execution از Permission Engine خود TL Studio عبور می‌کنند.
+
+Execute/Network حساس به Reusable Approval تبدیل نمی‌شود و Native Tool ناشناخته قابل Authorize نیست.
+
+Remembered Ruleهای Project-scoped داخل `permissions.json` هستند.
+
+## Credential Vault
+
+Provider API Key و Plugin Secret Environment Value از Config معمولی جدا هستند.
+
+Credential Backend:
+
+- Windows با DPAPI؛
+- macOS با Keychain در صورت دسترسی؛
+- Linux با Secret Service از طریق `secret-tool` در صورت وجود؛
+- در غیر این صورت Encrypted Private-file Fallback.
+
+فایل‌های `providers.json` و `plugins.json` Definition/Reference را ذخیره می‌کنند، نه Raw Secret Value.
+
+## Provider Discovery Boundary
+
+Remote Model Discovery، Provider را یک External Trust Boundary در نظر می‌گیرد.
+
+TL Studio، HTTP(S) Base URL را Validate می‌کند، Embedded Credential داخل URL را Reject می‌کند، Cross-origin Redirect را Block می‌کند، Redirect Depth و Request/Response را محدود می‌کند و Authentication Failure را پشت Stale Cache پنهان نمی‌کند.
+
+Provider Request همچنان Data را به External Endpoint تنظیم‌شده می‌فرستد؛ فقط Endpoint قابل‌اعتماد Configure کنید.
+
+## Plugin/MCP Trust Boundary
+
+MCP Plugin از نوع stdio یک **Local Executable Process** است.
+
+Save کردن Plugin Command را Start نمی‌کند. Enable یک Action جدا با Confirmation صریح UI است.
+
+Plugin Secret Environment Value از Credential Vault می‌آید.
+
+Working Directory مربوط به Project Scope داخل Project Boundary Resolve می‌شود.
+
+MCP Tool Discover‌شده قبل از Execution همچنان از Permission Authorizer خود TL Studio عبور می‌کند.
+
+خود Plugin Executable، Third-party Code است که با Permissionهای OS User اجرا می‌شود؛ فقط Command قابل‌اعتماد Configure کنید.
+
+## Session Persistence
+
+Semantic Session Snapshot داخل Private Local Application State ذخیره می‌شود و می‌تواند Prompt، Assistant Output، Tool Activity، Usage و Project Changes داشته باشد.
+
+Inline Attachment Payload با Prefix `data:` قبل از Persist شدن حذف می‌شود.
+
+Local State Directory خود TL Studio را Sensitive User Data در نظر بگیرید.
+
+## Preview Isolation
+
+Project Web Content داخل Preview روی Privileged Control Origin مربوط به TL Studio اجرا نمی‌شود.
+
+Static/File Preview روی Loopback Origin جداست، Node Preview فقط Local URL را می‌پذیرد و File Server فقط Read است.
+
+## JEV و OpenRouter
+
+JEV/OpenRouter اختیاری است و از OpenRouter Credential خود User استفاده می‌کند.
+
+Jev Router قبل از Active شدن Account/Key State را بررسی می‌کند.
+
+Decision Engine پولی و جداگانه به‌صورت پیش‌فرض Off است و Enable صریح می‌خواهد؛ در v0.5 به‌صورت خودکار Agent Routing یا Permission Policy را کنترل نمی‌کند.
+
+## بدون Telemetry یا Model Proxy متعلق به Product
+
+TL Studio به Telemetry Backend، Model Proxy، Remote Workspace Service یا Database متعلق به پروژه نیاز ندارد.
+
+Network Access از Provider صریح User، Integration اختیاری، Package/Release Distribution و رفتار Plugin Configure‌شده ایجاد می‌شود.

@@ -1,0 +1,76 @@
+---
+title: Native Agent و Toolها
+description: Native Model/Tool/Model Loop، Built-in Tool، MCP Tool، Permission و Loop Guard در TL Studio v0.5.
+icon: Bot
+---
+
+در v0.5، Native Execution یک Path اختیاری نیست؛ معماری اصلی Agent در TL Studio است.
+
+## Execution Flow
+
+```text
+Browser
+→ /local/sessions/{id}/runs
+→ TL Studio Session Domain
+→ Native Agent
+→ Selected Provider
+→ Normalized Model Response
+→ TL Studio Tool Executor
+→ Native Subsystem or MCP Plugin
+→ Structured Tool Result
+→ Provider Continuation
+→ Final Response
+→ Persistence + /local/events
+```
+
+Provider Protocol یا Capability پشتیبانی‌نشده Error صریح می‌دهد و به Local Engine دیگری Route نمی‌شود.
+
+## Built-in Toolهای قابل اجرا
+
+Native Agent فعلی این Built-in Tool IDها را ارائه می‌دهد:
+
+```text
+files.read
+files.list
+files.write
+files.edit
+search.content
+terminal.command
+interaction.question
+```
+
+Toolهای File/Search/Terminal از همان Project Boundary، Symlink Protection، Search، Process، Cancellation و Permission Infrastructure خود TL Studio استفاده می‌کنند.
+
+## Interactive Question Tool
+
+Tool به نام `interaction.question` می‌تواند بین 1 تا 20 Question Block ارسال کند.
+
+هر Question می‌تواند Header، Question Text، Option، Multiple Selection، Custom Text و Default Custom Answer داشته باشد.
+
+Agent تا Reply، Reject یا Cancellation از سمت Question Manager Pause می‌شود.
+
+## MCP Toolهای Dynamic
+
+MCP Plugin فعال می‌تواند Tool Definitionهای اضافی برای Project جاری اضافه کند.
+
+این Toolها به‌صورت Dynamic وارد Agent Tool List و TL Studio Tool Registry می‌شوند. Call مربوط به Plugin از Plugin Manager Resolve می‌شود و همچنان از Native Permission Authorizer عبور می‌کند.
+
+## Tool Registry
+
+Tool Registry Descriptor محصولی شامل Tool ID، Name، Description، Category، Permission Class، Capability، Input Schema، Presentation Hint، Source و در صورت نیاز Plugin ID ارائه می‌دهد.
+
+Registry فقط Tool را توصیف می‌کند؛ Authorization و Execution مرحله‌های جدا هستند.
+
+## Safety و Loop Guard
+
+Native Agent Guard صریح برای این موارد دارد:
+
+- Maximum Agent Iteration؛
+- Maximum Tool Round؛
+- Maximum Tool در یک Round؛
+- تکرار Tool Call یکسان؛
+- Context Cancellation.
+
+Tool Input به‌عنوان Untrusted Data در نظر گرفته می‌شود و Built-in Tool ID ناشناخته Reject می‌شود.
+
+Command Execution Timeout محدود دارد و از Process Manager خود TL Studio استفاده می‌کند.
