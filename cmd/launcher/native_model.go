@@ -66,7 +66,11 @@ func newNativeModelClient() nativeModelClient {
 	return &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
 }
 
-func (m *providerManager) resolveNativeModel(ctx context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+func (m *providerManager) resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+	return m.resolveNativeModelWithContext(context.Background(), providerID, modelID)
+}
+
+func (m *providerManager) resolveNativeModelWithContext(ctx context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
 	providerID = strings.TrimSpace(providerID)
 	modelID = strings.TrimSpace(modelID)
 	if providerID == "" || modelID == "" {
