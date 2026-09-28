@@ -23,6 +23,7 @@ var providerProtocolPackages = map[string]string{
 	"openai-responses":       "@ai-sdk/openai",
 	"anthropic-messages":     "@ai-sdk/anthropic",
 	"gemini-generate-content": "@google/genai",
+	"codex-chatgpt":            "@openai/codex",
 }
 
 type tlProviderModel struct {
