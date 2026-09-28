@@ -49,10 +49,17 @@ type providerAccountLogin struct {
 	PollIntervalSeconds int    `json:"pollIntervalSeconds,omitempty"`
 }
 
+type providerAccountCallback struct {
+	Code  string
+	State string
+	Error string
+}
+
 type providerAccountAdapter interface {
 	ID() string
 	Status(context.Context, string) (providerAccountStatus, error)
 	BeginLogin(context.Context, string) (providerAccountLogin, error)
+	CompleteLogin(context.Context, string, providerAccountCallback) error
 	PollLogin(context.Context, string, string) (providerAccountStatus, error)
 	CancelLogin(context.Context, string, string) error
 	Refresh(context.Context, string) (providerAccountStatus, error)
@@ -182,6 +189,31 @@ func registerProviderAccountRoutes(mux *http.ServeMux, service *providerAccountS
 			return
 		}
 		writeJSON(w, http.StatusOK, login)
+	})
+
+	mux.HandleFunc("GET /local/provider-accounts/{id}/oauth/callback", func(w http.ResponseWriter, r *http.Request) {
+		adapter, ok := service.adapter(r.PathValue("id"))
+		if !ok {
+			http.Error(w, "Provider account adapter not found.", http.StatusNotFound)
+			return
+		}
+		callback := providerAccountCallback{
+			Code: strings.TrimSpace(r.URL.Query().Get("code")),
+			State: strings.TrimSpace(r.URL.Query().Get("state")),
+			Error: strings.TrimSpace(r.URL.Query().Get("error")),
+		}
+		if callback.State == "" {
+			http.Error(w, "Missing OAuth state.", http.StatusBadRequest)
+			return
+		}
+		if err := adapter.CompleteLogin(r.Context(), r.URL.Query().Get("directory"), callback); err != nil {
+			http.Error(w, "Provider sign-in could not be completed. Return to TL Studio and try again.", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<!doctype html><meta charset=\"utf-8\"><title>TL Studio</title><p>Sign-in complete. You can close this window and return to TL Studio.</p>"))
 	})
 
 	mux.HandleFunc("GET /local/provider-accounts/{id}/login/{loginID}", func(w http.ResponseWriter, r *http.Request) {
