@@ -326,6 +326,21 @@ func (a *openRouterAccountAdapter) Refresh(ctx context.Context, directory string
 	return a.Status(ctx, directory)
 }
 
+func (a *openRouterAccountAdapter) ResolveCredential(context.Context, string) (string, error) {
+	if a.manager == nil || a.manager.credentials == nil {
+		return "", errCredentialNotFound
+	}
+	value, err := getProviderCredentialSlot(a.manager.credentials, openRouterAccountProviderID, providerCredentialSlotAccount)
+	if err != nil {
+		return "", err
+	}
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", errCredentialNotFound
+	}
+	return value, nil
+}
+
 func (a *openRouterAccountAdapter) DiscoverModels(ctx context.Context, _ string) ([]string, error) {
 	if a.manager == nil || a.manager.credentials == nil {
 		return nil, errors.New("TL Studio credential vault is unavailable")

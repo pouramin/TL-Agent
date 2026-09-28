@@ -268,6 +268,56 @@ func providerDiscoveryStringListContains(value any, candidates ...string) bool {
 	return false
 }
 
+func providerDiscoveryProviderBool(record map[string]any, key string) *bool {
+	items, ok := record["providers"].([]any)
+	if !ok {
+		return nil
+	}
+	seen := false
+	for _, item := range items {
+		provider := providerDiscoveryRecord(item)
+		if provider == nil {
+			continue
+		}
+		if status := strings.ToLower(providerDiscoveryString(provider, "status")); status != "" && status != "live" {
+			continue
+		}
+		if value, ok := provider[key].(bool); ok {
+			seen = true
+			if value {
+				result := true
+				return &result
+			}
+		}
+	}
+	if seen {
+		result := false
+		return &result
+	}
+	return nil
+}
+
+func providerDiscoveryProviderMaxPositive(record map[string]any, key string) int {
+	items, ok := record["providers"].([]any)
+	if !ok {
+		return 0
+	}
+	maximum := 0
+	for _, item := range items {
+		provider := providerDiscoveryRecord(item)
+		if provider == nil {
+			continue
+		}
+		if status := strings.ToLower(providerDiscoveryString(provider, "status")); status != "" && status != "live" {
+			continue
+		}
+		if value := providerDiscoveryFirstPositive(provider[key]); value > maximum {
+			maximum = value
+		}
+	}
+	return maximum
+}
+
 func providerDiscoveryContainsImage(value any) bool {
 	items, ok := value.([]any)
 	if !ok {
@@ -330,6 +380,7 @@ func normalizeProviderDiscoveredModel(record map[string]any) (providerDiscovered
 		record["context_window"],
 		topProvider["context_length"],
 		metadata["context_length"],
+		providerDiscoveryProviderMaxPositive(record, "context_length"),
 	)
 	outputLimit := providerDiscoveryFirstPositive(
 		record["max_output_tokens"],
@@ -350,6 +401,9 @@ func normalizeProviderDiscoveredModel(record map[string]any) (providerDiscovered
 	if toolCall == nil && providerDiscoveryStringListContains(record["supported_parameters"], "tools", "tool_choice") {
 		value := true
 		toolCall = &value
+	}
+	if toolCall == nil {
+		toolCall = providerDiscoveryProviderBool(record, "supports_tools")
 	}
 	reasoning := providerDiscoveryFirstBool(record,
 		[]string{"reasoning"},
@@ -541,7 +595,7 @@ func (m *providerManager) discoverProviderModels(ctx context.Context, request pr
 		return providerDiscoveryResponse{}, err
 	}
 	if input.APIKey == "" && input.ProviderID != "" && m.credentials != nil {
-		if key, getErr := m.effectiveCredential(input.ProviderID); getErr == nil {
+		if key, getErr := m.effectiveCredential(ctx, input.ProviderID, ""); getErr == nil {
 			input.APIKey = strings.TrimSpace(key)
 		} else if !errors.Is(getErr, errCredentialNotFound) {
 			return providerDiscoveryResponse{}, getErr

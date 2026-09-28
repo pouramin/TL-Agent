@@ -22,7 +22,7 @@ TL Studio now runs normally without a compatibility sidecar.
 - **Native permissions** — pending approvals, one-time decisions, project-scoped remembered rules, rejection, and enforcement are owned by TL Studio.
 - **Native events** — /local/events is the authoritative semantic SSE stream.
 - **Native providers** — provider definitions, model catalogs, discovery, and credentials are owned by TL Studio. Model calls go directly from TL Studio to configured providers.
-- **Provider accounts** — /local/provider-accounts owns the generic account-login lifecycle for documented provider integrations; OpenRouter is the first 0.6 account adapter.
+- **Provider accounts** — /local/provider-accounts owns the generic account-login lifecycle for documented provider integrations; OpenRouter and Hugging Face are the first 0.6 account adapters.
 - **Native tools** — files, Search, Terminal/process execution, workspace reconciliation, and Plugin/MCP tools run through the TL Studio Tool Executor.
 
 There is no Kilo binary requirement, subprocess, local Kilo server, reverse proxy, session adapter, permission fallback, question adapter, event stream, provider synchronization, model fallback, or release payload.
@@ -51,7 +51,7 @@ Provider definitions live in TL Studio local state. API keys and account credent
 
 Custom provider setup can discover models automatically from compatible model-list APIs. Manual model entry remains available only as a fallback for private or unlisted models.
 
-The 0.6 account-provider foundation supports semantic login state, cancellation, refresh, logout, and account-backed model discovery. OpenRouter is currently the first concrete adapter and uses its documented OAuth + PKCE flow without exposing the resulting credential to Browser code.
+The 0.6 account-provider foundation supports semantic login state, cancellation, refresh, logout, and account-backed model discovery. OpenRouter uses its documented OAuth + PKCE flow to create a user-controlled key. Hugging Face uses its documented public-client OAuth + PKCE flow with TL Studio's published CIMD metadata and refresh-token lifecycle. Neither adapter exposes credentials to Browser code.
 
 A model or protocol that the native client cannot execute returns an explicit unsupported-capability error. It is never routed through a hidden compatibility runtime.
 

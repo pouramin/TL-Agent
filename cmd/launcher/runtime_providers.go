@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 const providerRegistryVersion = 1
@@ -193,7 +194,7 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
 	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
-	if input.ManagedBy != "" && input.ManagedBy != "jev" {
+	if input.ManagedBy != "" && input.ManagedBy != "jev" && input.ManagedBy != "account" {
 		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
 	}
 	if len(input.Models) == 0 { return tlProviderDefinition{}, errors.New("provider must define at least one model") }
@@ -245,6 +246,8 @@ type providerManager struct {
 	store       *providerRegistryStore
 	credentials providerCredentialStore
 	registryMu  sync.Mutex
+	accountMu   sync.RWMutex
+	accounts    map[string]providerAccountAdapter
 }
 
 func newProviderManager(state *appState) *providerManager {
@@ -252,6 +255,7 @@ func newProviderManager(state *appState) *providerManager {
 		state: state,
 		store: newProviderRegistryStore(providerRegistryPath()),
 		credentials: newProviderCredentialStore(),
+		accounts: map[string]providerAccountAdapter{},
 	}
 }
 
@@ -271,12 +275,51 @@ func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	return err
 }
 
-func (m *providerManager) effectiveCredential(providerID string) (string, error) {
+func (m *providerManager) registerAccountAdapter(adapter providerAccountAdapter) {
+	if m == nil || adapter == nil {
+		return
+	}
+	id := strings.TrimSpace(adapter.ID())
+	if id == "" {
+		return
+	}
+	m.accountMu.Lock()
+	defer m.accountMu.Unlock()
+	if m.accounts == nil {
+		m.accounts = map[string]providerAccountAdapter{}
+	}
+	m.accounts[id] = adapter
+}
+
+func (m *providerManager) accountAdapter(providerID string) providerAccountAdapter {
+	if m == nil {
+		return nil
+	}
+	m.accountMu.RLock()
+	defer m.accountMu.RUnlock()
+	return m.accounts[strings.TrimSpace(providerID)]
+}
+
+func (m *providerManager) effectiveCredential(ctx context.Context, providerID, directory string) (string, error) {
 	if m == nil || m.credentials == nil {
 		return "", errCredentialNotFound
 	}
-	if value, err := getProviderCredentialSlot(m.credentials, providerID, providerCredentialSlotAccount); err == nil {
-		if strings.TrimSpace(value) != "" {
+	if adapter := m.accountAdapter(providerID); adapter != nil {
+		value, err := adapter.ResolveCredential(ctx, directory)
+		if err == nil && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value), nil
+		}
+		if err != nil && !errors.Is(err, errCredentialNotFound) {
+			return "", err
+		}
+	} else if value, err := getProviderCredentialSlot(m.credentials, providerID, providerCredentialSlotAccount); err == nil {
+		if credential, structured, decodeErr := decodeProviderOAuthCredential(value); decodeErr != nil {
+			return "", decodeErr
+		} else if structured {
+			if !credential.needsRefresh(time.Now()) {
+				return strings.TrimSpace(credential.AccessToken), nil
+			}
+		} else if strings.TrimSpace(value) != "" {
 			return strings.TrimSpace(value), nil
 		}
 	} else if !errors.Is(err, errCredentialNotFound) {
@@ -350,7 +393,7 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 			}
 		}
 		if m.credentials != nil {
-			if key, credentialErr := m.effectiveCredential(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
+			if key, credentialErr := m.effectiveCredential(ctx, definition.ID, ""); credentialErr == nil && strings.TrimSpace(key) != "" {
 				result.Connected = appendUniqueString(result.Connected, definition.ID)
 			} else if credentialErr != nil && !errors.Is(credentialErr, errCredentialNotFound) {
 				return providerCatalogResponse{}, credentialErr

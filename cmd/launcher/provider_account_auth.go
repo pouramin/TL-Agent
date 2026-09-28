@@ -62,6 +62,7 @@ type providerAccountAdapter interface {
 	PollLogin(context.Context, string, string) (providerAccountStatus, error)
 	CancelLogin(context.Context, string, string) error
 	Refresh(context.Context, string) (providerAccountStatus, error)
+	ResolveCredential(context.Context, string) (string, error)
 	DiscoverModels(context.Context, string) ([]string, error)
 	Disconnect(context.Context, string) error
 }
