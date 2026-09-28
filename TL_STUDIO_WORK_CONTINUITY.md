@@ -24,7 +24,7 @@ The fully native runtime milestone is complete and released as stable v0.5.0. Th
 
 Current validation state:
 
-ChatGPT/Codex core runtime validation passed on Windows with a real ChatGPT-plan account. Login, model discovery/selection, selected-model identity, project read/search/write, Permission handling, multi-step Tool continuation, Terminal execution, and warm-turn latency were validated. Warm responses are currently about 3–5 seconds with the persistent Codex app-server. Restart persistence and explicit sign-out cleanup remain to be recorded before the ChatGPT checklist is fully closed.
+ChatGPT/Codex full Windows validation passed with a real ChatGPT-plan account. Login, model discovery/selection, selected-model identity, project read/search/write, Permission handling, multi-step Tool continuation, Terminal execution, restart persistence, explicit sign-out cleanup, and warm-turn latency were validated. Warm responses are currently about 3–5 seconds with the persistent Codex app-server. After restart the connected account remained usable; after sign-out and restart it remained signed out and required a fresh sign-in.
 
 Real validation for the remaining provider connection modes is still in progress on current dev.
 
@@ -224,11 +224,11 @@ Manual review should verify:
 
 Automated validation is green through PR #155, including fake-Codex account lifecycle, persistent app-server reuse, model/tool bridge coverage, and real official Codex startup/CLI contract checks on Windows.
 
-Real ChatGPT/Codex core runtime validation passed on Windows on 2026-09-29. Verified behavior includes browser login, account connection, model discovery/selection, model identity, project read/search/write, TL Studio Permission handling, model → Tool → model continuation, Terminal execution, and roughly 3–5 second warm-turn latency. Restart persistence and explicit sign-out cleanup remain to be recorded before closing the full ChatGPT account checklist.
+Real ChatGPT/Codex validation passed in full on Windows on 2026-09-29. Verified behavior includes browser login, account connection, model discovery/selection, model identity, project read/search/write, TL Studio Permission handling, model → Tool → model continuation, Terminal execution, roughly 3–5 second warm-turn latency, restart persistence, and explicit sign-out persistence.
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
-A Windows x64 review package is produced by CI and should be used for the remaining real provider checks. ChatGPT core runtime behavior has passed; complete its restart/sign-out checks and validate the intended API-key provider setup paths before promoting dev to stable main. Do not promote dev to main until the intended provider integrations have passed their remaining checklist items or their limitations have been explicitly accepted and documented.
+A Windows x64 review package is produced by CI and should be used for the remaining real provider checks. The ChatGPT/Codex Windows checklist is complete; validate the intended API-key provider setup paths before promoting dev to stable main. Do not promote dev to main until the intended provider integrations have passed their remaining checklist items or their limitations have been explicitly accepted and documented.
 
 ## Resume protocol
 
