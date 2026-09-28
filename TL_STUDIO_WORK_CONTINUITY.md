@@ -28,9 +28,11 @@ Real Windows provider-account validation is in progress on current dev.
 
 Current open development PR:
 
-#143 — Enable ChatGPT account login through official Codex (in progress).
+None.
 
 Completed 0.6 account-provider / validation UX PRs:
+
+#143 — Enable ChatGPT account login through official Codex
 
 #130 — Compact provider account settings into logo cards
 #129 — Document the 0.6 real account validation gate
@@ -136,7 +138,7 @@ Google/Gemini is merged on dev through PR #124. The implementation uses the offi
 
 Custom Provider setup is simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. PR #126 fixed edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
 
-PR #143 enables ChatGPT/Codex account support through OpenAI's documented Codex surface. Login uses `codex app-server` with the official `account/login/start` ChatGPT browser flow, `account/read`, `account/logout`, and `model/list`. TL Studio uses an isolated `CODEX_HOME`, never imports browser cookies/session tokens, never copies a private OAuth client, and never calls undocumented ChatGPT backend endpoints.
+ChatGPT/Codex account support is merged on dev through PR #143. It uses OpenAI's documented Codex surface. Login uses `codex app-server` with the official `account/login/start` ChatGPT browser flow, `account/read`, `account/logout`, and `model/list`. TL Studio uses an isolated `CODEX_HOME`, never imports browser cookies/session tokens, never copies a private OAuth client, and never calls undocumented ChatGPT backend endpoints.
 
 For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-chatgpt`. Each model turn launches the official Codex CLI in ephemeral read-only bridge mode with user/project Codex config and rules ignored, approval policy set to never, web search disabled, and an empty temporary working directory. The bridge receives the TL Studio conversation and TL Studio Tool schemas and must return structured assistant text or TL Studio Tool calls. TL Studio remains authoritative for the outer model → tool → model loop, Tool execution, permissions, project mutations, Session persistence, and semantic events.
 
@@ -205,7 +207,7 @@ Manual review should verify:
 
 ## Current manual validation gate
 
-Automated validation is green through the provider-card/README work. PR #143 adds automated fake-Codex coverage for ChatGPT but real account validation remains a release gate.
+Automated validation is green through PR #143, including fake-Codex account lifecycle and model/tool bridge coverage. Real account validation remains a release gate.
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
