@@ -195,3 +195,36 @@ func TestProviderAccountServiceCanBeEmpty(t *testing.T) {
 		t.Fatalf("expected empty account list, got %#v", got)
 	}
 }
+
+
+func TestProviderAccountBrowserContractHasNoSecretFields(t *testing.T) {
+	statusJSON, err := json.Marshal(providerAccountStatus{
+		ID: "example", Name: "Example", Available: true,
+		State: providerAccountConnected, Connected: true,
+		AccountLabel: "user@example.test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loginJSON, err := json.Marshal(providerAccountLogin{
+		LoginID: "login-id",
+		Flow: "authorization_code_pkce",
+		AuthorizationURL: "https://example.test/authorize",
+		UserCode: "SAFE-CODE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	combined := strings.ToLower(string(statusJSON) + string(loginJSON))
+	for _, forbidden := range []string{
+		"access_token", "accesstoken",
+		"refresh_token", "refreshtoken",
+		"client_secret", "clientsecret",
+		"code_verifier", "codeverifier",
+		"authorization_code", "authorizationcode",
+	} {
+		if strings.Contains(combined, forbidden) {
+			t.Fatalf("provider account browser contract exposes forbidden secret field %q: %s", forbidden, combined)
+		}
+	}
+}
