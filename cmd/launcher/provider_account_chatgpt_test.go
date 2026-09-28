@@ -36,7 +36,11 @@ if args and args[0] == "app-server":
         method = msg.get("method")
         req_id = msg.get("id")
         if method == "initialize":
-            send({"id": req_id, "result": {"userAgent": "fake-codex", "codexHome": os.environ.get("CODEX_HOME", "")}})
+            params = msg.get("params")
+            if not isinstance(params, dict) or "clientInfo" not in params or "capabilities" not in params:
+                send({"id": req_id, "error": {"code": -32602, "message": "initialize requires clientInfo and capabilities"}})
+                continue
+            send({"id": req_id, "result": {"userAgent": "fake-codex", "codexHome": os.environ.get("CODEX_HOME", ""), "platformFamily": "unix", "platformOs": "linux"}})
         elif method == "initialized":
             pass
         elif method == "account/read":
