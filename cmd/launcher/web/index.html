@@ -195,7 +195,7 @@
               </select>
             </div>
             <div class="settings-row">
-              <div class="settings-copy"><strong>Font size</strong><span>Adjust chat, controls, and code preview text.</span></div>
+              <div class="settings-copy"><strong>Interface size</strong><span>Scale TL Studio's workspace, controls, editor, terminal, and Agent text together.</span></div>
               <select id="fontSizeSelect" aria-label="Font size">
                 <option value="small">Small</option>
                 <option value="default">Default</option>
@@ -210,7 +210,7 @@
                 <h3>Plugins</h3>
                 <p>Add MCP servers to TL Studio. Enabled plugins expose discovered tools to the native Agent through the normal Tool Registry and permission policy.</p>
               </div>
-              <button id="pluginAddButton" class="primary small" type="button">+ Add Plugin</button>
+              <button id="pluginAddButton" class="primary settings-primary-action" type="button">Add plugin</button>
             </div>
             <div id="pluginList" class="plugin-list" aria-live="polite"></div>
             <div id="pluginEditor" class="plugin-editor hidden">
@@ -221,7 +221,7 @@
                 <label><span>Transport</span><select id="pluginTransportSelect"><option value="stdio">stdio</option></select></label>
                 <label class="plugin-form-wide"><span>Description</span><input id="pluginDescriptionInput" autocomplete="off" placeholder="Optional description" /></label>
                 <label class="plugin-form-wide"><span>Command</span><input id="pluginCommandInput" autocomplete="off" spellcheck="false" placeholder="my-mcp-server" /></label>
-                <label class="plugin-form-wide"><span>Arguments</span><textarea id="pluginArgsInput" rows="3" spellcheck="false" placeholder="One argument per line"></textarea></label>
+                <label class="plugin-form-wide plugin-arguments-field"><span>Arguments</span><textarea id="pluginArgsInput" rows="5" spellcheck="false" placeholder="/c&#10;npx&#10;-y&#10;package-name"></textarea><small>One argument per line. Enter only arguments here; the executable belongs in Command.</small></label>
                 <label><span>Scope</span><select id="pluginScopeSelect"><option value="project">Current project</option><option value="global">All projects</option></select></label>
                 <label><span>Working directory</span><input id="pluginCwdInput" autocomplete="off" spellcheck="false" placeholder=". (project root)" /></label>
                 <label class="plugin-form-wide"><span>Environment variables</span><textarea id="pluginEnvInput" rows="3" spellcheck="false" placeholder="API_KEY=value&#10;TOKEN=value"></textarea><small>Values are stored in TL Studio's credential vault and are never shown again after save.</small></label>
