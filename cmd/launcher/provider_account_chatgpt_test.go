@@ -28,6 +28,12 @@ def send(value):
 
 args = sys.argv[1:]
 if args and args[0] == "app-server":
+    count_file = os.environ.get("FAKE_CODEX_START_COUNT_FILE")
+    if count_file:
+        with open(count_file, "a", encoding="utf-8") as handle:
+            handle.write("start\n")
+    thread_counter = 0
+    turn_counter = 0
     for line in sys.stdin:
         try:
             msg = json.loads(line)
@@ -54,6 +60,29 @@ if args and args[0] == "app-server":
                 {"id": "gpt-5.6-sol", "model": "gpt-5.6-sol", "displayName": "GPT-5.6 Sol", "description": "test", "hidden": False, "supportedReasoningEfforts": [{"reasoningEffort":"low","description":"Fast"},{"reasoningEffort":"medium","description":"Balanced"}], "defaultReasoningEffort": "medium", "inputModalities": ["text"], "supportsPersonality": False, "multiAgentVersion": None, "additionalSpeedTiers": [], "serviceTiers": [], "defaultServiceTier": None, "availableAccessPrograms": None, "isDefault": True, "upgrade": None, "upgradeInfo": None, "availabilityNux": None, "modelSpecialty": None},
                 {"id": "gpt-5.6-luna", "model": "gpt-5.6-luna", "displayName": "GPT-5.6 Luna", "description": "test", "hidden": False, "supportedReasoningEfforts": [{"reasoningEffort":"minimal","description":"Fastest"},{"reasoningEffort":"low","description":"Fast"},{"reasoningEffort":"medium","description":"Balanced"}], "defaultReasoningEffort": "medium", "inputModalities": ["text"], "supportsPersonality": False, "multiAgentVersion": None, "additionalSpeedTiers": [], "serviceTiers": [], "defaultServiceTier": None, "availableAccessPrograms": None, "isDefault": False, "upgrade": None, "upgradeInfo": None, "availabilityNux": None, "modelSpecialty": None}
             ], "nextCursor": None}})
+        elif method == "thread/start":
+            thread_counter += 1
+            thread_id = "thread-" + str(thread_counter)
+            send({"id": req_id, "result": {"thread": {"id": thread_id}}})
+        elif method == "turn/start":
+            turn_counter += 1
+            params = msg.get("params") or {}
+            thread_id = params.get("threadId") or "thread-1"
+            turn_id = "turn-" + str(turn_counter)
+            value = os.environ.get("FAKE_CODEX_OUTPUT", '{"text":"fake response","toolCalls":[]}')
+            send({"id": req_id, "result": {"turn": {"id": turn_id}}})
+            send({"method": "item/completed", "params": {
+                "threadId": thread_id,
+                "turnId": turn_id,
+                "completedAtMs": 0,
+                "item": {"type": "agentMessage", "id": "msg-" + str(turn_counter), "text": value}
+            }})
+            send({"method": "turn/completed", "params": {
+                "threadId": thread_id,
+                "turn": {"id": turn_id, "status": "completed", "error": None}
+            }})
+        elif method == "thread/unsubscribe":
+            send({"id": req_id, "result": {}})
         elif method == "account/login/cancel":
             send({"id": req_id, "result": {}})
         elif method == "account/logout":
@@ -277,11 +306,17 @@ func TestChatGPTIntegrationAvoidsPrivateAuthSurfaces(t *testing.T) {
 		`"account/read"`,
 		`"model/list"`,
 		`"account/logout"`,
-		`"--ignore-user-config"`,
-		`"--ignore-rules"`,
-		`"--sandbox", "read-only"`,
-		`approval_policy="never"`,
-		`web_search="disabled"`,
+		`"thread/start"`,
+		`"turn/start"`,
+		`"thread/unsubscribe"`,
+		`"approvalPolicy": "never"`,
+		`"sandbox": "read-only"`,
+		`"features.shell_tool"`,
+		`"features.unified_exec"`,
+		`"features.standalone_web_search"`,
+		`"features.plugins"`,
+		`"features.multi_agent"`,
+		`"web_search"`,
 	} {
 		if !strings.Contains(combined, required) {
 			t.Fatalf("official Codex account lifecycle missing %q", required)
@@ -462,5 +497,93 @@ func TestPreferredCodexReasoningEffortFavorsLowLatency(t *testing.T) {
 	}
 	if got := preferredCodexReasoningEffort(item); got != "low" {
 		t.Fatalf("expected low reasoning effort for interactive bridge latency, got %q", got)
+	}
+}
+
+
+func TestChatGPTPersistentBridgeReusesOneAppServer(t *testing.T) {
+	manager, adapter := newChatGPTTestManager(t)
+	if err := manager.store.put(tlProviderDefinition{
+		ID:        chatGPTAccountProviderID,
+		Name:      "ChatGPT / Codex",
+		Protocol:  codexChatGPTProviderProtocol,
+		BaseURL:   chatGPTAccountBaseURL,
+		ManagedBy: "account",
+		Models: []tlProviderModel{{
+			ID:              "gpt-5.6-luna",
+			Name:            "GPT-5.6 Luna",
+			ToolCall:        true,
+			Reasoning:       true,
+			ReasoningEffort: "low",
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	countFile := filepath.Join(t.TempDir(), "starts.txt")
+	t.Setenv("FAKE_CODEX_START_COUNT_FILE", countFile)
+	client := newNativeModelClient(adapter)
+	request := nativeModelRequest{
+		System: "system",
+		Provider: tlProviderDefinition{
+			ID: chatGPTAccountProviderID,
+			Name: "ChatGPT / Codex",
+			Protocol: codexChatGPTProviderProtocol,
+			BaseURL: chatGPTAccountBaseURL,
+			ManagedBy: "account",
+		},
+		Model: tlProviderModel{
+			ID: "gpt-5.6-luna",
+			Name: "GPT-5.6 Luna",
+			ToolCall: true,
+			Reasoning: true,
+			ReasoningEffort: "low",
+		},
+		APIKey: "official-codex-chatgpt-account",
+		Messages: []nativeConversationMessage{{Role: "user", Text: "hello"}},
+		Tools: []nativeModelToolDefinition{},
+	}
+	for index := 0; index < 2; index++ {
+		response, err := client.Complete(context.Background(), request, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.Text != "fake response" {
+			t.Fatalf("unexpected response %#v", response)
+		}
+	}
+	data, err := os.ReadFile(countFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if starts := strings.Count(string(data), "start\n"); starts != 1 {
+		t.Fatalf("expected one persistent Codex app-server for two turns, got %d starts", starts)
+	}
+	adapter.resetBridgeServer()
+}
+
+func TestCodexStructuredThreadDisablesBuiltInTools(t *testing.T) {
+	config := codexStructuredThreadConfig()
+	for _, key := range []string{
+		"features.shell_tool",
+		"features.unified_exec",
+		"features.standalone_web_search",
+		"features.plugins",
+		"features.multi_agent",
+		"features.multi_agent_v2",
+		"web_search",
+	} {
+		value, ok := config[key]
+		if !ok {
+			t.Fatalf("structured bridge config missing %q", key)
+		}
+		if key == "web_search" {
+			if value != "disabled" {
+				t.Fatalf("expected web_search disabled, got %#v", value)
+			}
+			continue
+		}
+		if value != false {
+			t.Fatalf("expected %s=false, got %#v", key, value)
+		}
 	}
 }

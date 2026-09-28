@@ -358,6 +358,15 @@ func (s *codexAppServer) stoppedError() error {
 	return errors.New(message)
 }
 
+func (s *codexAppServer) isClosed() bool {
+	if s == nil {
+		return true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.closed
+}
+
 func (s *codexAppServer) Close() {
 	if s == nil {
 		return
@@ -522,78 +531,71 @@ TL Studio turn payload:
 `) + "\n" + string(encoded), nil
 }
 
-func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
-	if a == nil {
-		return nativeModelResponse{}, errors.New("ChatGPT account transport is unavailable")
-	}
-	command, err := a.resolveCommand()
-	if err != nil {
-		return nativeModelResponse{}, err
-	}
-	prompt, err := codexBridgePrompt(request)
-	if err != nil {
-		return nativeModelResponse{}, err
-	}
-	tempDir, err := os.MkdirTemp("", "tl-studio-codex-turn-*")
-	if err != nil {
-		return nativeModelResponse{}, err
-	}
-	defer os.RemoveAll(tempDir)
-	schemaPath := filepath.Join(tempDir, "response-schema.json")
-	outputPath := filepath.Join(tempDir, "response.json")
-	schemaBytes, _ := json.Marshal(codexBridgeSchema())
-	if err := os.WriteFile(schemaPath, schemaBytes, 0o600); err != nil {
-		return nativeModelResponse{}, err
-	}
+type codexThreadStartResponse struct {
+	Thread struct {
+		ID string `json:"id"`
+	} `json:"thread"`
+}
 
-	args := []string{
-		"exec",
-		"--ephemeral",
-		"--ignore-user-config",
-		"--ignore-rules",
-		"--skip-git-repo-check",
-		"--sandbox", "read-only",
-		"-c", `approval_policy="never"`,
-		"-c", `web_search="disabled"`,
-	}
-	if effort := strings.TrimSpace(request.Model.ReasoningEffort); effort != "" {
-		args = append(args, "-c", fmt.Sprintf("model_reasoning_effort=%q", effort))
-	}
-	args = append(args,
-		"--color", "never",
-		"--model", strings.TrimSpace(request.Model.ID),
-		"-C", tempDir,
-		"--output-schema", schemaPath,
-		"--output-last-message", outputPath,
-		"-",
-	)
-	cmd := codexProcess(ctx, command, args...)
-	if err := prepareCodexCommand(cmd); err != nil {
-		return nativeModelResponse{}, err
-	}
-	cmd.Stdin = strings.NewReader(prompt)
-	cmd.Stdout = io.Discard
-	bridgeStderr := newBoundedTextBuffer(8 << 10)
-	cmd.Stderr = bridgeStderr
-	if err := cmd.Run(); err != nil {
-		detail := bridgeStderr.String()
-		if detail != "" {
-			return nativeModelResponse{}, fmt.Errorf("official Codex model bridge failed: %w — %s", err, detail)
-		}
-		return nativeModelResponse{}, fmt.Errorf("official Codex model bridge failed: %w", err)
-	}
-	data, err := os.ReadFile(outputPath)
-	if err != nil {
-		return nativeModelResponse{}, errors.New("official Codex bridge did not return a final response")
-	}
-	if len(data) > 2<<20 {
-		return nativeModelResponse{}, errors.New("official Codex bridge response is too large")
-	}
-	var output codexBridgeOutput
-	if err := json.Unmarshal(data, &output); err != nil {
-		return nativeModelResponse{}, errors.New("official Codex bridge returned invalid structured output")
-	}
+type codexTurnStartResponse struct {
+	Turn struct {
+		ID string `json:"id"`
+	} `json:"turn"`
+}
 
+type codexItemCompletedNotification struct {
+	ThreadID string `json:"threadId"`
+	TurnID   string `json:"turnId"`
+	Item     struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	} `json:"item"`
+}
+
+type codexTurnCompletedNotification struct {
+	ThreadID string `json:"threadId"`
+	Turn     struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		Error  *struct {
+			Message string `json:"message"`
+		} `json:"error,omitempty"`
+	} `json:"turn"`
+}
+
+func codexStructuredThreadConfig() map[string]any {
+	return map[string]any{
+		"features.apps": false,
+		"features.code_mode": false,
+		"features.code_mode_only": false,
+		"features.context_management": false,
+		"features.current_time_reminder": false,
+		"features.deferred_executor": false,
+		"features.enable_fanout": false,
+		"features.goals": false,
+		"features.hooks": false,
+		"features.image_generation": false,
+		"features.memories": false,
+		"features.multi_agent": false,
+		"features.multi_agent_v2": false,
+		"features.plugins": false,
+		"features.request_permissions_tool": false,
+		"features.shell_snapshot": false,
+		"features.shell_tool": false,
+		"features.standalone_web_search": false,
+		"features.token_budget": false,
+		"features.tool_suggest": false,
+		"features.unified_exec": false,
+		"features.view_image": false,
+		"cloud.skills.enabled": false,
+		"skills.include_instructions": false,
+		"tools.experimental_request_user_input.enabled": false,
+		"tools.update_plan.enabled": false,
+		"web_search": "disabled",
+	}
+}
+
+func codexBridgeResponse(request nativeModelRequest, output codexBridgeOutput, onTextDelta func(string)) (nativeModelResponse, error) {
 	allowed := map[string]nativeModelToolDefinition{}
 	for _, tool := range request.Tools {
 		allowed[tool.ID] = tool
@@ -643,4 +645,143 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 		onTextDelta(response.Text)
 	}
 	return response, nil
+}
+
+func collectCodexStructuredTurn(ctx context.Context, server *codexAppServer, threadID, turnID string) (string, error) {
+	var response string
+	for {
+		select {
+		case notification := <-server.notify:
+			switch notification.Method {
+			case "item/completed":
+				var completed codexItemCompletedNotification
+				if err := json.Unmarshal(notification.Params, &completed); err != nil {
+					continue
+				}
+				if completed.ThreadID == threadID && completed.TurnID == turnID &&
+					completed.Item.Type == "agentMessage" {
+					if len(completed.Item.Text) > 2<<20 {
+						return "", errors.New("official Codex bridge response is too large")
+					}
+					response = completed.Item.Text
+				}
+			case "turn/completed":
+				var completed codexTurnCompletedNotification
+				if err := json.Unmarshal(notification.Params, &completed); err != nil {
+					continue
+				}
+				if completed.ThreadID != threadID || completed.Turn.ID != turnID {
+					continue
+				}
+				if completed.Turn.Status != "completed" {
+					message := "official Codex structured turn ended with status " + completed.Turn.Status
+					if completed.Turn.Error != nil && strings.TrimSpace(completed.Turn.Error.Message) != "" {
+						message += ": " + strings.TrimSpace(completed.Turn.Error.Message)
+					}
+					return "", errors.New(message)
+				}
+				if strings.TrimSpace(response) == "" {
+					return "", errors.New("official Codex structured turn completed without a response")
+				}
+				return response, nil
+			}
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-server.done:
+			return "", server.stoppedError()
+		}
+	}
+}
+
+func (a *chatGPTAccountAdapter) completeModelTurnWithServer(
+	ctx context.Context,
+	server *codexAppServer,
+	request nativeModelRequest,
+	onTextDelta func(string),
+) (nativeModelResponse, error) {
+	prompt, err := codexBridgePrompt(request)
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	tempDir, err := os.MkdirTemp("", "tl-studio-codex-turn-*")
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	defer os.RemoveAll(tempDir)
+
+	var thread codexThreadStartResponse
+	if err := server.request(ctx, "thread/start", map[string]any{
+		"model": strings.TrimSpace(request.Model.ID),
+		"modelProvider": "openai",
+		"cwd": tempDir,
+		"approvalPolicy": "never",
+		"sandbox": "read-only",
+		"ephemeral": true,
+		"config": codexStructuredThreadConfig(),
+	}, &thread); err != nil {
+		return nativeModelResponse{}, err
+	}
+	threadID := strings.TrimSpace(thread.Thread.ID)
+	if threadID == "" {
+		return nativeModelResponse{}, errors.New("official Codex structured thread returned no thread id")
+	}
+	defer func() {
+		unsubscribeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = server.request(unsubscribeCtx, "thread/unsubscribe", map[string]any{"threadId": threadID}, nil)
+	}()
+
+	turnParams := map[string]any{
+		"threadId": threadID,
+		"input": []map[string]any{{
+			"type": "text",
+			"text": prompt,
+			"text_elements": []any{},
+		}},
+		"outputSchema": codexBridgeSchema(),
+	}
+	if effort := strings.TrimSpace(request.Model.ReasoningEffort); effort != "" {
+		turnParams["effort"] = effort
+	}
+	var turn codexTurnStartResponse
+	if err := server.request(ctx, "turn/start", turnParams, &turn); err != nil {
+		return nativeModelResponse{}, err
+	}
+	turnID := strings.TrimSpace(turn.Turn.ID)
+	if turnID == "" {
+		return nativeModelResponse{}, errors.New("official Codex structured turn returned no turn id")
+	}
+	data, err := collectCodexStructuredTurn(ctx, server, threadID, turnID)
+	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			a.resetBridgeServerLocked()
+		}
+		return nativeModelResponse{}, err
+	}
+	var output codexBridgeOutput
+	if err := json.Unmarshal([]byte(data), &output); err != nil {
+		return nativeModelResponse{}, errors.New("official Codex bridge returned invalid structured output")
+	}
+	return codexBridgeResponse(request, output, onTextDelta)
+}
+
+func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
+	if a == nil {
+		return nativeModelResponse{}, errors.New("ChatGPT account transport is unavailable")
+	}
+	command, err := a.resolveCommand()
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	a.bridgeMu.Lock()
+	defer a.bridgeMu.Unlock()
+	server, err := a.bridgeServerLocked(command)
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	response, err := a.completeModelTurnWithServer(ctx, server, request, onTextDelta)
+	if err != nil && server.isClosed() {
+		a.resetBridgeServerLocked()
+	}
+	return response, err
 }
