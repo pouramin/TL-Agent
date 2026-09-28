@@ -1,21 +1,20 @@
 ---
 title: مدل Security
-description: Network، Filesystem، Model Connection، Plugin/MCP، Credential، Permission، Session و Preview Boundary در TL Studio v0.5.
+description: مرزهای Network، Filesystem، Provider، Account Login، Plugin/MCP، Credential، Permission، Session و Preview در TL Studio.
 icon: ShieldCheck
 ---
 
-TL Studio یک Local Application است، نه Coding Service که از راه دور Expose شود.
+TL Studio یک Local Application است و به‌عنوان Coding Service عمومی روی Network اجرا نمی‌شود.
 
-## Loopback-only Control Surface
+## Control Surface روی Loopback
 
 Server مربوط به Browser فقط روی Loopback Bind می‌شود.
 
-مقدار Non-loopback برای `--listen` Reject می‌شود.
+مقدار Listen غیرمحلی Reject می‌شود.
 
 Request دارای Origin با Local Control Origin بررسی می‌شود و UI با Content Security Policy محدودکننده Serve می‌شود.
 
-
-## Project Filesystem Boundary
+## مرز Filesystem پروژه
 
 Browser Filesystem Operation و Built-in Native Tool به Project انتخاب‌شده محدود هستند.
 
@@ -23,38 +22,46 @@ TL Studio، Path Traversal، Symlink Escape، Protected Root Mutation و Protect
 
 Editor Save از SHA-256 Revision Check استفاده می‌کند تا Disk Content جدید با Buffer قدیمی Silent Overwrite نشود.
 
-## Native Permission Boundary
+## مرز Permission بومی
 
-Native Tool فقط‌خواندنی بدون Write/Execute/Network می‌تواند بدون Human Prompt اجرا شود.
+Tool فقط‌خواندنی بدون Write/Execute/Network می‌تواند بدون Human Prompt اجرا شود.
 
 Write/Edit و Command Execution از Permission Engine خود TL Studio عبور می‌کنند.
 
-Execute/Network حساس به Reusable Approval تبدیل نمی‌شود و Native Tool ناشناخته قابل Authorize نیست.
+Action حساس Execute/Network به Reusable Approval تبدیل نمی‌شود و Native Tool ناشناخته قابل Authorize نیست.
 
-Remembered Ruleهای Project-scoped داخل `permissions.json` هستند.
+Remembered Ruleهای Project-scoped داخل permissions.json هستند.
 
 ## Credential Vault
 
-Provider API Key و Plugin Secret Environment Value از Config معمولی جدا هستند.
+Provider API Key، Credential حساب و Plugin Secret Environment Value از Config معمولی جدا هستند.
 
 Credential Backend:
 
 - Windows با DPAPI؛
 - macOS با Keychain در صورت دسترسی؛
-- Linux با Secret Service از طریق `secret-tool` در صورت وجود؛
-- در غیر این صورت Encrypted Private-file Fallback.
+- Linux با Secret Service از طریق secret-tool در صورت وجود؛
+- در غیر این صورت Encrypted Private-file.
 
-فایل‌های `providers.json` و `plugins.json` Definition/Reference را ذخیره می‌کنند، نه Raw Secret Value.
+Provider و Plugin JSON عادی Definition/Reference را ذخیره می‌کنند، نه Raw Secret Value.
 
-## Provider Discovery Boundary
+### Credential حساب
+
+در Development v0.6، Credential دستی API و Credential حساب در Slotهای جدا هستند.
+
+OAuth Code، PKCE Verifier، Access Token، Refresh Token، API Key، Cookie و Client Secret وارد Browser State نمی‌شوند.
+
+Sign out کردن حساب API Key دستی موجود را حذف نمی‌کند.
+
+## مرز Provider Discovery
 
 Remote Model Discovery، Endpoint تنظیم‌شده را یک Trust Boundary جدا در نظر می‌گیرد.
 
-TL Studio، HTTP(S) Base URL را Validate می‌کند، Embedded Credential داخل URL را Reject می‌کند، Cross-origin Redirect را Block می‌کند، Redirect Depth و Request/Response را محدود می‌کند و Authentication Failure را پشت Stale Cache پنهان نمی‌کند.
+TL Studio، HTTP(S) Base URL را Validate می‌کند، Embedded Credential داخل URL را Reject می‌کند، Redirect و Response Size را محدود می‌کند و Authentication Failure را پشت Stale Cache پنهان نمی‌کند.
 
-Model Request همچنان Data را به Endpoint تنظیم‌شده می‌فرستد؛ فقط Endpoint قابل‌اعتماد Configure کنید.
+Model Request Data را به Endpoint تنظیم‌شده می‌فرستد؛ فقط Endpoint قابل‌اعتماد Configure کنید.
 
-## Plugin/MCP Trust Boundary
+## مرز Plugin/MCP
 
 MCP Plugin از نوع stdio یک **Local Executable Process** است.
 
@@ -62,17 +69,13 @@ Save کردن Plugin Command را Start نمی‌کند. Enable یک Action جد
 
 Plugin Secret Environment Value از Credential Vault می‌آید.
 
-Working Directory مربوط به Project Scope داخل Project Boundary Resolve می‌شود.
-
 MCP Tool Discover‌شده قبل از Execution همچنان از Permission Authorizer خود TL Studio عبور می‌کند.
 
-خود Plugin Executable، Third-party Code است که با Permissionهای OS User اجرا می‌شود؛ فقط Command قابل‌اعتماد Configure کنید.
+فقط Command قابل‌اعتماد Configure کنید.
 
 ## Session Persistence
 
 Semantic Session Snapshot داخل Private Local Application State ذخیره می‌شود و می‌تواند Prompt، Assistant Output، Tool Activity، Usage و Project Changes داشته باشد.
-
-Inline Attachment Payload با Prefix `data:` قبل از Persist شدن حذف می‌شود.
 
 Local State Directory خود TL Studio را Sensitive User Data در نظر بگیرید.
 
@@ -80,10 +83,10 @@ Local State Directory خود TL Studio را Sensitive User Data در نظر بگ
 
 Project Web Content داخل Preview روی Privileged Control Origin مربوط به TL Studio اجرا نمی‌شود.
 
-Static/File Preview روی Loopback Origin جداست، Node Preview فقط Local URL را می‌پذیرد و File Server فقط Read است.
+Static/File Preview روی Loopback Origin جداست و Dev Server Preview فقط Local URL را می‌پذیرد.
 
 ## بدون Telemetry یا Model Proxy متعلق به Product
 
 TL Studio به Telemetry Backend، Model Proxy، Remote Workspace Service یا Database متعلق به پروژه نیاز ندارد.
 
-Network Access از Model Endpoint صریح User، Package/Release Distribution و رفتار Plugin Configure‌شده ایجاد می‌شود.
+Network Access از Model Endpoint صریح User، Package/Release Distribution و رفتار MCP/Plugin تنظیم‌شده ایجاد می‌شود.
