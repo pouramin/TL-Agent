@@ -11,6 +11,9 @@ import { K } from "./kernel";
   const panel = document.querySelector<HTMLElement>('[data-settings-panel="plugins"]');
   const list = document.getElementById("pluginList");
   const editor = document.getElementById("pluginEditor");
+  const pluginDialog = document.getElementById("pluginDialog") as HTMLDialogElement | null;
+  const pluginDialogTitle = document.getElementById("pluginDialogTitle");
+  const pluginDialogClose = document.getElementById("pluginDialogClose") as HTMLButtonElement | null;
   const addButton = document.getElementById("pluginAddButton") as HTMLButtonElement | null;
   const editID = document.getElementById("pluginEditID") as HTMLInputElement | null;
   const nameInput = document.getElementById("pluginNameInput") as HTMLInputElement | null;
@@ -25,7 +28,7 @@ import { K } from "./kernel";
   const cancelButton = document.getElementById("pluginCancelButton") as HTMLButtonElement | null;
   const testButton = document.getElementById("pluginTestButton") as HTMLButtonElement | null;
   const saveButton = document.getElementById("pluginSaveButton") as HTMLButtonElement | null;
-  if (!panel || !list || !editor || !addButton || !nameInput || !commandInput || !argsInput || !transportSelect || !scopeSelect || !cwdInput || !envInput || !editID) return;
+  if (!panel || !list || !editor || !pluginDialog || !addButton || !nameInput || !commandInput || !argsInput || !transportSelect || !scopeSelect || !cwdInput || !envInput || !editID) return;
 
   const setStatus = (message = "", kind = "") => {
     if (!status) return;
@@ -80,7 +83,7 @@ import { K } from "./kernel";
   };
 
   const closeEditor = () => {
-    editor.classList.add("hidden");
+    if (pluginDialog.open) pluginDialog.close();
     resetEditor();
   };
 
@@ -95,11 +98,9 @@ import { K } from "./kernel";
     cwdInput.value = plugin?.workingDirectory || "";
     envInput.value = (plugin?.environment || []).map((item) => `${item.name}=`).join("\n");
     setStatus(plugin?.environment?.length ? "Secret environment values are preserved unless you replace or remove their variable names." : "");
-    editor.classList.remove("hidden");
-    requestAnimationFrame(() => {
-      editor.scrollIntoView({ behavior: "smooth", block: "start" });
-      nameInput.focus({ preventScroll: true });
-    });
+    if (pluginDialogTitle) pluginDialogTitle.textContent = plugin ? "Configure plugin" : "Add plugin";
+    if (!pluginDialog.open) pluginDialog.showModal();
+    requestAnimationFrame(() => nameInput.focus({ preventScroll: true }));
   };
 
   const statusClass = (value: string) => "plugin-status-" + String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
@@ -315,6 +316,8 @@ import { K } from "./kernel";
 
   addButton.addEventListener("click", () => openEditor());
   cancelButton?.addEventListener("click", closeEditor);
+  pluginDialogClose?.addEventListener("click", closeEditor);
+  pluginDialog.addEventListener("close", resetEditor);
 
   testButton?.addEventListener("click", async () => {
     const plugin = formPlugin();
@@ -468,7 +471,9 @@ import { K } from "./kernel";
   });
 
   const settingsDialog = document.getElementById("settingsDialog") as HTMLDialogElement | null;
-  settingsDialog?.addEventListener("close", closeEditor);
+  settingsDialog?.addEventListener("close", () => {
+    if (pluginDialog.open) pluginDialog.close();
+  });
 
   const baseAfterProjectChange = K.afterProjectChange;
   if (typeof baseAfterProjectChange === "function") {
