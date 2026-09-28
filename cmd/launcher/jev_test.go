@@ -82,7 +82,7 @@ func TestJevRouterRegistersAndResolvesThroughExistingProviderRegistry(t *testing
 	if err := credentials.Put("openrouter", "shared-key"); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 	provider, model, key, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
 	if err != nil {
 		t.Fatal(err)
@@ -122,7 +122,7 @@ func TestOpenRouterJevRouterResolvesWithoutCatalogToolFlag(t *testing.T) {
 	if err := credentials.Put("openrouter", "shared-key"); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 	_, model, key, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
 	if err != nil {
 		t.Fatalf("Jev Router must stay on TL Studio's native Agent path even when catalog tool metadata is absent: %v", err)
@@ -266,7 +266,7 @@ func TestOpenRouterCredentialReuseForDecisionEngine(t *testing.T) {
 	if err := credentials.Put("my-existing-openrouter", "existing-secret"); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 
 	provider, key, err := manager.findOpenRouterProvider()
 	if err != nil {
@@ -294,7 +294,7 @@ func TestDisabledJevRouterCannotResolveForNativeExecution(t *testing.T) {
 	if _, err := saveJevRouterConfig(jevRouterConfig{Enabled: false}); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 	_, _, _, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
 	if err == nil || !strings.Contains(err.Error(), "JEV is disabled") {
 		t.Fatalf("disabled JEV must not resolve for native execution, got %v", err)
@@ -346,7 +346,7 @@ func TestJevRouterFreeTierIsConfiguredButCannotActivate(t *testing.T) {
 	if err := credentials.Put("openrouter", "free-key"); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 	var calls atomic.Int32
 	service := newJevRouterService(manager)
 	service.client = &http.Client{Transport: jevRoundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -407,7 +407,7 @@ func TestJevRouterEligibleAccountCanEnableAndDisableWithoutDeletingConfig(t *tes
 	if err := credentials.Put("openrouter", "paid-tier-key"); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 	var calls atomic.Int32
 	service := newJevRouterService(manager)
 	service.client = &http.Client{Transport: jevRoundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -521,7 +521,7 @@ func TestDecisionEngineCannotEnableWithoutOpenRouterCredential(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	service := newDecisionEngineService(&runtimeProviderManager{
+	service := newDecisionEngineService(&providerManager{
 		store: store, credentials: newMemoryProviderCredentialStore(),
 	})
 	_, err := service.configure(decisionEngineConfig{Engine: jevDecisionEngineID})

@@ -23,37 +23,22 @@ jobs:
             goos: windows
             goarch: amd64
             launcher: tl-studio.exe
-            kilo_asset: kilo-windows-x64.zip
-            kilo_binary: kilo.exe
-            kind: zip
           - name: linux-x64
             goos: linux
             goarch: amd64
             launcher: tl-studio
-            kilo_asset: kilo-linux-x64.tar.gz
-            kilo_binary: kilo
-            kind: tar
           - name: linux-arm64
             goos: linux
             goarch: arm64
             launcher: tl-studio
-            kilo_asset: kilo-linux-arm64.tar.gz
-            kilo_binary: kilo
-            kind: tar
           - name: macos-x64
             goos: darwin
             goarch: amd64
             launcher: tl-studio
-            kilo_asset: kilo-darwin-x64.zip
-            kilo_binary: kilo
-            kind: zip
           - name: macos-arm64
             goos: darwin
             goarch: arm64
             launcher: tl-studio
-            kilo_asset: kilo-darwin-arm64.zip
-            kilo_binary: kilo
-            kind: zip
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +50,7 @@ jobs:
           node-version: '24.x'
       - name: Install UI build tools
         run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Type-check browser runtime contract
+      - name: Type-check browser product API
         run: npm run check:web
       - name: Build browser UI
         run: npm run build:web
@@ -92,26 +77,9 @@ jobs:
           CGO_ENABLED: '0'
         run: |
           set -euo pipefail
-          mkdir -p staging/package/bin staging/upstream
+          mkdir -p staging/package
           go build -trimpath -ldflags "-s -w -X main.version=${RELEASE_TAG}" -o "staging/package/${{ matrix.launcher }}" ./cmd/launcher
-      - name: Download pinned bundled runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
-          URL="https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${{ matrix.kilo_asset }}"
-          curl --fail --location --retry 3 "$URL" -o "staging/upstream/${{ matrix.kilo_asset }}"
-          if [[ "${{ matrix.kind }}" == "zip" ]]; then
-            unzip -q "staging/upstream/${{ matrix.kilo_asset }}" -d staging/upstream/extracted
-          else
-            mkdir -p staging/upstream/extracted
-            tar -xzf "staging/upstream/${{ matrix.kilo_asset }}" -C staging/upstream/extracted
-          fi
-          KILO_BIN="$(find staging/upstream/extracted -type f -name '${{ matrix.kilo_binary }}' | head -n 1)"
-          test -n "$KILO_BIN"
-          cp "$KILO_BIN" "staging/package/bin/${{ matrix.kilo_binary }}"
           chmod +x "staging/package/${{ matrix.launcher }}" || true
-          chmod +x "staging/package/bin/${{ matrix.kilo_binary }}" || true
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp -R third_party/. staging/package/third_party/
@@ -120,16 +88,26 @@ jobs:
           python3 scripts/stage-bundled-plugins.py \
             --target "${{ matrix.name }}" \
             --package-dir staging/package
-      - name: Real bundled-runtime product API contract test
+      - name: Assert package contains no Kilo runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find staging/package -type f \( -iname 'kilo' -o -iname 'kilo.exe' \) -print -quit | grep -q .; then
+            echo "Kilo runtime leaked into a TL Studio release package." >&2
+            find staging/package -type f -iname 'kilo*' -print >&2
+            exit 1
+          fi
+      - name: Native product API contract test
         if: matrix.name == 'linux-x64'
         shell: bash
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
+          STATE_DIR="$(mktemp -d)"
           BINARY="$GITHUB_WORKSPACE/staging/package/tl-studio"
           START_DIR="$PWD"
           cd /tmp
-          "$BINARY" --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          TL_STUDIO_STATE_DIR="$STATE_DIR" "$BINARY" --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
           cd "$START_DIR"
           cleanup() {
@@ -141,14 +119,13 @@ jobs:
           LOCAL_URL=""
           for _ in $(seq 1 100); do
             LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
-            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/runtime/global/health" >/dev/null; then
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/health" >/dev/null; then
               break
             fi
             sleep 0.2
           done
           test -n "$LOCAL_URL"
-          python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
-          python3 scripts/check-kilo-product-contract.py "$LOCAL_URL"
+          python3 scripts/check-native-product-contract.py "$LOCAL_URL" "$GITHUB_WORKSPACE"
       - name: Package
         shell: bash
         run: |
@@ -198,6 +175,6 @@ jobs:
           if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc) ]]; then PRERELEASE="--prerelease"; fi
           gh release create "$RELEASE_TAG" dist/* \
             --target "$GITHUB_SHA" \
-            --title "TL Studio ${RELEASE_TAG}" \
+            --title "TL Studio $RELEASE_TAG" \
             --generate-notes \
             $PRERELEASE

@@ -97,36 +97,27 @@ import { K } from "./kernel";
   K.checkBackend = async () => {
     try {
       const health = await K.api.health();
-      if (health?.healthy !== true) throw new Error("Runtime health check did not report healthy");
+      if (health?.healthy !== true) throw new Error("Local health check did not report healthy");
       K.els.backendStatus.className = "status-dot ok";
       K.els.backendStatus.innerHTML = "<i></i> Local";
       return true;
     } catch (err) {
       K.els.backendStatus.className = "status-dot error";
       K.els.backendStatus.innerHTML = "<i></i> Offline";
-      K.showError(`Runtime backend: ${err instanceof Error ? err.message : String(err)}`);
+      K.showError(`Local service: ${err instanceof Error ? err.message : String(err)}`);
       return false;
     }
   };
 
   K.modelValue = (model?: TLStudioModelRef | TLStudioSessionModelRef) => model ? `${model.providerID}::${model.id}${model.variant ? `::${model.variant}` : ""}` : "";
 
-  K.preferredHostedModel = () => {
-    if (!K.state.connectedProviders.has(K.api.hosted.providerID)) return undefined;
-    const candidates = [...(K.api.hosted.preferredModels || []), K.state.providerDefaults?.[K.api.hosted.providerID]].filter(Boolean);
-    for (const id of candidates) {
-      const match = K.state.models.find((model) => model.providerID === K.api.hosted.providerID && model.id === id);
-      if (match) return { providerID: match.providerID, id: match.id };
-    }
-    const first = K.state.models.find((model) => model.providerID === K.api.hosted.providerID);
-    return first ? { providerID: first.providerID, id: first.id } : undefined;
-  };
-
   K.renderAccount = () => {
-    const connected = K.state.connectedProviders.has(K.api.hosted.providerID);
-    K.els.accountButton.textContent = connected ? "Hosted models connected" : "Connect hosted models";
-    K.els.accountButton.classList.toggle("signed-in", connected);
-    K.els.accountButton.title = connected ? "Hosted model account is connected" : "Connect an account for hosted models";
+    const connected = K.state.providerAccounts.filter((account) => account.connected).length;
+    K.els.accountButton.textContent = "Account";
+    K.els.accountButton.classList.toggle("signed-in", connected > 0);
+    K.els.accountButton.title = connected
+      ? `${connected} provider account${connected === 1 ? "" : "s"} connected — open Providers`
+      : "Open provider account settings";
   };
 
   K.renderAgents = () => {
@@ -182,8 +173,6 @@ import { K } from "./kernel";
       select.value = current;
       return;
     }
-    const preferred = K.modelValue(K.preferredHostedModel());
-    if (preferred && values.includes(preferred)) select.value = preferred;
   };
 
   K.loadCatalog = async () => {

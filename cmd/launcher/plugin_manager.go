@@ -100,6 +100,31 @@ func normalizePluginProject(project string) string {
 	return project
 }
 
+func pluginProjectMatchKey(project string) string {
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return ""
+	}
+	if absolute, err := filepath.Abs(project); err == nil {
+		project = absolute
+	}
+	project = filepath.Clean(project)
+	if resolved, err := filepath.EvalSymlinks(project); err == nil {
+		project = filepath.Clean(resolved)
+	}
+	if runtime.GOOS == "windows" {
+		const extendedUNCPrefix = `\\?\UNC\`
+		const extendedPathPrefix = `\\?\`
+		if strings.HasPrefix(strings.ToUpper(project), strings.ToUpper(extendedUNCPrefix)) {
+			project = `\\` + project[len(extendedUNCPrefix):]
+		} else if strings.HasPrefix(project, extendedPathPrefix) {
+			project = project[len(extendedPathPrefix):]
+		}
+		project = strings.ToLower(project)
+	}
+	return project
+}
+
 func normalizePluginID(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	var b strings.Builder
@@ -253,9 +278,10 @@ func (s *pluginStore) loadLocked() error {
 	}
 	for _, plugin := range stored.Plugins {
 		normalized, err := normalizePluginConfig(plugin, plugin.Project)
-		if err == nil {
-			s.plugins = append(s.plugins, normalized)
+		if err != nil {
+			return fmt.Errorf("decode saved plugin %q: %w", plugin.ID, err)
 		}
+		s.plugins = append(s.plugins, normalized)
 	}
 	return nil
 }
@@ -304,7 +330,19 @@ func pluginMatchesProject(config pluginConfig, project string) bool {
 	if config.Scope == "global" {
 		return true
 	}
-	return normalizePluginProject(config.Project) == normalizePluginProject(project)
+	stored := pluginProjectMatchKey(config.Project)
+	active := pluginProjectMatchKey(project)
+	if stored != "" && stored == active {
+		return true
+	}
+	// A project may be reopened through a junction, symlink, an extended Windows
+	// path, or another equivalent absolute path across review builds. Keep
+	// project-scoped plugin persistence tied to the actual directory rather than
+	// the spelling of the path while still preventing leakage into unrelated
+	// projects.
+	storedInfo, storedErr := os.Stat(config.Project)
+	activeInfo, activeErr := os.Stat(project)
+	return storedErr == nil && activeErr == nil && os.SameFile(storedInfo, activeInfo)
 }
 
 func pluginKey(config pluginConfig) string {
@@ -327,6 +365,71 @@ func (s *pluginStore) list(project string) ([]pluginConfig, error) {
 		return strings.ToLower(result[i].Name) < strings.ToLower(result[j].Name)
 	})
 	return result, nil
+}
+
+func (s *pluginStore) listSavedElsewhere(project string) ([]pluginConfig, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil {
+		return nil, err
+	}
+	result := []pluginConfig{}
+	for _, plugin := range s.plugins {
+		if plugin.Scope == "project" && !pluginMatchesProject(plugin, project) {
+			result = append(result, plugin)
+		}
+	}
+	sort.Slice(result, func(i, j int) bool {
+		left := strings.ToLower(result[i].Name) + "\x00" + normalizePluginProject(result[i].Project)
+		right := strings.ToLower(result[j].Name) + "\x00" + normalizePluginProject(result[j].Project)
+		return left < right
+	})
+	return result, nil
+}
+
+func (s *pluginStore) findSavedProject(project, id string) (pluginConfig, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil {
+		return pluginConfig{}, false, err
+	}
+	id = normalizePluginID(id)
+	project = normalizePluginProject(project)
+	for _, plugin := range s.plugins {
+		if plugin.Scope == "project" && plugin.ID == id && normalizePluginProject(plugin.Project) == project {
+			return plugin, true, nil
+		}
+	}
+	return pluginConfig{}, false, nil
+}
+
+func (s *pluginStore) replaceProject(source, next pluginConfig) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil {
+		return err
+	}
+	sourceKey := pluginKey(source)
+	index := -1
+	for i, plugin := range s.plugins {
+		if pluginKey(plugin) == sourceKey {
+			index = i
+			break
+		}
+	}
+	if index < 0 {
+		return os.ErrNotExist
+	}
+	for i, plugin := range s.plugins {
+		if i == index || plugin.ID != next.ID || plugin.Scope != "project" {
+			continue
+		}
+		if pluginMatchesProject(plugin, next.Project) {
+			return errors.New("current project already has a plugin with this ID")
+		}
+	}
+	s.plugins[index] = next
+	return s.persistLocked()
 }
 
 func (s *pluginStore) find(project, id string) (pluginConfig, bool, error) {
@@ -806,6 +909,89 @@ func (m *pluginManager) List(project string, start bool) ([]pluginView, error) {
 		views = append(views, m.viewConfig(project, config, start))
 	}
 	return views, nil
+}
+
+func (m *pluginManager) SavedElsewhere(project string) ([]pluginView, error) {
+	configs, err := m.store.listSavedElsewhere(project)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]pluginView, 0, len(configs))
+	for _, config := range configs {
+		views = append(views, pluginView{
+			pluginConfig: config,
+			Origin: pluginOrigin(config),
+			Version: pluginVersion(config),
+			Status: "Saved",
+		})
+	}
+	return views, nil
+}
+
+func (m *pluginManager) AttachToProject(project, id, sourceProject string) (pluginView, error) {
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return pluginView{}, errors.New("open a project before attaching a saved plugin")
+	}
+	source, found, err := m.store.findSavedProject(sourceProject, id)
+	if err != nil {
+		return pluginView{}, err
+	}
+	if !found {
+		return pluginView{}, os.ErrNotExist
+	}
+	if pluginMatchesProject(source, project) {
+		return m.View(project, id, true)
+	}
+	if _, exists, findErr := m.store.find(project, id); findErr != nil {
+		return pluginView{}, findErr
+	} else if exists {
+		return pluginView{}, errors.New("current project already has a plugin with this ID")
+	}
+
+	next := source
+	next.Project = project
+	next, err = normalizePluginConfig(next, project)
+	if err != nil {
+		return pluginView{}, err
+	}
+
+	type copiedCredential struct{ oldID, newID string }
+	copied := []copiedCredential{}
+	for _, item := range source.Environment {
+		oldID := pluginCredentialID(source, item.Name)
+		newID := pluginCredentialID(next, item.Name)
+		value, getErr := m.credentials.Get(oldID)
+		if errors.Is(getErr, errCredentialNotFound) {
+			continue
+		}
+		if getErr != nil {
+			return pluginView{}, getErr
+		}
+		if putErr := m.credentials.Put(newID, value); putErr != nil {
+			for _, entry := range copied {
+				_ = m.credentials.Delete(entry.newID)
+			}
+			return pluginView{}, putErr
+		}
+		copied = append(copied, copiedCredential{oldID: oldID, newID: newID})
+	}
+
+	if err := m.store.replaceProject(source, next); err != nil {
+		for _, entry := range copied {
+			_ = m.credentials.Delete(entry.newID)
+		}
+		return pluginView{}, err
+	}
+	for _, entry := range copied {
+		_ = m.credentials.Delete(entry.oldID)
+	}
+
+	m.mu.Lock()
+	m.stopLocked(source)
+	delete(m.errors, m.clientKey(source))
+	m.mu.Unlock()
+	return m.View(project, id, true)
 }
 
 func (m *pluginManager) View(project, id string, start bool) (pluginView, error) {

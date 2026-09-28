@@ -41,7 +41,7 @@ func TestEmbeddedLivePreviewUIContract(t *testing.T) {
 		"Preview file",
 		`capability?.kind === "html"`,
 		"tl-studio:project-file-changed",
-		`startsWith("file.")`,
+		`event?.type === "workspace.changed"`,
 		"keepalive: true",
 	} {
 		if !strings.Contains(text, required) {
