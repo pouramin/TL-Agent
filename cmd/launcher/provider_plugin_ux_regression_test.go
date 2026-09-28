@@ -151,3 +151,32 @@ func TestProviderSettingsUseDedicatedModalEditor(t *testing.T) {
 		t.Fatal("provider form must not remain as a hidden inline Settings form")
 	}
 }
+
+
+func TestCustomProviderSetupPrefersAutomaticModelDiscovery(t *testing.T) {
+	providers := readBrowserSource(t, "providers-ui.ts")
+	discovery := readBrowserSource(t, "provider-discovery-ui.ts")
+
+	for _, required := range []string{
+		`id="providerIdInput" type="hidden"`,
+		`API type`,
+		`OpenAI-compatible`,
+		`Anthropic-compatible`,
+		`API URL`,
+		`K.__providersUi?.discoverySelection?.discover?.()`,
+		`providerIDFrom`,
+		`inferredProviderName`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("simplified custom-provider UI contract missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`providersUI.discoverySelection.discover = () => discover()`,
+		`new Set(catalog.map((model) => clean(model?.id)).filter(Boolean))`,
+	} {
+		if !strings.Contains(discovery, required) {
+			t.Fatalf("automatic provider discovery contract missing %q", required)
+		}
+	}
+}
