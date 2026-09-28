@@ -22,16 +22,18 @@ Development status:
 
 The fully native runtime milestone is complete and released as stable v0.5.0. The active 0.6 milestone is account-based providers and simplified custom-provider setup.
 
-Current validation branch:
+Current validation state:
 
-docs/account-provider-manual-validation
+Real Windows provider-account validation is in progress on current dev.
 
-Current draft PR:
+Current open development PR:
 
-Not opened yet.
+None.
 
-Completed 0.6 account-provider PRs:
+Completed 0.6 account-provider / validation UX PRs:
 
+#130 — Compact provider account settings into logo cards
+#129 — Document the 0.6 real account validation gate
 #128 — Use a dedicated Gemini desktop OAuth loopback
 #127 — Add in-app setup for account providers
 #126 — Keep custom provider setup discovery-first
@@ -207,7 +209,7 @@ Older commits and PRs used Kilo as a bundled or optional compatibility runtime. 
 
 ## Current manual validation gate
 
-Automated validation is green through PR #128. The next release gate requires real provider-account validation rather than more mocked OAuth work.
+Automated validation is green through PR #130. The next release gate remains real provider-account validation rather than more mocked OAuth work.
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
