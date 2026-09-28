@@ -86,6 +86,17 @@ import { K } from "./kernel";
       };
     },
 
+    providerAccounts: {
+      list: async () => {
+        const payload = await K.request(withQuery("/local/provider-accounts", { directory: projectDirectory() }));
+        return Array.isArray(payload) ? payload : [];
+      },
+      status: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() })),
+      authorize: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/authorize`, { directory: projectDirectory() }), { method: "POST" }),
+      callback: (providerID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/callback`, { directory: projectDirectory() }), { method: "POST", signal }),
+      disconnect: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
+    },
+
     providers: {
       config: async () => {
         const payload = unwrapData(await request("/providers/config")) || {};

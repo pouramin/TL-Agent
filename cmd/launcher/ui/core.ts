@@ -123,10 +123,12 @@ import { K } from "./kernel";
   };
 
   K.renderAccount = () => {
-    const connected = K.state.connectedProviders.has(K.api.hosted.providerID);
-    K.els.accountButton.textContent = connected ? "Hosted models connected" : "Connect hosted models";
-    K.els.accountButton.classList.toggle("signed-in", connected);
-    K.els.accountButton.title = connected ? "Hosted model account is connected" : "Connect an account for hosted models";
+    const connected = K.state.providerAccounts.filter((account) => account.connected).length;
+    K.els.accountButton.textContent = "Account";
+    K.els.accountButton.classList.toggle("signed-in", connected > 0);
+    K.els.accountButton.title = connected
+      ? `${connected} provider account${connected === 1 ? "" : "s"} connected — open Providers`
+      : "Open provider account settings";
   };
 
   K.renderAgents = () => {

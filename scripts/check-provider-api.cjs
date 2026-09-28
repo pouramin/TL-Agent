@@ -22,6 +22,20 @@ const K = {
     if (path === "/runtime/providers/config" && (!options.method || options.method === "GET")) {
       return { providers: [] };
     }
+    if (path.startsWith("/local/provider-accounts")) {
+      return [{
+        id: "kilo",
+        name: "Kilo",
+        description: "Account provider",
+        available: true,
+        connected: true,
+        authModes: ["account"],
+        requiresCompatibility: true,
+        accountType: "oauth",
+        organizationId: "org-1",
+        models: ["kilo-auto/free"],
+      }];
+    }
     if (path.includes("/hosted/status")) {
       return {
         authenticated: true,
@@ -48,6 +62,11 @@ const context = vm.createContext({
 vm.runInContext(source, context, { filename: "runtime-api.ts" });
 
 async function main() {
+  assert.ok(K.api?.providerAccounts?.list);
+  assert.ok(K.api?.providerAccounts?.status);
+  assert.ok(K.api?.providerAccounts?.authorize);
+  assert.ok(K.api?.providerAccounts?.callback);
+  assert.ok(K.api?.providerAccounts?.disconnect);
   assert.ok(K.api?.providers?.config);
   assert.ok(K.api?.providers?.upsert);
   assert.ok(K.api?.providers?.remove);
@@ -58,6 +77,15 @@ async function main() {
   assert.deepEqual(Array.from(K.api.hosted.preferredModels), ["kilo-auto/free"]);
   assert.match(calls.at(-1).path, /^\/runtime\/providers\/catalog\?/);
   assert.match(calls.at(-1).path, /directory=C%3A%5CProjects%5Cdemo/);
+
+  const accounts = await K.api.providerAccounts.list();
+  assert.equal(accounts[0].id, "kilo");
+  assert.equal(accounts[0].connected, true);
+  assert.match(calls.at(-1).path, /^\/local\/provider-accounts\?/);
+  assert.match(calls.at(-1).path, /directory=C%3A%5CProjects%5Cdemo/);
+
+  await K.api.providerAccounts.status("kilo");
+  assert.match(calls.at(-1).path, /^\/local\/provider-accounts\/kilo\?/);
 
   await K.api.providers.config();
   assert.equal(calls.at(-1).path, "/runtime/providers/config");

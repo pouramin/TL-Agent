@@ -283,23 +283,9 @@
     </div>
   </dialog>
 
-  <dialog id="accountDialog">
-    <div class="dialog-card account-card">
-      <h2>Hosted models</h2><p>Manage the hosted model account used by the local runtime.</p>
-      <div id="accountStatus" class="account-state">Checking account status…</div>
-      <div class="dialog-actions split">
-        <button id="accountClose" class="ghost" type="button">Close</button>
-        <div class="dialog-actions-inline">
-          <button id="accountSignOut" class="danger-button hidden" type="button">Sign out</button>
-          <button id="accountSignIn" class="primary hidden" type="button">Sign in</button>
-        </div>
-      </div>
-    </div>
-  </dialog>
-
   <dialog id="authDialog">
     <div class="dialog-card auth-card">
-      <h2>Connect hosted models</h2><p id="authInstructions">Starting secure device authorization…</p>
+      <h2>Connect provider account</h2><p id="authInstructions">Starting secure provider authorization…</p>
       <div id="authCodeWrap" class="auth-code-wrap hidden"><span>Device code</span><button id="authCode" class="auth-code" type="button" title="Copy code"></button></div>
       <div class="dialog-actions split"><button id="authCancel" class="ghost" type="button">Cancel</button><button id="authOpen" class="primary" type="button" disabled>Open sign-in page</button></div>
     </div>

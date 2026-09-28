@@ -66,6 +66,14 @@ def main():
 
     request(base, "/runtime/global/health", expected=503)
 
+    accounts = request(base, f"/local/provider-accounts?{query}")
+    require(isinstance(accounts, list), f"provider account list mismatch: {accounts!r}")
+    kilo_account = next((item for item in accounts if isinstance(item, dict) and item.get("id") == "kilo"), None)
+    require(isinstance(kilo_account, dict), f"Kilo provider account adapter missing: {accounts!r}")
+    require(kilo_account.get("available") is False and kilo_account.get("connected") is False,
+            f"native-only Kilo account must be unavailable: {kilo_account!r}")
+    require(kilo_account.get("authModes") == ["account"], f"Kilo account auth modes mismatch: {kilo_account!r}")
+
     hosted = request(base, f"/runtime/hosted/status?{query}")
     require(hosted.get("available") is False and hosted.get("authenticated") is False,
             f"hosted compatibility status mismatch: {hosted!r}")

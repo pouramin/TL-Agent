@@ -4,7 +4,7 @@
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center"><strong>Development branch: 0.5.0-alpha.1</strong> · Stable release: v0.4.0.</p>
+<p align="center"><strong>Development branch: 0.5.0-alpha.2</strong> · Stable release: v0.4.0.</p>
 
 <p align="center">
   A fast local development workspace with AI built in.
@@ -57,7 +57,8 @@ The release already includes the pinned local agent runtime.
 - **Standalone local development workspace** — edit files, search the project, run commands, preview the app, and work with an AI agent in one browser workspace.
 - **Local project picker** — open project folders with the operating-system folder picker.
 - **Agent & model selection** — switch agents and available provider models from the composer.
-- **Custom providers + model discovery** — connect OpenAI-compatible, OpenAI Responses, and Anthropic-compatible endpoints, test/discover models before saving, search and select multiple models, refresh the catalog, and keep manual model IDs as a fallback.
+- **Provider accounts + API providers** — connect supported provider accounts from Settings → Providers or add OpenAI-compatible, OpenAI Responses, and Anthropic-compatible API endpoints. Account login and API credentials stay separate behind one TL Studio provider surface.
+- **Custom providers + model discovery** — test/discover models before saving, search and select multiple models, refresh the catalog, and keep manual model IDs as a fallback.
 - **Plugins & MCP** — add arbitrary stdio MCP servers and support version-pinned bundled plugins through the same Plugin Manager; TL Studio discovers tools dynamically, namespaces them, routes them through the native Tool Registry and permission engine, and exposes enabled tools to the native Agent.
 - **File attachments** — attach images, PDFs, and text/code files; multi-select, drag/drop, and clipboard paste are supported.
 - **Kilo-free native startup** — TL Studio can boot and run the Browser workspace without a Kilo binary. Supported custom providers, native sessions, Agent execution, permissions, events, files, search, Terminal, Preview, Plugins/MCP, and the editor remain available; Kilo is an optional compatibility path for hosted/legacy capabilities.

@@ -14,19 +14,11 @@ import { K } from "./kernel";
     settingsPanels: [...document.querySelectorAll("[data-settings-panel]")],
     appearanceSelect: $("appearanceSelect"),
     fontSizeSelect: $("fontSizeSelect"),
-    accountDialog: $("accountDialog"),
-    accountStatus: $("accountStatus"),
-    accountSignIn: $("accountSignIn"),
-    accountSignOut: $("accountSignOut"),
-    accountClose: $("accountClose"),
   };
 
   const THEME_KEY = "tl-studio.appearance";
   const FONT_KEY = "tl-studio.font-size";
   const systemTheme = window.matchMedia?.("(prefers-color-scheme: light)");
-  const hostedAvailable = () => K.state.hostedAuth?.available ?? K.api.hosted.available;
-  const hostedConnected = () => hostedAvailable() && (K.state.hostedAuth?.authenticated ?? K.state.connectedProviders.has(K.api.hosted.providerID));
-
   const readSetting = (key: any, fallback: any) => {
     try { return window.localStorage.getItem(key) || fallback; }
     catch { return fallback; }
@@ -163,81 +155,6 @@ import { K } from "./kernel";
     }
   };
 
-  const originalRenderAccount = K.renderAccount;
-  K.renderAccount = () => {
-    const connected = hostedConnected();
-    const button = K.els.accountButton;
-    if (!button) return originalRenderAccount?.();
-    button.textContent = "Account";
-    button.classList.toggle("signed-in", connected);
-    button.title = connected
-      ? "Hosted model account connected — open account settings"
-      : hostedAvailable()
-        ? "Connect hosted models"
-        : "Hosted models require the optional compatibility runtime";
-  };
-
-  const renderAccountDialog = () => {
-    const available = hostedAvailable();
-    const connected = hostedConnected();
-    if (ui.accountStatus) {
-      ui.accountStatus.textContent = !available
-        ? "Hosted models are unavailable because the optional compatibility runtime is not installed or running."
-        : connected
-          ? "Your hosted model account is connected on this computer."
-          : "No hosted model account is connected.";
-    }
-    ui.accountSignIn?.classList.toggle("hidden", connected || !available);
-    ui.accountSignOut?.classList.toggle("hidden", !connected);
-  };
-
-  const originalSignInHosted = K.signInHosted;
-  K.signInHosted = async () => {
-    try {
-      await K.refreshHostedAuthStatus?.();
-    } catch (error) {
-      K.showError(`Unable to verify hosted account state: ${(error as any).message || String(error)}`);
-    }
-    renderAccountDialog();
-    ui.accountDialog?.showModal();
-  };
-
-  const startSignIn = async () => {
-    if (ui.accountDialog?.open) ui.accountDialog.close();
-    await originalSignInHosted();
-  };
-
-  const signOut = async () => {
-    if (!hostedConnected()) return;
-    if (!window.confirm("Sign out of the hosted model account on this computer?")) return;
-    ui.accountSignOut.disabled = true;
-    K.showError("");
-    try {
-      K.state.authController?.abort();
-      K.state.authController = null;
-
-      await K.api.hosted.disconnect();
-      K.applyHostedAuthStatus?.({ available: true, authenticated: false });
-
-      await K.api.runtime.dispose();
-      await K.loadCatalog();
-      const status = await K.refreshHostedAuthStatus();
-      if (status.authenticated) throw new Error("The hosted account is still authenticated after sign-out.");
-
-      if (K.state.session?.model?.providerID === K.api.hosted.providerID) K.state.session.model = undefined;
-      if (K.els.modelSelect) K.els.modelSelect.value = "";
-      K.renderSessionHeader?.();
-      renderAccountDialog();
-      if (ui.accountDialog?.open) ui.accountDialog.close();
-    } catch (error) {
-      K.showError((error as any).message || String(error));
-      try { await K.refreshHostedAuthStatus?.(); } catch {}
-      renderAccountDialog();
-    } finally {
-      ui.accountSignOut.disabled = false;
-    }
-  };
-
   const activateSettingsSection = (name = "general") => {
     const navItems = [...(ui.settingsDialog?.querySelectorAll("[data-settings-section]") || [])];
     const panels = [...(ui.settingsDialog?.querySelectorAll("[data-settings-panel]") || [])];
@@ -276,7 +193,4 @@ import { K } from "./kernel";
     writeSetting(FONT_KEY, ui.fontSizeSelect.value);
     applyFontSize(ui.fontSizeSelect.value);
   });
-  ui.accountSignIn?.addEventListener("click", startSignIn);
-  ui.accountSignOut?.addEventListener("click", signOut);
-  ui.accountClose?.addEventListener("click", () => ui.accountDialog.close());
 })();

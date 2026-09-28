@@ -172,20 +172,23 @@ The optional direct Jev Decision Engine is entirely outside the Kilo compatibili
 
 Credentials remain intentionally excluded from `providers.json` and browser storage. Custom-provider API keys are now owned by TL Studio's credential vault and synchronized into Kilo's auth store only as an execution copy. Kilo's existing pre-migration secrets are not reverse-readable, so a legacy provider keeps working through the runtime store until the user saves a credential through TL Studio. Hosted Kilo OAuth remains an engine-specific account integration behind the hosted-provider adapter rather than part of the custom-provider API-key vault.
 
-## Hosted provider mapping
+## Kilo account-provider mapping
 
-The browser uses TL Studio semantic hosted-provider routes:
+Normal Browser UI now uses TL Studio's provider-neutral account-auth contract:
 
-- `GET /runtime/hosted/status`
-- `POST /runtime/hosted/authorize`
-- `POST /runtime/hosted/callback`
-- `DELETE /runtime/hosted`
+- `GET /local/provider-accounts`
+- `GET /local/provider-accounts/kilo`
+- `POST /local/provider-accounts/kilo/authorize`
+- `POST /local/provider-accounts/kilo/callback`
+- `DELETE /local/provider-accounts/kilo`
 
-The launcher maps those calls to Kilo's hosted-provider/auth implementation only when the compatibility runtime is available. In native-only mode, status returns `available: false`, authorization mutations return HTTP 503, and the hosted Kilo provider/models are omitted from the selectable catalog.
+The Kilo implementation is isolated behind `ProviderAccountAdapter`. It maps those semantic calls to the current Kilo compatibility runtime only when that runtime is available. In native-only mode, the Kilo account card remains discoverable but reports `available: false`; sign-in is disabled and no hosted Kilo models enter the selectable catalog.
 
-The current bundled engine exposes its hosted provider as `kilo` and currently advertises `kilo-auto/free` as the preferred Auto Free model. These IDs are returned to the browser as runtime metadata rather than hard-coded in browser modules.
+The historical `/runtime/hosted/*` routes remain temporary compatibility aliases and are no longer the primary Browser account API.
 
-A future engine replacement must be able to change this mapping without redesigning the product UI.
+TL Studio does not duplicate Kilo's private OAuth protocol. Kilo's public documentation currently describes API-key authentication for external Gateway clients; browser/device account login stays delegated to the optional Kilo implementation until a public third-party account-auth contract exists.
+
+The current compatibility engine exposes its hosted provider as `kilo` and currently advertises `kilo-auto/free` as the preferred Auto Free model. Those implementation IDs remain on the Kilo adapter side of the product boundary.
 
 ## Browser adapter policy
 

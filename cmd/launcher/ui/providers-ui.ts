@@ -129,7 +129,7 @@ import { K } from "./kernel";
     <div class="settings-panel-head providers-panel-head">
       <div>
         <h3>Providers</h3>
-        <p>Add OpenAI-compatible, OpenAI Responses, or Anthropic-compatible endpoints to TL Studio. Models saved here appear in TL Studio's model selector. Product-managed integrations such as JEV are configured from their own control.</p>
+        <p>Connect supported provider accounts or add API endpoints to TL Studio. Account sign-in and API credentials stay separate, while all available models appear in the same model selector. Product-managed integrations such as JEV keep their own controls.</p>
       </div>
       <button id="providerAddButton" class="primary provider-add-button" type="button">Add provider</button>
     </div>
