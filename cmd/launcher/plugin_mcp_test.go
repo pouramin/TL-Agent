@@ -204,6 +204,49 @@ func TestPluginProjectMatchKeyResolvesEquivalentAliases(t *testing.T) {
 	}
 }
 
+func TestSavedPluginCanAttachToCurrentProjectAndKeepSecrets(t *testing.T) {
+	temp := t.TempDir()
+	projectA := filepath.Join(temp, "project-a")
+	projectB := filepath.Join(temp, "project-b")
+	if err := os.MkdirAll(projectA, 0o755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(projectB, 0o755); err != nil { t.Fatal(err) }
+
+	manager := newTestPluginManager(t, projectA, &recordingPluginAuthorizer{})
+	config := fakeMCPConfig(projectA, false)
+	env := fakeMCPEnvironment()
+	if _, err := manager.Upsert(projectA, pluginUpsertRequest{Plugin: config, Environment: &env}); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := manager.SavedElsewhere(projectB)
+	if err != nil { t.Fatal(err) }
+	if len(saved) != 1 || saved[0].ID != config.ID || saved[0].Status != "Saved" {
+		t.Fatalf("saved plugin was not surfaced for recovery: %#v", saved)
+	}
+
+	view, err := manager.AttachToProject(projectB, config.ID, saved[0].Project)
+	if err != nil { t.Fatal(err) }
+	if view.Project != normalizePluginProject(projectB) || view.Status != "Disabled" {
+		t.Fatalf("plugin did not attach to current project: %#v", view)
+	}
+
+	oldItems, err := manager.store.list(projectA)
+	if err != nil { t.Fatal(err) }
+	if len(oldItems) != 0 {
+		t.Fatalf("plugin remained attached to old project: %#v", oldItems)
+	}
+	newItems, err := manager.store.list(projectB)
+	if err != nil { t.Fatal(err) }
+	if len(newItems) != 1 || newItems[0].ID != config.ID {
+		t.Fatalf("plugin missing from new project after attach: %#v", newItems)
+	}
+	resolved, err := manager.configEnvironment(newItems[0])
+	if err != nil { t.Fatal(err) }
+	if resolved["TEST_PLUGIN_SECRET"] != "SUPER_SECRET_VALUE" {
+		t.Fatalf("plugin secret did not migrate with project attachment: %#v", resolved)
+	}
+}
+
 func TestMCPClientInitializesDiscoversAndCallsTools(t *testing.T) {
 	project := t.TempDir()
 	config := fakeMCPConfig(project, true)
