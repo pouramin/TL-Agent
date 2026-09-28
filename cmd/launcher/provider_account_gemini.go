@@ -249,6 +249,7 @@ func (a *googleGeminiAccountAdapter) unavailableReason() string {
 
 func (a *googleGeminiAccountAdapter) baseStatus() providerAccountStatus {
 	description := "Official Google OAuth for Gemini API access. API quota and billing remain tied to a Google Cloud project."
+	clientID, projectID := a.setupValues()
 	status := providerAccountStatus{
 		ID:           googleGeminiAccountProviderID,
 		Name:         "Google / Gemini",
@@ -260,7 +261,7 @@ func (a *googleGeminiAccountAdapter) baseStatus() providerAccountStatus {
 		BillingNote:  "A Gemini consumer subscription is separate from Gemini API quota and billing.",
 		Setup: &providerAccountSetupSummary{
 			Configurable: true,
-			Configured:   a.available(),
+			Configured:   clientID != "" && projectID != "",
 			Label:        "Google API setup",
 		},
 	}
