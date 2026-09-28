@@ -25,6 +25,24 @@ import { K } from "./kernel";
     } catch { return ""; }
   };
 
+  const inferredProviderName = (baseURL: any) => {
+    try {
+      const hostname = new URL(clean(baseURL)).hostname.replace(/^(api|www)\./i, "");
+      return hostname || "Custom Provider";
+    } catch {
+      return "Custom Provider";
+    }
+  };
+
+  const providerIDFrom = (name: any, baseURL: any) => {
+    const source = clean(name) || inferredProviderName(baseURL);
+    const slug = source.toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48);
+    return slug || "custom-provider";
+  };
+
   const validateDraft = (draft: any) => {
     const id = clean(draft.providerID);
     if (!PROVIDER_ID.test(id)) return "Provider ID must use lowercase letters, numbers, dashes, or underscores.";
@@ -151,10 +169,10 @@ import { K } from "./kernel";
       <div id="providerDialogNotice" class="provider-notice hidden" role="status"></div>
       <form id="providerForm" class="provider-form">
         <div class="provider-form-grid">
-          <label><span>Provider ID</span><input id="providerIdInput" autocomplete="off" spellcheck="false" placeholder="my-provider" /></label>
-          <label><span>Display name</span><input id="providerNameInput" autocomplete="off" placeholder="My Provider" /></label>
-          <label><span>Provider API</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI Compatible</option><option value="openai-responses">OpenAI Responses</option><option value="anthropic-messages">Anthropic Messages</option></select></label>
-          <label class="provider-field-wide"><span>Base URL</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
+          <input id="providerIdInput" type="hidden" />
+          <label><span>Name <small>(optional)</small></span><input id="providerNameInput" autocomplete="off" placeholder="Detected from the endpoint" /></label>
+          <label><span>API type</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI-compatible</option><option value="anthropic-messages">Anthropic-compatible</option><option value="openai-responses">OpenAI Responses (advanced)</option></select></label>
+          <label class="provider-field-wide"><span>API URL</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
           <label class="provider-field-wide"><span>API key</span><input id="providerApiKeyInput" class="provider-api-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" data-form-type="other" data-lpignore="true" data-1p-ignore placeholder="Leave blank to keep an existing key" /></label>
           <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="model-id" /></label>
           <label><span>Model name</span><input id="providerModelNameInput" autocomplete="off" placeholder="Model name" /></label>
@@ -230,11 +248,15 @@ import { K } from "./kernel";
     for (const item of settingsDialog.querySelectorAll<HTMLElement>("[data-settings-panel]")) item.classList.toggle("hidden", item.dataset.settingsPanel !== "providers");
   };
 
-  const draft = () => ({
-    providerID: els.id.value,
-    name: els.name.value,
+  const draft = () => {
+    const baseURL = els.baseURL.value;
+    const name = clean(els.name.value) || inferredProviderName(baseURL);
+    const providerID = clean(els.id.value) || providerIDFrom(name, baseURL);
+    return {
+    providerID,
+    name,
     protocol: els.protocol.value,
-    baseURL: els.baseURL.value,
+    baseURL,
     apiKey: els.apiKey.value,
     models: K.__providersUi?.discoverySelection?.modelsForSave?.() || [],
     modelID: els.modelID.value,
@@ -243,7 +265,8 @@ import { K } from "./kernel";
     outputLimit: els.output.value,
     toolCall: els.toolCall.checked,
     reasoning: els.reasoning.checked,
-  });
+    };
+  };
 
   const resetFormFields = () => {
     editingID = "";
@@ -251,7 +274,6 @@ import { K } from "./kernel";
     els.protocol.value = "openai-compatible";
     els.toolCall.checked = true;
     els.reasoning.checked = false;
-    els.id.disabled = false;
     els.title.textContent = "Add provider";
     K.__providersUi?.discoverySelection?.reset?.();
     if (els.dialogNotice) {
@@ -288,7 +310,6 @@ import { K } from "./kernel";
     els.output.value = value.outputLimit || "";
     els.toolCall.checked = value.toolCall !== false;
     els.reasoning.checked = value.reasoning === true;
-    els.id.disabled = !!existingID;
     els.title.textContent = existingID ? "Configure provider" : "Add provider";
     if (!providerDialog.open) providerDialog.showModal();
     requestAnimationFrame(() => els.name.focus({ preventScroll: true }));
@@ -375,7 +396,27 @@ import { K } from "./kernel";
   const save = async (event: any) => {
     event?.preventDefault();
     if (saving) return;
-    const value = draft();
+
+    let value = draft();
+    if (!editingID) {
+      const used = new Set(customProviderEntries(providerConfig).map((provider: any) => clean(provider?.id)));
+      let candidate = value.providerID;
+      let suffix = 2;
+      while (used.has(candidate)) candidate = `${value.providerID}-${suffix++}`;
+      els.id.value = candidate;
+      value = draft();
+    }
+    if (!clean(els.name.value)) els.name.value = value.name;
+
+    if (!(Array.isArray(value.models) && value.models.length) && !clean(value.modelID)) {
+      setBusy(true);
+      notice("");
+      const discovered = await K.__providersUi?.discoverySelection?.discover?.();
+      setBusy(false);
+      if (discovered === false) return;
+      value = draft();
+    }
+
     const error = validateDraft(value);
     if (error) return notice(error, true);
 
@@ -398,7 +439,7 @@ import { K } from "./kernel";
         K.state.models.some((model) => model.providerID === id && model.id === modelID));
       clearForm();
       notice(loadedModelIDs.length === savedModelIDs.length
-        ? `${value.name} saved. ${savedModelIDs.length} model${savedModelIDs.length === 1 ? "" : "s"} available in the model selector.`
+        ? `${value.name} saved. TL Studio discovered and enabled ${savedModelIDs.length} model${savedModelIDs.length === 1 ? "" : "s"}.`
         : `${value.name} was saved, but TL Studio can use ${loadedModelIDs.length} of ${savedModelIDs.length} selected models natively. Check tool-calling support, endpoint, and protocol.`,
         loadedModelIDs.length !== savedModelIDs.length);
     } catch (err) {
