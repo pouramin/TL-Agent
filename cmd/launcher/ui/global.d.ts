@@ -244,16 +244,39 @@ interface TLStudioLiveEvent {
   path?: string;
 }
 
+type TLStudioProviderAccountState =
+  | "disconnected"
+  | "connecting"
+  | "connected"
+  | "expired"
+  | "needs_reauthentication"
+  | "error";
+
 interface TLStudioProviderAccount {
   id: string;
   name: string;
   description?: string;
   available: boolean;
   connected: boolean;
+  state: TLStudioProviderAccountState;
   authModes: string[];
   accountType?: string;
+  accountLabel?: string;
   organizationId?: string;
   models?: string[];
+  entitlement?: string;
+  unsupportedReason?: string;
+}
+
+interface TLStudioProviderAccountLoginChallenge {
+  loginId: string;
+  flow: "authorization_code_pkce" | "device_code" | string;
+  authorizationUrl?: string;
+  verificationUrl?: string;
+  userCode?: string;
+  instructions?: string;
+  expiresAt?: string;
+  pollIntervalSeconds?: number;
 }
 
 interface TLStudioProviderState {
@@ -272,8 +295,12 @@ interface TLStudioProductAPI {
   providerAccounts: {
     list(): Promise<TLStudioProviderAccount[]>;
     status(providerID: string): Promise<TLStudioProviderAccount>;
-    authorize(providerID: string): Promise<TLStudioDynamicRecord>;
-    callback(providerID: string, signal?: AbortSignal): Promise<TLStudioDynamicRecord>;
+    authorize(providerID: string): Promise<TLStudioProviderAccountLoginChallenge>;
+    complete(providerID: string, loginID: string, signal?: AbortSignal): Promise<TLStudioProviderAccount>;
+    callback(providerID: string, loginID: string, signal?: AbortSignal): Promise<TLStudioProviderAccount>;
+    cancel(providerID: string, loginID: string): Promise<TLStudioDynamicRecord>;
+    refresh(providerID: string): Promise<TLStudioProviderAccount>;
+    models(providerID: string): Promise<string[]>;
     disconnect(providerID: string): Promise<TLStudioDynamicRecord>;
   };
   providers: {
