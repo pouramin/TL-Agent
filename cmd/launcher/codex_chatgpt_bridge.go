@@ -40,19 +40,26 @@ func codexProcess(ctx context.Context, command codexCommand, args ...string) *ex
 	if runtime.GOOS == "windows" {
 		ext := strings.ToLower(filepath.Ext(executable))
 		if ext == ".cmd" || ext == ".bat" {
-			parts := make([]string, 0, len(allArgs)+1)
-			parts = append(parts, quoteWindowsBatchArg(executable))
-			for _, arg := range allArgs {
-				parts = append(parts, quoteWindowsBatchArg(arg))
-			}
-			return exec.CommandContext(ctx, "cmd.exe", "/d", "/s", "/c", strings.Join(parts, " "))
+			return exec.CommandContext(ctx, "cmd.exe", "/d", "/s", "/c", windowsBatchCommandLine(executable, allArgs))
 		}
 	}
 	return exec.CommandContext(ctx, executable, allArgs...)
 }
 
+func windowsBatchCommandLine(executable string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, quoteWindowsBatchArg(executable))
+	for _, arg := range args {
+		parts = append(parts, quoteWindowsBatchArg(arg))
+	}
+	// cmd.exe /S /C strips the outer quote pair. Keep a second quote pair
+	// around the batch file itself so paths containing spaces still execute.
+	return "\"" + strings.Join(parts, " ") + "\""
+}
+
 func quoteWindowsBatchArg(value string) string {
-	value = strings.ReplaceAll(value, "\"", "\\\"")
+	value = strings.ReplaceAll(value, "%", "%%")
+	value = strings.ReplaceAll(value, "\"", "\"\"")
 	return "\"" + value + "\""
 }
 
