@@ -194,7 +194,7 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
 	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
-	if input.ManagedBy != "" && input.ManagedBy != "jev" {
+	if input.ManagedBy != "" && input.ManagedBy != "jev" && input.ManagedBy != "account" {
 		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
 	}
 	if len(input.Models) == 0 { return tlProviderDefinition{}, errors.New("provider must define at least one model") }
