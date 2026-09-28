@@ -100,6 +100,31 @@ func normalizePluginProject(project string) string {
 	return project
 }
 
+func pluginProjectMatchKey(project string) string {
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return ""
+	}
+	if absolute, err := filepath.Abs(project); err == nil {
+		project = absolute
+	}
+	project = filepath.Clean(project)
+	if resolved, err := filepath.EvalSymlinks(project); err == nil {
+		project = filepath.Clean(resolved)
+	}
+	if runtime.GOOS == "windows" {
+		const extendedUNCPrefix = `\\?\UNC\`
+		const extendedPathPrefix = `\\?\`
+		if strings.HasPrefix(strings.ToUpper(project), strings.ToUpper(extendedUNCPrefix)) {
+			project = `\\` + project[len(extendedUNCPrefix):]
+		} else if strings.HasPrefix(project, extendedPathPrefix) {
+			project = project[len(extendedPathPrefix):]
+		}
+		project = strings.ToLower(project)
+	}
+	return project
+}
+
 func normalizePluginID(value string) string {
 	value = strings.ToLower(strings.TrimSpace(value))
 	var b strings.Builder
@@ -305,15 +330,16 @@ func pluginMatchesProject(config pluginConfig, project string) bool {
 	if config.Scope == "global" {
 		return true
 	}
-	stored := normalizePluginProject(config.Project)
-	active := normalizePluginProject(project)
-	if stored == active {
+	stored := pluginProjectMatchKey(config.Project)
+	active := pluginProjectMatchKey(project)
+	if stored != "" && stored == active {
 		return true
 	}
-	// A project may be reopened through a junction, symlink, or another
-	// equivalent absolute path across review builds. Keep project-scoped plugin
-	// persistence tied to the actual directory rather than the spelling of the
-	// path while still preventing leakage into unrelated projects.
+	// A project may be reopened through a junction, symlink, an extended Windows
+	// path, or another equivalent absolute path across review builds. Keep
+	// project-scoped plugin persistence tied to the actual directory rather than
+	// the spelling of the path while still preventing leakage into unrelated
+	// projects.
 	storedInfo, storedErr := os.Stat(config.Project)
 	activeInfo, activeErr := os.Stat(project)
 	return storedErr == nil && activeErr == nil && os.SameFile(storedInfo, activeInfo)
