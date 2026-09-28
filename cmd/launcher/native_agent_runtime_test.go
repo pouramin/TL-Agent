@@ -311,3 +311,27 @@ func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
 		}
 	}
 }
+
+
+func TestNativeToolResultMessageIncludesMeasuredDuration(t *testing.T) {
+	result := nativeToolResult{
+		ToolID:   "terminal.command",
+		CallID:   "call-duration",
+		Output:   map[string]any{"exitCode": 0},
+		Duration: 1234,
+	}
+	message := nativeToolResultMessage(result)
+	if !strings.Contains(message, `"durationMs":1234`) {
+		t.Fatalf("tool result did not expose measured duration: %s", message)
+	}
+}
+
+func TestTerminalTimeoutSchemaExplainsDeadlineNotDelay(t *testing.T) {
+	schema := nativeToolInputSchema("terminal.command")
+	props, _ := schema["properties"].(map[string]any)
+	timeout, _ := props["timeoutSeconds"].(map[string]any)
+	description, _ := timeout["description"].(string)
+	if !strings.Contains(strings.ToLower(description), "deadline") || !strings.Contains(strings.ToLower(description), "not a sleep") {
+		t.Fatalf("timeoutSeconds description is ambiguous: %q", description)
+	}
+}
