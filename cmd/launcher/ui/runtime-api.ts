@@ -74,7 +74,23 @@ import { K } from "./kernel";
       },
       status: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() })),
       authorize: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/authorize`, { directory: projectDirectory() }), { method: "POST" }),
-      callback: (providerID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/callback`, { directory: projectDirectory() }), { method: "POST", signal }),
+      complete: (providerID: string, loginID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/complete`, {
+        directory: projectDirectory(),
+        login: loginID,
+      }), { method: "POST", signal }),
+      callback: (providerID: string, loginID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/callback`, {
+        directory: projectDirectory(),
+        login: loginID,
+      }), { method: "POST", signal }),
+      cancel: (providerID: string, loginID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/cancel`, {
+        directory: projectDirectory(),
+        login: loginID,
+      }), { method: "POST" }),
+      refresh: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/refresh`, { directory: projectDirectory() }), { method: "POST" }),
+      models: async (providerID: string) => {
+        const payload = await K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/models`, { directory: projectDirectory() })) || {};
+        return Array.isArray(payload.models) ? payload.models.map(String) : [];
+      },
       disconnect: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
     },
 
