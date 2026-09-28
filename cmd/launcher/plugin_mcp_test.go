@@ -247,6 +247,43 @@ func TestSavedPluginCanAttachToCurrentProjectAndKeepSecrets(t *testing.T) {
 	}
 }
 
+func TestPluginRemovalPersistsAcrossReloadAndDeletesSecrets(t *testing.T) {
+	project := t.TempDir()
+	manager := newTestPluginManager(t, project, &recordingPluginAuthorizer{})
+	config := fakeMCPConfig(project, false)
+	env := fakeMCPEnvironment()
+	if _, err := manager.Upsert(project, pluginUpsertRequest{Plugin: config, Environment: &env}); err != nil {
+		t.Fatal(err)
+	}
+	stored, found, err := manager.store.find(project, config.ID)
+	if err != nil || !found {
+		t.Fatalf("plugin was not persisted before removal: found=%v err=%v", found, err)
+	}
+	credentialID := pluginCredentialID(stored, "TEST_PLUGIN_SECRET")
+	if _, err := manager.credentials.Get(credentialID); err != nil {
+		t.Fatalf("plugin credential missing before removal: %v", err)
+	}
+
+	if err := manager.Remove(project, config.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded := newPluginStore(manager.store.filePath)
+	items, err := reloaded.list(project)
+	if err != nil { t.Fatal(err) }
+	if len(items) != 0 {
+		t.Fatalf("removed plugin reappeared after store reload: %#v", items)
+	}
+	saved, err := reloaded.listSavedElsewhere(filepath.Join(project, "other-project"))
+	if err != nil { t.Fatal(err) }
+	if len(saved) != 0 {
+		t.Fatalf("removed plugin leaked into saved-for-another-project recovery: %#v", saved)
+	}
+	if _, err := manager.credentials.Get(credentialID); !errors.Is(err, errCredentialNotFound) {
+		t.Fatalf("removed plugin credential survived deletion: %v", err)
+	}
+}
+
 func TestMCPClientInitializesDiscoversAndCallsTools(t *testing.T) {
 	project := t.TempDir()
 	config := fakeMCPConfig(project, true)
