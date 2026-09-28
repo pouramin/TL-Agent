@@ -1,14 +1,21 @@
 ---
 title: TL Studio
-description: آشنایی با Workspace، Native Agent، Model Connection، Tool و Plugins/MCP در TL Studio v0.5.
+description: آشنایی با نسخهٔ پایدار v0.5 و Development Preview نسخهٔ v0.6 در TL Studio.
 icon: House
 ---
 
-TL Studio یک **Browser IDE و Coding-Agent Workspace با معماری Local-first** است. در Stable v0.5، Workspace، Monaco Editor، Search، Terminal، Preview، Session، Question، Permission، Provider، Plugins/MCP و Native Agent همگی پشت Contractهای Local خود TL Studio اجرا می‌شوند.
+TL Studio یک **محیط کدنویسی Local-first با Agent بومی** است. Workspace، Sessionها، Toolها، Permissionها، Providerها، Credentialها، Terminal، Preview و Plugins/MCP همگی پشت Contractهای محلی خود TL Studio قرار دارند.
+
+این سایت رفتار Stable و Development Preview را از هم جدا نگه می‌دارد:
+
+~~~text
+Stable:      v0.5.0
+Development: v0.6.0-alpha.1
+~~~
 
 ## معماری محصول
 
-```text
+~~~text
 User
  ↓
 Browser Workspace
@@ -22,46 +29,51 @@ TL Studio Local Core
  └─ Native Agent
        ↓
    Selected Provider
-```
+~~~
 
-اگر Protocol یا Capability انتخاب‌شده توسط Native Model Client پشتیبانی نشود، Error به‌صورت شفاف برمی‌گردد.
+اگر Protocol یا Capability پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد.
 
-## قابلیت‌های v0.5
+## نسخهٔ پایدار v0.5
 
-- Workspace دسکتاپ با محوریت Editor، شامل Activity Rail، Context Sidebar، Monaco، Agent Panel، Terminal، Floating Preview و Status Bar؛
-- Command Palette با `Ctrl/Cmd+K`؛
-- Panelهای قابل Resize و Persist به‌همراه حالت‌های Collapsed، Compact و Focused برای Agent؛
-- Project File قابل‌نوشتن با Revision/Conflict Protection و External-change Reconciliation؛
-- Project Search و Process Execution در Scope پروژه؛
-- Preview مبتنی بر Capability برای Web، Document، Image، Audio و Video؛
-- Session Lifecycle و Semantic Persistence کاملاً Native؛
-- Interactive Question و Permission Policy کاملاً Native؛
-- اجرای مستقیم Model از طریق Native Protocol Adapterهای متعلق به خود TL Studio؛
-- Model Discovery برای Provider با Catalog قابل Search و Cache Fallback؛
-- Credential Vault محلی؛
-- Native Model/Tool/Model Agent Loop؛
-- Core Coding Toolها به‌همراه Toolهای Dynamic از MCP Plugin؛
-- تنظیم MCP از نوع stdio در Scope پروژه یا Global با Enable/Test صریح؛
+نسخهٔ پایدار شامل این موارد است:
 
-## نسخه Stable
+- Workspace دسکتاپ با محوریت Editor و شامل Monaco، Explorer، Search، Sessionها، Changes، Terminal، Preview و Command Palette؛
+- Session، Question، Permission، Event معنایی و Persistence محلی؛
+- اجرای مستقیم مدل از طریق Adapterهای متعلق به TL Studio برای OpenAI-compatible، OpenAI Responses و Anthropic؛
+- Model Discovery، Catalog قابل Search و Cache محلی؛
+- Credential Vault خود TL Studio؛
+- Agent Loop بومی مدل/Tool/مدل؛
+- Toolهای داخلی کدنویسی و Toolهای سازگار MCP؛
+- توزیع پایدار با npm و Portable Release.
 
-نسخه Stable فعلی:
+## پیش‌نمایش توسعهٔ v0.6
 
-```text
-v0.5.0
-```
+خط توسعهٔ فعلی این قابلیت‌ها را اضافه می‌کند:
 
-اجرای سریع:
+- Transport بومی Google Gemini generateContent؛
+- Slot جدا برای Credential دستی API و Credential حساب؛
+- اتصال رسمی Account-backed برای **OpenRouter**، **Hugging Face** و **Google / Gemini**؛
+- Refresh و Revocation در Providerهای پشتیبانی‌شده؛
+- Model Discovery حسابی از همان Provider Registry؛
+- تنظیم داخل برنامه برای Google Cloud Project ID و Desktop OAuth Client ID در Gemini.
 
-```bash
+اتصال حساب این Providerها فعلاً به‌صورت شفاف Deferred است:
+
+- ChatGPT / Codex؛
+- حساب مصرف‌کنندهٔ Claude؛
+- GitHub Copilot.
+
+این موارد Hidden Credential یا Runtime Fallback نیستند.
+
+## شروع سریع
+
+اجرای نسخهٔ پایدار:
+
+~~~bash
 npx --yes tl-studio
-```
+~~~
 
-نسخه Portable هم از GitHub Releases قابل دریافت است.
-
-## منبع Stable
-
-این سایت فقط وضعیت Stable موجود در Branch `main` را مستند می‌کند. نسخه Stable فعلی `v0.5.0` است.
+نسخهٔ Portable نیز از GitHub Releases قابل دریافت است.
 
 ## از کجا شروع کنم؟
 
