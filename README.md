@@ -118,9 +118,15 @@ Custom providers use a discovery-first setup: normally you provide an API addres
 | **OpenRouter** | ✅ Available | Official OAuth + PKCE, account-backed credential flow, model discovery. |
 | **Hugging Face** | ✅ Available | Public-client OAuth + PKCE, refresh support, Inference Providers model discovery. |
 | **Google / Gemini** | ✅ Available | Installed-app OAuth + PKCE, refresh/revocation, native Gemini transport, Google Cloud quota project support. |
-| **ChatGPT / Codex** | ⏳ Deferred | Remains a required 0.6 goal; the currently documented third-party surface does not expose the raw model transport TL Studio needs to preserve its Native Agent boundary. |
+| **ChatGPT / Codex** | ✅ Available | Official Codex ChatGPT login, ChatGPT-plan model discovery, and an isolated provider bridge that keeps TL Studio's outer Native Agent and Tool Executor in control. |
 | **Claude account** | ⏳ Deferred | Anthropic API-key support is native; consumer-account login waits for a documented public third-party authorization contract. |
 | **GitHub Copilot** | ⏳ Deferred | Official account authentication exists, but the documented model path remains coupled to the Copilot SDK/runtime. |
+
+The ChatGPT integration uses OpenAI's official Codex CLI/App Server surface. TL Studio never copies ChatGPT cookies, browser sessions, private OAuth clients, or undocumented backend tokens. Codex authentication is isolated under TL Studio's own `CODEX_HOME`; the Browser sees only semantic account state.
+
+For ChatGPT-plan model turns, TL Studio invokes the official Codex CLI in ephemeral, read-only bridge mode with user/project Codex configuration ignored. The structured result is converted back into TL Studio model text or TL Studio Tool calls, so permission checks, Tool execution, Session persistence, and the outer model → tool → model loop remain owned by TL Studio.
+
+If `codex` is not already on `PATH`, TL Studio can use `npx @openai/codex`; Provider Settings also accepts an explicit Codex executable path.
 
 Deferred providers are visible in Settings on purpose. They are architecture boundaries, not hidden fallbacks.
 
