@@ -18,10 +18,10 @@ import { K } from "./kernel";
     <div class="provider-subsection-head">
       <div>
         <strong>Account providers</strong>
-        <span>Sign in with a provider account when an official supported integration is available.</span>
+        <span>Connect an account or configure a supported provider.</span>
       </div>
     </div>
-    <div id="providerAccountList" class="provider-account-list"></div>
+    <div id="providerAccountList" class="provider-account-grid"></div>
     <div class="provider-section-divider"><span>API providers</span></div>
   `;
   providerList.before(section);
@@ -56,19 +56,27 @@ import { K } from "./kernel";
     .provider-subsection-head strong,.provider-subsection-head span{display:block}
     .provider-subsection-head strong{font-size:11px}
     .provider-subsection-head span{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.45}
-    .provider-account-list{display:grid;gap:8px}
-    .provider-account-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
-    .provider-account-title{display:flex;align-items:center;gap:7px}
-    .provider-account-title strong{font-size:11px}
-    .provider-account-badge{display:inline-flex;align-items:center;height:18px;padding:0 6px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:8px}
-    .provider-account-meta{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}
-    .provider-account-actions{display:flex;gap:6px;align-items:center}
-    .provider-account-unavailable{opacity:.72}
+    .provider-account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .provider-account-card{position:relative;display:flex;min-width:0;min-height:148px;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;padding:13px 10px 10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-align:center}
+    .provider-account-card.provider-account-unavailable{opacity:.66}
+    .provider-account-card.provider-account-connected{border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}
+    .provider-account-logo{display:grid;width:42px;height:42px;place-items:center;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel) 72%,var(--text) 4%);color:var(--text)}
+    .provider-account-logo svg{display:block;width:25px;height:25px}
+    .provider-account-logo-fallback{font-size:15px;font-weight:800;line-height:1}
+    .provider-account-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:720}
+    .provider-account-state{display:flex;min-height:14px;align-items:center;gap:5px;color:var(--muted);font-size:8px;line-height:1.2}
+    .provider-account-state .provider-status-dot{width:6px;height:6px}
+    .provider-account-card-actions{display:flex;width:100%;margin-top:auto;align-items:center;justify-content:center;gap:5px}
+    .provider-account-card-actions .primary,.provider-account-card-actions .ghost{min-height:28px;padding:0 9px;font-size:8px}
+    .provider-account-signin{min-width:74px}
+    .provider-account-setup-button{position:absolute;top:8px;right:8px;width:25px;height:25px;padding:0;border-radius:8px;font-size:12px;line-height:1}
+    .provider-account-details{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px}
     .provider-account-setup-dialog{width:min(620px,calc(100vw - 36px));padding:20px}
     .provider-account-setup-fields{display:grid;gap:10px}.provider-account-setup-field>span{display:block;margin-bottom:5px;color:var(--muted);font-size:var(--tl-ui-xs);font-weight:650}.provider-account-setup-field input{box-sizing:border-box;width:100%;height:34px}.provider-account-setup-field small{display:block;margin-top:5px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
     .provider-section-divider{display:flex;align-items:center;gap:10px;margin:3px 0 1px;color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
     .provider-section-divider::before,.provider-section-divider::after{content:"";height:1px;background:var(--line);flex:1}
-    @media(max-width:760px){.provider-account-item{grid-template-columns:1fr}.provider-account-actions{justify-content:flex-end}}
+    @media(max-width:900px){.provider-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:620px){.provider-account-grid{grid-template-columns:1fr}}
   `;
   document.head.appendChild(style);
 
@@ -137,16 +145,28 @@ import { K } from "./kernel";
     }
   };
 
+  const providerAccountLogo = (account: TLStudioProviderAccount) => {
+    const icons: Record<string, string> = {
+      chatgpt: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4.2a6.1 6.1 0 0 1 5.8 4.2 6.1 6.1 0 0 1 3.6 10.8 6.1 6.1 0 0 1-9.4 7.1 6.1 6.1 0 0 1-9.4-7.1A6.1 6.1 0 0 1 10.2 8.4 6.1 6.1 0 0 1 16 4.2Z" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="m10.1 11.5 5.9-3.4 5.9 3.4v6.8L16 21.7l-5.9-3.4Z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
+      claude: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 4v24M4 16h24M7.5 7.5l17 17M24.5 7.5l-17 17" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>`,
+      "google-gemini": `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3.5c1.2 7.3 5.2 11.3 12.5 12.5C21.2 17.2 17.2 21.2 16 28.5 14.8 21.2 10.8 17.2 3.5 16 10.8 14.8 14.8 10.8 16 3.5Z" fill="currentColor"/></svg>`,
+      "github-copilot": `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 12.5C7 8.9 10 6 13.5 6h5C22 6 25 8.9 25 12.5V21c0 2.8-2.2 5-5 5h-8c-2.8 0-5-2.2-5-5Z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="12" cy="15" r="1.8" fill="currentColor"/><circle cx="20" cy="15" r="1.8" fill="currentColor"/><path d="M12 21c2.7 1.7 5.3 1.7 8 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`,
+      "hugging-face": `<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="13" r="2.2" fill="currentColor"/><circle cx="21" cy="13" r="2.2" fill="currentColor"/><path d="M8.5 18.5c1.8 4.2 4.3 6 7.5 6s5.7-1.8 7.5-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 11.5 3.8 9.8M26 11.5l2.2-1.7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+      openrouter: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M5 16h20M19 10l6 6-6 6M11 9 6 13M11 23l-5-4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    };
+    return icons[account.id] || `<span class="provider-account-logo-fallback">${clean(account.name || account.id).slice(0, 1).toUpperCase() || "?"}</span>`;
+  };
+
+  const providerAccountDetails = (account: TLStudioProviderAccount) =>
+    [clean(account.description), clean(account.billingNote)].filter(Boolean).join(" · ");
+
   const statusText = (account: TLStudioProviderAccount) => {
-    if (!account.available) return account.error ? `Unavailable · ${account.error}` : "Unavailable";
+    if (!account.available) return "Unavailable";
     if (account.state === "connecting") return "Connecting";
     if (account.state === "expired") return "Expired";
     if (account.state === "needs_reauthentication") return "Needs reauthentication";
-    if (account.state === "error") return account.error ? `Error · ${account.error}` : "Error";
-    if (account.connected) {
-      const details = [account.accountLabel, account.accountType, account.organizationId].filter(Boolean).join(" · ");
-      return details ? `Connected · ${details}` : "Connected";
-    }
+    if (account.state === "error") return "Error";
+    if (account.connected) return "Connected";
     return "Not connected";
   };
 
@@ -178,41 +198,50 @@ import { K } from "./kernel";
     }
 
     for (const account of K.state.providerAccounts) {
-      const row = document.createElement("div");
-      row.className = `provider-account-item${account.available ? "" : " provider-account-unavailable"}`;
-      row.dataset.providerAccountId = account.id;
+      const card = document.createElement("div");
+      card.className = `provider-account-card${account.available ? "" : " provider-account-unavailable"}${account.connected ? " provider-account-connected" : ""}`;
+      card.dataset.providerAccountId = account.id;
+      const details = providerAccountDetails(account);
+      if (details) card.title = details;
 
-      const copy = document.createElement("div");
-      const title = document.createElement("div");
-      title.className = "provider-account-title";
-      const dot = document.createElement("span");
-      dot.className = `provider-status-dot${account.connected ? " ok" : ""}`;
-      const name = document.createElement("strong");
-      name.textContent = account.name || account.id;
-      const badge = document.createElement("span");
-      badge.className = "provider-account-badge";
-      badge.textContent = "Account";
-      title.append(dot, name, badge);
-
-      const meta = document.createElement("div");
-      meta.className = "provider-account-meta";
-      const description = clean(account.description);
-      const billing = clean(account.billingNote);
-      meta.textContent = [statusText(account), description, billing].filter(Boolean).join(" · ");
-      copy.append(title, meta);
-
-      const actions = document.createElement("div");
-      actions.className = "provider-account-actions";
       if (account.setup?.configurable) {
         const setup = document.createElement("button");
         setup.type = "button";
-        setup.className = "ghost small";
+        setup.className = "ghost provider-account-setup-button";
         setup.dataset.providerAccountAction = "setup";
-        setup.textContent = account.setup.configured ? "API setup" : "Set up";
+        setup.textContent = "⚙";
         setup.title = account.setup.label || "Configure provider account setup";
+        setup.setAttribute("aria-label", setup.title);
         setup.addEventListener("click", () => { void configureAccount(account); });
-        actions.appendChild(setup);
+        card.appendChild(setup);
       }
+
+      const logo = document.createElement("div");
+      logo.className = "provider-account-logo";
+      logo.innerHTML = providerAccountLogo(account);
+      logo.setAttribute("aria-hidden", "true");
+
+      const name = document.createElement("div");
+      name.className = "provider-account-name";
+      name.textContent = account.name || account.id;
+
+      const state = document.createElement("div");
+      state.className = "provider-account-state";
+      const dot = document.createElement("span");
+      dot.className = `provider-status-dot${account.connected ? " ok" : ""}`;
+      const stateLabel = document.createElement("span");
+      stateLabel.textContent = statusText(account);
+      state.append(dot, stateLabel);
+
+      const accountDetails = document.createElement("div");
+      accountDetails.className = "provider-account-details";
+      accountDetails.textContent = account.connected
+        ? [account.accountLabel, account.accountType, account.organizationId].filter(Boolean).join(" · ")
+        : "";
+      if (!accountDetails.textContent) accountDetails.setAttribute("aria-hidden", "true");
+
+      const actions = document.createElement("div");
+      actions.className = "provider-account-card-actions";
       if (account.connected) {
         const reconnect = document.createElement("button");
         reconnect.type = "button";
@@ -232,17 +261,19 @@ import { K } from "./kernel";
       } else {
         const connect = document.createElement("button");
         connect.type = "button";
-        connect.className = "primary small";
+        connect.className = "primary small provider-account-signin";
         connect.dataset.providerAccountAction = "connect";
-        connect.textContent = `Sign in with ${account.name || account.id}`;
+        connect.textContent = account.available ? "Sign in" : "Unavailable";
         connect.disabled = !account.available;
-        if (!account.available) connect.title = clean(account.error) || clean(account.description) || "This account integration is unavailable.";
+        connect.title = account.available
+          ? `Sign in with ${account.name || account.id}`
+          : clean(account.error) || clean(account.description) || "This account integration is unavailable.";
         connect.addEventListener("click", () => { void connectAccount(account); });
         actions.appendChild(connect);
       }
 
-      row.append(copy, actions);
-      accountList.appendChild(row);
+      card.append(logo, name, state, accountDetails, actions);
+      accountList.appendChild(card);
     }
     renderAccountButton();
   };
