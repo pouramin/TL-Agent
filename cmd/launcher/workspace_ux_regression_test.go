@@ -26,7 +26,7 @@ func TestWorkspaceUXEnhancementsContract(t *testing.T) {
 	}
 
 	settings := readBrowserSource(t, "settings-enhancements.ts")
-	for _, required := range []string{"Editor color theme", "UI Font", "Code Font", "Terminal Font", "resetPreviewWindow", "tl-studio.editor-theme", "permission-rule-group", "Plugins & MCP"} {
+	for _, required := range []string{"Editor color theme", "UI Font", "Code Font", "Terminal Font", "resetPreviewWindow", "tl-studio.editor-theme", "permission-rule-group", "permission-rule-group-body", "openPermissionGroup", "Plugins & MCP"} {
 		if !strings.Contains(settings, required) { t.Fatalf("settings-enhancements.ts missing %q", required) }
 	}
 
