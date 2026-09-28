@@ -6,9 +6,9 @@
 
 TL Studio is a local-first browser IDE and coding-agent workspace. The product is one TL Studio application: workspace, editor, Search, Terminal, Preview, sessions, permissions, questions, providers, Plugins/MCP, and the Native Agent all run behind TL Studio-owned local contracts.
 
-Development line: **0.5.0-alpha.3**
+Current stable release: **0.5.0**
 
-Stable main remains on the separately released v0.4.0 line until this alpha milestone is reviewed and merged.
+The validated native-runtime milestone is the stable v0.5.0 release line.
 
 ## Native architecture
 
