@@ -20,7 +20,15 @@ v0.5.0 on main
 
 Development status:
 
-The fully native runtime milestone is complete and released as stable v0.5.0. New product work continues on dev for the 0.6 line.
+The fully native runtime milestone is complete and released as stable v0.5.0. The active 0.6 milestone is account-based providers and simplified custom-provider setup.
+
+Current validation branch:
+
+feature/account-providers-foundation
+
+Current draft PR:
+
+#122 — Account provider foundation for 0.6
 
 Completed milestone PR:
 
@@ -102,7 +110,15 @@ Provider configuration is authoritative in TL Studio and is never synchronized i
 
 Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages. Unsupported capabilities return explicit errors; there is no fallback engine.
 
-The generic ProviderAccountAdapter architecture remains. If no documented account integration is implemented, /local/provider-accounts returns an empty list.
+The generic ProviderAccountAdapter architecture now has a typed account lifecycle: begin login, OAuth callback completion or polling, cancellation, refresh, status, model discovery, and logout. Browser state is semantic only and does not carry provider access tokens, refresh tokens, authorization codes, PKCE verifiers, API keys, cookies, or client secrets.
+
+Manual API credentials and account credentials use separate credential-vault slots. An account credential takes precedence for native model execution while connected, but signing out exposes the preserved manual API credential instead of deleting it.
+
+OpenRouter is the first concrete 0.6 account adapter. It uses the documented OpenRouter OAuth + PKCE flow, performs code exchange server-side, stores the resulting account key only in the TL Studio credential vault, discovers models through the normal provider discovery layer, and exposes those models through the existing Native Agent/model selector path.
+
+Custom Provider setup is being simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback.
+
+ChatGPT/Codex account support remains a required 0.6 product goal, but implementation must use a documented OpenAI integration contract and must not reintroduce a second Agent runtime or copy a private Codex/OpenCode OAuth client. Claude account login follows the same documented-contract rule; Anthropic API-key support remains native in the meantime.
 
 Current official Kilo documentation exposes the Gateway to external clients through API-key based public endpoints. No documented public third-party OAuth/device contract suitable for TL Studio account login was identified for this milestone, so Sign in with Kilo is removed rather than reverse-engineering a private flow.
 
