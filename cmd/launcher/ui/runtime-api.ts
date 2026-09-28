@@ -131,6 +131,14 @@ import { K } from "./kernel";
         const payload = await K.request("/local/plugins");
         return Array.isArray(payload) ? payload : [];
       },
+      saved: async () => {
+        const payload = await K.request("/local/plugins/saved");
+        return Array.isArray(payload) ? payload : [];
+      },
+      attach: (pluginID: string, sourceProject: string) => K.request(`/local/plugins/${enc(pluginID)}/attach`, {
+        method: "POST",
+        ...body({ sourceProject }),
+      }),
       create: (plugin: any, environment?: Record<string, string>) => K.request("/local/plugins", {
         method: "POST",
         ...body({ plugin, ...(environment !== undefined ? { environment } : {}) }),
