@@ -5,8 +5,10 @@ import { K } from "./kernel";
   
 
   K.cancelAuth = () => {
+    void K.__providerAccountsUi?.cancelActiveLogin?.();
     K.state.authController?.abort();
     K.state.authController = null;
+    K.state.authLoginID = "";
     if (K.els.authDialog.open) K.els.authDialog.close();
   };
 
