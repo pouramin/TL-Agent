@@ -268,6 +268,7 @@ import { K } from "./kernel";
   providersUI.discoverySelection = {
     modelsForSave,
     reset,
+    isManualVisible: () => manualVisible,
     setAssumeUnknownTools: (value: boolean) => { assumeUnknownTools.checked = value; },
   };
 
