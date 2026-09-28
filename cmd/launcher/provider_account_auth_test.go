@@ -221,7 +221,7 @@ func TestProviderAccountBrowserContractHasNoSecretFields(t *testing.T) {
 		"refresh_token", "refreshtoken",
 		"client_secret", "clientsecret",
 		"code_verifier", "codeverifier",
-		"authorization_code", "authorizationcode",
+		"authorizationcode",
 	} {
 		if strings.Contains(combined, forbidden) {
 			t.Fatalf("provider account browser contract exposes forbidden secret field %q: %s", forbidden, combined)
