@@ -142,6 +142,9 @@ func newServer(state *appState) (http.Handler, error) {
 		openRouterAccount,
 		huggingFaceAccount,
 		googleGeminiAccount,
+		newChatGPTAccountBoundaryAdapter(),
+		newClaudeAccountBoundaryAdapter(),
+		newGitHubCopilotAccountBoundaryAdapter(),
 	)
 	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
