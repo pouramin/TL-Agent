@@ -49,7 +49,6 @@ Run the relevant contract/regression scripts when changing Provider, Session, Qu
 ## Native architecture rules
 
 - New Browser behavior should use TL Studio-owned `/local/*` product domains.
-- Do not recreate a reverse-proxy dependency on another local coding runtime.
 - Provider definitions, Model discovery, credentials, and direct model execution belong to TL Studio.
 - Sessions, Questions, Permissions, and semantic Events belong to TL Studio.
 - Built-in Tool execution should reuse Project filesystem/Search/process/Permission infrastructure.
@@ -57,7 +56,7 @@ Run the relevant contract/regression scripts when changing Provider, Session, Qu
 - Secrets must stay out of ordinary JSON configuration and Browser storage.
 - Monaco is an Editor engine, not a filesystem authority.
 - Previewed Project code stays on a separate loopback origin from the privileged control server.
-- Do not load Editor/runtime assets from a CDN.
+- Do not load Editor assets from a CDN.
 
 ## Plugin/MCP rules
 
@@ -79,11 +78,11 @@ Do not add undocumented Provider OAuth flows or reverse-engineer private account
 
 `main` is stable production. `dev` is the next integration line.
 
-The current `main` and `dev` are aligned at v0.5.0 immediately after promotion.
+`main` is stable v0.5.0. `dev` is currently `0.6.0-alpha.1`; its current commits are version/readiness bookkeeping rather than a new user-facing feature set.
 
 Stable npm publishing comes from `main`; development builds use Preview artifacts until a deliberate stable promotion.
 
-Release/CI gates enforce the native architecture and reject obsolete sidecar references or binaries in production packaging.
+Release/CI gates enforce the current TL Studio product architecture and validate production packaging.
 
 ## Documentation rules
 
