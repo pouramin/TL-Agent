@@ -1,210 +1,135 @@
-[English](./README.md) | [فارسی](./README.fa_IR.md)
+# TL Studio
 
 <p align="center">
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center">
-  یک محیط توسعه‌ی سریع و لوکال با AI داخلی.
-</p>
+TL Studio یک IDE مرورگری و Workspace محلی برای Coding Agent است. Workspace، Editor، Search، Terminal، Preview، Sessionها، Permissionها، Questionها، Providerها، Plugin/MCP و Native Agent همگی پشت قراردادهای محلی خود TL Studio اجرا می‌شوند.
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/tl-studio"><img src="https://img.shields.io/npm/v/tl-studio" alt="npm"></a>
-  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Studio?sort=semver" alt="Release"></a>
-  <a href="https://github.com/pouramin/TL-Studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pouramin/TL-Studio/ci.yml?branch=main&label=CI" alt="CI"></a>
-  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/downloads/pouramin/TL-Studio/total" alt="Downloads"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-</p>
+نسخه‌ی پایدار فعلی: **0.5.0**
 
-**TL Studio** یک محیط توسعه‌ی لوکال در مرورگر است که هم خودتان می‌توانید داخلش کد را بخوانید و ویرایش کنید و هم در کنار آن از Agent کمک بگیرید. Project را باز کنید، فایل‌ها را مدیریت و ویرایش کنید، در کل کد جست‌وجو کنید، Command اجرا کنید، Preview بگیرید، Model و Provider انتخاب کنید و هرجا خواستید کار را به Agent بسپارید.
+این milestone پس از Review و تست دستی به‌عنوان نسخه‌ی پایدار v0.5.0 منتشر می‌شود.
 
-برای استفاده‌ی معمول نیازی به VS Code، JetBrains، Cursor، Docker، Backend ابری TL Studio یا Database جداگانه نیست.
+## معماری Native
 
-## شروع سریع
+اجرای عادی TL Studio دیگر به Sidecar یا Compatibility Runtime وابسته نیست.
 
-### اجرا با یک دستور
+- **Native Agent** — حلقه‌ی Model/Tool/Model، Cancellation، Loop Guard، Persistence معنایی و Live Event متعلق به TL Studio است.
+- **Native Sessions** — Create، Rename، Delete، Run، Abort، Status، Message، Changes و Persistence کاملاً در اختیار TL Studio است.
+- **Native Interactive Questions** — Agent می‌تواند با interaction.question متوقف شود، سؤال را به Browser بفرستد، پاسخ Multiple Choice یا Custom Text بگیرد و ادامه دهد.
+- **Native Permissions** — Pending Request، Allow Once، Reject، Ruleهای Project-scoped و Enforcement در اختیار TL Studio است.
+- **Native Events** — مسیر /local/events منبع اصلی Semantic SSE است.
+- **Native Providers** — Provider Registry، Catalog، Discovery و Credential Vault متعلق به TL Studio است و Model Call مستقیماً به Provider انتخاب‌شده ارسال می‌شود.
+- **Provider Accounts** — مسیر /local/provider-accounts یک Domain عمومی برای Integrationهای Account-based آینده باقی مانده است.
+- **Native Tools** — Files، Search، Terminal/Process، Workspace reconciliation و ابزارهای Plugin/MCP از TL Studio Tool Executor عبور می‌کنند.
 
-اگر Node.js و npm نصب هستند، داخل فولدر پروژه‌ای که می‌خواهید روی آن کار کنید این دستور را اجرا کنید:
+در محصول دیگر Kilo binary، Kilo subprocess، Local Kilo server، Reverse Proxy، Session Adapter، Permission fallback، Question Adapter، Event stream، Provider sync، Model fallback یا Kilo داخل Release package وجود ندارد.
 
-```bash
-npx --yes tl-studio
-```
+اگر کاربر بخواهد، Kilo Gateway فقط می‌تواند مانند هر Provider خارجی دیگر از طریق Endpoint عمومی HTTPS و API Key مستندشده تنظیم شود. این حالت هیچ وابستگی محلی به Kilo ایجاد نمی‌کند.
 
-پکیج npm یک Launcher سبک است که به نسخه Stable متناظر TL Studio روی GitHub Release متصل می‌شود. سیستم‌عامل و معماری را تشخیص می‌دهد، Archive رسمی را دانلود می‌کند، SHA-256 آن را بررسی می‌کند، فایل را Local Cache می‌کند و TL Studio را با فولدر فعلی به‌عنوان Project باز می‌کند.
+## Workspace
 
-برای جلوگیری از بازشدن خودکار مرورگر:
+Browser Workspace شامل این بخش‌هاست:
 
-```bash
-npx --yes tl-studio --no-browser
-```
+- File Explorer با Create، Rename، Delete، Save، Refresh و Optimistic Concurrency؛
+- Monaco Editor که به‌صورت Local bundle شده و CDN لازم ندارد؛
+- Project Search؛
+- Terminal/Process پروژه با Stop؛
+- Live Preview روی Loopback origin جدا؛
+- Agent conversation، Sessionها، Usage/Activity، Changes، Permission و Interactive Question؛
+- Provider Settings و Credential Vault؛
+- Plugin/MCP با Configuration و Tool Discovery؛
+- JEV/OpenRouter از مسیر Native Provider.
 
-### نسخه‌ی Portable
+## Providerها
 
-فایل مناسب سیستم خود را از **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)** دانلود و Extract کنید، سپس اجرا کنید:
+TL Studio در حال حاضر Direct Model Client برای این Protocolها دارد:
 
-```text
-Windows:  tl-studio.exe
-Linux:    ./tl-studio
-macOS:    ./tl-studio
-```
+- OpenAI-compatible Chat Completions
+- OpenAI Responses
+- Anthropic Messages
 
-Runtime لوکال سازگار از قبل داخل Release قرار دارد.
+Provider definition در Local State خود TL Studio ذخیره می‌شود. API Key جداگانه داخل Credential Vault نگهداری می‌شود و وارد providers.json یا Browser storage نمی‌شود.
 
-## قابلیت‌ها
+اگر Model یا Protocol توسط Native Client پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد. هیچ Hidden fallback به Runtime دیگری وجود ندارد.
 
-- **محیط توسعه‌ی مستقل و لوکال** — Editor، File Explorer، Search، Terminal، Preview و Agent در یک Workspace مرورگری.
-- **انتخاب مستقیم Project** — بازکردن فولدر با Folder Picker خود سیستم‌عامل.
-- **انتخاب Agent و Model** — تغییر Agent و مدل‌های Providerها از داخل Composer.
-- **Custom Provider** — اتصال Endpointهای سازگار با OpenAI، OpenAI Responses و Anthropic با Credential خود کاربر.
-- **File attachment** — ارسال تصویر، PDF و فایل‌های متنی/کد؛ همراه با Multi-select، Drag & Drop و Paste از Clipboard.
-- **اجرای Native Agent متعلق به TL Studio** — برای Custom Providerهای پشتیبانی‌شده، حلقه‌ی Model/Tool/Model، توقف، Loop guard، Session persistence و Live Event مستقیماً توسط TL Studio اجرا می‌شود؛ مسیر Hosted Kilo همچنان از Adapter سازگاری استفاده می‌کند.
-- **Tool Executor خود TL Studio** — Toolهای اصلی کدنویسی شامل Read/List/Write/Edit فایل، Project Search و Terminal Command با Handlerهای خود TL Studio، محدودیت Project، Validation، Cancellation و Permission اجرا می‌شوند.
-- **Tool Registry خود TL Studio** — Toolها نام، Category، Capability، Permission class، Schema و Presentation metadata متعلق به TL Studio دارند.
-- **نمایش زنده‌ی فعالیت Agent** — نمایش Reasoning و Toolها همراه با وضعیت Run و semantic metadata خود TL Studio.
-- **Permission Policy و Question متعلق به TL Studio** — Allow یک‌باره، ذخیره‌ی Ruleهای غیرحساس به‌صورت Project-scoped، Reject و پاسخ به سؤال‌های تعاملی؛ Questionها از قرارداد `/local/questions*` خود TL Studio عبور می‌کنند و UI به Route خام Runtime وابسته نیست.
-- **Stop و Recovery** — توقف Run فعال و بازیابی Sessionهای گیرکرده یا خطاهای Retryable.
-- **Session Read Model خود TL Studio** — Session، Message، Activity، Status، Usage metadata و Changes از Routeهای semantic متعلق به Launcher در `/local/sessions*` خوانده می‌شوند و UI دیگر برای Sessionهای فعلی به envelope خام Runtime وابسته نیست.
-- **Session Command Contract خود TL Studio** — ساخت، تغییر نام، حذف، اجرای Prompt/Run و توقف Session از Routeهای semantic متعلق به Launcher در `/local/sessions*` انجام می‌شود و Adapter موتور فعال آن‌ها را به API خصوصی همان موتور ترجمه می‌کند.
-- **Session Persistence متعلق به TL Studio** — metadata، transcript، activity/usage و changes نشست‌ها در State محلی TL Studio mirror می‌شوند؛ اگر history موتور از بین برود، تاریخچه همچنان قابل خواندن است و Session ذخیره‌شده را می‌توان محلی Rename یا Delete کرد.
-- **Credential Vault متعلق به TL Studio** — API Key مربوط به Custom Provider داخل `providers.json` یا Browser storage ذخیره نمی‌شود. روی Windows از DPAPI، روی macOS از Keychain و روی Linux از Secret Service در صورت وجود استفاده می‌شود؛ fallback محلی نیز به‌صورت رمز‌شده نگه‌داری می‌شود.
-- **مدیریت Session** — ساخت، ادامه، تغییر نام، حذف و جابه‌جایی Sessionها بین Projectهای اخیر.
-- **Project Usage** — نمایش مصرف هر Turn و مجموع Project شامل Token، Request، Time، Reasoning و Cache.
-- **Changes panel** — مشاهده‌ی فایل‌های تغییرکرده، تعداد خطوط اضافه/حذف‌شده و Patch.
-- **Project Workspace داخلی** — File Explorer قابل‌نوشتن و Monaco Editor لوکال و Lazy-loaded با ویرایش چندتب، Find/Replace، Multi-cursor، Save/Create/Rename/Delete، هماهنگی با تغییرات خارجی فایل و دکمه‌ی **Show in Folder** برای نمایش فایل فعال در File Manager خود سیستم.
-- **Project Search** — جست‌وجوی سریع متن در کل Project با Include/Exclude و بازکردن مستقیم نتیجه در Editor.
-- **Terminal داخلی** — اجرای Command در Scope پروژه، تاریخچه‌ی خروجی، Stop و پایان Process tree.
-- **Live Preview** — Preview لوکال مبتنی بر Capability در پنجره‌ی قابل‌جابجایی و تغییر اندازه؛ TL Studio فایل Previewable فعال را بین HTML، SVG و Image، PDF، Video، Audio، Markdown رندرشده و Plain Text رندرشده دنبال می‌کند. PDF مستقیماً با MIME و `Content-Disposition: inline` و Range support برای PDF Viewer خود مرورگر سرو می‌شود. پنجره‌ی Preview از هر 4 لبه و هر 4 گوشه قابل Resize است.
-- **تنظیمات ظاهر و Editor** — حالت System، Dark و Light به‌همراه Editor theme و Font جداگانه برای UI، Code و Terminal.
-- **Browser Source با Strict TypeScript و Module واقعی** — تمام Sourceهای Browser در `cmd/launcher/ui` با `strict: true` Type-check می‌شوند؛ `kernel.ts` هسته‌ی تایپ‌شده‌ی مشترک را Export می‌کند و ماژول‌ها آن را مستقیم Import می‌کنند. `browser.ts` گراف ES Module را مشخص می‌کند و esbuild یک Bundle اصلی به نام `browser.js` می‌سازد؛ دیگر وابستگی به `window.KLU` یا Build قدیمی JavaScriptهای جداگانه وجود ندارد.
-- **معماری Local-first** — اجرای Loopback-only، رمز تصادفی Backend در هر اجرا، کنترل Origin و CSP محدودکننده.
-- **بدون Cloud یا Telemetry اختصاصی TL Studio** — ترافیک Model براساس Provider و Runtime انتخاب‌شده‌ی کاربر انجام می‌شود و از زیرساخت TL Studio عبور نمی‌کند.
+JEV هم از همان Native Agent، Tool Executor، Permission، Session و Event system استفاده می‌کند.
 
-## معماری
+## Local Product API
 
-```text
-Browser workspace
-    │ فقط localhost
-    ▼
-TL Studio launcher (Go)
-    │
-    ├─ TL Studio provider/model registry
-    ├─ TL Studio tool registry
-    ├─ TL Studio semantic session read model
-    ├─ TL Studio semantic live event projection
-    ├─ TL Studio permission policy engine
-    ├─ project files / search / terminal / preview
-    │
-    └─ runtime adapter محلی و احراز‌شده
-            ▼
-        Local agent runtime
-            ├─ agents / sessions / tool execution
-            ├─ permission enforcement / questions / live events
-            └─ provider execution / model inference
-```
+Browser فقط از Semantic APIهای خود TL Studio استفاده می‌کند؛ از جمله:
 
-TL Studio مالک لایه‌ی محصول است: Workspace، رابط کاربری، Launcher محلی، تعریف Provider و Model، semantic metadata مربوط به Toolها، semantic read model مربوط به Session، semantic projection مربوط به Live Eventها، Permission Policy در Scope هر Project، تجربه‌ی Project و Session، Recovery و Release packaging.
+- /local/status
+- /local/health
+- /local/path
+- /local/agents
+- /local/providers/*
+- /local/provider-accounts*
+- /local/sessions*
+- /local/questions*
+- /local/permissions*
+- /local/events
+- /local/plugins*
+- /local/tools
 
-تعریف Custom Providerها و API Keyهای آن‌ها اکنون تحت مالکیت TL Studio هستند. تعریف Provider داخل Registry خود TL Studio می‌ماند و Credential در Vault جداگانه نگه‌داری می‌شود؛ Launcher در زمان لازم آن را برای اجرای مدل به Runtime فعال sync می‌کند.
+معماری قدیمی /runtime/* Reverse Proxy دیگر بخشی از محصول نیست.
 
-Runtime به‌عنوان یک لایه‌ی زیرساختی جدا پشت این مرز قرار می‌گیرد.
+## Build از Source
 
-Project انتخاب‌شده روی سیستم کاربر باقی می‌ماند و TL Studio ترافیک Model را از زیرساخت خودش عبور نمی‌دهد.
+نیازمندی‌ها:
 
-## مرز Runtime
+- Go 1.23+
+- Node.js 18+ برای Build و Check رابط Browser
 
-مرورگر و رابط محصول TL Studio به قراردادهای خود TL Studio وابسته‌اند، نه به API اختصاصی یک Engine. عملیات اجرایی Agent همچنان پشت `/runtime/*` قرار دارد، اما readهای Session فعلی از Routeهای semantic متعلق به Launcher در `/local/sessions*` و Live Eventهای Browser از SSE معنایی `/local/events` عبور می‌کنند. تعریف Provider/Model، semantic metadata مربوط به Toolها، Session read model، Permission Policy، فایل‌های Project، Search، Terminal، Preview و بخش‌های اصلی Workspace در مالکیت TL Studio هستند. Permission promptها از Routeهای `/local/permissions*` خود Launcher عبور می‌کنند تا Ruleهای Remembered در اختیار TL Studio باشند.
+ساخت و بررسی Browser:
 
-نسخه‌ی Stable فعلی، **Kilo Code 7.6.2** را به‌عنوان Agent Engine شخص ثالث و تست‌شده Bundle می‌کند. این Engine یک جزئیات پیاده‌سازی پشت Runtime Adapter است و هویت عمومی محصول به آن وابسته نیست. جزئیات سازگاری Engine در [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md) و Attribution لازم در [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) نگهداری می‌شود.
+    npm install --ignore-scripts --no-audit --no-fund
+    npm run check:web
+    npm run build:web
 
-CI همین Engine پین‌شده را از طریق مرز عمومی Runtime خود TL Studio برای Project routing، APIهای Agent/Provider/Session، Async Prompt، Live events، Permission، Provider configuration، اجرای Tool و Write واقعی روی فایل تست می‌کند.
+اجرای Testها:
 
-## نسخه‌های قابل دانلود
+    go test ./...
+    go vet ./...
 
-| سیستم‌عامل | معماری |
-| --- | --- |
-| Windows | x64 |
-| Linux | x64، ARM64 |
-| macOS | Intel x64، Apple Silicon ARM64 |
+اجرای TL Studio:
 
-## ساختار فایل Release
+    go run ./cmd/launcher --project /path/to/project
 
-```text
-tl-studio/
-├─ tl-studio[.exe]
-├─ bin/
-│  └─ kilo[.exe]
-├─ LICENSE
-├─ THIRD_PARTY_NOTICES.md
-└─ third_party/
-   ├─ KILO_LICENSE.txt
-   ├─ MONACO_LICENSE.txt
-   └─ MONACO_THIRD_PARTY_NOTICES.txt
-```
+ساخت Binary:
 
-## اجرا از سورس
+    go build -o tl-studio ./cmd/launcher
+    ./tl-studio --project /path/to/project
 
-نیازمندی‌های Development:
+در Windows:
 
-- Go 1.23 یا جدیدتر
-- Runtime binary سازگار در `PATH`، کنار Launcher یا مشخص‌شده به‌صورت دستی
+    go build -o tl-studio.exe ./cmd/launcher
+    .\tl-studio.exe --project C:\path\to\project
 
-```bash
-go run ./cmd/launcher
-```
+اجرای عادی همان Native execution است. Flag جداگانه‌ای برای Native-only وجود ندارد و Runtime binary دیگری هم لازم نیست.
 
-بازکردن یک Project مشخص:
+## Release Packaging
 
-```bash
-go run ./cmd/launcher --project /path/to/project
-```
+Package عادی شامل TL Studio executable، License/Noticeهای TL Studio و Pluginهای bundle‌شده‌ی خود TL Studio است. فایل kilo یا kilo.exe داخل Package وجود ندارد.
 
-استفاده از Runtime binary مشخص:
+CI اگر یکی از این Binaryها وارد Review یا Release package شود Fail می‌شود. CI همچنین TL Studio standalone را به‌صورت عادی اجرا می‌کند، Native Product Contract و Browser smoke واقعی را تست می‌کند و Windows x64 Review ZIP می‌سازد.
 
-```bash
-go run ./cmd/launcher --runtime-bin /path/to/runtime
-```
+## Security
 
-برای جلوگیری از بازشدن خودکار مرورگر از `--no-browser` استفاده کنید.
+TL Studio به‌صورت Local-first طراحی شده است. Control UI فقط روی Loopback bind می‌شود، Cross-origin request رد می‌شود، Filesystem API مرز Project را enforce می‌کند، Preview از Control Origin جداست، Credentialها در Vault خود TL Studio می‌مانند و Toolهای حساس Permission می‌خواهند.
 
-## قانون زیرساخت صفر
+External Provider، Repository، Prompt و MCP/Plugin process مرزهای اعتماد جداگانه‌اند.
 
-TL Studio طوری طراحی شده که نگهدارنده برای اجرای پروژه نیازی به پرداخت هزینه‌ی VPS، Hosting، Database، API Gateway، Model inference یا Telemetry backend نداشته باشد. سورس، Issueها، CI، Releaseها، فایل‌های دانلودی و Launcher سبک npm از زیرساخت GitHub/npm توزیع می‌شوند.
+جزئیات بیشتر در SECURITY.md است.
 
-هزینه‌ی احتمالی استفاده از Model مستقیماً بین کاربر و Provider انتخاب‌شده‌ی اوست.
+## Branchها
 
-## مدل امنیتی
+- main — Stable production
+- dev — Active next-version development
+- Feature branchها — کار milestone جدا از dev
 
-Launcher:
+جزئیات معماری در docs/ARCHITECTURE.md است.
 
-1. رابط را فقط روی Loopback اجرا می‌کند؛
-2. Runtime لوکال را با رمز تصادفی در هر اجرا بالا می‌آورد؛
-3. رمز Backend را سمت Server نگه می‌دارد؛
-4. Project انتخاب‌شده را فقط به‌صورت محلی Route می‌کند؛
-5. درخواست‌های Cross-origin را رد می‌کند؛
-6. و رابط را با Content Security Policy محدودکننده سرو می‌کند.
+## License
 
-Runtime در صورت داشتن Permission می‌تواند فایل‌ها را بخواند، بنویسد و Command اجرا کند. TL Studio را فقط روی سیستم و Projectهایی اجرا کنید که به آن‌ها اعتماد دارید.
-
-## وضعیت پروژه
-
-TL Studio خط پایدار Production را روی `main` و توسعه‌ی آزمایشی را روی `dev` نگه می‌دارد. نسخه‌ی Stable فقط بعد از عبور از CI خودکار و تست دستی روی یک سیستم واقعی Windows ارتقا داده می‌شود. مسیر اصلی که پیش از Promotion بررسی می‌شود شامل این زنجیره است:
-
-```text
-TL Studio UI
-→ local agent runtime
-→ selected model
-→ tool call
-→ permission
-→ local file write
-→ final assistant response
-```
-
-Buildهای آزمایشی روی `dev` به‌صورت Preview خصوصی ادامه پیدا می‌کنند و مسیر Stable با dist-tag `latest` در npm و GitHub Release پایدار را تغییر نمی‌دهند.
-
-## لایسنس و Attribution
-
-کد Launcher و UI پروژه‌ی TL Studio تحت لایسنس MIT منتشر شده است. Runtime فعلی Kilo Code نیز MIT است و به‌عنوان یک پروژه‌ی مستقل Upstream باقی می‌ماند. Releaseهایی که آن را Bundle می‌کنند، License Notice مربوط به آن را نیز همراه خود دارند؛ برای جزئیات [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) را ببینید.
-
-TL Studio یک پروژه‌ی مستقل است و محصول رسمی Runtime Upstream خود نیست.
-
-این پروژه با هویت **TunnelLab** توسعه داده می‌شود.
+TL Studio تحت MIT منتشر می‌شود. برای نرم‌افزارهای شخص ثالثی که همچنان همراه TL Studio توزیع می‌شوند، LICENSE و THIRD_PARTY_NOTICES.md را ببینید.

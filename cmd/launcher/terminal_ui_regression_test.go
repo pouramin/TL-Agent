@@ -9,7 +9,7 @@ func TestEmbeddedTerminalUIContract(t *testing.T) {
 	text := readBrowserSource(t, "terminal.ts")
 	css, err := webFS.ReadFile("web/terminal.css")
 	if err != nil { t.Fatal(err) }
-	for _, required := range []string{"Terminal", "/local/process", "terminalStop", "historyIndex", "K.terminal", "stoppedByUser", "[stopped]", "snapshot?.cwd", "setCwd"} {
+	for _, required := range []string{"Terminal", "/local/process", "terminalStop", "historyIndex", "K.terminal", "stoppedByUser", "[stopped]", "snapshot?.cwd", "setCwd", "tl-studio:project-file-changed"} {
 		if !strings.Contains(text, required) { t.Fatalf("terminal.ts missing %q", required) }
 	}
 	if strings.Contains(text, "cdn.") || strings.Contains(text, "unpkg") || strings.Contains(text, "jsdelivr") {

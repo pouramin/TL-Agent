@@ -108,11 +108,10 @@ import { K } from "./kernel";
     }, 140);
   };
 
-  const originalHandleRuntimeEvent = K.handleRuntimeEvent;
-  K.handleRuntimeEvent = (event) => {
-    originalHandleRuntimeEvent(event);
-    const type = event?.type || "";
-    if (type.startsWith("file.") || type === "session.diff" || type === "session.idle") scheduleRefresh();
+  const originalHandleLiveEvent = K.handleLiveEvent;
+  K.handleLiveEvent = (event: TLStudioLiveEvent) => {
+    originalHandleLiveEvent(event);
+    if (event?.type === "workspace.changed") scheduleRefresh();
   };
 
   K.workspaceFiles = { refreshOpenTabs, hasDirtyTabs };

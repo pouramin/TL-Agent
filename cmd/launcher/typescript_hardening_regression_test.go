@@ -59,7 +59,7 @@ func TestTypeScriptHardeningPhase1Contract(t *testing.T) {
 		"interface TLStudioKernel",
 		"interface TLStudioState",
 		"interface TLStudioElements",
-		"interface TLStudioRuntimeContract",
+		"interface TLStudioProductAPI",
 		"interface TLStudioLiveEvent",
 	} {
 		if !strings.Contains(global, required) {
@@ -115,7 +115,6 @@ func TestTypeScriptHardeningPhase2ModuleBuildContract(t *testing.T) {
 		`import "./monaco";`,
 		`import "./preview";`,
 		`import "./providers-ui";`,
-		`import "./legacy-sessions";`,
 		`import "./app";`,
 	}
 	last := -1

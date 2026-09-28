@@ -4,69 +4,6 @@ import { K } from "./kernel";
   "use strict";
   
 
-  const parseDeviceCode = (input: any) => input?.match(/code:\s*([A-Z0-9-]+)/i)?.[1]?.toUpperCase()
-    || input?.match(/\b[A-Z0-9]{4,}(?:-[A-Z0-9]{3,})+\b/i)?.[0]?.toUpperCase() || "";
-
-  K.applyHostedAuthStatus = (status) => {
-    const normalized = {
-      authenticated: status?.authenticated === true,
-      type: status?.type || "",
-      organizationId: status?.organizationId || "",
-    };
-    K.state.hostedAuth = normalized;
-    if (normalized.authenticated) K.state.connectedProviders.add(K.api.hosted.providerID);
-    else K.state.connectedProviders.delete(K.api.hosted.providerID);
-    K.renderAccount?.();
-    return normalized;
-  };
-
-  K.refreshHostedAuthStatus = async () => K.applyHostedAuthStatus(await K.api.hosted.status());
-
-  K.signInHosted = async () => {
-    K.showError("");
-    let status;
-    try {
-      status = await K.refreshHostedAuthStatus();
-    } catch (err) {
-      K.showError(`Unable to verify hosted account state: ${(err as any).message || String(err)}`);
-      return;
-    }
-    if (status.authenticated) return K.showError("The hosted model account is already connected on this computer.");
-
-    K.state.authController?.abort();
-    K.state.authController = new AbortController();
-    K.state.authURL = "";
-    K.els.authOpen.disabled = true;
-    K.els.authInstructions.textContent = "Starting secure device authorization…";
-    K.els.authCode.textContent = "";
-    K.els.authCodeWrap.classList.add("hidden");
-    K.els.authDialog.showModal();
-
-    try {
-      const info: any = await K.api.hosted.authorize() || {};
-      K.state.authURL = info.url || "";
-      K.els.authInstructions.textContent = info.instructions || "Authorization is ready. Open the sign-in page to continue.";
-      const code = parseDeviceCode(info.instructions);
-      if (code) {
-        K.els.authCode.textContent = code;
-        K.els.authCodeWrap.classList.remove("hidden");
-      }
-      K.els.authOpen.disabled = !K.state.authURL;
-
-      await K.api.hosted.callback(K.state.authController.signal);
-      K.state.authController = null;
-      K.els.authInstructions.textContent = "Signed in successfully.";
-
-      await K.api.runtime.dispose();
-      await K.loadCatalog();
-      await K.refreshHostedAuthStatus();
-
-      window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
-    } catch (err) {
-      if ((err as any)?.name !== "AbortError") K.els.authInstructions.textContent = `Sign-in failed: ${(err as any).message || String(err)}`;
-    }
-  };
-
   K.cancelAuth = () => {
     K.state.authController?.abort();
     K.state.authController = null;

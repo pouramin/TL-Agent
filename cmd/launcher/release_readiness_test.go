@@ -3,70 +3,36 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
-func releaseRepoRoot(t *testing.T) string {
-	t.Helper()
-	_, thisFile, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("could not resolve release readiness test path")
-	}
-	return filepath.Clean(filepath.Join(filepath.Dir(thisFile), "..", ".."))
-}
-
-func TestProductUIKeepsRuntimeBrandingBehindBoundary(t *testing.T) {
+func TestReleaseWorkflowsNeverBundleCompatibilityRuntime(t *testing.T) {
 	root := releaseRepoRoot(t)
-	data, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "index.html"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	source := string(data)
-	for _, forbidden := range []string{
-		"powered by Kilo Code",
-		"TL Studio runs Kilo",
-		"configured in Kilo",
-		">Kilo account<",
-		">Sign in to Kilo<",
-	} {
-		if strings.Contains(source, forbidden) {
-			t.Fatalf("product UI leaked bundled runtime branding %q", forbidden)
-		}
-	}
-}
-
-func TestWorkflowsUsePublicRuntimeBoundary(t *testing.T) {
-	root := releaseRepoRoot(t)
-	for _, workflow := range []string{"release.yml", "custom-provider-contract.yml"} {
-		data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", workflow))
+	for _, relative := range []string{".github/workflows/preview-build.yml", ".github/workflows/release.yml"} {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatal(err)
 		}
 		source := string(data)
-		if strings.Contains(source, "/kilo/global/health") {
-			t.Fatalf("%s still uses the legacy runtime route", workflow)
+		for _, forbidden := range []string{"KILO_VERSION", "kilo-windows", "kilo-linux", "kilo-darwin", "bin/kilo", "/runtime/global/health"} {
+			if strings.Contains(source, forbidden) {
+				t.Fatalf("%s still contains removed runtime packaging marker %q", relative, forbidden)
+			}
 		}
-		if !strings.Contains(source, "/runtime/global/health") {
-			t.Fatalf("%s is missing the TL Studio runtime health boundary", workflow)
+		if !strings.Contains(source, "Assert package contains no Kilo runtime") {
+			t.Fatalf("%s is missing the no-Kilo package assertion", relative)
 		}
 	}
 }
 
-func TestReleaseWorkflowBuildsBrowserUI(t *testing.T) {
+func TestReleaseVersionIsNativeStable(t *testing.T) {
 	root := releaseRepoRoot(t)
-	data, err := os.ReadFile(filepath.Join(root, ".github", "workflows", "release.yml"))
+	data, err := os.ReadFile(filepath.Join(root, "VERSION"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := string(data)
-	for _, required := range []string{
-		"npm run check:web",
-		"npm run build:web",
-	} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("release workflow missing %q", required)
-		}
+	if strings.TrimSpace(string(data)) != "0.5.0" {
+		t.Fatalf("unexpected milestone version %q", strings.TrimSpace(string(data)))
 	}
 }

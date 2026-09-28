@@ -138,6 +138,121 @@ func TestNativeAgentLoopExecutesToolAndContinuesWithoutKilo(t *testing.T) {
 	}
 }
 
+type nativeEmptyResponseModel struct {
+	finished chan struct{}
+}
+
+func (m *nativeEmptyResponseModel) Complete(context.Context, nativeModelRequest, func(string)) (nativeModelResponse, error) {
+	close(m.finished)
+	return nativeModelResponse{FinishReason: "stop"}, nil
+}
+
+func TestNativeAgentTurnsEmptyModelResponseIntoVisibleFailure(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-empty-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Empty response proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	model := &nativeEmptyResponseModel{finished: make(chan struct{})}
+	resolver := nativeTestResolver{
+		provider: tlProviderDefinition{
+			ID: "test", Protocol: "openai-compatible", BaseURL: "http://127.0.0.1:1/v1",
+		},
+		model: tlProviderModel{ID: "test-model", ToolCall: true},
+	}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, model, executor, store, newLiveEventBus())
+
+	input := sessionRunInput{
+		Text: "Say hello", Agent: "code",
+		Model: &sessionModelRef{ProviderID: "test", ID: "test-model"},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-model.finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("native Agent did not receive the model response")
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role == "assistant" && message.Error != nil &&
+					strings.Contains(message.Error.Message, "model returned an empty response") {
+					return
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("empty response failure was not persisted visibly: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+type nativeBlockingModel struct{}
+
+func (nativeBlockingModel) Complete(ctx context.Context, _ nativeModelRequest, _ func(string)) (nativeModelResponse, error) {
+	<-ctx.Done()
+	return nativeModelResponse{}, ctx.Err()
+}
+
+func TestNativeAgentPersistsVisibleModelTimeout(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-timeout-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Timeout proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resolver := nativeTestResolver{
+		provider: tlProviderDefinition{
+			ID: "test", Protocol: "openai-compatible", BaseURL: "http://127.0.0.1:1/v1",
+		},
+		model: tlProviderModel{ID: "test-model", ToolCall: true},
+	}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, nativeBlockingModel{}, executor, store, newLiveEventBus())
+	runtime.modelTurnTimeout = 30 * time.Millisecond
+
+	input := sessionRunInput{
+		Text: "Say hello", Agent: "code",
+		Model: &sessionModelRef{ProviderID: "test", ID: "test-model"},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role == "assistant" && message.Error != nil &&
+					strings.Contains(message.Error.Message, "model request timed out after") {
+					return
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("model timeout failure was not persisted visibly: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 func TestNativeToolExecutorRejectsTraversalAndUnknownTools(t *testing.T) {
 	project := t.TempDir()
 	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
@@ -159,5 +274,82 @@ func TestNativeToolExecutorRejectsTraversalAndUnknownTools(t *testing.T) {
 	})
 	if unknown.Error == "" {
 		t.Fatal("expected unknown tool to be rejected")
+	}
+}
+
+
+func TestNativeConversationKeepsCancellationBoundary(t *testing.T) {
+	messages := []sessionMessageView{
+		{Role: "user", Text: "Run a command that waits for 60 seconds."},
+		{Role: "assistant", Error: &sessionErrorView{Type: "cancelled", Message: "context canceled"}},
+		{Role: "user", Text: "reply with: abort test passed"},
+	}
+	conversation := nativeConversationFromMessages(messages)
+	if len(conversation) != 3 {
+		t.Fatalf("expected cancellation boundary to remain in model context, got %#v", conversation)
+	}
+	if conversation[1].Role != "assistant" || !strings.Contains(strings.ToLower(conversation[1].Text), "cancelled by the user") {
+		t.Fatalf("cancelled turn was not represented as an assistant boundary: %#v", conversation[1])
+	}
+	if strings.Contains(strings.ToLower(conversation[2].Text), "60 seconds") {
+		t.Fatalf("new user turn was contaminated by cancelled task context: %#v", conversation[2])
+	}
+	if conversation[2].Text != "reply with: abort test passed" {
+		t.Fatalf("unexpected new user turn %q", conversation[2].Text)
+	}
+}
+
+func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
+	prompt := nativeAgentSystemPrompt()
+	for _, required := range []string{
+		"non-interactive",
+		"do not use the timeout command",
+		"Do not blindly retry multiple shell variants",
+		"durationMs",
+		"Never claim that a requested wait/delay duration completed successfully",
+		"ping -n 61 127.0.0.1 > nul",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("native Agent system prompt missing %q", required)
+		}
+	}
+}
+
+
+func TestNativeToolResultMessageIncludesMeasuredDuration(t *testing.T) {
+	result := nativeToolResult{
+		ToolID:   "terminal.command",
+		CallID:   "call-duration",
+		Output:   map[string]any{"exitCode": 0},
+		Duration: 1234,
+	}
+	message := nativeToolResultMessage(result)
+	if !strings.Contains(message, `"durationMs":1234`) {
+		t.Fatalf("tool result did not expose measured duration: %s", message)
+	}
+}
+
+func TestTerminalTimeoutSchemaExplainsDeadlineNotDelay(t *testing.T) {
+	schema := nativeToolInputSchema("terminal.command")
+	props, _ := schema["properties"].(map[string]any)
+	timeout, _ := props["timeoutSeconds"].(map[string]any)
+	description, _ := timeout["description"].(string)
+	if !strings.Contains(strings.ToLower(description), "deadline") || !strings.Contains(strings.ToLower(description), "not a sleep") {
+		t.Fatalf("timeoutSeconds description is ambiguous: %q", description)
+	}
+}
+
+
+func TestNativeAgentPromptStopsAfterPermissionRejection(t *testing.T) {
+	prompt := nativeAgentSystemPrompt()
+	for _, required := range []string{
+		"rejected by the user",
+		"Do not retry it",
+		"do not probe for ways around the rejection",
+		"do not reinterpret the rejection as a capability or filesystem-access failure",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("native Agent system prompt missing %q", required)
+		}
 	}
 }

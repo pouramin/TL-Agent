@@ -1,26 +1,22 @@
 # Security
 
-TL Studio is intentionally local-first. Its browser UI and bundled agent runtime bind to loopback by default, and the launcher refuses a non-loopback UI address.
+TL Studio is intentionally local-first. Its Browser control UI binds to loopback and the launcher refuses a non-loopback UI address.
 
-## Threat model
+The Native Agent can read or modify project files and execute commands only through TL Studio tools and permission policy. Treat prompts, connected providers, MCP servers, repositories, tool output, and plugin processes as potentially security-sensitive inputs.
 
-The active local agent runtime can execute commands and modify files when the selected agent and permission policy allow it. Treat prompts, connected providers, MCP servers, repositories, and tool output as potentially security-sensitive inputs.
+The launcher protects its local control surface by:
 
-The launcher protects its local browser/runtime bridge by:
+- binding the control server to loopback;
+- rejecting non-loopback Host values;
+- requiring Browser Origin to match the local control origin;
+- keeping provider credentials out of Browser code and provider registry files;
+- enforcing project boundaries on filesystem operations;
+- rejecting traversal and symlink escapes;
+- isolating Preview content from the TL Studio control origin;
+- permission-gating sensitive tool actions.
 
-- starting the bundled runtime on loopback only,
-- using a random per-run backend credential,
-- keeping runtime credentials out of browser-side code,
-- checking loopback Host values,
-- rejecting cross-origin requests,
-- adding a restrictive Content Security Policy,
-- keeping project file operations inside the selected project boundary, and
-- not exposing a project-owned remote control plane.
+TL Studio does not start or authenticate a second local coding-runtime server. External model providers and MCP servers are ordinary external trust boundaries configured by the user.
 
-Project file APIs reject traversal and symlink escapes and protect Git metadata from workspace mutations. Live Preview content runs on a separate loopback origin from TL Studio's local control APIs.
+Do not expose the local control port through a public proxy. Review project code, provider endpoints, plugin commands, and requested permissions before approving sensitive actions.
 
-The current bundled engine is a third-party implementation detail behind TL Studio's runtime boundary. Engine-specific security and compatibility details must not leak credentials or weaken the launcher-owned local boundary.
-
-## Reporting
-
-Please open a private GitHub security advisory if the repository has that feature enabled. Do not publish working exploits for unresolved vulnerabilities in a public issue.
+Please report security issues privately to the repository owner rather than opening a public exploit report.

@@ -31,38 +31,67 @@ import { K } from "./kernel";
     if (!clean(draft.name)) return "Display name is required.";
     if (!PROTOCOLS.has(draft.protocol)) return "Choose a supported provider API.";
     if (!safeURL(draft.baseURL)) return "Enter a valid http(s) Base URL.";
-    if (!clean(draft.modelID)) return "Model ID is required.";
-    const context = positiveInt(draft.contextLimit);
-    const output = positiveInt(draft.outputLimit);
-    if (Number.isNaN(context)) return "Context limit must be a positive whole number.";
-    if (Number.isNaN(output)) return "Max output must be a positive whole number.";
+    const discoveredModels = Array.isArray(draft.models) ? draft.models.filter((model: any) => clean(model?.id)) : [];
+    if (!discoveredModels.length && !clean(draft.modelID)) return "Select at least one discovered model or enter a Model ID manually.";
+    if (!discoveredModels.length) {
+      const context = positiveInt(draft.contextLimit);
+      const output = positiveInt(draft.outputLimit);
+      if (Number.isNaN(context)) return "Context limit must be a positive whole number.";
+      if (Number.isNaN(output)) return "Max output must be a positive whole number.";
+    }
     return "";
   };
 
   const buildProviderDefinition = (draft: any, existing: any = {}) => {
-    const modelID = clean(draft.modelID);
-    const context = positiveInt(draft.contextLimit);
-    const output = positiveInt(draft.outputLimit);
-    const previousModels = Array.isArray(existing?.models) ? existing.models.filter((model: any) => model?.id && model.id !== modelID) : [];
-    const model = {
-      id: modelID,
-      name: clean(draft.modelName) || modelID,
-      toolCall: draft.toolCall !== false,
-      reasoning: draft.reasoning === true,
-      ...(context ? { contextLimit: context } : {}),
-      ...(output ? { outputLimit: output } : {}),
-    };
+    const discoveredModels = Array.isArray(draft.models)
+      ? draft.models
+        .filter((model: any) => clean(model?.id))
+        .map((model: any) => ({
+          id: clean(model.id),
+          name: clean(model.name) || clean(model.id),
+          ...(clean(model.kind) ? { kind: clean(model.kind) } : {}),
+          toolCall: model.toolCall !== false,
+          reasoning: model.reasoning === true,
+          ...(positiveInt(model.contextLimit) ? { contextLimit: positiveInt(model.contextLimit) } : {}),
+          ...(positiveInt(model.outputLimit) ? { outputLimit: positiveInt(model.outputLimit) } : {}),
+        }))
+      : [];
+    let models: any[];
+    if (discoveredModels.length) {
+      const deduped = new Map<string, any>();
+      for (const model of discoveredModels) deduped.set(model.id, model);
+      models = [...deduped.values()];
+    } else {
+      const modelID = clean(draft.modelID);
+      const context = positiveInt(draft.contextLimit);
+      const output = positiveInt(draft.outputLimit);
+      const existingModels = Array.isArray(existing?.models) ? existing.models : [];
+      const previousModel = existingModels.find((model: any) => model?.id === modelID);
+      const previousModels = existingModels.filter((model: any) => model?.id && model.id !== modelID);
+      const model = {
+        id: modelID,
+        name: clean(draft.modelName) || modelID,
+        ...(clean(previousModel?.kind) ? { kind: clean(previousModel.kind) } : {}),
+        toolCall: draft.toolCall !== false,
+        reasoning: draft.reasoning === true,
+        ...(context ? { contextLimit: context } : {}),
+        ...(output ? { outputLimit: output } : {}),
+      };
+      models = [...previousModels, model];
+    }
     return {
       id: clean(draft.providerID),
       name: clean(draft.name),
       protocol: draft.protocol,
       baseURL: safeURL(draft.baseURL),
-      models: [...previousModels, model].sort((a, b) => String(a.id).localeCompare(String(b.id))),
+      models: models.sort((a, b) => String(a.id).localeCompare(String(b.id))),
     };
   };
 
   const customProviderEntries = (config: any) => Array.isArray(config?.providers)
-    ? [...config.providers].sort((a, b) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
+    ? config.providers
+      .filter((provider: any) => !clean(provider?.managedBy))
+      .sort((a: any, b: any) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
     : [];
 
   const withoutProvider = (config: any, providerID: any) => ({
@@ -100,37 +129,49 @@ import { K } from "./kernel";
     <div class="settings-panel-head providers-panel-head">
       <div>
         <h3>Providers</h3>
-        <p>Add OpenAI-compatible, OpenAI Responses, or Anthropic-compatible endpoints to TL Studio. Models saved here appear in TL Studio's model selector.</p>
+        <p>Connect supported provider accounts or add API endpoints to TL Studio. Account sign-in and API credentials stay separate, while all available models appear in the same model selector. Product-managed integrations such as JEV keep their own controls.</p>
       </div>
-      <button id="providerAddButton" class="primary provider-add-button" type="button">Add provider</button>
+      <button id="providerAddButton" class="primary provider-add-button settings-primary-action" type="button">Add provider</button>
     </div>
     <div id="providerNotice" class="provider-notice hidden" role="status"></div>
     <div id="providerList" class="provider-list"></div>
-    <form id="providerForm" class="provider-form hidden">
-      <div class="provider-form-head">
-        <div><strong id="providerFormTitle">Add provider</strong><span>Configuration is saved globally by TL Studio and is available across projects.</span></div>
-        <button id="providerFormCancelTop" class="icon-button" type="button" aria-label="Close provider form">×</button>
-      </div>
-      <div class="provider-form-grid">
-        <label><span>Provider ID</span><input id="providerIdInput" autocomplete="off" spellcheck="false" placeholder="my-provider" /></label>
-        <label><span>Display name</span><input id="providerNameInput" autocomplete="off" placeholder="My Provider" /></label>
-        <label><span>Provider API</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI Compatible</option><option value="openai-responses">OpenAI Responses</option><option value="anthropic-messages">Anthropic Messages</option></select></label>
-        <label class="provider-field-wide"><span>Base URL</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
-        <label class="provider-field-wide"><span>API key</span><input id="providerApiKeyInput" type="password" autocomplete="new-password" spellcheck="false" placeholder="Leave blank to keep an existing key" /></label>
-        <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="model-id" /></label>
-        <label><span>Model name</span><input id="providerModelNameInput" autocomplete="off" placeholder="Model name" /></label>
-        <label><span>Context limit</span><input id="providerContextInput" inputmode="numeric" autocomplete="off" placeholder="Optional" /></label>
-        <label><span>Max output</span><input id="providerOutputInput" inputmode="numeric" autocomplete="off" placeholder="Optional" /></label>
-      </div>
-      <div class="provider-toggles">
-        <label><input id="providerToolCallInput" type="checkbox" checked /> <span>Tool calling</span></label>
-        <label><input id="providerReasoningInput" type="checkbox" /> <span>Reasoning</span></label>
-      </div>
-      <div class="provider-security-note">TL Studio keeps API keys out of its provider config. Credentials are currently delegated to the local runtime credential store and are never saved in browser storage.</div>
-      <div class="provider-limit-note">For custom models, set context/output limits when you know them. Automatic context compaction may be unavailable when a model has no known context limit.</div>
-      <div class="dialog-actions provider-form-actions"><button id="providerFormCancel" class="ghost" type="button">Cancel</button><button id="providerFormSave" class="primary" type="submit">Save provider</button></div>
-    </form>
   `;
+
+  const providerDialog = document.createElement("dialog");
+  providerDialog.id = "providerDialog";
+  providerDialog.innerHTML = `
+    <div class="dialog-card provider-dialog-card">
+      <div class="provider-dialog-head">
+        <div>
+          <h2 id="providerFormTitle">Add provider</h2>
+          <p>Configuration is saved globally by TL Studio and is available across projects.</p>
+        </div>
+        <button id="providerFormCancelTop" class="icon-button" type="button" aria-label="Close provider dialog">×</button>
+      </div>
+      <div id="providerDialogNotice" class="provider-notice hidden" role="status"></div>
+      <form id="providerForm" class="provider-form">
+        <div class="provider-form-grid">
+          <label><span>Provider ID</span><input id="providerIdInput" autocomplete="off" spellcheck="false" placeholder="my-provider" /></label>
+          <label><span>Display name</span><input id="providerNameInput" autocomplete="off" placeholder="My Provider" /></label>
+          <label><span>Provider API</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI Compatible</option><option value="openai-responses">OpenAI Responses</option><option value="anthropic-messages">Anthropic Messages</option></select></label>
+          <label class="provider-field-wide"><span>Base URL</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
+          <label class="provider-field-wide"><span>API key</span><input id="providerApiKeyInput" class="provider-api-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" data-form-type="other" data-lpignore="true" data-1p-ignore placeholder="Leave blank to keep an existing key" /></label>
+          <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="model-id" /></label>
+          <label><span>Model name</span><input id="providerModelNameInput" autocomplete="off" placeholder="Model name" /></label>
+          <label><span>Context limit</span><input id="providerContextInput" inputmode="numeric" autocomplete="off" placeholder="Optional" /></label>
+          <label><span>Max output</span><input id="providerOutputInput" inputmode="numeric" autocomplete="off" placeholder="Optional" /></label>
+        </div>
+        <div class="provider-toggles">
+          <label><input id="providerToolCallInput" type="checkbox" checked /> <span>Tool calling</span></label>
+          <label><input id="providerReasoningInput" type="checkbox" /> <span>Reasoning</span></label>
+        </div>
+        <div class="provider-security-note">TL Studio keeps API keys out of provider config and browser storage. Keys are stored only in TL Studio's local credential vault.</div>
+        <div class="provider-limit-note">For custom models, set context/output limits when you know them. Automatic context compaction may be unavailable when a model has no known context limit.</div>
+        <div class="dialog-actions provider-form-actions"><button id="providerFormCancel" class="ghost" type="button">Cancel</button><button id="providerFormSave" class="primary" type="submit">Done</button></div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(providerDialog);
   const aboutPanel = settingsContent.querySelector('[data-settings-panel="about"]');
   settingsContent.insertBefore(panel, aboutPanel || null);
 
@@ -138,16 +179,16 @@ import { K } from "./kernel";
   style.id = "tl-providers-ui-style";
   style.textContent = `
     .providers-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.provider-add-button{flex:none}
-    .provider-notice{margin:-8px 0 14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);font-size:10px;line-height:1.45}.provider-notice.error{border-color:color-mix(in srgb,var(--danger),var(--line) 55%);color:var(--danger)}
-    .provider-list{display:grid;gap:8px}.provider-empty{padding:24px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:10px;text-align:center}.provider-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.provider-item-title{display:flex;align-items:center;gap:7px}.provider-item-title strong{font-size:11px}.provider-status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted-2)}.provider-status-dot.ok{background:var(--accent)}.provider-item-meta{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}.provider-item-actions{display:flex;gap:6px}.provider-delete{color:var(--danger)}
-    .provider-form{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:11px;background:var(--panel-2)}.provider-form-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:13px}.provider-form-head strong,.provider-form-head span{display:block}.provider-form-head strong{font-size:12px}.provider-form-head span{margin-top:3px;color:var(--muted);font-size:9px}.provider-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.provider-form-grid label>span{display:block;margin:0 0 5px;color:var(--muted);font-size:9px;font-weight:650}.provider-form-grid input,.provider-form-grid select{box-sizing:border-box;width:100%;height:34px}.provider-field-wide{grid-column:1/-1}.provider-toggles{display:flex;gap:18px;margin-top:12px;color:var(--text);font-size:10px}.provider-toggles label{display:flex;align-items:center;gap:5px}.provider-security-note,.provider-limit-note{margin-top:11px;color:var(--muted);font-size:9px;line-height:1.5}.provider-security-note{color:color-mix(in srgb,var(--accent),var(--text) 45%)}.provider-form-actions{padding:13px 0 0}.providers-settings-panel.busy{opacity:.72;pointer-events:none}
+    .provider-notice{margin:-8px 0 14px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);font-size:var(--tl-ui-sm);line-height:1.45}.provider-notice.error{border-color:color-mix(in srgb,var(--danger),var(--line) 55%);color:var(--danger)}
+    .provider-list{display:grid;gap:8px}.provider-empty{padding:24px 12px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:var(--tl-ui-sm);text-align:center}.provider-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}.provider-item-title{display:flex;align-items:center;gap:7px}.provider-item-title strong{font-size:var(--tl-ui-base)}.provider-status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted-2)}.provider-status-dot.ok{background:var(--accent)}.provider-item-meta{margin-top:4px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}.provider-item-actions{display:flex;gap:6px}.provider-delete{color:var(--danger)}
+    .provider-dialog-card{width:min(760px,calc(100vw - 36px));max-height:calc(100vh - 48px);overflow:auto;padding:20px}.provider-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:16px}.provider-dialog-head h2{margin:0;font-size:var(--tl-ui-lg)}.provider-dialog-head p{margin:5px 0 0;color:var(--muted);font-size:var(--tl-ui-sm);line-height:1.5}.provider-dialog-head .icon-button{flex:none;margin-top:-3px}.provider-form{margin:0;padding:0;border:0;background:transparent}.provider-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.provider-form-grid label>span{display:block;margin:0 0 5px;color:var(--muted);font-size:var(--tl-ui-xs);font-weight:650}.provider-form-grid input,.provider-form-grid select{box-sizing:border-box;width:100%;height:34px}.provider-field-wide{grid-column:1/-1}.provider-api-key{-webkit-text-security:disc}.provider-toggles{display:flex;gap:18px;margin-top:12px;color:var(--text);font-size:var(--tl-ui-sm)}.provider-toggles label{display:flex;align-items:center;gap:5px}.provider-security-note,.provider-limit-note{margin-top:11px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.5}.provider-security-note{color:color-mix(in srgb,var(--accent),var(--text) 45%)}.provider-form-actions{padding:13px 0 0}.providers-settings-panel.busy,.provider-dialog-card.busy{opacity:.72;pointer-events:none}
     @media(max-width:760px){.providers-panel-head{display:block}.provider-add-button{margin-top:10px}.provider-form-grid{grid-template-columns:1fr}.provider-field-wide{grid-column:auto}.provider-item{grid-template-columns:1fr}.provider-item-actions{justify-content:flex-end}}
   `;
   document.head.appendChild(style);
 
   const $ = (id: any) => document.getElementById(id);
   const els: TLStudioDynamicRecord = {
-    add: $("providerAddButton"), notice: $("providerNotice"), list: $("providerList"), form: $("providerForm"),
+    add: $("providerAddButton"), notice: $("providerNotice"), dialogNotice: $("providerDialogNotice"), list: $("providerList"), form: $("providerForm"),
     title: $("providerFormTitle"), cancel: $("providerFormCancel"), cancelTop: $("providerFormCancelTop"), save: $("providerFormSave"),
     id: $("providerIdInput"), name: $("providerNameInput"), protocol: $("providerProtocolSelect"), baseURL: $("providerBaseUrlInput"), apiKey: $("providerApiKeyInput"),
     modelID: $("providerModelIdInput"), modelName: $("providerModelNameInput"), context: $("providerContextInput"), output: $("providerOutputInput"),
@@ -161,12 +202,20 @@ import { K } from "./kernel";
   const setBusy = (value: any) => {
     saving = value;
     panel.classList.toggle("busy", value);
+    providerDialog.querySelector(".provider-dialog-card")?.classList.toggle("busy", value);
     if (els.save) els.save.disabled = value;
   };
   const notice = (message = "", error = false) => {
-    els.notice.textContent = message;
-    els.notice.classList.toggle("hidden", !message);
-    els.notice.classList.toggle("error", !!message && error);
+    const target = providerDialog.open ? els.dialogNotice : els.notice;
+    const other = providerDialog.open ? els.notice : els.dialogNotice;
+    if (other) {
+      other.textContent = "";
+      other.classList.add("hidden");
+      other.classList.remove("error");
+    }
+    target.textContent = message;
+    target.classList.toggle("hidden", !message);
+    target.classList.toggle("error", !!message && error);
   };
   const activate = () => {
     if (typeof K.activateSettingsSection === "function") {
@@ -187,6 +236,7 @@ import { K } from "./kernel";
     protocol: els.protocol.value,
     baseURL: els.baseURL.value,
     apiKey: els.apiKey.value,
+    models: K.__providersUi?.discoverySelection?.modelsForSave?.() || [],
     modelID: els.modelID.value,
     modelName: els.modelName.value,
     contextLimit: els.context.value,
@@ -195,7 +245,7 @@ import { K } from "./kernel";
     reasoning: els.reasoning.checked,
   });
 
-  const clearForm = () => {
+  const resetFormFields = () => {
     editingID = "";
     els.form.reset();
     els.protocol.value = "openai-compatible";
@@ -203,7 +253,17 @@ import { K } from "./kernel";
     els.reasoning.checked = false;
     els.id.disabled = false;
     els.title.textContent = "Add provider";
-    els.form.classList.add("hidden");
+    K.__providersUi?.discoverySelection?.reset?.();
+    if (els.dialogNotice) {
+      els.dialogNotice.textContent = "";
+      els.dialogNotice.classList.add("hidden");
+      els.dialogNotice.classList.remove("error");
+    }
+  };
+
+  const clearForm = () => {
+    if (providerDialog.open) providerDialog.close();
+    resetFormFields();
   };
 
   // Provider editing is scoped to the Providers settings section. Leaving that
@@ -229,10 +289,12 @@ import { K } from "./kernel";
     els.toolCall.checked = value.toolCall !== false;
     els.reasoning.checked = value.reasoning === true;
     els.id.disabled = !!existingID;
-    els.title.textContent = existingID ? `Edit ${value.name || existingID}` : "Add provider";
-    els.form.classList.remove("hidden");
-    els.form.scrollIntoView?.({ block: "nearest" });
+    els.title.textContent = existingID ? "Configure provider" : "Add provider";
+    if (!providerDialog.open) providerDialog.showModal();
+    requestAnimationFrame(() => els.name.focus({ preventScroll: true }));
   };
+
+  K.__providersUi.openProvider = fillForm;
 
   const modelCount = (provider: any) => Array.isArray(provider?.models) ? provider.models.length : 0;
   const renderList = () => {
@@ -269,7 +331,7 @@ import { K } from "./kernel";
       const edit = document.createElement("button");
       edit.type = "button";
       edit.className = "ghost small";
-      edit.textContent = "Edit";
+      edit.textContent = "Configure";
       edit.addEventListener("click", () => editEntry(entry));
       const remove = document.createElement("button");
       remove.type = "button";
@@ -291,6 +353,8 @@ import { K } from "./kernel";
       notice(`Could not load provider settings: ${error instanceof Error ? error.message : String(error)}`, true);
     }
   };
+
+  K.__providersUi.reload = load;
 
   const editEntry = (entry: any) => {
     const first = Array.isArray(entry?.models) && entry.models.length ? entry.models[0] : {};
@@ -319,7 +383,7 @@ import { K } from "./kernel";
     notice("");
     try {
       const id = clean(value.providerID);
-      const existing = customProviderEntries(providerConfig).find((provider) => provider.id === (editingID || id)) || {};
+      const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === (editingID || id)) || {};
       const provider = buildProviderDefinition(value, existing);
       await K.api.providers.upsert(id, {
         provider,
@@ -328,11 +392,15 @@ import { K } from "./kernel";
       await K.loadCatalog();
       providerConfig = await K.api.providers.config();
       renderList();
+      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
+      const savedModelIDs = provider.models.map((model: any) => String(model.id));
+      const loadedModelIDs = savedModelIDs.filter((modelID: string) =>
+        K.state.models.some((model) => model.providerID === id && model.id === modelID));
       clearForm();
-      const loaded = K.state.models.some((model) => model.providerID === id && model.id === clean(value.modelID));
-      notice(loaded
-        ? `${value.name} saved. ${clean(value.modelID)} is now available in the model selector.`
-        : `${value.name} was saved by TL Studio, but the active runtime did not load ${clean(value.modelID)}. Check the endpoint, protocol, and model ID.`, !loaded);
+      notice(loadedModelIDs.length === savedModelIDs.length
+        ? `${value.name} saved. ${savedModelIDs.length} model${savedModelIDs.length === 1 ? "" : "s"} available in the model selector.`
+        : `${value.name} was saved, but TL Studio can use ${loadedModelIDs.length} of ${savedModelIDs.length} selected models natively. Check tool-calling support, endpoint, and protocol.`,
+        loadedModelIDs.length !== savedModelIDs.length);
     } catch (err) {
       notice(`Could not save provider: ${err instanceof Error ? err.message : String(err)}`, true);
       try { providerConfig = await K.api.providers.config(); renderList(); } catch {}
@@ -351,7 +419,7 @@ import { K } from "./kernel";
 
       // The delete has already succeeded in TL Studio's provider registry.
       // Update the visible state immediately instead of waiting on a runtime
-      // catalog refresh, which can briefly fail while the runtime reloads.
+      // catalog refresh, which can briefly fail while the provider catalog refreshes.
       providerConfig = withoutProvider(providerConfig, entry.id);
       K.state.providers = Array.isArray(K.state.providers)
         ? K.state.providers.filter((provider) => provider?.id !== entry.id)
@@ -365,6 +433,7 @@ import { K } from "./kernel";
       }
       renderList();
       K.renderModels?.();
+      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
       clearForm();
       notice(`${entry.name || entry.id} removed.`);
 
@@ -396,6 +465,7 @@ import { K } from "./kernel";
     button.addEventListener("click", resetTransientForm);
   }
   settingsDialog.addEventListener("close", resetTransientForm);
+  providerDialog.addEventListener("close", resetFormFields);
 
   els.add.addEventListener("click", () => { notice(""); fillForm({ toolCall: true }); });
   els.cancel.addEventListener("click", clearForm);

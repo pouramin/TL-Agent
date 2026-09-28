@@ -788,6 +788,18 @@ import { K } from "./kernel";
     }
   });
 
+  const reconcileWorkspaceFiles = async () => {
+    await loadDirectory(K.state.filesPath || "", { preserveSelection: true });
+    const tab = activeTab();
+    if (tab) await refreshTabFromDisk(tab, { silent: true });
+  };
+
+  window.addEventListener("tl-studio:project-file-changed", () => {
+    window.setTimeout(() => {
+      reconcileWorkspaceFiles().catch((error) => console.warn("[TL Studio] Workspace file reconciliation failed", error));
+    }, 80);
+  });
+
   const originalAfterProjectChange = K.afterProjectChange;
   K.afterProjectChange = async (...args) => {
     resetFiles();
@@ -795,16 +807,13 @@ import { K } from "./kernel";
     return originalAfterProjectChange(...args);
   };
 
-  const originalHandleRuntimeEvent = K.handleRuntimeEvent;
-  K.handleRuntimeEvent = (event) => {
-    originalHandleRuntimeEvent(event);
-    const type = event?.type || "";
-    const shouldRefresh = type.startsWith("file.") || type === "session.diff" || type === "session.idle";
+  const originalHandleLiveEvent = K.handleLiveEvent;
+  K.handleLiveEvent = (event: TLStudioLiveEvent) => {
+    originalHandleLiveEvent(event);
+    const shouldRefresh = event?.type === "workspace.changed";
     if (!shouldRefresh) return;
-    window.setTimeout(async () => {
-      if (!ui.panel?.classList.contains("hidden")) await loadDirectory(K.state.filesPath || "", { preserveSelection: true });
-      const tab = activeTab();
-      if (tab) await refreshTabFromDisk(tab, { silent: true });
+    window.setTimeout(() => {
+      reconcileWorkspaceFiles().catch((error) => console.warn("[TL Studio] Workspace event reconciliation failed", error));
     }, 120);
   };
 

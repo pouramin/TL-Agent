@@ -47,24 +47,30 @@ jobs:
           CGO_ENABLED: '0'
         run: |
           set -euo pipefail
-          mkdir -p staging/package/bin staging/upstream
+          mkdir -p staging/package
           go build -trimpath -ldflags "-s -w -X main.version=${PREVIEW_TAG}" -o staging/package/tl-studio.exe ./cmd/launcher
 
-      - name: Bundle pinned runtime
-        shell: bash
+      - name: Stage licenses and notices
         run: |
-          set -euo pipefail
-          RUNTIME_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
-          ASSET="kilo-windows-x64.zip"
-          URL="https://github.com/Kilo-Org/kilocode/releases/download/v${RUNTIME_VERSION}/${ASSET}"
-          curl --fail --location --retry 3 "$URL" -o "staging/upstream/${ASSET}"
-          unzip -q "staging/upstream/${ASSET}" -d staging/upstream/extracted
-          RUNTIME_BIN="$(find staging/upstream/extracted -type f -name 'kilo.exe' | head -n 1)"
-          test -n "$RUNTIME_BIN"
-          cp "$RUNTIME_BIN" staging/package/bin/kilo.exe
           cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
           mkdir -p staging/package/third_party
           cp -R third_party/. staging/package/third_party/
+
+      - name: Stage version-pinned bundled plugins
+        run: |
+          python3 scripts/stage-bundled-plugins.py \
+            --target windows-x64 \
+            --package-dir staging/package
+
+      - name: Assert package contains no Kilo runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find staging/package -type f \( -iname 'kilo' -o -iname 'kilo.exe' \) -print -quit | grep -q .; then
+            echo "Kilo runtime leaked into the TL Studio preview package." >&2
+            find staging/package -type f -iname 'kilo*' -print >&2
+            exit 1
+          fi
 
       - name: Package Windows preview
         shell: bash

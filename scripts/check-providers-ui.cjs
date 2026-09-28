@@ -7,6 +7,9 @@ const { loadBrowserModule, readBrowserTypeScript } = require("./browser-source-h
 const source = loadBrowserModule("providers-ui.ts");
 const productSource = readBrowserTypeScript("product-ui.ts");
 const providerTsSource = readBrowserTypeScript("providers-ui.ts");
+const discoveryTsSource = readBrowserTypeScript("provider-discovery-ui.ts");
+const jevTsSource = readBrowserTypeScript("jev-ui.ts");
+const coreTsSource = readBrowserTypeScript("core.ts");
 
 const K = { __providersUiInstalled: false };
 const context = vm.createContext({
@@ -80,13 +83,45 @@ assert.equal(merged.baseURL, "https://api.example.com/v1");
 assert.ok(merged.models.some((model) => model.id === "other-model"), "editing one model must preserve other TL Studio model definitions");
 assert.ok(merged.models.some((model) => model.id === "example-model"));
 
+const discoveredDraft = {
+  ...draft,
+  modelID: "",
+  modelName: "",
+  contextLimit: "",
+  outputLimit: "",
+  models: [
+    { id: "auto-a", name: "Auto A", toolCall: true, reasoning: true, contextLimit: 200000, outputLimit: 32000 },
+    { id: "auto-b", name: "Auto B", toolCall: undefined, reasoning: false },
+  ],
+};
+assert.equal(hooks.validateDraft(discoveredDraft), "", "discovered model selection should satisfy provider validation");
+const discoveredDefinition = hooks.buildProviderDefinition(discoveredDraft, existing);
+assert.deepEqual(Array.from(discoveredDefinition.models, (model) => model.id), ["auto-a", "auto-b"]);
+assert.equal(discoveredDefinition.models[0].contextLimit, 200000);
+assert.equal(discoveredDefinition.models[0].outputLimit, 32000);
+assert.equal(discoveredDefinition.models[1].toolCall, true, "unknown discovered tool support keeps the existing optimistic manual default");
+assert.equal(discoveredDefinition.models[1].reasoning, false);
+
+const routerDefinition = hooks.buildProviderDefinition({
+  ...draft,
+  modelID: "",
+  modelName: "",
+  contextLimit: "",
+  outputLimit: "",
+  models: [
+    { id: "typesafe/jev-router", name: "Jev Router", kind: "router", toolCall: true, reasoning: true },
+  ],
+}, existing);
+assert.equal(routerDefinition.models[0].kind, "router", "router metadata must persist into TL Studio provider configuration");
+
 const entries = hooks.customProviderEntries({
   providers: [
     definition,
+    { id: "openrouter", name: "OpenRouter", managedBy: "jev", protocol: "openai-compatible", baseURL: "https://openrouter.ai/api/v1", models: [{ id: "typesafe/jev-router", kind: "router" }] },
     { id: "z-provider", name: "Zed", protocol: "openai-compatible", baseURL: "https://z.example/v1", models: [] },
   ],
 });
-assert.deepEqual(Array.from(entries, (entry) => entry.id), ["example-provider", "z-provider"]);
+assert.deepEqual(Array.from(entries, (entry) => entry.id), ["example-provider", "z-provider"], "product-managed JEV provider must stay out of the generic provider list");
 
 const removed = hooks.withoutProvider({ providers: [definition, { id: "keep-me", name: "Keep", models: [] }] }, "example-provider");
 assert.deepEqual(Array.from(removed.providers, (provider) => provider.id), ["keep-me"], "successful delete must remove the provider from visible TL Studio state immediately");
@@ -97,11 +132,47 @@ assert.match(productSource, /K\.activateSettingsSection\s*=\s*activateSettingsSe
 assert.equal(providerTsSource.includes('if (button.dataset.settingsSection === "providers") continue;'), true, "Providers tab must be excluded from leave-section reset");
 assert.equal(providerTsSource.includes('button.addEventListener("click", resetTransientForm);'), true, "leaving Providers must reset the transient add/edit form");
 assert.equal(providerTsSource.includes('settingsDialog.addEventListener("close", resetTransientForm);'), true, "closing Settings must reset the transient provider form");
+assert.equal(providerTsSource.includes('providerDialog.id = "providerDialog"'), true, "provider editor must use a dedicated modal dialog");
+assert.equal(providerTsSource.includes('providerDialog.showModal()'), true, "Add/Configure provider must open the dedicated modal");
+assert.equal(providerTsSource.includes('providerDialog.close()'), true, "provider modal must close after cancel/save");
+assert.equal(providerTsSource.includes('providerDialog.addEventListener("close", resetFormFields)'), true, "closing provider modal must clear transient form state");
+assert.equal(providerTsSource.includes('type="submit">Done</button>'), true, "provider modal primary action should be Done");
+assert.equal(providerTsSource.includes('edit.textContent = "Configure"'), true, "provider cards should use Configure to match plugin settings");
 assert.equal(typeof hooks.resetTransientForm, "undefined", "DOM-only reset hook must not be installed when provider settings DOM is unavailable");
 
 assert.match(hooks.validateDraft({ ...draft, providerID: "Bad ID" }), /Provider ID/);
 assert.match(hooks.validateDraft({ ...draft, baseURL: "not-a-url" }), /Base URL/);
 assert.match(hooks.validateDraft({ ...draft, modelID: "" }), /Model ID/);
 assert.match(hooks.validateDraft({ ...draft, contextLimit: "12.5" }), /Context limit/);
+
+assert.equal(discoveryTsSource.includes('id="providerAssumeUnknownTools"'), true, "unknown tool capability must be an explicit UI choice");
+assert.equal(discoveryTsSource.includes('typeof model.toolCall === "boolean" ? model.toolCall : assumeUnknownTools.checked'), true, "unknown tool support must follow the explicit user setting");
+assert.equal(discoveryTsSource.includes('providersUI.discoverySelection.discoverModel'), true, "integrations must reuse the generic discovery UI rather than bypass it");
+assert.equal(jevTsSource.includes('const JEV_ROUTER_MODEL = "typesafe/jev-router"'), true, "Jev setup must use the exact free router model ID");
+assert.equal(jevTsSource.includes('const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"'), true, "Jev setup must use the official OpenRouter API");
+assert.equal(jevTsSource.includes('const selectOpenRouterProvider'), true, "Jev setup must resolve an existing OpenRouter provider");
+assert.equal(jevTsSource.includes('providers.filter((provider) => isOpenRouter(provider?.baseURL))'), true, "Jev setup must reuse an existing OpenRouter provider rather than duplicate it");
+assert.equal(jevTsSource.includes('providerHasRouter'), true, "Jev setup must recognize an already-saved Jev Router");
+assert.equal(jevTsSource.includes('Jev via OpenRouter (paid)'), true, "direct Jev Decision Engine must be clearly labeled paid");
+assert.equal(jevTsSource.includes('K.api.providers.discover'), true, "Jev setup must discover the exact router automatically");
+assert.equal(jevTsSource.includes('K.api.providers.upsert'), true, "Jev setup must save the discovered router automatically");
+assert.equal(jevTsSource.includes('Jev Router is active. No manual model selection was required.'), true, "Jev setup must complete without manual model selection");
+assert.equal(jevTsSource.includes('providersUI.openProvider'), false, "Jev setup must not fall back to the generic provider editor");
+assert.equal(jevTsSource.includes('discoverySelection?.discoverModel'), false, "Jev setup must not require the generic manual model picker");
+assert.equal(jevTsSource.includes('id="jevOpenRouterKeyInput"'), true, "Jev setup must own a focused OpenRouter API-key input when no credential exists");
+assert.equal(jevTsSource.includes('autocomplete="off"'), true, "Jev API-key input must avoid browser password-manager semantics");
+assert.equal(jevTsSource.includes("typesafe/jev-1.13"), false, "normal Jev Router UI must not silently fall back to a paid direct model");
+assert.equal(jevTsSource.includes("~typesafe/jev-latest"), false, "normal Jev Router UI must not silently invoke the paid latest decision alias");
+assert.equal(jevTsSource.includes('managedBy: "jev"'), true, "auto-created JEV provider must be explicitly product-managed");
+assert.equal(jevTsSource.includes('K.api.jevRouter.status()'), true, "JEV settings must read persisted Router enablement instead of inferring active state from provider presence");
+assert.equal(jevTsSource.includes('K.api.jevRouter.configure(false)'), true, "JEV switch must support explicit disablement");
+assert.equal(jevTsSource.includes('K.api.jevRouter.configure(true)'), true, "JEV switch must support explicit enablement");
+assert.equal(jevTsSource.includes('const toggleJev = async () =>'), true, "JEV compact control must have a real toggle handler");
+assert.equal(jevTsSource.includes('compactControl.addEventListener("click", () => { void toggleJev(); })'), true, "JEV compact switch must toggle instead of always opening settings");
+assert.equal(jevTsSource.includes('"JEV unavailable"'), true, "JEV must distinguish configured-but-unavailable accounts from active routing");
+assert.equal(providerTsSource.includes('.filter((provider: any) => !clean(provider?.managedBy))'), true, "product-managed integration providers must be hidden from the generic provider list");
+assert.equal(coreTsSource.includes('const routers = K.state.models.filter((model) => model.kind === "router")'), true, "router models must be separated from provider groups");
+assert.equal(coreTsSource.includes('select.appendChild(option);'), true, "router models must be inserted directly into the selector");
+assert.equal(coreTsSource.includes('group!.appendChild(option);'), true, "ordinary models must remain grouped by provider");
 
 console.log("custom provider UI regressions: ok");

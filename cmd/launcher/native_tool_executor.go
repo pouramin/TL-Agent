@@ -39,6 +39,8 @@ type nativeToolAuthorizer interface {
 type nativeToolExecutor struct {
 	processes   *processManager
 	permissions nativeToolAuthorizer
+	plugins     *pluginManager
+	questions   *questionContract
 }
 
 func newNativeToolExecutor(processes *processManager, permissions nativeToolAuthorizer) *nativeToolExecutor {
@@ -46,6 +48,24 @@ func newNativeToolExecutor(processes *processManager, permissions nativeToolAuth
 		processes = newProcessManager(nil)
 	}
 	return &nativeToolExecutor{processes: processes, permissions: permissions}
+}
+
+func (e *nativeToolExecutor) setPluginManager(plugins *pluginManager) {
+	e.plugins = plugins
+}
+
+func (e *nativeToolExecutor) setQuestionManager(questions *questionContract) {
+	e.questions = questions
+}
+
+func (e *nativeToolExecutor) Descriptor(project, id string) (toolDescriptor, bool) {
+	if descriptor, ok := toolDescriptorForID(id); ok {
+		return descriptor, true
+	}
+	if e.plugins != nil {
+		return e.plugins.Descriptor(project, id)
+	}
+	return unknownToolDescriptor(), false
 }
 
 func nativeExecutableToolIDs() []string {
@@ -56,6 +76,7 @@ func nativeExecutableToolIDs() []string {
 		"files.edit",
 		"search.content",
 		"terminal.command",
+		"interaction.question",
 	}
 }
 
@@ -127,9 +148,51 @@ func nativeToolInputSchema(id string) map[string]any {
 			"type": "object",
 			"properties": map[string]any{
 				"command":        stringProperty("Shell command to run in the selected project."),
-				"timeoutSeconds": map[string]any{"type": "integer", "minimum": 1, "maximum": int(nativeToolMaxTimeout / time.Second)},
+				"timeoutSeconds": map[string]any{
+					"type": "integer",
+					"minimum": 1,
+					"maximum": int(nativeToolMaxTimeout / time.Second),
+					"description": "Maximum allowed runtime before TL Studio cancels the command. This is a deadline, not a sleep or delay duration.",
+				},
 			},
 			"required": []string{"command"},
+			"additionalProperties": false,
+		}
+	case "interaction.question":
+		return map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"questions": map[string]any{
+					"type": "array",
+					"minItems": 1,
+					"maxItems": 20,
+					"items": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"header": stringProperty("Optional short label for the question."),
+							"question": stringProperty("Question text shown to the user."),
+							"options": map[string]any{
+								"type": "array",
+								"items": map[string]any{
+									"type": "object",
+									"properties": map[string]any{
+										"label": stringProperty("Selectable answer label."),
+										"description": stringProperty("Optional explanation for the option."),
+									},
+									"required": []string{"label"},
+									"additionalProperties": false,
+								},
+							},
+							"multiple": map[string]any{"type": "boolean"},
+							"custom": map[string]any{"type": "boolean"},
+							"default": stringProperty("Optional default custom answer."),
+						},
+						"required": []string{"question"},
+						"additionalProperties": false,
+					},
+				},
+			},
+			"required": []string{"questions"},
 			"additionalProperties": false,
 		}
 	default:
@@ -138,8 +201,12 @@ func nativeToolInputSchema(id string) map[string]any {
 }
 
 func (e *nativeToolExecutor) ToolDefinitions() []nativeModelToolDefinition {
+	return e.ToolDefinitionsForProject("")
+}
+
+func (e *nativeToolExecutor) ToolDefinitionsForProject(project string) []nativeModelToolDefinition {
 	ids := nativeExecutableToolIDs()
-	definitions := make([]nativeModelToolDefinition, 0, len(ids))
+	definitions := make([]nativeModelToolDefinition, 0, len(ids)+8)
 	for _, id := range ids {
 		descriptor, ok := toolDescriptorForID(id)
 		if !ok {
@@ -151,6 +218,9 @@ func (e *nativeToolExecutor) ToolDefinitions() []nativeModelToolDefinition {
 			Description: descriptor.Description,
 			InputSchema: nativeToolInputSchema(descriptor.ID),
 		})
+	}
+	if e.plugins != nil && strings.TrimSpace(project) != "" {
+		definitions = append(definitions, e.plugins.ToolDefinitions(project)...)
 	}
 	return definitions
 }
@@ -234,12 +304,44 @@ func nativeOptionalInt(input map[string]any, key string, fallback int) (int, err
 	}
 }
 
+func (e *nativeToolExecutor) nativeAskQuestion(ctx context.Context, sessionID string, input map[string]any) (any, error) {
+	if e.questions == nil {
+		return nil, errors.New("native interactive questions are unavailable")
+	}
+	raw, ok := input["questions"]
+	if !ok {
+		return nil, errors.New("questions are required")
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return nil, err
+	}
+	var prompts []questionPromptView
+	if err := json.Unmarshal(encoded, &prompts); err != nil {
+		return nil, errors.New("questions must use the native question schema")
+	}
+	answers, rejected, err := e.questions.Ask(ctx, sessionID, prompts)
+	if err != nil {
+		return nil, err
+	}
+	if rejected {
+		return map[string]any{"rejected": true, "answers": [][]string{}}, nil
+	}
+	return map[string]any{"rejected": false, "answers": answers}, nil
+}
+
 func (e *nativeToolExecutor) Execute(ctx context.Context, sessionID, project string, call nativeToolCall) nativeToolResult {
 	start := time.Now()
 	result := nativeToolResult{ToolID: strings.TrimSpace(call.ID), CallID: strings.TrimSpace(call.CallID)}
 	defer func() {
 		result.Duration = time.Since(start).Milliseconds()
 	}()
+
+	if e.plugins != nil && strings.HasPrefix(result.ToolID, "mcp.") {
+		if pluginResult, handled := e.plugins.Execute(ctx, sessionID, project, call); handled {
+			return pluginResult
+		}
+	}
 
 	descriptor, known := toolDescriptorForID(result.ToolID)
 	if !known || descriptor.ID == "runtime.unknown" {
@@ -261,6 +363,14 @@ func (e *nativeToolExecutor) Execute(ctx context.Context, sessionID, project str
 	input, err := decodeNativeToolArguments(call.Arguments)
 	if err != nil {
 		result.Error = err.Error()
+		return result
+	}
+	if descriptor.ID == "interaction.question" {
+		result.Output, err = e.nativeAskQuestion(ctx, sessionID, input)
+		if err != nil {
+			result.Error = err.Error()
+		}
+		result.Duration = time.Since(start).Milliseconds()
 		return result
 	}
 	if e.permissions != nil {
