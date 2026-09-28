@@ -10,13 +10,17 @@ Stable main contains only validated stable releases. Ongoing development continu
 
 ## Current milestone
 
-Release version:
+Development version:
 
-0.5.0
+0.6.0-alpha.1
 
-Release status:
+Stable base:
 
-The fully native runtime milestone has completed automated CI and hands-on Windows validation. The current task is promotion of this validated development line to stable main as v0.5.0.
+v0.5.0 on main
+
+Development status:
+
+The fully native runtime milestone is complete and released as stable v0.5.0. New product work continues on dev for the 0.6 line.
 
 Completed milestone PR:
 
@@ -24,7 +28,7 @@ Completed milestone PR:
 
 Stable promotion rule:
 
-Promote dev to main only after release checks are green. Stable main must not carry alpha or beta version labels.
+Promote dev to main only after the next milestone is fully validated and its version has been finalized as stable. Stable main must not carry alpha or beta version labels.
 
 ## Architecture state
 
