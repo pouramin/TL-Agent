@@ -115,7 +115,7 @@ export default function PersianHomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Development preview · v0.6.0-alpha.1</p>
             <h2 className="mt-2 text-3xl font-semibold">اتصال مدل با حساب کاربری در نسخهٔ 0.6 در حال اضافه‌شدن است.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              خط توسعه برای OpenRouter، Hugging Face و Google/Gemini Flow رسمی Account Login، Model Discovery و Credential مبتنی بر Vault دارد. اتصال ChatGPT/Codex، حساب Claude و GitHub Copilot تا زمانی که قرارداد رسمی آن‌ها با مدل اجرای بومی TL Studio سازگار شود، به‌صورت شفاف Deferred باقی می‌ماند.
+              خط توسعه حالا برای OpenRouter، Hugging Face، Google/Gemini و ChatGPT/Codex اتصال حساب دارد. مسیر ChatGPT از Login و Model Surface رسمی OpenAI Codex و یک Provider Bridge ایزوله استفاده می‌کند، درحالی‌که Tool، Permission، Session، Persistence و چرخهٔ بیرونی Agent همچنان در اختیار TL Studio هستند. حساب Claude و GitHub Copilot فعلاً Deferred باقی می‌مانند.
             </p>
             <Link href="/fa/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               اتصال مدل‌ها <ArrowLeft className="size-4" />
