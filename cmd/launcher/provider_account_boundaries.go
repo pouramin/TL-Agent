@@ -70,18 +70,6 @@ func (a *unavailableProviderAccountAdapter) Disconnect(context.Context, string) 
 	return nil
 }
 
-func newChatGPTAccountBoundaryAdapter() providerAccountAdapter {
-	return &unavailableProviderAccountAdapter{
-		id:   "chatgpt",
-		name: "ChatGPT / Codex",
-		description: "ChatGPT account usage is a required TL Studio 0.6 target. OpenAI publicly supports ChatGPT login through Codex clients, but the documented third-party surface currently routes inference through the Codex thread/turn runtime rather than a raw model transport.",
-		billingNote: "ChatGPT/Codex plan usage is separate from normal OpenAI API billing.",
-		reason: "Waiting for an official third-party ChatGPT/Codex model transport that can preserve TL Studio Native Agent ownership. TL Studio will not copy private OAuth clients or undocumented ChatGPT backend endpoints.",
-		authModes: []string{"chatgpt"},
-		capabilities: []string{"models", "inference"},
-	}
-}
-
 func newClaudeAccountBoundaryAdapter() providerAccountAdapter {
 	return &unavailableProviderAccountAdapter{
 		id:   "claude",
