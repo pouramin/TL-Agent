@@ -51,8 +51,8 @@ if args and args[0] == "app-server":
             send({"method": "account/updated", "params": {"authMode": "chatgpt", "planType": "plus"}})
         elif method == "model/list":
             send({"id": req_id, "result": {"data": [
-                {"id": "gpt-5.6-sol", "model": "gpt-5.6-sol", "displayName": "GPT-5.6 Sol", "description": "test", "hidden": False, "supportedReasoningEfforts": [], "defaultReasoningEffort": "medium", "inputModalities": ["text"], "supportsPersonality": False, "multiAgentVersion": None, "additionalSpeedTiers": [], "serviceTiers": [], "defaultServiceTier": None, "availableAccessPrograms": None, "isDefault": True, "upgrade": None, "upgradeInfo": None, "availabilityNux": None, "modelSpecialty": None},
-                {"id": "gpt-5.6-luna", "model": "gpt-5.6-luna", "displayName": "GPT-5.6 Luna", "description": "test", "hidden": False, "supportedReasoningEfforts": [], "defaultReasoningEffort": "medium", "inputModalities": ["text"], "supportsPersonality": False, "multiAgentVersion": None, "additionalSpeedTiers": [], "serviceTiers": [], "defaultServiceTier": None, "availableAccessPrograms": None, "isDefault": False, "upgrade": None, "upgradeInfo": None, "availabilityNux": None, "modelSpecialty": None}
+                {"id": "gpt-5.6-sol", "model": "gpt-5.6-sol", "displayName": "GPT-5.6 Sol", "description": "test", "hidden": False, "supportedReasoningEfforts": [{"reasoningEffort":"low","description":"Fast"},{"reasoningEffort":"medium","description":"Balanced"}], "defaultReasoningEffort": "medium", "inputModalities": ["text"], "supportsPersonality": False, "multiAgentVersion": None, "additionalSpeedTiers": [], "serviceTiers": [], "defaultServiceTier": None, "availableAccessPrograms": None, "isDefault": True, "upgrade": None, "upgradeInfo": None, "availabilityNux": None, "modelSpecialty": None},
+                {"id": "gpt-5.6-luna", "model": "gpt-5.6-luna", "displayName": "GPT-5.6 Luna", "description": "test", "hidden": False, "supportedReasoningEfforts": [{"reasoningEffort":"minimal","description":"Fastest"},{"reasoningEffort":"low","description":"Fast"},{"reasoningEffort":"medium","description":"Balanced"}], "defaultReasoningEffort": "medium", "inputModalities": ["text"], "supportsPersonality": False, "multiAgentVersion": None, "additionalSpeedTiers": [], "serviceTiers": [], "defaultServiceTier": None, "availableAccessPrograms": None, "isDefault": False, "upgrade": None, "upgradeInfo": None, "availabilityNux": None, "modelSpecialty": None}
             ], "nextCursor": None}})
         elif method == "account/login/cancel":
             send({"id": req_id, "result": {}})
@@ -416,5 +416,51 @@ func TestCodexBridgePromptCarriesSelectedModelIdentity(t *testing.T) {
 		if !strings.Contains(prompt, required) {
 			t.Fatalf("bridge prompt missing selected-model identity contract %q: %s", required, prompt)
 		}
+	}
+}
+
+
+func TestChatGPTHotPathAvoidsAccountRead(t *testing.T) {
+	manager, adapter := newChatGPTTestManager(t)
+	if err := manager.store.put(tlProviderDefinition{
+		ID:        chatGPTAccountProviderID,
+		Name:      "ChatGPT / Codex",
+		Protocol:  codexChatGPTProviderProtocol,
+		BaseURL:   chatGPTAccountBaseURL,
+		ManagedBy: "account",
+		Models: []tlProviderModel{{
+			ID:              "gpt-5.6-luna",
+			Name:            "GPT-5.6 Luna",
+			ToolCall:        true,
+			Reasoning:       true,
+			ReasoningEffort: "low",
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	credential, err := adapter.ResolveCredential(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if credential != "official-codex-chatgpt-account" {
+		t.Fatalf("unexpected credential sentinel %q", credential)
+	}
+	if time.Since(started) > 2*time.Second {
+		t.Fatalf("credential resolution should not start an account/read subprocess")
+	}
+}
+
+func TestPreferredCodexReasoningEffortFavorsLowLatency(t *testing.T) {
+	item := codexModelListItem{
+		DefaultReasoningEffort: "medium",
+		SupportedReasoningEfforts: []codexReasoningEffortOption{
+			{ReasoningEffort: "minimal"},
+			{ReasoningEffort: "low"},
+			{ReasoningEffort: "medium"},
+		},
+	}
+	if got := preferredCodexReasoningEffort(item); got != "low" {
+		t.Fatalf("expected low reasoning effort for interactive bridge latency, got %q", got)
 	}
 }
