@@ -210,14 +210,16 @@ func TestChatGPTCodexBridgeReturnsTLStudioToolCall(t *testing.T) {
 
 func TestChatGPTAdapterDisconnectRemovesManagedProvider(t *testing.T) {
 	manager, adapter := newChatGPTTestManager(t)
-	manager.store.put(tlProviderDefinition{
+	if err := manager.store.put(tlProviderDefinition{
 		ID: chatGPTAccountProviderID,
 		Name: "ChatGPT / Codex",
 		Protocol: codexChatGPTProviderProtocol,
 		BaseURL: chatGPTAccountBaseURL,
 		ManagedBy: "account",
 		Models: []tlProviderModel{{ID: "gpt-5.6-sol", Name: "GPT-5.6 Sol", ToolCall: true}},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := saveChatGPTCodexConfig(chatGPTCodexConfig{Email: "tester@example.com", PlanType: "plus"}); err != nil {
 		t.Fatal(err)
 	}
@@ -271,6 +273,11 @@ func TestChatGPTIntegrationAvoidsPrivateAuthSurfaces(t *testing.T) {
 		`"account/read"`,
 		`"model/list"`,
 		`"account/logout"`,
+		`"--ignore-user-config"`,
+		`"--ignore-rules"`,
+		`"--sandbox", "read-only"`,
+		`approval_policy="never"`,
+		`web_search="disabled"`,
 	} {
 		if !strings.Contains(combined, required) {
 			t.Fatalf("official Codex account lifecycle missing %q", required)
