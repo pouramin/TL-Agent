@@ -212,26 +212,6 @@
               </div>
               <button id="pluginAddButton" class="primary settings-primary-action" type="button">Add plugin</button>
             </div>
-            <div id="pluginEditor" class="plugin-editor hidden">
-              <div class="settings-section-title">Plugin configuration</div>
-              <input id="pluginEditID" type="hidden" />
-              <div class="plugin-form-grid">
-                <label><span>Name</span><input id="pluginNameInput" autocomplete="off" placeholder="My MCP Server" /></label>
-                <label><span>Transport</span><select id="pluginTransportSelect"><option value="stdio">stdio</option></select></label>
-                <label class="plugin-form-wide"><span>Description</span><input id="pluginDescriptionInput" autocomplete="off" placeholder="Optional description" /></label>
-                <label class="plugin-form-wide"><span>Command</span><input id="pluginCommandInput" autocomplete="off" spellcheck="false" placeholder="my-mcp-server" /></label>
-                <label class="plugin-form-wide plugin-arguments-field"><span>Arguments</span><textarea id="pluginArgsInput" rows="5" spellcheck="false" placeholder="/c&#10;npx&#10;-y&#10;package-name"></textarea><small>One argument per line. Enter only arguments here; the executable belongs in Command.</small></label>
-                <label><span>Scope</span><select id="pluginScopeSelect"><option value="project">Current project</option><option value="global">All projects</option></select></label>
-                <label><span>Working directory</span><input id="pluginCwdInput" autocomplete="off" spellcheck="false" placeholder=". (project root)" /></label>
-                <label class="plugin-form-wide"><span>Environment variables</span><textarea id="pluginEnvInput" rows="3" spellcheck="false" placeholder="API_KEY=value&#10;TOKEN=value"></textarea><small>Values are stored in TL Studio's credential vault and are never shown again after save.</small></label>
-              </div>
-              <div id="pluginEditorStatus" class="plugin-editor-status"></div>
-              <div class="plugin-editor-actions">
-                <button id="pluginCancelButton" class="ghost small" type="button">Cancel</button>
-                <button id="pluginTestButton" class="ghost small" type="button">Test Connection</button>
-                <button id="pluginSaveButton" class="primary small" type="button">Save Plugin</button>
-              </div>
-            </div>
             <div id="pluginList" class="plugin-list" aria-live="polite"></div>
           </section>
 
@@ -280,6 +260,37 @@
       </div>
 
       <div class="dialog-actions settings-footer"><button id="settingsClose" class="primary" type="button">Done</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="pluginDialog">
+    <div class="dialog-card plugin-dialog-card">
+      <div class="plugin-dialog-head">
+        <div>
+          <h2 id="pluginDialogTitle">Add plugin</h2>
+          <p>Configure an MCP server for TL Studio.</p>
+        </div>
+        <button id="pluginDialogClose" class="icon-button" type="button" aria-label="Close plugin dialog">×</button>
+      </div>
+      <div id="pluginEditor" class="plugin-editor">
+        <input id="pluginEditID" type="hidden" />
+        <div class="plugin-form-grid">
+          <label><span>Name</span><input id="pluginNameInput" autocomplete="off" placeholder="My MCP Server" /></label>
+          <label><span>Transport</span><select id="pluginTransportSelect"><option value="stdio">stdio</option></select></label>
+          <label class="plugin-form-wide"><span>Description</span><input id="pluginDescriptionInput" autocomplete="off" placeholder="Optional description" /></label>
+          <label class="plugin-form-wide"><span>Command</span><input id="pluginCommandInput" autocomplete="off" spellcheck="false" placeholder="my-mcp-server" /></label>
+          <label class="plugin-form-wide plugin-arguments-field"><span>Arguments</span><textarea id="pluginArgsInput" rows="5" spellcheck="false" placeholder="/c&#10;npx&#10;-y&#10;package-name"></textarea><small>One argument per line. Enter only arguments here; the executable belongs in Command.</small></label>
+          <label><span>Scope</span><select id="pluginScopeSelect"><option value="project">Current project</option><option value="global">All projects</option></select></label>
+          <label><span>Working directory</span><input id="pluginCwdInput" autocomplete="off" spellcheck="false" placeholder=". (project root)" /></label>
+          <label class="plugin-form-wide"><span>Environment variables</span><textarea id="pluginEnvInput" rows="3" spellcheck="false" placeholder="API_KEY=value&#10;TOKEN=value"></textarea><small>Values are stored in TL Studio's credential vault and are never shown again after save.</small></label>
+        </div>
+        <div id="pluginEditorStatus" class="plugin-editor-status"></div>
+        <div class="plugin-editor-actions">
+          <button id="pluginCancelButton" class="ghost small" type="button">Cancel</button>
+          <button id="pluginTestButton" class="ghost small" type="button">Test Connection</button>
+          <button id="pluginSaveButton" class="primary small" type="button">Done</button>
+        </div>
+      </div>
     </div>
   </dialog>
 
