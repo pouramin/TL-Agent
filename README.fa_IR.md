@@ -58,7 +58,7 @@ Provider definition در Local State خود TL Studio ذخیره می‌شود. 
 
 زیرساخت Account Provider در خط توسعه‌ی 0.6 شامل وضعیت معنایی Login، لغو، Refresh، Logout و Model Discovery است. OpenRouter از OAuth + PKCE مستند خودش استفاده می‌کند، Hugging Face با Public OAuth Client و PKCE متصل می‌شود و Google/Gemini نیز از Installed App OAuth، PKCE، Refresh و Revocation رسمی استفاده می‌کند. Credential هیچ‌کدام در اختیار Browser قرار نمی‌گیرد.
 
-اتصال حساب Google به یک Desktop OAuth Client ثبت‌شده برای TL Studio و یک Google Cloud Project با Generative Language API فعال نیاز دارد. اشتراک مصرف‌کننده‌ی Gemini به‌عنوان Gemini API entitlement در نظر گرفته نمی‌شود.
+اتصال حساب Google به یک Desktop OAuth Client و یک Google Cloud Project با Generative Language API فعال نیاز دارد. در نسخه‌ی آلفای 0.6 این تنظیمات غیرمحرمانه مستقیماً از Provider Settings قابل ثبت و به‌صورت محلی قابل نگهداری هستند و Environment Variable فقط به‌عنوان Development override باقی می‌ماند. در نسخه‌ی Production می‌توان Client ID ثبت‌شده‌ی خود TL Studio را همراه برنامه ارائه کرد تا کاربر عادی فقط Project مناسب Google را تنظیم کند. اشتراک مصرف‌کننده‌ی Gemini به‌عنوان Gemini API entitlement در نظر گرفته نمی‌شود.
 
 اتصال حساب ChatGPT/Codex، Claude و GitHub Copilot وقتی قرارداد رسمی فعلی با مرز Native execution پروژه سازگار نباشد، در Provider Settings به‌صورت شفاف غیرفعال نمایش داده می‌شود. این موارد Hidden fallback نیستند و تا زمان حل مرز معماری، به Runtime credential resolver ثبت نمی‌شوند.
 
