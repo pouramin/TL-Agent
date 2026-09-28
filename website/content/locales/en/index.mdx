@@ -1,6 +1,6 @@
 ---
 title: TL Studio
-description: Learn how the fully native TL Studio v0.5 workspace, Agent, providers, tools, and Plugins/MCP fit together.
+description: Learn how the fully native TL Studio v0.5 workspace, Agent, model connections, tools, and Plugins/MCP fit together.
 icon: House
 ---
 
@@ -36,13 +36,12 @@ If a selected protocol or capability is unsupported by TL Studio's native model 
 - capability-driven Preview for web, documents, images, audio, and video;
 - fully native Session lifecycle and local semantic persistence;
 - fully native interactive Questions and Permission policy;
-- direct Provider execution for OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages;
+- direct model execution through TL Studio-owned native protocol adapters;
 - Provider model discovery with searchable catalogs and local cache fallback;
 - secure local Provider credentials;
 - a native model/tool/model Agent loop;
 - core coding Tools plus dynamic tools from compatible MCP plugins;
 - project/global stdio MCP configuration with explicit enable/test flows;
-- optional JEV/OpenRouter integration on the normal native Provider path.
 
 ## Stable release
 
@@ -60,12 +59,12 @@ npx --yes tl-studio
 
 Or download a portable build from GitHub Releases.
 
-## Development channel
+## Stable source
 
-`main` remains the stable v0.5.0 line. `dev` is currently on `0.6.0-alpha.1` and is five commits ahead of `main`; those development commits currently contain version/readiness bookkeeping only, not a new user-facing feature set.
+This site documents the current stable `main` source only. The current stable release is `v0.5.0`.
 
 ## Start here
 
 Start with [Installation](./getting-started/installation) and [First run](./getting-started/first-run).
 
-Then see [Workspace and editor](./guides/workspace-editor), [Native Agent and tools](./guides/native-agent-and-tools), [Plugins and MCP](./guides/plugins-and-mcp), [Custom providers](./guides/custom-providers), and [JEV and OpenRouter](./guides/jev-and-openrouter).
+Then see [Workspace and editor](./guides/workspace-editor), [Native Agent and tools](./guides/native-agent-and-tools), [Plugins and MCP](./guides/plugins-and-mcp), and [Model connections](./guides/custom-providers).
