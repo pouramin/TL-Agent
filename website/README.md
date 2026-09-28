@@ -33,7 +33,7 @@ The public site covers:
 - local security/trust boundaries;
 - stable npm launcher and portable release model.
 
-The public site should describe the current native product rather than preserving obsolete sidecar architecture or historical implementation branding.
+The public site should describe the current product and implementation. Historical architecture belongs in release history, not current user-facing documentation.
 
 ## Languages
 
