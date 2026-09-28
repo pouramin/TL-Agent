@@ -143,8 +143,8 @@ await cdp("Page.navigate", { url: baseURL });
 await waitFor('document.readyState === "complete"', "TL Studio page did not finish loading");
 await waitFor('document.getElementById("app")?.classList.contains("workspace-v2") === true', "redesigned workspace did not initialize");
 
-const structure = await evaluate('(() => ({topbar:!!document.querySelector(".workspace-topbar"),rail:!!document.querySelector(".workspace-activity-rail"),context:!!document.querySelector(".workspace-context-sidebar"),editor:!!document.querySelector("#filesPanel.workspace-mounted"),agent:!!document.querySelector(".workspace-agent-panel"),status:!!document.querySelector(".workspace-statusbar"),previewHandles:document.querySelectorAll(".preview-resize-handle").length,modelOptions:document.querySelectorAll("#modelSelect option").length,agentOptions:document.querySelectorAll("#agentSelect option").length}))()');
-for (const key of ["topbar","rail","context","editor","agent","status"]) assert(structure[key], "workspace region missing: " + key);
+const structure = await evaluate('(() => ({topbar:!!document.querySelector(".workspace-topbar"),rail:!!document.querySelector(".workspace-activity-rail"),context:!!document.querySelector(".workspace-context-sidebar"),editor:!!document.querySelector("#filesPanel.workspace-mounted"),agent:!!document.querySelector(".workspace-agent-panel"),status:!!document.querySelector(".workspace-statusbar"),terminalActivity:!!document.getElementById("workspaceTerminalActivity"),previewHandles:document.querySelectorAll(".preview-resize-handle").length,modelOptions:document.querySelectorAll("#modelSelect option").length,agentOptions:document.querySelectorAll("#agentSelect option").length}))()');
+for (const key of ["topbar","rail","context","editor","agent","status","terminalActivity"]) assert(structure[key], "workspace region missing: " + key);
 assert(structure.previewHandles === 8, "expected 8 Preview resize handles");
 assert(structure.modelOptions > 0, "model selector did not initialize");
 assert(structure.agentOptions > 0, "agent selector did not initialize");
@@ -181,7 +181,7 @@ await sleep(80);
 const themeAfter = await evaluate('document.documentElement.dataset.resolvedTheme');
 assert(themeBefore !== themeAfter, "Appearance shortcut did not use the real theme preference");
 
-await evaluate('document.getElementById("terminalButton")?.click()');
+await evaluate('document.getElementById("workspaceTerminalActivity")?.click()');
 await waitFor('!document.getElementById("terminalPanel")?.classList.contains("hidden")', "Terminal did not open");
 await evaluate('(() => { const input=document.getElementById("terminalInput"); input.value="printf workspace-smoke"; document.getElementById("terminalForm").dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})); })()');
 await waitFor('document.getElementById("terminalOutput")?.textContent.includes("workspace-smoke")', "real Terminal command did not execute");
