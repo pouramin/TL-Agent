@@ -26,8 +26,17 @@ func TestWorkspaceUXEnhancementsContract(t *testing.T) {
 	}
 
 	settings := readBrowserSource(t, "settings-enhancements.ts")
-	for _, required := range []string{"Editor color theme", "UI Font", "Code Font", "Terminal Font", "resetPreviewWindow", "tl-studio.editor-theme"} {
+	for _, required := range []string{"Editor color theme", "UI Font", "Code Font", "Terminal Font", "resetPreviewWindow", "tl-studio.editor-theme", "permission-rule-group", "Plugins & MCP"} {
 		if !strings.Contains(settings, required) { t.Fatalf("settings-enhancements.ts missing %q", required) }
+	}
+
+	product := readBrowserSource(t, "product-ui.ts")
+	if !strings.Contains(product, "tl-studio:font-size") {
+		t.Fatal("interface size changes must be broadcast to workspace/editor surfaces")
+	}
+	monaco := readBrowserSource(t, "monaco.ts")
+	for _, required := range []string{"editorTypography", "tl-studio:font-size", "fontSize: 15"} {
+		if !strings.Contains(monaco, required) { t.Fatalf("monaco.ts missing scalable typography contract %q", required) }
 	}
 
 	entry := readBrowserSource(t, "browser.ts")
