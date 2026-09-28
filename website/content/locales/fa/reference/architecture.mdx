@@ -113,13 +113,22 @@ Credentialها جداگانه در Credential Vault نگهداری می‌شون
 
 - OpenRouter؛
 - Hugging Face؛
-- Google / Gemini.
+- Google / Gemini؛
+- ChatGPT / Codex.
 
 Lifecycle عمومی شامل Status، شروع/تکمیل Login، Polling در صورت نیاز، Cancellation، Refresh، Credential Resolution، Model Discovery و Disconnect است.
 
-Credential دستی API و Credential حساب در Slotهای جداگانه نگهداری می‌شوند.
+Credential دستی API و Credential حسابی که TL Studio مدیریت می‌کند در Slotهای جداگانه نگهداری می‌شوند.
 
-Browser فقط Account State معنایی و Login Instruction امن را دریافت می‌کند. OAuth Code، PKCE Verifier، Access Token، Refresh Token، API Key، Cookie و Client Secret در سمت Go باقی می‌مانند.
+Browser فقط Account State معنایی و Login Instruction امن را دریافت می‌کند. OAuth Code، PKCE Verifier، Access Token، Refresh Token، API Key، Cookie و Client Secret وارد Browser State نمی‌شوند. برای ChatGPT، Client رسمی OpenAI Codex، OAuth Token Store را داخل CODEX_HOME ایزولهٔ مخصوص TL Studio نگه می‌دارد و TL Studio آن Tokenهای خام را نمی‌خواند یا Serialize نمی‌کند.
+
+### Provider Bridge مربوط به ChatGPT / Codex
+
+Login مربوط به ChatGPT از Flow رسمی account/login/start در Codex و Catalog رسمی model/list استفاده می‌کند.
+
+Model Turn مبتنی بر پلن ChatGPT، Codex CLI رسمی را به‌صورت Ephemeral و از Working Directory موقت و خالی اجرا می‌کند. User/Project Codex Config و Ruleها Ignore می‌شوند، Sandbox فقط‌خواندنی است، Approval Policy روی never قرار دارد و Web Search غیرفعال است.
+
+خروجی ساختاریافته به Assistant Text یا TL Studio Tool Call تبدیل می‌شود. Session State، Tool Execution، Permission، تغییرات پروژه، Persistence و Eventهای معنایی همچنان در اختیار TL Studio هستند.
 
 ### Loopback دسکتاپ Gemini
 
