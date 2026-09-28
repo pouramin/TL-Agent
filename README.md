@@ -33,7 +33,7 @@
 
 It combines a browser-based workspace with a Go backend that owns the Agent loop, sessions, tools, permissions, providers, credentials, terminal processes, project files, Preview, Plugins/MCP, and semantic events.
 
-There is no hidden coding-agent runtime underneath TL Studio and no compatibility engine required for normal execution.
+TL Studio executes coding sessions through its own Native Agent and Tool Executor.
 
 Your project stays on your machine. Model traffic goes directly to the provider you configure.
 
@@ -179,25 +179,9 @@ TL Studio owns:
 - Tool Registry and Tool Executor;
 - Plugins/MCP.
 
-Unsupported model protocols return an explicit unsupported-capability error. They are never routed through a hidden compatibility runtime.
+Unsupported model protocols return an explicit unsupported-capability error.
 
 For the deeper design, see **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)**.
-
-## No Kilo runtime dependency
-
-The old compatibility runtime has been completely removed from TL Studio's normal execution path.
-
-TL Studio does **not** require or ship:
-
-- a Kilo binary;
-- a Kilo subprocess;
-- a local Kilo server;
-- Kilo session or permission adapters;
-- Kilo provider synchronization;
-- a Kilo model fallback;
-- a hidden second Agent engine.
-
-Kilo Gateway can still be configured by a user as an ordinary external HTTPS/API-key provider, just like any other compatible external service.
 
 ## Security model
 
@@ -293,7 +277,7 @@ Current gates include, as applicable:
 - Agent/runtime E2E;
 - provider-specific regression tests;
 - Windows x64 review packaging;
-- assertions that release/review packages contain no Kilo runtime.
+- review and release package validation.
 
 Real credentials are not used in CI; provider integrations are exercised through mocked endpoints and contract tests.
 
@@ -316,7 +300,7 @@ TL Studio is intentionally built around a few hard boundaries:
 1. **Local-first** — the workspace and project stay on the user's machine.
 2. **Native execution** — TL Studio owns the Agent and tool loop.
 3. **Explicit trust** — credentials, permissions, providers, and external tools have clear boundaries.
-4. **No hidden fallback runtime** — unsupported capabilities fail explicitly.
+4. **Explicit capability boundaries** — unsupported capabilities fail clearly instead of being silently substituted.
 5. **Discovery-first provider setup** — common provider configuration should be simple.
 6. **Portable by default** — stable binaries are distributed for Windows, Linux, and macOS.
 7. **Zero project-owned infrastructure** — TL Studio does not require a hosted application backend, database, telemetry service, or model proxy.
