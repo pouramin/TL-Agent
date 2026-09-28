@@ -23,9 +23,10 @@ type nativeModelToolDefinition struct {
 }
 
 type nativeModelToolCall struct {
-	ID        string
-	Name      string
-	Arguments json.RawMessage
+	ID            string
+	Name          string
+	Arguments     json.RawMessage
+	ProviderState json.RawMessage
 }
 
 type nativeConversationMessage struct {
@@ -145,6 +146,8 @@ func (c *nativeHTTPModelClient) Complete(ctx context.Context, request nativeMode
 		return c.completeOpenAIResponses(ctx, request, onTextDelta)
 	case "anthropic-messages":
 		return c.completeAnthropic(ctx, request, onTextDelta)
+	case "gemini-generate-content":
+		return c.completeGemini(ctx, request, onTextDelta)
 	default:
 		return nativeModelResponse{}, fmt.Errorf("unsupported native provider protocol %q", request.Provider.Protocol)
 	}
