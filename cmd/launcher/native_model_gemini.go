@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -240,7 +239,7 @@ func (c *nativeHTTPModelClient) completeGemini(ctx context.Context, request nati
 		return nativeModelResponse{}, errors.New("Gemini model response is too large")
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nativeModelResponse{}, fmt.Errorf("Gemini model request failed with status %d: %s", res.StatusCode, strings.TrimSpace(string(body)))
+		return nativeModelResponse{}, fmt.Errorf("Gemini model request failed with status %d", res.StatusCode)
 	}
 
 	var payloadResponse geminiGenerateResponse
