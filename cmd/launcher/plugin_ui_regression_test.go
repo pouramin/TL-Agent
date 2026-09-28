@@ -54,7 +54,10 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		".plugin-arguments-field {",
 		".plugin-arguments-field textarea:focus",
 		"border: 1px solid var(--line);",
-		"background: var(--panel-3);",
+		"background: var(--panel-2);",
+		".plugin-form-grid input::placeholder,",
+		"color: #606975;",
+		"border-color: #485260;",
 		".plugin-empty { display: grid; gap: 3px; padding: 11px 13px;",
 	} {
 		if !strings.Contains(css, expected) {
