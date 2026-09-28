@@ -73,16 +73,4 @@ TL Studio supports version-pinned Plugins staged inside a Release package. Bundl
 
 **The v0.5.0 bundled-plugin catalog is empty.** No third-party MCP Plugin ships by default in this stable build.
 
-## Graphify integration
 
-TL Studio has product-aware integration hooks for a Graphify MCP configuration.
-
-When Graphify is configured externally, TL Studio can:
-
-- detect whether the Project graph exists;
-- require the graph before enabling Graphify MCP queries;
-- run `graphify extract . --code-only` after explicit confirmation;
-- expose **Build Graph / Rebuild Graph**;
-- open `graphify-out/graph.html` in Preview when available.
-
-Graphify itself is not bundled in v0.5.0; its CLI/MCP executables must already be available in the user's environment.
