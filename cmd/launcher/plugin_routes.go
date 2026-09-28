@@ -20,6 +20,8 @@ func writePluginError(w http.ResponseWriter, err error) {
 		strings.Contains(err.Error(), "only MCP"),
 		strings.Contains(err.Error(), "scope must"),
 		strings.Contains(err.Error(), "changing plugin scope"),
+		strings.Contains(err.Error(), "current project already has a plugin"),
+		strings.Contains(err.Error(), "open a project before attaching"),
 		strings.Contains(err.Error(), "invalid environment"),
 		strings.Contains(err.Error(), "Graphify graph is missing"),
 		strings.Contains(err.Error(), "working directory"):
@@ -41,6 +43,15 @@ func decodePluginUpsert(w http.ResponseWriter, r *http.Request) (pluginUpsertReq
 func registerPluginRoutes(mux *http.ServeMux, state *appState, manager *pluginManager) {
 	mux.HandleFunc("GET /local/plugins", func(w http.ResponseWriter, r *http.Request) {
 		views, err := manager.List(state.projectPath(), true)
+		if err != nil {
+			writePluginError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, views)
+	})
+
+	mux.HandleFunc("GET /local/plugins/saved", func(w http.ResponseWriter, r *http.Request) {
+		views, err := manager.SavedElsewhere(state.projectPath())
 		if err != nil {
 			writePluginError(w, err)
 			return
@@ -83,6 +94,22 @@ func registerPluginRoutes(mux *http.ServeMux, state *appState, manager *pluginMa
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
+	})
+
+	mux.HandleFunc("POST /local/plugins/{pluginID}/attach", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			SourceProject string `json:"sourceProject"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid JSON body"})
+			return
+		}
+		view, err := manager.AttachToProject(state.projectPath(), r.PathValue("pluginID"), body.SourceProject)
+		if err != nil {
+			writePluginError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, view)
 	})
 
 	mux.HandleFunc("POST /local/plugins/test", func(w http.ResponseWriter, r *http.Request) {

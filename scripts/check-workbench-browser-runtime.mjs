@@ -143,15 +143,21 @@ await cdp("Page.navigate", { url: baseURL });
 await waitFor('document.readyState === "complete"', "TL Studio page did not finish loading");
 await waitFor('document.getElementById("app")?.classList.contains("workspace-v2") === true', "redesigned workspace did not initialize");
 
-const structure = await evaluate('(() => ({topbar:!!document.querySelector(".workspace-topbar"),rail:!!document.querySelector(".workspace-activity-rail"),context:!!document.querySelector(".workspace-context-sidebar"),editor:!!document.querySelector("#filesPanel.workspace-mounted"),agent:!!document.querySelector(".workspace-agent-panel"),status:!!document.querySelector(".workspace-statusbar"),previewHandles:document.querySelectorAll(".preview-resize-handle").length,modelOptions:document.querySelectorAll("#modelSelect option").length,agentOptions:document.querySelectorAll("#agentSelect option").length}))()');
-for (const key of ["topbar","rail","context","editor","agent","status"]) assert(structure[key], "workspace region missing: " + key);
+const structure = await evaluate('(() => ({topbar:!!document.querySelector(".workspace-topbar"),rail:!!document.querySelector(".workspace-activity-rail"),context:!!document.querySelector(".workspace-context-sidebar"),editor:!!document.querySelector("#filesPanel.workspace-mounted"),agent:!!document.querySelector(".workspace-agent-panel"),status:!!document.querySelector(".workspace-statusbar"),terminalActivity:!!document.getElementById("workspaceTerminalActivity"),previewHandles:document.querySelectorAll(".preview-resize-handle").length,modelOptions:document.querySelectorAll("#modelSelect option").length,agentOptions:document.querySelectorAll("#agentSelect option").length}))()');
+for (const key of ["topbar","rail","context","editor","agent","status","terminalActivity"]) assert(structure[key], "workspace region missing: " + key);
 assert(structure.previewHandles === 8, "expected 8 Preview resize handles");
 assert(structure.modelOptions > 0, "model selector did not initialize");
 assert(structure.agentOptions > 0, "agent selector did not initialize");
 
 await waitFor('document.querySelectorAll(".file-row").length > 0', "Explorer did not load real project entries");
-await evaluate('document.querySelector(".file-row.file-file")?.click()');
-await waitFor('document.getElementById("fileEditorTitle")?.textContent !== "No file open"', "real file did not open in Editor");
+await waitFor('document.querySelector(".file-row.file-file") !== null', "Explorer did not render a real project file");
+await waitFor(`(() => {
+  if (document.getElementById("fileEditorTitle")?.textContent !== "No file open") return true;
+  const file = document.querySelector(".file-row.file-file");
+  if (!file) return false;
+  file.click();
+  return false;
+})()`, "real file did not open in Editor", 120);
 await waitFor('document.getElementById("fileEditorSurface") && !document.getElementById("fileEditorSurface").classList.contains("hidden")', "Editor surface did not activate");
 
 await evaluate('document.querySelector(\'[data-workspace-view="search"]\')?.click()');
@@ -181,13 +187,21 @@ await sleep(80);
 const themeAfter = await evaluate('document.documentElement.dataset.resolvedTheme');
 assert(themeBefore !== themeAfter, "Appearance shortcut did not use the real theme preference");
 
-await evaluate('document.getElementById("terminalButton")?.click()');
+await evaluate('document.getElementById("workspaceTerminalActivity")?.click()');
 await waitFor('!document.getElementById("terminalPanel")?.classList.contains("hidden")', "Terminal did not open");
 await evaluate('(() => { const input=document.getElementById("terminalInput"); input.value="printf workspace-smoke"; document.getElementById("terminalForm").dispatchEvent(new Event("submit",{bubbles:true,cancelable:true})); })()');
 await waitFor('document.getElementById("terminalOutput")?.textContent.includes("workspace-smoke")', "real Terminal command did not execute");
 
 await evaluate('document.getElementById("settingsButton")?.click()');
 await waitFor('document.getElementById("settingsDialog")?.open === true', "Settings did not open from Activity Rail");
+await evaluate('document.querySelector(\'[data-settings-section="providers"]\')?.click()');
+await waitFor('document.querySelector(\'[data-settings-panel="providers"]\')?.classList.contains("hidden") === false', "Providers settings did not activate");
+const providerAccountState = await evaluate('(async () => { const accounts=await fetch("/local/provider-accounts").then(r=>r.json()); return {isArray:Array.isArray(accounts),hasKilo:Array.isArray(accounts)&&accounts.some(a=>a?.id==="kilo"),emptyText:document.getElementById("providerAccountList")?.textContent||""}; })()');
+assert(providerAccountState?.isArray === true, "Provider account state was unavailable");
+assert(providerAccountState.hasKilo === false, "Unavailable Kilo account adapter rendered in native TL Studio");
+if (await evaluate('document.querySelectorAll("[data-provider-account-id]").length === 0')) {
+  assert(providerAccountState.emptyText.includes("No account-based provider integrations"), "Empty account-provider state did not render");
+}
 await evaluate('document.getElementById("settingsClose")?.click()');
 
 for (const viewport of [[1280,720],[1440,900],[1920,1080]]) {

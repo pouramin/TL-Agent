@@ -130,6 +130,9 @@ import { K } from "./kernel";
       }
       K.state.terminal.stoppedByUser = false;
       K.state.terminal.process = null;
+      // A project command may have changed files even when it produced no
+      // structured file-change metadata. Reconcile Explorer/Editor/Preview.
+      window.dispatchEvent(new Event("tl-studio:project-file-changed"));
       ui.input.disabled = false;
       ui.run.disabled = false;
       ui.stop.disabled = true;

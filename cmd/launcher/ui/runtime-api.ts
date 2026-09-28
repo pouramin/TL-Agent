@@ -8,12 +8,6 @@ import { K } from "./kernel";
   const json = (value: any) => JSON.stringify(value);
   const body = (value: any) => ({ body: json(value) });
   const unwrapData = (payload: any) => payload && typeof payload === "object" && "data" in payload ? payload.data : payload;
-  const request = (path: string, options: RequestInit = {}) => K.request(`/runtime${path}`, options);
-  const hostedMeta = { providerID: "", preferredModels: [] };
-  const applyHostedMeta = (value: any) => {
-    if (value?.providerID) hostedMeta.providerID = String(value.providerID);
-    if (Array.isArray(value?.preferredModels)) hostedMeta.preferredModels = value.preferredModels.map(String);
-  };
 
   const projectDirectory = () => K.state?.local?.project || "";
   const withQuery = (path: string, params: Record<string, unknown> = {}) => {
@@ -27,14 +21,6 @@ import { K } from "./kernel";
     ...(directory ? { directory } : {}),
     ...params,
   });
-
-  const legacyPageQuery = ({ order, limit, cursor }: { order?: string; limit?: number; cursor?: string } = {}) => {
-    const query = new URLSearchParams();
-    if (cursor) query.set("cursor", cursor);
-    else if (order) query.set("order", order);
-    if (limit !== undefined) query.set("limit", String(limit));
-    return query;
-  };
 
   const wireModel = (model: any) => model ? {
     providerID: model.providerID,
@@ -60,23 +46,19 @@ import { K } from "./kernel";
   };
 
   K.api = Object.freeze({
-    version: "bundled-runtime-adapter-v1",
+    version: "native-product-api-v1",
 
-    health: () => request("/global/health"),
-    path: () => request(route("/path")),
+    health: () => K.request("/local/health"),
+    path: () => K.request("/local/path"),
 
-    runtime: {
-      dispose: async () => unwrapData(await request("/global/dispose", { method: "POST" })),
-    },
 
     agents: async () => {
-      const payload = unwrapData(await request(route("/agent")));
+      const payload = await K.request("/local/agents");
       return Array.isArray(payload) ? payload : [];
     },
 
     providerState: async () => {
-      const payload = unwrapData(await request(route("/providers/catalog"))) || {};
-      applyHostedMeta(payload.hosted);
+      const payload = unwrapData(await K.request(route("/local/providers/catalog"))) || {};
       return {
         all: Array.isArray(payload.all) ? payload.all : [],
         connected: new Set<string>(Array.isArray(payload.connected) ? payload.connected.map(String) : []),
@@ -85,17 +67,28 @@ import { K } from "./kernel";
       };
     },
 
+    providerAccounts: {
+      list: async () => {
+        const payload = await K.request(withQuery("/local/provider-accounts", { directory: projectDirectory() }));
+        return Array.isArray(payload) ? payload : [];
+      },
+      status: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() })),
+      authorize: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/authorize`, { directory: projectDirectory() }), { method: "POST" }),
+      callback: (providerID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/callback`, { directory: projectDirectory() }), { method: "POST", signal }),
+      disconnect: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
+    },
+
     providers: {
       config: async () => {
-        const payload = unwrapData(await request("/providers/config")) || {};
+        const payload = unwrapData(await K.request("/local/providers/config")) || {};
         return { providers: Array.isArray(payload.providers) ? payload.providers : [] };
       },
-      upsert: async (providerID: any, { provider, apiKey }: any = {}) => unwrapData(await request(`/providers/config/${enc(providerID)}`, {
+      upsert: async (providerID: any, { provider, apiKey }: any = {}) => unwrapData(await K.request(`/local/providers/config/${enc(providerID)}`, {
         method: "PUT",
         ...body({ provider, ...(apiKey ? { apiKey } : {}) }),
       })),
-      remove: async (providerID: any) => unwrapData(await request(`/providers/config/${enc(providerID)}`, { method: "DELETE" })),
-      discover: async ({ providerID, protocol, baseURL, apiKey }: any = {}) => unwrapData(await request("/providers/discover", {
+      remove: async (providerID: any) => unwrapData(await K.request(`/local/providers/config/${enc(providerID)}`, { method: "DELETE" })),
+      discover: async ({ providerID, protocol, baseURL, apiKey }: any = {}) => unwrapData(await K.request("/local/providers/discover", {
         method: "POST",
         ...body({
           ...(providerID ? { providerID } : {}),
@@ -138,6 +131,14 @@ import { K } from "./kernel";
         const payload = await K.request("/local/plugins");
         return Array.isArray(payload) ? payload : [];
       },
+      saved: async () => {
+        const payload = await K.request("/local/plugins/saved");
+        return Array.isArray(payload) ? payload : [];
+      },
+      attach: (pluginID: string, sourceProject: string) => K.request(`/local/plugins/${enc(pluginID)}/attach`, {
+        method: "POST",
+        ...body({ sourceProject }),
+      }),
       create: (plugin: any, environment?: Record<string, string>) => K.request("/local/plugins", {
         method: "POST",
         ...body({ plugin, ...(environment !== undefined ? { environment } : {}) }),
@@ -193,20 +194,6 @@ import { K } from "./kernel";
       ),
     },
 
-    // Read-only compatibility bridge for sessions created during TL Studio's
-    // short Protocol v2 alpha window. New sessions and all normal coding stay
-    // on the production Session API above.
-    legacySessions: {
-      list: ({ order = "desc", limit = 100, cursor }: { order?: string; limit?: number; cursor?: string } = {}) => {
-        const query = legacyPageQuery({ order, limit, cursor });
-        return request(`/api/session${query.size ? `?${query}` : ""}`);
-      },
-      messages: (sessionID: any, { order = "asc", limit = 500, cursor }: { order?: string; limit?: number; cursor?: string } = {}) => {
-        const query = legacyPageQuery({ order, limit, cursor });
-        return request(`/api/session/${enc(sessionID)}/message${query.size ? `?${query}` : ""}`);
-      },
-    },
-
     permissions: {
       list: async (sessionID: any) => {
         const query = new URLSearchParams();
@@ -238,23 +225,6 @@ import { K } from "./kernel";
         method: "POST",
         ...body({ sessionID }),
       }),
-    },
-
-    hosted: {
-      get providerID() { return hostedMeta.providerID; },
-      get preferredModels() { return [...hostedMeta.preferredModels]; },
-      status: async () => {
-        const payload = unwrapData(await request(route("/hosted/status"))) || {};
-        applyHostedMeta(payload);
-        return {
-          authenticated: payload.authenticated === true,
-          type: payload.type || "",
-          organizationId: payload.organizationId || "",
-        };
-      },
-      authorize: async () => unwrapData(await request(route("/hosted/authorize"), { method: "POST" })),
-      callback: async (signal: any) => unwrapData(await request(route("/hosted/callback"), { method: "POST", signal })),
-      disconnect: async () => unwrapData(await request("/hosted", { method: "DELETE" })),
     },
 
     events: {

@@ -1,300 +1,131 @@
-[English](./README.md) | [فارسی](./README.fa_IR.md)
+# TL Studio
 
 <p align="center">
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center"><strong>Stable release: v0.4.0</strong></p>
+TL Studio is a local-first browser IDE and coding-agent workspace. The product is one TL Studio application: workspace, editor, Search, Terminal, Preview, sessions, permissions, questions, providers, Plugins/MCP, and the Native Agent all run behind TL Studio-owned local contracts.
 
-<p align="center">
-  A fast local development workspace with AI built in.
-</p>
+Current stable release: **0.5.0**
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/tl-studio"><img src="https://img.shields.io/npm/v/tl-studio" alt="npm"></a>
-  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Studio?sort=semver" alt="Release"></a>
-  <a href="https://github.com/pouramin/TL-Studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pouramin/TL-Studio/ci.yml?branch=main&label=CI" alt="CI"></a>
-  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/downloads/pouramin/TL-Studio/total" alt="Downloads"></a>
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
-</p>
+The validated native-runtime milestone is the stable v0.5.0 release line.
 
-**TL Studio** is a local browser-based development workspace where you can edit code yourself and work alongside an AI agent. Open a project, browse and edit files, search across the codebase, run commands, preview the app, choose models/providers, and hand work to the agent — all on your own computer.
+## Native architecture
 
-No VS Code, JetBrains, Cursor, Docker, hosted TL Studio backend, database, or project-owned cloud service is required.
+TL Studio now runs normally without a compatibility sidecar.
 
-## Quick Start
+- **Native Agent** — TL Studio owns the model/tool/model loop, cancellation, loop guards, semantic persistence, and live events.
+- **Native sessions** — create, rename, delete, run, abort, status, messages, changes, and persistence are TL Studio-owned.
+- **Native interactive questions** — an Agent can pause on interaction.question, expose a semantic pending question, receive multiple-choice or custom-text answers, and resume.
+- **Native permissions** — pending approvals, one-time decisions, project-scoped remembered rules, rejection, and enforcement are owned by TL Studio.
+- **Native events** — /local/events is the authoritative semantic SSE stream.
+- **Native providers** — provider definitions, model catalogs, discovery, and credentials are owned by TL Studio. Model calls go directly from TL Studio to configured providers.
+- **Provider accounts** — /local/provider-accounts remains a generic adapter domain for future documented account integrations.
+- **Native tools** — files, Search, Terminal/process execution, workspace reconciliation, and Plugin/MCP tools run through the TL Studio Tool Executor.
 
-### One-command launch
+There is no Kilo binary requirement, subprocess, local Kilo server, reverse proxy, session adapter, permission fallback, question adapter, event stream, provider synchronization, model fallback, or release payload.
 
-If Node.js/npm is installed, run this inside the project directory you want to work on:
+Kilo may still be configured by a user as an ordinary external API provider when using a documented public HTTPS/API-key endpoint. That relationship is the same as any other external provider and does not introduce a local runtime dependency.
 
-```bash
-npx --yes tl-studio
-```
+## Workspace
 
-The npm package is a lightweight launcher pinned to the matching stable TL Studio GitHub Release. It detects the operating system and architecture, downloads the official archive, verifies its SHA-256 checksum, caches it locally, and opens TL Studio with the current directory selected.
+The Browser workspace includes:
 
-Run without automatically opening the browser:
+- file Explorer with create, rename, delete, save, refresh, and optimistic concurrency protection;
+- Monaco editor bundled locally, with no CDN dependency;
+- project Search;
+- project-scoped Terminal/process execution with stop support;
+- Live Preview on a separate loopback origin;
+- Agent conversation, sessions, usage/activity metadata, changes, permissions, and interactive questions;
+- Provider settings and credential vault;
+- Plugins/MCP with project/global configuration and discovered tools;
+- JEV/OpenRouter integration through the native provider path.
 
-```bash
-npx --yes tl-studio --no-browser
-```
+## Provider support
 
-### Portable release
+TL Studio currently has direct model clients for OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
 
-Download your platform archive from **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)**, extract it, and run:
+Provider definitions live in TL Studio local state. API keys are stored separately in the TL Studio credential vault and are never written to providers.json or Browser storage.
 
-```text
-Windows:  tl-studio.exe
-Linux:    ./tl-studio
-macOS:    ./tl-studio
-```
+A model or protocol that the native client cannot execute returns an explicit unsupported-capability error. It is never routed through a hidden compatibility runtime.
 
-The release already includes the pinned local agent runtime.
+JEV remains an optional product-managed router on top of the normal OpenRouter-compatible provider path. It uses the same Native Agent, Tool Executor, permissions, sessions, and event system.
 
-## Features
+## Local product API
 
-- **Standalone local development workspace** — edit files, search the project, run commands, preview the app, and work with an AI agent in one browser workspace.
-- **Local project picker** — open project folders with the operating-system folder picker.
-- **Agent & model selection** — switch agents and available provider models from the composer.
-- **Custom providers + model discovery** — connect OpenAI-compatible, OpenAI Responses, and Anthropic-compatible endpoints, test/discover models before saving, search and select multiple models, refresh the catalog, and keep manual model IDs as a fallback.
-- **Plugins & MCP** — add arbitrary stdio MCP servers and support version-pinned bundled plugins through the same Plugin Manager; TL Studio discovers tools dynamically, namespaces them, routes them through the native Tool Registry and permission engine, and exposes enabled tools to the native Agent.
-- **File attachments** — attach images, PDFs, and text/code files; multi-select, drag/drop, and clipboard paste are supported.
-- **TL Studio-native Agent execution** — supported custom providers now run through a TL Studio-owned model/tool/model loop with cancellation, loop guards, semantic persistence, and live events; hosted Kilo remains available through the compatibility adapter.
-- **TL Studio Tool Executor** — core coding tools for project file read/list/write/edit, project search, and terminal commands execute through TL Studio-owned handlers with project confinement, validation, cancellation, and permission enforcement.
-- **TL Studio Tool Registry** — product tools use TL Studio-owned names, categories, capability metadata, permission classes, schemas, and presentation hints.
-- **Live agent activity** — compact Reasoning and Tool cards with live status updates using TL Studio tool semantics.
-- **TL Studio permission policies & questions** — approve one-time actions, remember project-scoped non-sensitive rules in TL Studio, forget saved rules from Settings, reject actions, and answer interactive questions through launcher-owned `/local/questions*` semantics rather than raw runtime question routes.
-- **Stop & recovery** — interrupt active work and recover from stalled or retryable upstream failures.
-- **TL Studio session read model** — current sessions, messages, activity, status, usage metadata, and session changes are projected through launcher-owned semantic `/local/sessions*` contracts instead of exposing the runtime's raw message envelope to the product UI.
-- **TL Studio session command contract** — session create, rename, delete, run/prompt, and abort now use launcher-owned semantic `/local/sessions*` routes; the active engine adapter translates those commands to its private implementation API.
-- **TL Studio session persistence** — semantic session metadata, transcripts, usage/activity history, and changes are mirrored into TL Studio-owned local storage. History remains readable after runtime history loss, and persisted-only sessions can still be renamed or deleted locally.
-- **TL Studio credential vault** — custom-provider API keys are owned by TL Studio, never written to `providers.json` or browser storage, restored into the active runtime when needed, and protected with Windows DPAPI, macOS Keychain, Linux Secret Service when available, or an encrypted private-file fallback.
-- **Session management** — create, resume, rename, delete, and switch sessions across recent projects.
-- **Project-scoped usage** — per-turn and project totals for tokens, requests, time, reasoning, and cache usage.
-- **Changes panel** — inspect changed files, addition/deletion counts, and patches.
-- **Project workspace** — writable local file explorer plus a locally bundled, lazy-loaded Monaco editor with multi-tab editing, find/replace, multi-cursor editing, save/create/rename/delete actions, external-change reconciliation, and **Show in Folder** for revealing the active file in the native system file manager.
-- **Project Search** — fast project-wide text search with include/exclude filters and click-to-open results.
-- **Integrated terminal** — project-scoped command execution, output history, stop controls, and process-tree termination.
-- **Live Preview** — capability-driven local preview in a movable/resizable browser window. TL Studio follows the active previewable file across HTML, SVG/raster images, PDF, video, audio, rendered Markdown, and rendered plain text; PDF is served directly with inline MIME/disposition and HTTP range support for the browser's native PDF viewer. Previewable binary media opens as a real read-only Workspace tab, while the floating Preview can be resized from all four edges and all four corners.
-- **Appearance & editor settings** — System, Dark, and Light themes plus editor theme and separate UI/code/terminal font controls.
-- **Strict TypeScript + real Browser modules** — all Browser UI source under `cmd/launcher/ui` is type-checked with `strict: true`; `kernel.ts` exports the shared typed Browser kernel, feature modules import it directly, `browser.ts` defines the ES-module graph, and esbuild produces one primary `browser.js` bundle. No `window.KLU` dependency or legacy per-module JavaScript build is required.
-- **Local-first security** — loopback-only UI, random per-run backend password, origin checks, and restrictive CSP.
-- **No TL Studio telemetry or cloud service** — model traffic goes directly through the provider/runtime configuration selected by the user.
+The Browser talks only to TL Studio local semantic endpoints, including:
 
-## Plugins & MCP
+- /local/status
+- /local/health
+- /local/path
+- /local/agents
+- /local/providers/*
+- /local/provider-accounts*
+- /local/sessions*
+- /local/questions*
+- /local/permissions*
+- /local/events
+- /local/plugins*
+- /local/tools
 
-Open:
+The historical /runtime/* reverse-proxy architecture is not part of the product anymore.
 
-```text
-Settings
-→ Plugins
-→ + Add Plugin
-```
+## Build from source
 
-The initial plugin transport is **MCP over stdio**. Enter the MCP server command, one argument per line, optional environment variables, working directory, and scope. Use **Test Connection** before saving, then explicitly enable the plugin. Secret environment values are stored through TL Studio's credential vault and are not returned to the browser after saving.
-
-Enabled MCP servers are initialized by TL Studio, their tools are discovered dynamically, and tool IDs are namespaced as:
-
-```text
-mcp.<plugin-id>.<tool-name>
-```
-
-This is a generic plugin path, not a Graphify-specific integration. Another stdio MCP server can be added through the same screen without adding a custom Agent adapter.
-
-### Bundled plugins
-
-Settings separates **Included with TL Studio** from **Added by you**. Bundled plugins are version-pinned sidecar MCP executables resolved from the TL Studio release package, not from the user's PATH. They still use the same MCP Client Manager, Tool Registry, Permission Engine, Native Tool Executor, and Native Agent path as user-added plugins.
-
-The bundled-plugin manifest is embedded in the launcher and also consumed by release engineering. Every third-party bundled plugin must declare all supported TL Studio platform artifacts, exact SHA-256 checksums, and a repository-retained license file before packaging succeeds. The current `0.4.0` manifest intentionally contains no third-party bundled plugin yet; the infrastructure is ready without increasing the release size or silently adding a new trusted executable.
-
-### Model discovery behavior
-
-For OpenAI-compatible and OpenAI Responses endpoints, TL Studio first tries the provider's `/models` endpoint. Anthropic Messages uses a provider-specific paginated model-list adapter. Discovery occurs before save, API keys stay transient or in the credential vault, large catalogs are searchable, and only selected models enter `providers.json`.
-
-A last-good catalog cache is kept for saved providers. Temporary network/rate-limit failures can display that stale catalog with a warning; authentication failures remain explicit and are never hidden by cache fallback. Models already configured by the user are not silently deleted when a later refresh stops returning them.
-
-### TypeSafe Jev
-
-TL Studio supports **Jev Router** through the existing provider/model architecture rather than through a separate Agent backend. Open **Settings → Providers → JEV → Configure JEV**. Setup is intentionally one-click: if an OpenRouter provider already points at `https://openrouter.ai/api/v1`, TL Studio reuses that provider and its existing credential. Otherwise the focused JEV dialog asks only for the OpenRouter API key. TL Studio then discovers the authenticated OpenRouter catalog, finds the exact `typesafe/jev-router` entry, adds it to the OpenRouter provider, and saves the provider automatically. The user is not sent through the generic model picker.
-
-The generative router model is:
-
-```text
-typesafe/jev-router
-```
-
-It is discovered from OpenRouter's authenticated user catalog and saved as a `router`. Router models are presented at the top of the normal model selector instead of under a provider-specific group. When TL Studio creates an OpenRouter provider only for JEV, that provider is marked as product-managed and stays out of the generic Providers list; JEV remains managed from its compact control.
-
-JEV now has separate **configured**, **enabled**, and **available** states. Turning JEV off keeps the OpenRouter provider and credential but removes Jev Router from the selectable model catalog and prevents native execution until it is explicitly enabled again. Enabling JEV performs a credential/account-status check using OpenRouter's non-inference key endpoint. As of September 27, 2026, OpenRouter still lists Jev Router at zero prompt/completion token pricing, while its Free plan does not include auto-routing and OpenRouter may reject a router request with HTTP 402 when the account/key lacks eligible router access or credits. TL Studio therefore does not present “$0/token” as a guarantee that every OpenRouter account can run the Router. A 402 disables JEV and is surfaced as a clear account-access error; TL Studio never silently substitutes a paid direct Jev model.
-
-TL Studio does not hard-code the models that Jev Router may choose underneath. For the official OpenRouter connection, Jev Router follows the provider's OpenAI-compatible Chat Completions path on TL Studio's native Agent, preserving system prompt, conversation history, streaming, and function tools without falling back to the compatibility runtime. If the provider response identifies an actual routed model, TL Studio can surface that provider-returned model in session activity; it does not invent routing metadata. Empty upstream responses and bounded model-turn timeouts are surfaced as visible Agent errors instead of becoming silent blank turns.
-
-**Jev Router and Jev Decision models are different integrations.** Direct Jev decisions use OpenRouter's separate Decisions API and return typed probabilities instead of generated text. TL Studio therefore exposes a small provider-independent Decision Engine boundary at `/local/decision-engine*`. Its default is **Off**. Enabling **Jev via OpenRouter (paid)** requires an already configured OpenRouter credential and does not enable any automatic model routing, tool routing, permission scoring, continuation, or output-verification calls. Selecting Jev Router never calls the paid Decisions API and never substitutes `typesafe/jev-1.13` or `~typesafe/jev-latest`.
-
-Decision Engine output is probabilistic. It may later provide a signal for routing or verification, but deterministic TL Studio security and permission rules remain authoritative. Direct System One input is currently text/JSON state; TL Studio does not claim multimodal Decision Engine support. The normal native Agent attachment path is also not expanded by this integration.
-
-### Graphify example
-
-If Graphify and its MCP executable are already installed, a project-scoped plugin can use:
-
-```text
-Name: Graphify
-Command: graphify-mcp
-Arguments:
-graphify-out/graph.json
-```
-
-Graphify's MCP tools are discovered at runtime; TL Studio does not hardcode its tool list. The Graphify card additionally offers **Build/Rebuild Graph** and **Open Graph** conveniences. Graph building runs the fixed local command `graphify extract . --code-only` only after explicit confirmation, while **Open Graph** reuses TL Studio's existing Preview for `graphify-out/graph.html`.
-
-## Architecture
-
-```text
-Browser workspace
-    │ localhost only
-    ▼
-TL Studio launcher (Go)
-    │
-    ├─ provider registry + credential vault
-    │    └─ Model Discovery Service
-    │         ├─ generic OpenAI-compatible adapter
-    │         └─ provider-specific edge adapters
-    │
-    ├─ Plugin Manager
-    │    ├─ bundled executable resolver
-    │    ├─ user command resolver
-    │    └─ MCP Client Manager
-    │         ├─ stdio MCP servers
-    │         └─ future transports behind the MCP client interface
-    │
-    ├─ Tool Registry ← discovered MCP tools
-    ├─ Permission Engine
-    ├─ Native Tool Executor
-    ├─ Native Agent loop
-    ├─ semantic sessions / persistence / live events
-    ├─ project files / search / terminal / preview
-    │
-    ├─ supported custom providers → direct model APIs
-    │
-    └─ compatibility adapter → bundled Kilo engine
-                              → hosted Kilo / compatibility capabilities
-```
-
-TL Studio owns the workspace, product UI, local launcher, provider/model definitions, custom-provider credentials, Plugin Manager, MCP normalization, tool semantics/metadata, semantic session persistence/read/command models, semantic question handling, semantic live-event projection, project-scoped permission policy, project/session experience, recovery behavior, and release packaging. MCP tools enter the same native Agent/tool/permission path as built-in tools; they do not create a parallel Agent architecture. Custom provider definitions, plugin definitions, and semantic session history are persisted in TL Studio-owned state. Plugin secret environment values stay in the credential vault instead of plugin JSON.
-
-For supported custom-provider coding, TL Studio owns the Agent loop and core tool execution directly. Kilo remains bundled as the currently tested compatibility engine for hosted Kilo authentication/models and capabilities not yet provided by the native path.
-
-The selected project stays on the user's computer, and TL Studio does not proxy model traffic through project-owned infrastructure.
-
-## Runtime boundary
-
-TL Studio's browser and product UI depend on TL Studio-owned contracts, not on an engine-specific browser API. Current session reads, persistence, and session commands use launcher-owned `/local/sessions*` semantics; interactive questions use `/local/questions*`; permissions use `/local/permissions*`; and live Browser updates use `/local/events` semantic SSE. Custom-provider credentials are stored by TL Studio and synchronized into the active runtime only for execution. Remaining generic runtime capabilities stay behind the local `/runtime/*` adapter.
-
-The current stable distribution bundles **Kilo Code 7.6.2** as the tested third-party compatibility engine. The launcher now selects it through a TL Studio-owned `runtimeEngine` boundary: binary discovery, process startup, credentials, project request scoping, and engine-specific request decoration live in the Kilo adapter instead of generic launcher/session/provider/permission/event code. That engine remains an implementation detail behind TL Studio's runtime adapter rather than the public product identity. Engine-specific compatibility is isolated in [`docs/KILO_API_CONTRACT.md`](./docs/KILO_API_CONTRACT.md), and required attribution is kept in [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
-
-CI validates the pinned engine through TL Studio's public runtime boundary for project routing, agent/provider/session APIs, async prompts, live events, permissions, provider configuration, tool execution, and real file writes.
-
-## Supported builds
-
-| Platform | Architecture |
-| --- | --- |
-| Windows | x64 |
-| Linux | x64, ARM64 |
-| macOS | Intel x64, Apple Silicon ARM64 |
-
-## Release package
-
-```text
-tl-studio/
-├─ tl-studio[.exe]
-├─ bin/
-│  └─ kilo[.exe]
-├─ plugins/                 # present when the release includes bundled plugins
-│  └─ <plugin-id>/
-│     ├─ bin/
-│     └─ LICENSE
-├─ LICENSE
-├─ THIRD_PARTY_NOTICES.md
-└─ third_party/
-   ├─ KILO_LICENSE.txt
-   ├─ MONACO_LICENSE.txt
-   └─ MONACO_THIRD_PARTY_NOTICES.txt
-```
-
-## Run from source
-
-Development requirements:
+Requirements:
 
 - Go 1.23+
-- Node.js 18+ and npm for the local Browser build
-- the compatible local runtime binary in `PATH`, beside the launcher, or supplied explicitly
+- Node.js 18+ for Browser development/build tooling
 
-Build the Browser assets once after cloning or after Browser-source changes:
+Build and check Browser assets:
 
-```bash
-npm install --ignore-scripts --no-audit --no-fund
-npm run build:web
-```
+    npm install --ignore-scripts --no-audit --no-fund
+    npm run check:web
+    npm run build:web
 
-Then run the launcher:
+Run tests:
 
-```bash
-go run ./cmd/launcher
-```
+    go test ./...
+    go vet ./...
 
-Open a specific project:
+Run TL Studio:
 
-```bash
-go run ./cmd/launcher --project /path/to/project
-```
+    go run ./cmd/launcher --project /path/to/project
 
-Use a specific runtime binary:
+Or build the executable:
 
-```bash
-go run ./cmd/launcher --runtime-bin /path/to/runtime
-```
+    go build -o tl-studio ./cmd/launcher
+    ./tl-studio --project /path/to/project
 
-Use `--no-browser` to suppress automatic browser launch.
+Windows:
 
-## Zero-infrastructure rule
+    go build -o tl-studio.exe ./cmd/launcher
+    .\tl-studio.exe --project C:\path\to\project
 
-TL Studio is intentionally designed so the maintainer does not need to pay for a VPS, application hosting, database, API gateway, model inference, or telemetry backend. Source, issues, CI, release definitions, downloadable builds, and the lightweight npm launcher are distributed through GitHub/npm infrastructure.
+Normal execution is native. There is no special native-only flag and no runtime binary to install or select.
 
-Any paid AI usage is between the user and the provider they configure.
+## Release packaging
 
-## Security model
+Normal release packages contain the TL Studio executable, TL Studio licenses/notices, and bundled TL Studio plugins where configured. They do not contain kilo or kilo.exe.
 
-The launcher:
+CI has hard package assertions that fail if either binary appears in a review or release package. PR validation also starts the standalone TL Studio executable normally, exercises native product contracts, runs a real Browser smoke test, and produces a Windows x64 review ZIP.
 
-1. binds the UI to loopback only (`127.0.0.1`, `localhost`, or `::1`),
-2. starts the local runtime on loopback with a random per-run password,
-3. keeps that password server-side,
-4. routes the selected project directory locally,
-5. rejects cross-origin browser requests, and
-6. serves the UI with a restrictive Content Security Policy.
+## Security
 
-The agent runtime can read/write files and execute commands when permissions allow it. Only run TL Studio on projects and machines you trust.
+TL Studio is local-first. The control UI binds to loopback only, cross-origin Browser requests are rejected, project filesystem APIs enforce project boundaries, Preview is isolated from the control origin, credentials stay in the TL Studio credential vault, and sensitive tool execution remains permission-gated.
 
-## Status
+Configured external model providers and MCP servers are separate trust boundaries. Review provider endpoints, prompts, repositories, plugin commands, and requested permissions before allowing sensitive actions.
 
-TL Studio keeps the stable production line on `main` and experimental development on `dev`. Stable releases are promoted only after automated CI plus hands-on validation on a real Windows machine. The core path covered before promotion includes:
+See SECURITY.md.
 
-```text
-TL Studio UI
-→ local agent runtime
-→ selected model
-→ tool call
-→ permission
-→ local file write
-→ final assistant response
-```
+## Repository branches
 
-Experimental builds continue on private Preview Build artifacts from `dev` without changing the stable `latest` npm path or GitHub stable release.
+- main — stable production
+- dev — active next-version development
+- feature branches — isolated milestone work based on dev
 
-## License & attribution
+Architecture details are in docs/ARCHITECTURE.md.
 
-TL Studio launcher/UI code is MIT licensed. The bundled Kilo Code runtime is also MIT licensed and remains a separate upstream project. Release archives retain its license notice; see [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
+## License
 
-TL Studio is an independent project and is not an official product of its runtime upstream.
-
-Built under the **TunnelLab** identity.
+TL Studio is MIT licensed. See LICENSE and THIRD_PARTY_NOTICES.md for software that is still distributed with TL Studio.

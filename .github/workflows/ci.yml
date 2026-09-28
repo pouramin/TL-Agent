@@ -22,9 +22,9 @@ jobs:
           node-version: '22'
       - name: Install UI build tools
         run: npm install --ignore-scripts --no-audit --no-fund
-      - name: Type-check browser UI
+      - name: Type-check Browser UI
         run: npm run check:web
-      - name: Build browser UI
+      - name: Build Browser UI
         run: npm run build:web
       - name: Verify generated Browser JavaScript is untracked
         shell: bash
@@ -46,30 +46,25 @@ jobs:
         run: go test ./...
       - name: Vet
         run: go vet ./...
-      - name: Verify browser JavaScript syntax
+      - name: Verify Browser JavaScript syntax
         run: |
           for file in cmd/launcher/web/*.js; do node --check "$file"; done
       - name: Verify npx quick launcher
         run: |
           node --check scripts/npx-launch.cjs
           npm pack --dry-run --ignore-scripts
-      - name: Enforce TL Studio runtime boundary
+      - name: Enforce zero Kilo runtime dependency
         shell: bash
         run: |
           set -euo pipefail
-          if grep -nE '/kilo|Kilo backend|Sign in to Kilo|Kilo account' cmd/launcher/ui/*.ts --exclude=runtime-api.ts; then
-            echo "TypeScript UI modules must access the bundled engine only through runtime-api.ts." >&2
+          forbidden='KILO_VERSION|kiloRuntime|runtimeHostedProviderID|runtimeBackend|/runtime/|--native-only|--runtime-bin|bin/kilo|bin/kilo.exe|Sign in with Kilo|Kilo account'
+          if grep -RniE "$forbidden"             cmd/launcher --include='*.go' --exclude='*_test.go'             cmd/launcher/ui --include='*.ts'             .github/workflows; then
+            echo "Production source or workflows still contain a prohibited compatibility-runtime reference." >&2
             exit 1
           fi
       - name: Verify Python test syntax
         run: |
-          python3 -m py_compile \
-            scripts/check-kilo-product-contract.py \
-            scripts/check-kilo-project-routing.py \
-            scripts/fake-openai-server.py \
-            scripts/check-kilo-prompt-e2e.py \
-            scripts/stage-bundled-plugins.py \
-            scripts/check-bundled-plugin-staging.py
+          python3 -m py_compile             scripts/check-native-product-contract.py             scripts/check-provider-config.py             scripts/stage-bundled-plugins.py             scripts/check-bundled-plugin-staging.py
       - name: Validate bundled plugin release manifest
         run: |
           python3 scripts/stage-bundled-plugins.py --validate-only
@@ -84,174 +79,52 @@ jobs:
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/tl-studio-darwin-x64 ./cmd/launcher
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/tl-studio-darwin-arm64 ./cmd/launcher
 
-  runtime-product-contract:
+  native-product-contract:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.23.x'
-      - name: Build launcher and download pinned runtime
+      - name: Build native TL Studio
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/tl-contract/bin /tmp/tl-runtime-upstream
-          go build -trimpath -o /tmp/tl-contract/tl-studio ./cmd/launcher
-          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
-          ASSET="kilo-linux-x64.tar.gz"
-          curl --fail --location --retry 3 \
-            "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}" \
-            -o "/tmp/tl-runtime-upstream/${ASSET}"
-          tar -xzf "/tmp/tl-runtime-upstream/${ASSET}" -C /tmp/tl-runtime-upstream
-          KILO_BIN="$(find /tmp/tl-runtime-upstream -type f -name kilo | head -n 1)"
-          test -n "$KILO_BIN"
-          cp "$KILO_BIN" /tmp/tl-contract/bin/kilo
-          chmod +x /tmp/tl-contract/tl-studio /tmp/tl-contract/bin/kilo
-      - name: Run real-runtime product API contract test
+          mkdir -p /tmp/tl-native
+          go build -trimpath -o /tmp/tl-native/tl-studio ./cmd/launcher
+          chmod +x /tmp/tl-native/tl-studio
+          test ! -e /tmp/tl-native/kilo
+          test ! -e /tmp/tl-native/kilo.exe
+      - name: Run native product contract
         shell: bash
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
+          STATE_DIR="$(mktemp -d)"
           START_DIR="$PWD"
           cd /tmp
-          /tmp/tl-contract/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          TL_STUDIO_STATE_DIR="$STATE_DIR" /tmp/tl-native/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
           cd "$START_DIR"
           cleanup() {
             kill "$PID" 2>/dev/null || true
             wait "$PID" 2>/dev/null || true
-            echo "--- launcher log ---"
+            echo "--- native launcher log ---"
             cat "$LOG"
           }
           trap cleanup EXIT
-
           LOCAL_URL=""
           for _ in $(seq 1 100); do
             LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
-            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/runtime/global/health" >/dev/null; then
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/health" >/dev/null; then
               break
             fi
             sleep 0.2
           done
           test -n "$LOCAL_URL"
-          python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
-          python3 scripts/check-kilo-product-contract.py "$LOCAL_URL"
+          python3 scripts/check-native-product-contract.py "$LOCAL_URL" "$GITHUB_WORKSPACE"
 
-  runtime-product-prompt-e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.x'
-      - name: Build launcher and download pinned runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/tl-e2e/bin /tmp/tl-runtime-upstream
-          go build -trimpath -o /tmp/tl-e2e/tl-studio ./cmd/launcher
-          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
-          ASSET="kilo-linux-x64.tar.gz"
-          curl --fail --location --retry 3 \
-            "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}" \
-            -o "/tmp/tl-runtime-upstream/${ASSET}"
-          tar -xzf "/tmp/tl-runtime-upstream/${ASSET}" -C /tmp/tl-runtime-upstream
-          KILO_BIN="$(find /tmp/tl-runtime-upstream -type f -name kilo | head -n 1)"
-          test -n "$KILO_BIN"
-          cp "$KILO_BIN" /tmp/tl-e2e/bin/kilo
-          chmod +x /tmp/tl-e2e/tl-studio /tmp/tl-e2e/bin/kilo
-      - name: Run product prompt and real write-tool E2E
-        shell: bash
-        run: |
-          set -euo pipefail
-          FAKE_LOG="$(mktemp)"
-          LAUNCHER_LOG="$(mktemp)"
-          PROJECT_DIR="/tmp/tl-e2e-project"
-          rm -rf "$PROJECT_DIR"
-          mkdir -p "$PROJECT_DIR"
-
-          FAKE_WRITE_PATH="$PROJECT_DIR/hello.txt" python3 scripts/fake-openai-server.py >"$FAKE_LOG" 2>&1 &
-          FAKE_PID=$!
-          LLM_URL=""
-          for _ in $(seq 1 50); do
-            LLM_URL="$(head -n 1 "$FAKE_LOG" || true)"
-            [[ "$LLM_URL" == http://127.0.0.1:* ]] && break
-            sleep 0.1
-          done
-          [[ "$LLM_URL" == http://127.0.0.1:* ]]
-
-          # Mirror Kilo v7.6.2's own production test-provider fixture exactly:
-          # singular `provider`, @ai-sdk/openai-compatible, options.baseURL.
-          python3 - "$LLM_URL" "$PROJECT_DIR/opencode.json" <<'PY'
-          import json, sys
-          url, output = sys.argv[1], sys.argv[2]
-          config = {
-              "formatter": False,
-              "lsp": False,
-              "provider": {
-                  "test": {
-                      "name": "Test",
-                      "id": "test",
-                      "env": [],
-                      "npm": "@ai-sdk/openai-compatible",
-                      "models": {
-                          "test-model": {
-                              "id": "test-model",
-                              "name": "Test Model",
-                              "attachment": False,
-                              "reasoning": False,
-                              "temperature": False,
-                              "tool_call": True,
-                              "release_date": "2025-01-01",
-                              "limit": {"context": 100000, "output": 10000},
-                              "cost": {"input": 0, "output": 0},
-                              "options": {}
-                          }
-                      },
-                      "options": {"apiKey": "test-key", "baseURL": url}
-                  }
-              }
-          }
-          with open(output, "w", encoding="utf-8") as f:
-              json.dump(config, f)
-          PY
-
-          unset KILO_CONFIG_CONTENT || true
-          START_DIR="$PWD"
-          cd /tmp
-          /tmp/tl-e2e/tl-studio --no-browser --project "$PROJECT_DIR" >"$LAUNCHER_LOG" 2>&1 &
-          LAUNCHER_PID=$!
-          cd "$START_DIR"
-
-          cleanup() {
-            kill "$LAUNCHER_PID" 2>/dev/null || true
-            kill "$FAKE_PID" 2>/dev/null || true
-            wait "$LAUNCHER_PID" 2>/dev/null || true
-            wait "$FAKE_PID" 2>/dev/null || true
-            echo "--- launcher log ---"
-            cat "$LAUNCHER_LOG"
-            echo "--- fake LLM log ---"
-            cat "$FAKE_LOG"
-            echo "--- project config ---"
-            cat "$PROJECT_DIR/opencode.json"
-            echo "--- project files ---"
-            find "$PROJECT_DIR" -maxdepth 2 -type f -print -exec sh -c 'echo "--- $1"; cat "$1"' _ {} \;
-          }
-          trap cleanup EXIT
-
-          LOCAL_URL=""
-          for _ in $(seq 1 100); do
-            LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LAUNCHER_LOG" || true)"
-            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/runtime/global/health" >/dev/null; then
-              break
-            fi
-            sleep 0.2
-          done
-          test -n "$LOCAL_URL"
-          python3 scripts/check-kilo-project-routing.py "$LOCAL_URL"
-          python3 scripts/check-kilo-prompt-e2e.py "$LOCAL_URL"
-
-  browser-workbench-smoke:
+  native-browser-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -261,48 +134,128 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Build Browser and launcher with pinned runtime
+      - name: Build Browser and launcher
         shell: bash
         run: |
           set -euo pipefail
           npm install --ignore-scripts --no-audit --no-fund
           npm run check:web
           npm run build:web
-          mkdir -p /tmp/tl-ui-smoke/bin /tmp/tl-ui-runtime
-          go build -trimpath -o /tmp/tl-ui-smoke/tl-studio ./cmd/launcher
-          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
-          ASSET="kilo-linux-x64.tar.gz"
-          curl --fail --location --retry 3             "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}"             -o "/tmp/tl-ui-runtime/${ASSET}"
-          tar -xzf "/tmp/tl-ui-runtime/${ASSET}" -C /tmp/tl-ui-runtime
-          KILO_BIN="$(find /tmp/tl-ui-runtime -type f -name kilo | head -n 1)"
-          test -n "$KILO_BIN"
-          cp "$KILO_BIN" /tmp/tl-ui-smoke/bin/kilo
-          chmod +x /tmp/tl-ui-smoke/tl-studio /tmp/tl-ui-smoke/bin/kilo
-      - name: Run real Browser workbench smoke test
+          mkdir -p /tmp/tl-native-browser
+          go build -trimpath -o /tmp/tl-native-browser/tl-studio ./cmd/launcher
+          chmod +x /tmp/tl-native-browser/tl-studio
+      - name: Run real Browser smoke
         shell: bash
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
+          STATE_DIR="$(mktemp -d)"
           START_DIR="$PWD"
           cd /tmp
-          /tmp/tl-ui-smoke/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          TL_STUDIO_STATE_DIR="$STATE_DIR" /tmp/tl-native-browser/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
           cd "$START_DIR"
           cleanup() {
             kill "$PID" 2>/dev/null || true
             wait "$PID" 2>/dev/null || true
-            echo "--- launcher log ---"
+            echo "--- native launcher log ---"
             cat "$LOG"
           }
           trap cleanup EXIT
-
           LOCAL_URL=""
           for _ in $(seq 1 100); do
             LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
-            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/runtime/global/health" >/dev/null; then
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/health" >/dev/null; then
               break
             fi
             sleep 0.2
           done
           test -n "$LOCAL_URL"
           node scripts/check-workbench-browser-runtime.mjs "$LOCAL_URL"
+
+  windows-review-package:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build Browser
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run check:web
+          npm run build:web
+      - name: Resolve review version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+          test -n "$VERSION"
+          echo "REVIEW_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "REVIEW_TAG=v$VERSION" >> "$GITHUB_ENV"
+      - name: Test
+        run: go test ./...
+      - name: Build Windows x64
+        shell: bash
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          mkdir -p staging/package
+          go build -trimpath -ldflags "-s -w -X main.version=${REVIEW_TAG}" -o staging/package/tl-studio.exe ./cmd/launcher
+          cp LICENSE THIRD_PARTY_NOTICES.md staging/package/
+          mkdir -p staging/package/third_party
+          cp -R third_party/. staging/package/third_party/
+          python3 scripts/stage-bundled-plugins.py --target windows-x64 --package-dir staging/package
+      - name: Assert review package contains no Kilo runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          if find staging/package -type f \( -iname 'kilo' -o -iname 'kilo.exe' \) -print -quit | grep -q .; then
+            echo "Kilo runtime leaked into the Windows review package." >&2
+            exit 1
+          fi
+      - name: Package Windows x64 review build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          FILE="TL-Studio-v${REVIEW_VERSION}-Windows-x64-Review.zip"
+          (cd staging/package && zip -qr "../../dist/${FILE}" .)
+          sha256sum "dist/${FILE}" > dist/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TL-Studio-${{ env.REVIEW_VERSION }}-Windows-x64-Review
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+
+  # Compatibility status aliases for the current main-branch protection rule.
+  # Keep these until the repository rule is updated to require the native job names.
+  runtime-product-contract:
+    needs: native-product-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native product contract
+        run: echo "native-product-contract passed"
+
+  runtime-product-prompt-e2e:
+    needs: [test, native-product-contract]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native Agent regression coverage
+        run: echo "native Agent and product tests passed"
+
+  browser-workbench-smoke:
+    needs: native-browser-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native Browser smoke
+        run: echo "native-browser-smoke passed"

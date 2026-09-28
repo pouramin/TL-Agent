@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -22,8 +23,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"embed"
 )
 
 var version = "dev"
@@ -34,7 +33,6 @@ var webFS embed.FS
 type appState struct {
 	mu          sync.RWMutex
 	project     string
-	backendURL  string
 	frontendURL string
 	ctx         context.Context
 }
@@ -48,6 +46,7 @@ func (s *appState) snapshot() map[string]any {
 		"frontendURL": s.frontendURL,
 		"platform":    runtime.GOOS,
 		"arch":        runtime.GOARCH,
+		"runtime":     map[string]any{"mode": "native"},
 	}
 }
 
@@ -71,16 +70,14 @@ func main() {
 	var projectArg string
 	var noBrowser bool
 	var listenAddr string
-	var runtimeOverride string
 	flag.StringVar(&projectArg, "project", "", "project directory to open")
 	flag.BoolVar(&noBrowser, "no-browser", false, "do not open the browser automatically")
 	flag.StringVar(&listenAddr, "listen", "127.0.0.1", "frontend listen address")
-	flag.StringVar(&runtimeOverride, "runtime-bin", "", "override path to the bundled agent runtime (advanced)")
 	flag.Parse()
+
 	if !isLoopbackHost(listenAddr) {
 		log.Fatalf("listen: %q is not a loopback address; this UI intentionally binds only to localhost", listenAddr)
 	}
-
 	if projectArg == "" && flag.NArg() > 0 {
 		projectArg = flag.Arg(0)
 	}
@@ -88,64 +85,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("project: %v", err)
 	}
-
-	engine := defaultRuntimeEngine()
-	runtimePath, err := engine.FindBinary(runtimeOverride)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	backendPort, err := freePort("127.0.0.1")
-	if err != nil {
-		log.Fatalf("find backend port: %v", err)
-	}
 	frontendPort, err := freePort(listenAddr)
 	if err != nil {
 		log.Fatalf("find frontend port: %v", err)
 	}
-
-	credentials := runtimeCredentials{Username: "runtime"}
-	password, err := randomSecret(24)
-	if err != nil {
-		log.Fatalf("create server password: %v", err)
-	}
-	credentials.Password = password
-
-	backendURL := fmt.Sprintf("http://127.0.0.1:%d", backendPort)
 	frontendURL := "http://" + net.JoinHostPort(listenAddr, fmt.Sprint(frontendPort))
-	state := &appState{
-		project:     project,
-		backendURL:  backendURL,
-		frontendURL: frontendURL,
-	}
+	state := &appState{project: project, frontendURL: frontendURL}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	state.ctx = ctx
 
-	runtimeCmd, err := startRuntime(ctx, engine, runtimePath, backendPort, credentials)
+	server, err := newServer(state)
 	if err != nil {
-		log.Fatalf("start bundled runtime: %v", err)
-	}
-	defer stopProcess(runtimeCmd)
-
-	if err := waitForPort(ctx, "127.0.0.1", backendPort, 12*time.Second); err != nil {
-		stopProcess(runtimeCmd)
-		log.Fatalf("bundled runtime did not start: %v", err)
-	}
-
-	server, err := newServerWithRuntime(state, backendURL, credentials, engine)
-	if err != nil {
-		stopProcess(runtimeCmd)
 		log.Fatalf("create local server: %v", err)
 	}
-
 	httpServer := &http.Server{
 		Addr:              net.JoinHostPort(listenAddr, fmt.Sprint(frontendPort)),
 		Handler:           server,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 4*time.Second)
@@ -156,7 +115,6 @@ func main() {
 	fmt.Printf("TL Studio %s\n", version)
 	fmt.Printf("  Project: %s\n", project)
 	fmt.Printf("  Local:   %s\n", frontendURL)
-	fmt.Printf("  Runtime: bundled\n")
 
 	if !noBrowser {
 		go func() {
@@ -166,91 +124,76 @@ func main() {
 			}
 		}()
 	}
-
 	err = httpServer.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("local server: %v", err)
 	}
 }
 
-func newServer(state *appState, backendURL, username, password string) (http.Handler, error) {
-	return newServerWithRuntime(
-		state,
-		backendURL,
-		runtimeCredentials{Username: username, Password: password},
-		defaultRuntimeEngine(),
-	)
-}
-
-func newServerWithRuntime(state *appState, backendURL string, credentials runtimeCredentials, engine runtimeEngine) (http.Handler, error) {
-	backend, err := newRuntimeBackend(state, backendURL, credentials, engine)
-	if err != nil {
-		return nil, err
-	}
-	proxy := backend.reverseProxy()
-
-	providerManager := newRuntimeProviderManagerWithBackend(state, backend)
+func newServer(state *appState) (http.Handler, error) {
+	providerManager := newProviderManager(state)
+	providerAccounts := newProviderAccountService()
 	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
-	permissionEngine := newPermissionEngineWithBackend(state, backend)
-	sessionRead := newSessionReadContractWithBackend(state, backend)
-	questions := newQuestionContract(state, backend)
-	liveEvents := newLiveEventContractWithBackend(state, backend)
+	permissionEngine := newPermissionEngine(state)
+	liveEvents := newLiveEventContract(state)
+	permissionEngine.setEventBus(liveEvents.bus)
+	questions := newQuestionContract(state, liveEvents.bus)
 
 	processes := newProcessManager(state.projectPath)
-	permissionEngine.setEventBus(liveEvents.bus)
 	plugins := newPluginManager(state, processes, permissionEngine)
 	nativeTools := newNativeToolExecutor(processes, permissionEngine)
 	nativeTools.setPluginManager(plugins)
+	nativeTools.setQuestionManager(questions)
+
+	sessionRead := newSessionReadContract(state)
 	nativeAgent := newNativeAgentRuntime(providerManager, newNativeModelClient(), nativeTools, sessionRead.store, liveEvents.bus)
 	sessionRead.setNativeStatusProvider(nativeAgent)
-	sessionCommands := newSessionCommandContract(state, backend, sessionRead)
-	sessionCommands.adapter = newHybridSessionCommandAdapter(sessionCommands.adapter, nativeAgent)
+	sessionCommands := newSessionCommandContract(state, sessionRead, nativeAgent)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /local/status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, state.snapshot())
 	})
+	mux.HandleFunc("GET /local/health", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"healthy": true, "mode": "native"})
+	})
+	mux.HandleFunc("GET /local/path", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"directory": state.projectPath()})
+	})
+	mux.HandleFunc("GET /local/agents", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, []map[string]any{{
+			"id": "code", "name": "code", "displayName": "Code",
+			"description": "TL Studio native coding agent", "mode": "primary", "hidden": false,
+		}})
+	})
 	mux.HandleFunc("POST /local/project", func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			Path string `json:"path"`
-		}
+		var body struct { Path string `json:"path"` }
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid JSON body"})
-			return
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid JSON body"}); return
 		}
 		project, err := normalizeProject(body.Path)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
-			return
-		}
+		if err != nil { writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()}); return }
 		state.setProject(project)
 		plugins.SwitchProject(project)
 		writeJSON(w, http.StatusOK, state.snapshot())
 	})
 	mux.HandleFunc("POST /local/pick-directory", func(w http.ResponseWriter, _ *http.Request) {
 		path, err := pickDirectory(state.projectPath())
-		if err != nil {
-			writeJSON(w, http.StatusNotImplemented, jsonError{Error: err.Error()})
-			return
-		}
-		if path == "" {
-			writeJSON(w, http.StatusOK, state.snapshot())
-			return
-		}
+		if err != nil { writeJSON(w, http.StatusNotImplemented, jsonError{Error: err.Error()}); return }
+		if path == "" { writeJSON(w, http.StatusOK, state.snapshot()); return }
 		project, err := normalizeProject(path)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
-			return
-		}
+		if err != nil { writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()}); return }
 		state.setProject(project)
 		plugins.SwitchProject(project)
 		writeJSON(w, http.StatusOK, state.snapshot())
 	})
+
 	registerLocalFileRoutes(mux, state)
 	registerProjectSearchRoutes(mux, state)
 	registerLocalProcessRoutesWithManager(mux, state, processes)
-	registerRuntimeProviderRoutes(mux, providerManager)
+	registerProviderRoutes(mux, providerManager)
+	registerProviderAccountRoutes(mux, providerAccounts)
 	registerProviderDiscoveryRoutes(mux, providerManager)
 	registerJevRouterRoutes(mux, jevRouter)
 	registerDecisionEngineRoutes(mux, decisionEngines)
@@ -261,30 +204,19 @@ func newServerWithRuntime(state *appState, backendURL string, credentials runtim
 	registerQuestionRoutes(mux, questions)
 	registerLiveEventRoutes(mux, liveEvents)
 	registerPermissionRoutes(mux, permissionEngine)
-	mux.Handle("/runtime/", proxy)
-	mux.Handle("/runtime", proxy)
 
 	assets, err := fs.Sub(webFS, "web")
-	if err != nil {
-		return nil, err
-	}
+	if err != nil { return nil, err }
 	indexHTML, err := fs.ReadFile(assets, "index.html")
-	if err != nil {
-		return nil, fmt.Errorf("read embedded index.html: %w", err)
-	}
+	if err != nil { return nil, fmt.Errorf("read embedded index.html: %w", err) }
 	fileServer := http.FileServer(http.FS(assets))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			http.NotFound(w, r)
-			return
-		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead { http.NotFound(w, r); return }
 		if r.URL.Path == "/" {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-store")
 			w.WriteHeader(http.StatusOK)
-			if r.Method == http.MethodGet {
-				_, _ = w.Write(indexHTML)
-			}
+			if r.Method == http.MethodGet { _, _ = w.Write(indexHTML) }
 			return
 		}
 		fileServer.ServeHTTP(w, r)
@@ -293,9 +225,7 @@ func newServerWithRuntime(state *appState, backendURL string, credentials runtim
 }
 
 func isLoopbackHost(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
+	if strings.EqualFold(host, "localhost") { return true }
 	ip := net.ParseIP(strings.Trim(host, "[]"))
 	return ip != nil && ip.IsLoopback()
 }
@@ -303,18 +233,12 @@ func isLoopbackHost(host string) bool {
 func localOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host, _, err := net.SplitHostPort(r.Host)
-		if err != nil {
-			host = r.Host
-		}
-		if !isLoopbackHost(host) {
-			http.Error(w, "localhost only", http.StatusForbidden)
-			return
-		}
+		if err != nil { host = r.Host }
+		if !isLoopbackHost(host) { http.Error(w, "localhost only", http.StatusForbidden); return }
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
 			if err != nil || !isLoopbackHost(u.Hostname()) || !strings.EqualFold(u.Host, r.Host) {
-				http.Error(w, "cross-origin request blocked", http.StatusForbidden)
-				return
+				http.Error(w, "cross-origin request blocked", http.StatusForbidden); return
 			}
 		}
 		next.ServeHTTP(w, r)
@@ -340,74 +264,27 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func normalizeProject(input string) (string, error) {
 	if strings.TrimSpace(input) == "" {
 		cwd, err := os.Getwd()
-		if err != nil {
-			return "", err
-		}
+		if err != nil { return "", err }
 		input = cwd
 	}
 	abs, err := filepath.Abs(input)
-	if err != nil {
-		return "", err
-	}
+	if err != nil { return "", err }
 	info, err := os.Stat(abs)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", abs, err)
-	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("%s is not a directory", abs)
-	}
+	if err != nil { return "", fmt.Errorf("%s: %w", abs, err) }
+	if !info.IsDir() { return "", fmt.Errorf("%s is not a directory", abs) }
 	return filepath.Clean(abs), nil
-}
-
-func stopProcess(cmd *exec.Cmd) {
-	if cmd == nil || cmd.Process == nil {
-		return
-	}
-	_ = cmd.Process.Signal(os.Interrupt)
-	done := make(chan struct{})
-	go func() {
-		_, _ = cmd.Process.Wait()
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		_ = cmd.Process.Kill()
-	}
 }
 
 func freePort(host string) (int, error) {
 	ln, err := net.Listen("tcp", net.JoinHostPort(host, "0"))
-	if err != nil {
-		return 0, err
-	}
+	if err != nil { return 0, err }
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port, nil
 }
 
-func waitForPort(ctx context.Context, host string, port int, timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	address := net.JoinHostPort(host, fmt.Sprint(port))
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", address, 250*time.Millisecond)
-		if err == nil {
-			_ = conn.Close()
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(120 * time.Millisecond):
-		}
-	}
-	return fmt.Errorf("timed out waiting for %s", address)
-}
-
 func randomSecret(bytes int) (string, error) {
 	buf := make([]byte, bytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
+	if _, err := rand.Read(buf); err != nil { return "", err }
 	return hex.EncodeToString(buf), nil
 }
 

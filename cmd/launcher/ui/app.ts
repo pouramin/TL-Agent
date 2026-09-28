@@ -32,7 +32,7 @@ import { K } from "./kernel";
     e.emptyNewSession.addEventListener("click", K.newSession);
     e.sendButton.addEventListener("click", K.sendPrompt);
     e.refreshButton.addEventListener("click", K.refreshAll);
-    e.accountButton.addEventListener("click", K.signInHosted);
+    e.accountButton.addEventListener("click", K.openProviderAccounts);
     e.authCancel.addEventListener("click", K.cancelAuth);
     e.authOpen.addEventListener("click", () => {
       if (K.state.authURL) window.open(K.state.authURL, "_blank", "noopener,noreferrer");

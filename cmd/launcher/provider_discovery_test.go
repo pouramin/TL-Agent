@@ -323,7 +323,7 @@ func TestProviderDiscoveryUsesLastGoodCacheAfterTransientFailure(t *testing.T) {
 	if err := credentials.Put(provider.ID, "secret"); err != nil {
 		t.Fatal(err)
 	}
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 
 	first, err := manager.discoverProviderModels(context.Background(), providerDiscoveryRequest{
 		ProviderID: provider.ID,
@@ -381,7 +381,7 @@ func TestProviderDiscoveryDoesNotMaskAuthenticationFailureWithCache(t *testing.T
 	}
 	credentials := newDiscoveryMemoryCredentialStore()
 	_ = credentials.Put(provider.ID, "good")
-	manager := &runtimeProviderManager{store: store, credentials: credentials}
+	manager := &providerManager{store: store, credentials: credentials}
 
 	if _, err := manager.discoverProviderModels(context.Background(), providerDiscoveryRequest{
 		ProviderID: provider.ID, Protocol: provider.Protocol, BaseURL: provider.BaseURL,

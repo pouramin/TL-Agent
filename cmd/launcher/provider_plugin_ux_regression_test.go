@@ -130,3 +130,24 @@ func TestProviderAPIKeyFieldAvoidsPasswordManagerSemantics(t *testing.T) {
 		t.Fatal("provider API key field must not be presented to the browser as a login password")
 	}
 }
+
+
+func TestProviderSettingsUseDedicatedModalEditor(t *testing.T) {
+	source := readBrowserSource(t, "providers-ui.ts")
+	for _, required := range []string{
+		`providerDialog.id = "providerDialog"`,
+		`providerDialog.showModal()`,
+		`providerDialog.close()`,
+		`providerDialog.addEventListener("close", resetFormFields)`,
+		`type="submit">Done</button>`,
+		`edit.textContent = "Configure"`,
+		`.provider-dialog-card{width:min(760px,calc(100vw - 36px))`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("provider modal contract missing %q", required)
+		}
+	}
+	if strings.Contains(source, `<form id="providerForm" class="provider-form hidden">`) {
+		t.Fatal("provider form must not remain as a hidden inline Settings form")
+	}
+}

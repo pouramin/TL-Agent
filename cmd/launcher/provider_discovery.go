@@ -78,10 +78,10 @@ func normalizeProviderDiscoveryRequest(input providerDiscoveryRequest) (provider
 	input.BaseURL = strings.TrimSpace(input.BaseURL)
 	input.APIKey = strings.TrimSpace(input.APIKey)
 
-	if input.ProviderID != "" && (!validProviderID(input.ProviderID) || input.ProviderID == runtimeHostedProviderID) {
+	if input.ProviderID != "" && !validProviderID(input.ProviderID) {
 		return providerDiscoveryRequest{}, errors.New("invalid provider ID")
 	}
-	if _, ok := runtimeProviderPackages[input.Protocol]; !ok {
+	if _, ok := providerProtocolPackages[input.Protocol]; !ok {
 		return providerDiscoveryRequest{}, errors.New("unsupported provider protocol")
 	}
 	parsed, err := url.Parse(input.BaseURL)
@@ -535,7 +535,7 @@ func discoverAnthropicModels(ctx context.Context, baseURL, apiKey string) ([]pro
 	return models, nil
 }
 
-func (m *runtimeProviderManager) discoverProviderModels(ctx context.Context, request providerDiscoveryRequest) (providerDiscoveryResponse, error) {
+func (m *providerManager) discoverProviderModels(ctx context.Context, request providerDiscoveryRequest) (providerDiscoveryResponse, error) {
 	input, err := normalizeProviderDiscoveryRequest(request)
 	if err != nil {
 		return providerDiscoveryResponse{}, err
@@ -741,8 +741,8 @@ func writeProviderDiscoveryError(w http.ResponseWriter, err error) {
 	}
 }
 
-func registerProviderDiscoveryRoutes(mux *http.ServeMux, manager *runtimeProviderManager) {
-	mux.HandleFunc("POST /runtime/providers/discover", func(w http.ResponseWriter, r *http.Request) {
+func registerProviderDiscoveryRoutes(mux *http.ServeMux, manager *providerManager) {
+	mux.HandleFunc("POST /local/providers/discover", func(w http.ResponseWriter, r *http.Request) {
 		var input providerDiscoveryRequest
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20))
 		if err := decoder.Decode(&input); err != nil {

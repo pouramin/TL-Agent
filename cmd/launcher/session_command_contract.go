@@ -11,8 +11,6 @@ import (
 
 const maxSessionCommandBody = 24 << 20
 
-var errSessionCommandsUnsupported = errors.New("runtime engine does not provide session command capability")
-
 type sessionCreateInput struct {
 	ParentID string `json:"parentID,omitempty"`
 	Title    string `json:"title,omitempty"`
@@ -35,47 +33,14 @@ type sessionAbortInput struct {
 	Scope string `json:"scope,omitempty"`
 }
 
-type runtimeSessionCommandAdapter interface {
-	CreateSession(ctx context.Context, backend *runtimeBackend, directory string, input sessionCreateInput) (string, error)
-	UpdateSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionUpdateInput) error
-	DeleteSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string) error
-	RunSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionRunInput) error
-	AbortSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionAbortInput) error
-}
-
-type runtimeSessionCommandProvider interface {
-	SessionCommands() runtimeSessionCommandAdapter
-}
-
-type sessionRunPersistenceOwner interface {
-	ownsRunPersistence(input sessionRunInput) bool
-}
-
 type sessionCommandContract struct {
-	state   *appState
-	backend *runtimeBackend
-	read    *sessionReadContract
-	adapter runtimeSessionCommandAdapter
+	state  *appState
+	read   *sessionReadContract
+	native *nativeAgentRuntime
 }
 
-func newSessionCommandContract(state *appState, backend *runtimeBackend, read *sessionReadContract) *sessionCommandContract {
-	var adapter runtimeSessionCommandAdapter
-	if provider, ok := backend.engine.(runtimeSessionCommandProvider); ok {
-		adapter = provider.SessionCommands()
-	}
-	return &sessionCommandContract{
-		state:   state,
-		backend: backend,
-		read:    read,
-		adapter: adapter,
-	}
-}
-
-func (c *sessionCommandContract) requireAdapter() (runtimeSessionCommandAdapter, error) {
-	if c.adapter == nil {
-		return nil, errSessionCommandsUnsupported
-	}
-	return c.adapter, nil
+func newSessionCommandContract(state *appState, read *sessionReadContract, native *nativeAgentRuntime) *sessionCommandContract {
+	return &sessionCommandContract{state: state, read: read, native: native}
 }
 
 func (c *sessionCommandContract) allowedDirectory(requested string) (string, error) {
@@ -85,8 +50,37 @@ func (c *sessionCommandContract) allowedDirectory(requested string) (string, err
 	return c.read.allowedDirectory(requested)
 }
 
-func (c *sessionCommandContract) create(ctx context.Context, directory string, input sessionCreateInput) (sessionView, error) {
-	adapter, err := c.requireAdapter()
+func (c *sessionCommandContract) store() (*sessionPersistenceStore, error) {
+	if c.read == nil || c.read.store == nil {
+		return nil, errors.New("native session store is unavailable")
+	}
+	return c.read.store, nil
+}
+
+func (c *sessionCommandContract) requireSession(sessionID, directory string) (sessionView, error) {
+	store, err := c.store()
+	if err != nil {
+		return sessionView{}, err
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return sessionView{}, errors.New("session id is required")
+	}
+	session, ok, err := store.getSession(sessionID)
+	if err != nil {
+		return sessionView{}, err
+	}
+	if !ok {
+		return sessionView{}, errors.New("session not found")
+	}
+	if directory != "" && !sameProjectPath(session.Directory, directory) {
+		return sessionView{}, errors.New("session does not belong to the selected project")
+	}
+	return session, nil
+}
+
+func (c *sessionCommandContract) create(_ context.Context, directory string, input sessionCreateInput) (sessionView, error) {
+	store, err := c.store()
 	if err != nil {
 		return sessionView{}, err
 	}
@@ -95,25 +89,12 @@ func (c *sessionCommandContract) create(ctx context.Context, directory string, i
 	if len(input.Title) > 500 {
 		return sessionView{}, errors.New("session title is too long")
 	}
-	sessionID, err := adapter.CreateSession(ctx, c.backend, directory, input)
-	if err != nil {
-		return sessionView{}, err
-	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return sessionView{}, errors.New("runtime did not return a session id")
-	}
-	return c.read.getSession(ctx, sessionID, directory)
+	return store.createNativeSession(directory, input)
 }
 
-func (c *sessionCommandContract) update(ctx context.Context, directory, sessionID string, input sessionUpdateInput) (sessionView, error) {
-	adapter, err := c.requireAdapter()
-	if err != nil {
+func (c *sessionCommandContract) update(_ context.Context, directory, sessionID string, input sessionUpdateInput) (sessionView, error) {
+	if _, err := c.requireSession(sessionID, directory); err != nil {
 		return sessionView{}, err
-	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return sessionView{}, errors.New("session id is required")
 	}
 	if input.Title == nil {
 		return sessionView{}, errors.New("no supported session fields were supplied")
@@ -125,62 +106,39 @@ func (c *sessionCommandContract) update(ctx context.Context, directory, sessionI
 	if len(title) > 500 {
 		return sessionView{}, errors.New("session title is too long")
 	}
-	input.Title = &title
-	if err := adapter.UpdateSession(ctx, c.backend, directory, sessionID, input); err != nil {
-		var runtimeErr *sessionRuntimeError
-		if errors.As(err, &runtimeErr) && runtimeErr.Status == http.StatusNotFound && c.read != nil && c.read.store != nil {
-			if persisted, ok, storeErr := c.read.store.updateTitle(sessionID, title); storeErr != nil {
-				return sessionView{}, storeErr
-			} else if ok {
-				return persisted, nil
-			}
-		}
+	store, err := c.store()
+	if err != nil {
 		return sessionView{}, err
 	}
-	return c.read.getSession(ctx, sessionID, directory)
+	updated, ok, err := store.updateTitle(strings.TrimSpace(sessionID), title)
+	if err != nil {
+		return sessionView{}, err
+	}
+	if !ok {
+		return sessionView{}, errors.New("session not found")
+	}
+	return updated, nil
 }
 
-func (c *sessionCommandContract) remove(ctx context.Context, directory, sessionID string) error {
-	adapter, err := c.requireAdapter()
+func (c *sessionCommandContract) remove(_ context.Context, directory, sessionID string) error {
+	if _, err := c.requireSession(sessionID, directory); err != nil {
+		return err
+	}
+	store, err := c.store()
 	if err != nil {
 		return err
 	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return errors.New("session id is required")
-	}
-	runtimeDeleteErr := adapter.DeleteSession(ctx, c.backend, directory, sessionID)
-	if runtimeDeleteErr != nil {
-		var runtimeErr *sessionRuntimeError
-		if !errors.As(runtimeDeleteErr, &runtimeErr) || runtimeErr.Status != http.StatusNotFound {
-			return runtimeDeleteErr
-		}
-		if c.read == nil || c.read.store == nil {
-			return runtimeDeleteErr
-		}
-		if _, ok, storeErr := c.read.store.getSession(sessionID); storeErr != nil {
-			return storeErr
-		} else if !ok {
-			return runtimeDeleteErr
-		}
-	}
-	if c.read != nil && c.read.store != nil {
-		if err := c.read.store.remove(sessionID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return store.remove(strings.TrimSpace(sessionID))
 }
 
-func (c *sessionCommandContract) run(ctx context.Context, directory, sessionID string, input sessionRunInput) error {
-	adapter, err := c.requireAdapter()
-	if err != nil {
+func (c *sessionCommandContract) run(_ context.Context, directory, sessionID string, input sessionRunInput) error {
+	if _, err := c.requireSession(sessionID, directory); err != nil {
 		return err
 	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return errors.New("session id is required")
+	if c.native == nil {
+		return errors.New("native Agent runtime is unavailable")
 	}
+	sessionID = strings.TrimSpace(sessionID)
 	input.Text = strings.TrimSpace(input.Text)
 	input.Agent = strings.TrimSpace(input.Agent)
 	input.Variant = strings.TrimSpace(input.Variant)
@@ -195,35 +153,19 @@ func (c *sessionCommandContract) run(ctx context.Context, directory, sessionID s
 	if input.Text == "" && len(input.Parts) == 0 {
 		return errors.New("prompt text or parts are required")
 	}
-	if err := adapter.RunSession(ctx, c.backend, directory, sessionID, input); err != nil {
-		return err
-	}
-	ownsPersistence := false
-	if owner, ok := adapter.(sessionRunPersistenceOwner); ok {
-		ownsPersistence = owner.ownsRunPersistence(input)
-	}
-	if !ownsPersistence && c.read != nil && c.read.store != nil {
-		if err := c.read.store.markSessionExecution(sessionID, directory, "compatibility"); err != nil {
-			return err
-		}
-		if err := c.read.store.recordAcceptedRun(sessionID, directory, input); err != nil {
-			return err
-		}
-	}
-	return nil
+	return c.native.Start(directory, sessionID, input)
 }
 
-func (c *sessionCommandContract) abort(ctx context.Context, directory, sessionID string, input sessionAbortInput) error {
-	adapter, err := c.requireAdapter()
-	if err != nil {
+func (c *sessionCommandContract) abort(_ context.Context, directory, sessionID string, input sessionAbortInput) error {
+	if _, err := c.requireSession(sessionID, directory); err != nil {
 		return err
 	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return errors.New("session id is required")
+	if c.native == nil {
+		return errors.New("native Agent runtime is unavailable")
 	}
-	input.Scope = strings.TrimSpace(input.Scope)
-	return adapter.AbortSession(ctx, c.backend, directory, sessionID, input)
+	_ = strings.TrimSpace(input.Scope)
+	c.native.Abort(strings.TrimSpace(sessionID))
+	return nil
 }
 
 func decodeSessionCommandJSON(w http.ResponseWriter, r *http.Request, value any) bool {
@@ -237,13 +179,12 @@ func decodeSessionCommandJSON(w http.ResponseWriter, r *http.Request, value any)
 }
 
 func writeSessionCommandError(w http.ResponseWriter, err error) {
-	if errors.Is(err, errSessionCommandsUnsupported) {
-		writeJSON(w, http.StatusNotImplemented, jsonError{Error: err.Error()})
+	if strings.Contains(err.Error(), "recent-project history") || strings.Contains(err.Error(), "does not belong") {
+		writeJSON(w, http.StatusForbidden, jsonError{Error: err.Error()})
 		return
 	}
-	var runtimeErr *sessionRuntimeError
-	if errors.As(err, &runtimeErr) || strings.Contains(err.Error(), "recent-project history") {
-		writeSessionContractError(w, err)
+	if strings.Contains(err.Error(), "not found") {
+		writeJSON(w, http.StatusNotFound, jsonError{Error: err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
@@ -252,93 +193,49 @@ func writeSessionCommandError(w http.ResponseWriter, err error) {
 func registerSessionCommandRoutes(mux *http.ServeMux, contract *sessionCommandContract) {
 	mux.HandleFunc("POST /local/sessions", func(w http.ResponseWriter, r *http.Request) {
 		directory, err := contract.allowedDirectory(r.URL.Query().Get("directory"))
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		var input sessionCreateInput
-		if !decodeSessionCommandJSON(w, r, &input) {
-			return
-		}
+		if !decodeSessionCommandJSON(w, r, &input) { return }
 		session, err := contract.create(r.Context(), directory, input)
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		writeJSON(w, http.StatusCreated, session)
 	})
-
 	mux.HandleFunc("PATCH /local/sessions/{sessionID}", func(w http.ResponseWriter, r *http.Request) {
 		directory, err := contract.allowedDirectory(r.URL.Query().Get("directory"))
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		var input sessionUpdateInput
-		if !decodeSessionCommandJSON(w, r, &input) {
-			return
-		}
+		if !decodeSessionCommandJSON(w, r, &input) { return }
 		session, err := contract.update(r.Context(), directory, r.PathValue("sessionID"), input)
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		writeJSON(w, http.StatusOK, session)
 	})
-
 	mux.HandleFunc("DELETE /local/sessions/{sessionID}", func(w http.ResponseWriter, r *http.Request) {
 		directory, err := contract.allowedDirectory(r.URL.Query().Get("directory"))
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		sessionID := r.PathValue("sessionID")
-		if err := contract.remove(r.Context(), directory, sessionID); err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err := contract.remove(r.Context(), directory, sessionID); err != nil { writeSessionCommandError(w, err); return }
 		writeJSON(w, http.StatusOK, map[string]any{"deleted": true, "sessionID": sessionID})
 	})
-
 	mux.HandleFunc("POST /local/sessions/{sessionID}/runs", func(w http.ResponseWriter, r *http.Request) {
 		directory, err := contract.allowedDirectory(r.URL.Query().Get("directory"))
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		var input sessionRunInput
-		if !decodeSessionCommandJSON(w, r, &input) {
-			return
-		}
+		if !decodeSessionCommandJSON(w, r, &input) { return }
 		sessionID := r.PathValue("sessionID")
-		if err := contract.run(r.Context(), directory, sessionID, input); err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err := contract.run(r.Context(), directory, sessionID, input); err != nil { writeSessionCommandError(w, err); return }
 		writeJSON(w, http.StatusAccepted, map[string]any{"accepted": true, "sessionID": sessionID})
 	})
-
 	mux.HandleFunc("POST /local/sessions/{sessionID}/abort", func(w http.ResponseWriter, r *http.Request) {
 		directory, err := contract.allowedDirectory(r.URL.Query().Get("directory"))
-		if err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err != nil { writeSessionCommandError(w, err); return }
 		var input sessionAbortInput
-		if r.ContentLength != 0 {
-			if !decodeSessionCommandJSON(w, r, &input) {
-				return
-			}
-		}
+		if r.ContentLength != 0 && !decodeSessionCommandJSON(w, r, &input) { return }
 		sessionID := r.PathValue("sessionID")
-		if err := contract.abort(r.Context(), directory, sessionID, input); err != nil {
-			writeSessionCommandError(w, err)
-			return
-		}
+		if err := contract.abort(r.Context(), directory, sessionID, input); err != nil { writeSessionCommandError(w, err); return }
 		writeJSON(w, http.StatusOK, map[string]any{"aborted": true, "sessionID": sessionID})
 	})
 }
 
 func (c *sessionCommandContract) String() string {
-	return fmt.Sprintf("sessionCommandContract(engine=%s)", c.backend.engine.ID())
+	return fmt.Sprintf("sessionCommandContract(native=%t)", c.native != nil)
 }
