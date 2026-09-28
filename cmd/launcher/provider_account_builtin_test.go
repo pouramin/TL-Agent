@@ -68,6 +68,54 @@ func TestProviderManagerRuntimeCredentialPrefersExplicitAPIKey(t *testing.T) {
 	}
 }
 
+
+
+func TestProviderAccountCredentialPersistsAcrossManagerRestart(t *testing.T) {
+	stateDir := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+
+	state := &appState{frontendURL: "http://127.0.0.1:32126"}
+	first := newProviderManager(state)
+	credential := providerAccountStoredCredential{
+		AccessToken:  "restart-access",
+		RefreshToken: "restart-refresh",
+		ExpiresAt:    time.Now().UTC().Add(time.Hour).Format(time.RFC3339),
+		AccountLabel: "restart@example.test",
+	}
+	encoded, err := encodeProviderAccountCredential(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := first.credentials.Put(providerAccountCredentialID("huggingface"), encoded); err != nil {
+		t.Fatal(err)
+	}
+	if err := first.store.put(tlProviderDefinition{
+		ID:       "huggingface",
+		Name:     "Hugging Face",
+		Protocol: "openai-compatible",
+		BaseURL:  "https://router.huggingface.co/v1",
+		ManagedBy: "account",
+		Models: []tlProviderModel{{ID: "test/model", Name: "Test Model", ToolCall: true}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	second := newProviderManager(state)
+	adapter := newHuggingFaceAccountAdapter(state, second)
+	adapter.clientID = "public-test-client"
+	status, err := adapter.Status(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Connected || status.AccountLabel != "restart@example.test" {
+		t.Fatalf("account credential did not survive restart: %#v", status)
+	}
+	provider, found, err := second.store.get("huggingface")
+	if err != nil || !found || len(provider.Models) != 1 || provider.Models[0].ID != "test/model" {
+		t.Fatalf("account-managed provider did not survive restart: found=%v provider=%#v err=%v", found, provider, err)
+	}
+}
+
 func TestHuggingFaceAccountLifecycleUsesPKCEVaultAndModelDiscovery(t *testing.T) {
 	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
 
