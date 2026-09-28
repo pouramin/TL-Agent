@@ -40,19 +40,26 @@ func codexProcess(ctx context.Context, command codexCommand, args ...string) *ex
 	if runtime.GOOS == "windows" {
 		ext := strings.ToLower(filepath.Ext(executable))
 		if ext == ".cmd" || ext == ".bat" {
-			parts := make([]string, 0, len(allArgs)+1)
-			parts = append(parts, quoteWindowsBatchArg(executable))
-			for _, arg := range allArgs {
-				parts = append(parts, quoteWindowsBatchArg(arg))
-			}
-			return exec.CommandContext(ctx, "cmd.exe", "/d", "/s", "/c", strings.Join(parts, " "))
+			return exec.CommandContext(ctx, "cmd.exe", "/d", "/s", "/c", windowsBatchCommandLine(executable, allArgs))
 		}
 	}
 	return exec.CommandContext(ctx, executable, allArgs...)
 }
 
+func windowsBatchCommandLine(executable string, args []string) string {
+	parts := make([]string, 0, len(args)+1)
+	parts = append(parts, quoteWindowsBatchArg(executable))
+	for _, arg := range args {
+		parts = append(parts, quoteWindowsBatchArg(arg))
+	}
+	// cmd.exe /S /C strips the outer quote pair. Keep a second quote pair
+	// around the batch file itself so paths containing spaces still execute.
+	return "\"" + strings.Join(parts, " ") + "\""
+}
+
 func quoteWindowsBatchArg(value string) string {
-	value = strings.ReplaceAll(value, "\"", "\\\"")
+	value = strings.ReplaceAll(value, "%", "%%")
+	value = strings.ReplaceAll(value, "\"", "\"\"")
 	return "\"" + value + "\""
 }
 
@@ -85,10 +92,46 @@ type codexRPCEnvelope struct {
 	Error  *codexRPCError  `json:"error,omitempty"`
 }
 
+type boundedTextBuffer struct {
+	mu   sync.Mutex
+	data []byte
+	max  int
+}
+
+func newBoundedTextBuffer(max int) *boundedTextBuffer {
+	if max <= 0 {
+		max = 8 << 10
+	}
+	return &boundedTextBuffer{max: max}
+}
+
+func (b *boundedTextBuffer) Write(p []byte) (int, error) {
+	if b == nil {
+		return len(p), nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.data = append(b.data, p...)
+	if len(b.data) > b.max {
+		b.data = append([]byte(nil), b.data[len(b.data)-b.max:]...)
+	}
+	return len(p), nil
+}
+
+func (b *boundedTextBuffer) String() string {
+	if b == nil {
+		return ""
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return strings.TrimSpace(string(b.data))
+}
+
 type codexAppServer struct {
 	command codexCommand
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
+	stderr  *boundedTextBuffer
 
 	writeMu sync.Mutex
 	nextID  atomic.Int64
@@ -119,8 +162,10 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 		_ = stdin.Close()
 		return nil, fmt.Errorf("open Codex app-server stdout: %w", err)
 	}
-	// Authentication output belongs to Codex. Avoid copying stderr into TL Studio logs.
-	cmd.Stderr = io.Discard
+	// Keep only a small in-memory diagnostic tail. It is never written to TL Studio
+	// logs and is surfaced only if the helper exits before answering.
+	stderr := newBoundedTextBuffer(8 << 10)
+	cmd.Stderr = stderr
 	if err := cmd.Start(); err != nil {
 		_ = stdin.Close()
 		return nil, fmt.Errorf("start official Codex app-server: %w", err)
@@ -129,6 +174,7 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 		command: command,
 		cmd: cmd,
 		stdin: stdin,
+		stderr: stderr,
 		pending: map[int64]chan codexRPCEnvelope{},
 		done: make(chan struct{}),
 		notify: make(chan codexRPCEnvelope, 64),
@@ -139,7 +185,11 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 		server.closeWithError(err)
 	}()
 
-	initCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	initTimeout := 20 * time.Second
+	if strings.HasPrefix(command.Source, "npx") {
+		initTimeout = 60 * time.Second
+	}
+	initCtx, cancel := context.WithTimeout(context.Background(), initTimeout)
 	defer cancel()
 	var initialized map[string]any
 	if err := server.request(initCtx, "initialize", map[string]any{
@@ -272,7 +322,7 @@ func (s *codexAppServer) request(ctx context.Context, method string, params any,
 	select {
 	case envelope, ok := <-ch:
 		if !ok {
-			return errors.New("Codex app-server stopped before responding")
+			return s.stoppedError()
 		}
 		if envelope.Error != nil {
 			return fmt.Errorf("Codex app-server %s failed: %s", method, strings.TrimSpace(envelope.Error.Message))
@@ -287,8 +337,25 @@ func (s *codexAppServer) request(ctx context.Context, method string, params any,
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-s.done:
+		return s.stoppedError()
+	}
+}
+
+func (s *codexAppServer) stoppedError() error {
+	if s == nil {
 		return errors.New("Codex app-server stopped before responding")
 	}
+	s.mu.Lock()
+	closeErr := s.closeErr
+	s.mu.Unlock()
+	message := "Codex app-server stopped before responding"
+	if closeErr != nil && !errors.Is(closeErr, io.EOF) {
+		message += ": " + closeErr.Error()
+	}
+	if detail := s.stderr.String(); detail != "" {
+		message += " — " + detail
+	}
+	return errors.New(message)
 }
 
 func (s *codexAppServer) Close() {

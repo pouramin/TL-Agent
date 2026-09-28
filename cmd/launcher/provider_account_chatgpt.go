@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -120,10 +121,53 @@ func newChatGPTAccountAdapter(state *appState, manager *providerManager) *chatGP
 
 func (a *chatGPTAccountAdapter) ID() string { return chatGPTAccountProviderID }
 
+func windowsNodeBackedCommand(path, source string) (codexCommand, bool) {
+	if runtime.GOOS != "windows" {
+		return codexCommand{}, false
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	if ext != ".cmd" && ext != ".bat" {
+		return codexCommand{}, false
+	}
+	node, ok := resolveExecutableCandidate("node")
+	if !ok {
+		return codexCommand{}, false
+	}
+	root := filepath.Dir(path)
+	switch strings.ToLower(filepath.Base(path)) {
+	case "npx.cmd", "npx.bat":
+		script := filepath.Join(root, "node_modules", "npm", "bin", "npx-cli.js")
+		if info, err := os.Stat(script); err == nil && !info.IsDir() {
+			return codexCommand{
+				Executable: node,
+				PrefixArgs: []string{script, "--yes", "@openai/codex"},
+				Source: source + "-node",
+			}, true
+		}
+	case "codex.cmd", "codex.bat":
+		script := filepath.Join(root, "node_modules", "@openai", "codex", "bin", "codex.js")
+		if info, err := os.Stat(script); err == nil && !info.IsDir() {
+			return codexCommand{
+				Executable: node,
+				PrefixArgs: []string{script},
+				Source: source + "-node",
+			}, true
+		}
+	}
+	return codexCommand{}, false
+}
+
+func codexCommandForExecutable(path, source string) codexCommand {
+	if command, ok := windowsNodeBackedCommand(path, source); ok {
+		return command
+	}
+	return codexCommand{Executable: path, Source: source}
+}
+
 func (a *chatGPTAccountAdapter) resolveCommand() (codexCommand, error) {
 	if override := strings.TrimSpace(os.Getenv("TL_STUDIO_CODEX_EXECUTABLE")); override != "" {
 		if path, ok := resolveExecutableCandidate(override); ok {
-			return codexCommand{Executable: path, Source: "environment"}, nil
+			return codexCommandForExecutable(path, "environment"), nil
 		}
 		return codexCommand{}, errors.New("TL_STUDIO_CODEX_EXECUTABLE does not point to an executable Codex CLI")
 	}
@@ -133,14 +177,17 @@ func (a *chatGPTAccountAdapter) resolveCommand() (codexCommand, error) {
 	}
 	if config.Executable != "" {
 		if path, ok := resolveExecutableCandidate(config.Executable); ok {
-			return codexCommand{Executable: path, Source: "configured"}, nil
+			return codexCommandForExecutable(path, "configured"), nil
 		}
 		return codexCommand{}, errors.New("configured Codex executable was not found")
 	}
 	if path, ok := resolveExecutableCandidate("codex"); ok {
-		return codexCommand{Executable: path, Source: "path"}, nil
+		return codexCommandForExecutable(path, "path"), nil
 	}
 	if path, ok := resolveExecutableCandidate("npx"); ok {
+		if command, resolved := windowsNodeBackedCommand(path, "npx"); resolved {
+			return command, nil
+		}
 		return codexCommand{
 			Executable: path,
 			PrefixArgs: []string{"--yes", "@openai/codex"},
