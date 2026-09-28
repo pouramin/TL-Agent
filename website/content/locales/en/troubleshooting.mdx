@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Diagnose common TL Studio v0.5 startup, workspace, Provider, Plugin/MCP, JEV, Session, Permission, and Agent problems.
+description: Diagnose common TL Studio v0.5 startup, workspace, model connection, Plugin/MCP, Session, Permission, and Agent problems.
 icon: Wrench
 ---
 
@@ -54,7 +54,7 @@ TL Studio serves PDF inline with HTTP range support, but the embedded rendering 
 
 Use **Open in Browser** if the embedded surface is limited.
 
-## Custom Provider connection fails
+## Model connection fails
 
 Check:
 
@@ -62,17 +62,15 @@ Check:
 - Base URL;
 - API key;
 - Model ID;
-- whether the Provider actually supports the selected API family.
+- whether the configured endpoint actually supports the selected protocol family.
 
-Use **Test / Discover Models** to validate a Provider that exposes model discovery.
+Use **Test / Discover Models** to validate a connection that exposes model discovery.
 
 ## Model discovery fails
 
 TL Studio blocks unsafe redirect behavior and treats authentication failures as real failures.
 
-For a previously saved Provider, a matching cached catalog may be used only for eligible non-auth live-discovery failures.
-
-For OpenRouter, discovery requires a valid key because TL Studio uses the authenticated user catalog.
+For a previously saved connection, a matching cached catalog may be used only for eligible non-auth live-discovery failures.
 
 ## An account-based Provider is not shown
 
@@ -106,18 +104,6 @@ Use **Build Graph / Rebuild Graph** if Graphify is installed and available in yo
 
 Graphify is not bundled in v0.5.0.
 
-## JEV cannot be activated
-
-Check the JEV status message.
-
-Activation can be blocked by an invalid/missing OpenRouter key, a management key, an OpenRouter Free-tier restriction on auto-routing, missing Router availability, or exhausted key-level allowance.
-
-## Jev Decision Engine is off
-
-This is the default.
-
-The separate Decision Engine is a paid, explicitly enabled capability. It is not automatically enabled by Jev Router.
-
 ## Agent is waiting
 
 Check for a pending Permission request or interactive Question.
@@ -138,4 +124,4 @@ Current limits are **8 files**, **10 MiB per file**, and **20 MiB total**. Unsup
 
 Include your operating system, TL Studio version, reproduction steps, and non-secret error output.
 
-For Provider or Plugin problems, include the protocol/transport and non-secret configuration details. Never publish API keys or secret environment values.
+For model-connection or Plugin problems, include the protocol/transport and non-secret configuration details. Never publish API keys or secret environment values.
