@@ -22,7 +22,7 @@ TL Studio now runs normally without a compatibility sidecar.
 - **Native permissions** — pending approvals, one-time decisions, project-scoped remembered rules, rejection, and enforcement are owned by TL Studio.
 - **Native events** — /local/events is the authoritative semantic SSE stream.
 - **Native providers** — provider definitions, model catalogs, discovery, and credentials are owned by TL Studio. Model calls go directly from TL Studio to configured providers.
-- **Provider accounts** — /local/provider-accounts owns the generic account-login lifecycle for documented provider integrations; OpenRouter and Hugging Face are the first 0.6 account adapters.
+- **Provider accounts** — /local/provider-accounts owns the generic account-login lifecycle for documented provider integrations; OpenRouter, Hugging Face, and Google/Gemini are implemented on the 0.6 development line.
 - **Native tools** — files, Search, Terminal/process execution, workspace reconciliation, and Plugin/MCP tools run through the TL Studio Tool Executor.
 
 There is no Kilo binary requirement, subprocess, local Kilo server, reverse proxy, session adapter, permission fallback, question adapter, event stream, provider synchronization, model fallback, or release payload.
@@ -45,13 +45,15 @@ The Browser workspace includes:
 
 ## Provider support
 
-TL Studio currently has direct model clients for OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
+TL Studio currently has direct model clients for OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini generateContent.
 
 Provider definitions live in TL Studio local state. API keys and account credentials are stored separately in the TL Studio credential vault and are never written to providers.json or Browser storage. Manual API credentials and account connections use separate vault slots.
 
 Custom provider setup can discover models automatically from compatible model-list APIs. Manual model entry remains available only as a fallback for private or unlisted models.
 
-The 0.6 account-provider foundation supports semantic login state, cancellation, refresh, logout, and account-backed model discovery. OpenRouter uses its documented OAuth + PKCE flow to create a user-controlled key. Hugging Face uses its documented public-client OAuth + PKCE flow with TL Studio's published CIMD metadata and refresh-token lifecycle. Neither adapter exposes credentials to Browser code.
+The 0.6 account-provider foundation supports semantic login state, cancellation, refresh, logout, and account-backed model discovery. OpenRouter uses its documented OAuth + PKCE flow to create a user-controlled key. Hugging Face uses its documented public-client OAuth + PKCE flow with TL Studio's published CIMD metadata and refresh-token lifecycle. Google/Gemini uses the official installed-app OAuth + PKCE flow, refresh/revocation, and a user quota project for Gemini API usage. Account credentials are never exposed to Browser code.
+
+Google account login requires a registered TL Studio Desktop OAuth client plus a Google Cloud project with the Generative Language API enabled. A Gemini consumer subscription is not treated as Gemini API entitlement.
 
 A model or protocol that the native client cannot execute returns an explicit unsupported-capability error. It is never routed through a hidden compatibility runtime.
 

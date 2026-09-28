@@ -98,6 +98,8 @@ OpenRouter is the first concrete account adapter in the 0.6 development line. It
 
 Hugging Face is the second concrete account adapter. TL Studio identifies itself as a public native OAuth client through a CIMD document hosted at https://pouramin.dev/.well-known/oauth-cimd, uses Authorization Code + PKCE with a loopback callback, stores access and refresh tokens only in the account vault slot, refreshes expiring tokens inside the Provider Account adapter, and syncs the official Inference Providers model catalog into the existing Provider Registry. The Native Agent resolves a fresh account credential through the adapter without containing Hugging Face-specific authentication logic.
 
+Google/Gemini is implemented as an installed-app OAuth adapter using Authorization Code + PKCE, loopback callbacks, refresh tokens, and token revocation. Gemini model calls use the native generateContent transport and keep Google-specific thought-signature continuation state inside the model protocol boundary. The non-secret Google Cloud Project ID is stored with the account-managed provider definition and sent as x-goog-user-project for quota/billing; OAuth tokens remain only in the credential vault. A registered TL Studio Desktop OAuth client is still required before the integration can be enabled in production.
+
 Private or undocumented provider OAuth flows are not reverse-engineered. Account integrations must not introduce a second Agent runtime or compatibility engine.
 
 ## Tools and Plugins/MCP

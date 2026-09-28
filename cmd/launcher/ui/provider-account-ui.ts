@@ -7,10 +7,6 @@ import { K } from "./kernel";
   K.__providerAccountsUiInstalled = true;
 
   const clean = (value: any) => String(value ?? "").trim();
-  const parseDeviceCode = (input: any) => clean(input).match(/code:\s*([A-Z0-9-]+)/i)?.[1]?.toUpperCase()
-    || clean(input).match(/\b[A-Z0-9]{4,}(?:-[A-Z0-9]{3,})+\b/i)?.[0]?.toUpperCase()
-    || "";
-
   const settingsDialog = document.getElementById("settingsDialog") as HTMLDialogElement | null;
   const panel = settingsDialog?.querySelector<HTMLElement>('[data-settings-panel="providers"]');
   const providerList = document.getElementById("providerList");
@@ -56,7 +52,7 @@ import { K } from "./kernel";
   let loading = false;
 
   const statusText = (account: TLStudioProviderAccount) => {
-    if (!account.available) return "Unavailable";
+    if (!account.available) return account.error ? `Unavailable · ${account.error}` : "Unavailable";
     if (account.state === "connecting") return "Connecting";
     if (account.state === "expired") return "Expired";
     if (account.state === "needs_reauthentication") return "Needs reauthentication";
@@ -115,19 +111,28 @@ import { K } from "./kernel";
       const meta = document.createElement("div");
       meta.className = "provider-account-meta";
       const description = clean(account.description);
-      meta.textContent = [statusText(account), description].filter(Boolean).join(" · ");
+      const billing = clean(account.billingNote);
+      meta.textContent = [statusText(account), description, billing].filter(Boolean).join(" · ");
       copy.append(title, meta);
 
       const actions = document.createElement("div");
       actions.className = "provider-account-actions";
       if (account.connected) {
+        const reconnect = document.createElement("button");
+        reconnect.type = "button";
+        reconnect.className = "ghost small";
+        reconnect.dataset.providerAccountAction = "reconnect";
+        reconnect.textContent = "Reconnect";
+        reconnect.disabled = !account.available;
+        reconnect.addEventListener("click", () => { void connectAccount(account); });
+
         const disconnect = document.createElement("button");
         disconnect.type = "button";
         disconnect.className = "ghost small provider-delete";
         disconnect.dataset.providerAccountAction = "disconnect";
         disconnect.textContent = "Sign out";
         disconnect.addEventListener("click", () => { void disconnectAccount(account); });
-        actions.appendChild(disconnect);
+        actions.append(reconnect, disconnect);
       } else {
         const connect = document.createElement("button");
         connect.type = "button";
@@ -135,7 +140,7 @@ import { K } from "./kernel";
         connect.dataset.providerAccountAction = "connect";
         connect.textContent = `Sign in with ${account.name || account.id}`;
         connect.disabled = !account.available;
-        if (!account.available) connect.title = "This account integration needs its optional compatibility adapter.";
+        if (!account.available) connect.title = clean(account.error) || clean(account.description) || "This account integration is unavailable.";
         connect.addEventListener("click", () => { void connectAccount(account); });
         actions.appendChild(connect);
       }

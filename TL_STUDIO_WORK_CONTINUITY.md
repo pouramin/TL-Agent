@@ -24,14 +24,15 @@ The fully native runtime milestone is complete and released as stable v0.5.0. Th
 
 Current validation branch:
 
-feature/huggingface-account-provider
+feature/gemini-account-provider
 
 Current draft PR:
 
+#124 — Google Gemini account provider for 0.6
+
+Completed 0.6 account-provider PRs:
+
 #123 — Hugging Face account provider for 0.6
-
-Completed 0.6 foundation PR:
-
 #122 — Account provider foundation for 0.6
 
 Completed milestone PR:
@@ -120,7 +121,9 @@ Manual API credentials and account credentials use separate credential-vault slo
 
 OpenRouter is the first concrete 0.6 account adapter. It uses the documented OpenRouter OAuth + PKCE flow, performs code exchange server-side, stores the resulting account key only in the TL Studio credential vault, discovers models through the normal provider discovery layer, and exposes those models through the existing Native Agent/model selector path.
 
-Hugging Face is the next concrete adapter under validation in PR #123. It uses TL Studio's public CIMD identity at https://pouramin.dev/.well-known/oauth-cimd, Authorization Code + PKCE, loopback callbacks, account-vault access/refresh token persistence, automatic refresh in the Provider Account adapter, and the official OpenAI-compatible Inference Providers router. The provider-specific credential lifecycle remains behind ProviderAccountAdapter; the Native Agent receives only the resolved runtime credential.
+Hugging Face is merged on dev through PR #123. It uses TL Studio's public CIMD identity at https://pouramin.dev/.well-known/oauth-cimd, Authorization Code + PKCE, loopback callbacks, account-vault access/refresh token persistence, automatic refresh in the Provider Account adapter, and the official OpenAI-compatible Inference Providers router. The provider-specific credential lifecycle remains behind ProviderAccountAdapter; the Native Agent receives only the resolved runtime credential.
+
+Google/Gemini is under validation in PR #124. The implementation uses the official installed-app OAuth flow with PKCE, refresh and revocation, a Google Cloud quota project, native Gemini generateContent transport, model discovery, and preservation of Gemini thought signatures across tool-call continuation. No client secret is embedded. Production activation still requires a registered TL Studio Google Desktop OAuth client ID; during development the client ID and initial project ID can be supplied through TL_STUDIO_GOOGLE_CLIENT_ID and TL_STUDIO_GOOGLE_PROJECT_ID. The project ID persists in the account-managed provider definition after connection.
 
 Custom Provider setup is being simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback.
 

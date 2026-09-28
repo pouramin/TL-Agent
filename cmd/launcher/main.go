@@ -134,11 +134,14 @@ func newServer(state *appState) (http.Handler, error) {
 	providerManager := newProviderManager(state)
 	openRouterAccount := newOpenRouterAccountAdapter(state, providerManager)
 	huggingFaceAccount := newHuggingFaceAccountAdapter(state, providerManager)
+	googleGeminiAccount := newGoogleGeminiAccountAdapter(state, providerManager)
 	providerManager.registerAccountAdapter(openRouterAccount)
 	providerManager.registerAccountAdapter(huggingFaceAccount)
+	providerManager.registerAccountAdapter(googleGeminiAccount)
 	providerAccounts := newProviderAccountService(
 		openRouterAccount,
 		huggingFaceAccount,
+		googleGeminiAccount,
 	)
 	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
