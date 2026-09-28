@@ -57,8 +57,12 @@ import { K } from "./kernel";
 
   const statusText = (account: TLStudioProviderAccount) => {
     if (!account.available) return "Unavailable";
+    if (account.state === "connecting") return "Connecting";
+    if (account.state === "expired") return "Expired";
+    if (account.state === "needs_reauthentication") return "Needs reauthentication";
+    if (account.state === "error") return account.error ? `Error · ${account.error}` : "Error";
     if (account.connected) {
-      const details = [account.accountType, account.organizationId].filter(Boolean).join(" · ");
+      const details = [account.accountLabel, account.accountType, account.organizationId].filter(Boolean).join(" · ");
       return details ? `Connected · ${details}` : "Connected";
     }
     return "Not connected";
@@ -168,6 +172,14 @@ import { K } from "./kernel";
     K.renderSessionHeader?.();
   };
 
+  const wait = (ms: number, signal: AbortSignal) => new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => {
+      window.clearTimeout(timer);
+      reject(new DOMException("Provider login cancelled", "AbortError"));
+    }, { once: true });
+  });
+
   const connectAccount = async (account: TLStudioProviderAccount) => {
     if (!account.available) return;
     K.showError("");
@@ -175,6 +187,8 @@ import { K } from "./kernel";
     const controller = new AbortController();
     K.state.authController = controller;
     K.state.authURL = "";
+    K.state.authProviderID = account.id;
+    K.state.authLoginID = "";
 
     const title = K.els.authDialog.querySelector("h2");
     if (title) title.textContent = `Sign in with ${account.name || account.id}`;
@@ -185,26 +199,43 @@ import { K } from "./kernel";
     K.els.authDialog.showModal();
 
     try {
-      const info = await K.api.providerAccounts.authorize(account.id) || {};
-      K.state.authURL = clean(info.url);
-      K.els.authInstructions.textContent = clean(info.instructions) || "Authorization is ready. Open the sign-in page to continue.";
-      const code = parseDeviceCode(info.instructions);
+      const login = await K.api.providerAccounts.beginLogin(account.id);
+      K.state.authLoginID = clean(login.loginId);
+      K.state.authURL = clean(login.authorizationUrl || login.verificationUrl);
+      K.els.authInstructions.textContent = clean(login.instructions) || "Authorization is ready. Open the sign-in page to continue.";
+      const code = clean(login.userCode);
       if (code) {
         K.els.authCode.textContent = code;
         K.els.authCodeWrap.classList.remove("hidden");
       }
       K.els.authOpen.disabled = !K.state.authURL;
 
-      await K.api.providerAccounts.callback(account.id, controller.signal);
-      K.state.authController = null;
-      K.els.authInstructions.textContent = "Signed in successfully.";
-      await refreshProviderSurfaces();
-      window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
+      const expiresAt = login.expiresAt ? Date.parse(login.expiresAt) : 0;
+      const interval = Math.max(1, Number(login.pollIntervalSeconds) || 2) * 1000;
+      while (!controller.signal.aborted) {
+        if (expiresAt && Date.now() >= expiresAt) throw new Error("Provider sign-in expired. Start again.");
+        const status = await K.api.providerAccounts.pollLogin(account.id, login.loginId, controller.signal);
+        if (status.state === "connected" || status.connected) {
+          K.state.authController = null;
+          K.state.authProviderID = "";
+          K.state.authLoginID = "";
+          K.els.authInstructions.textContent = "Signed in successfully.";
+          await refreshProviderSurfaces();
+          window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
+          return;
+        }
+        if (status.state === "expired") throw new Error("Provider sign-in expired. Start again.");
+        if (status.state === "needs_reauthentication") throw new Error("Provider requires authentication again.");
+        if (status.state === "error") throw new Error(status.error || "Provider sign-in failed.");
+        await wait(interval, controller.signal);
+      }
     } catch (error) {
       if ((error as any)?.name !== "AbortError") {
         K.els.authInstructions.textContent = `Sign-in failed: ${error instanceof Error ? error.message : String(error)}`;
       }
       try { await load(); } catch {}
+    } finally {
+      if (K.state.authController === controller) K.state.authController = null;
     }
   };
 

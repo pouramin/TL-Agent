@@ -250,10 +250,26 @@ interface TLStudioProviderAccount {
   description?: string;
   available: boolean;
   connected: boolean;
+  state: "disconnected" | "connecting" | "connected" | "expired" | "needs_reauthentication" | "error" | string;
   authModes: string[];
   accountType?: string;
+  accountLabel?: string;
   organizationId?: string;
   models?: string[];
+  capabilities?: string[];
+  billingNote?: string;
+  error?: string;
+}
+
+interface TLStudioProviderAccountLogin {
+  loginId: string;
+  flow: "authorization_code_pkce" | "device_code" | string;
+  authorizationUrl?: string;
+  verificationUrl?: string;
+  userCode?: string;
+  instructions?: string;
+  expiresAt?: string;
+  pollIntervalSeconds?: number;
 }
 
 interface TLStudioProviderState {
@@ -272,8 +288,11 @@ interface TLStudioProductAPI {
   providerAccounts: {
     list(): Promise<TLStudioProviderAccount[]>;
     status(providerID: string): Promise<TLStudioProviderAccount>;
-    authorize(providerID: string): Promise<TLStudioDynamicRecord>;
-    callback(providerID: string, signal?: AbortSignal): Promise<TLStudioDynamicRecord>;
+    beginLogin(providerID: string): Promise<TLStudioProviderAccountLogin>;
+    pollLogin(providerID: string, loginID: string, signal?: AbortSignal): Promise<TLStudioProviderAccount>;
+    cancelLogin(providerID: string, loginID: string): Promise<TLStudioDynamicRecord>;
+    refresh(providerID: string): Promise<TLStudioProviderAccount>;
+    models(providerID: string): Promise<{ models: string[] }>;
     disconnect(providerID: string): Promise<TLStudioDynamicRecord>;
   };
   providers: {
@@ -412,6 +431,8 @@ interface TLStudioState {
   revision: number;
   authController: AbortController | null;
   authURL: string;
+  authProviderID: string;
+  authLoginID: string;
   attentionKey: string;
   attachments: TLStudioDynamicRecord[];
   activeEditorPath: string;

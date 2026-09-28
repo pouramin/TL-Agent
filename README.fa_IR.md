@@ -22,7 +22,7 @@ TL Studio یک IDE مرورگری و Workspace محلی برای Coding Agent ا
 - **Native Permissions** — Pending Request، Allow Once، Reject، Ruleهای Project-scoped و Enforcement در اختیار TL Studio است.
 - **Native Events** — مسیر /local/events منبع اصلی Semantic SSE است.
 - **Native Providers** — Provider Registry، Catalog، Discovery و Credential Vault متعلق به TL Studio است و Model Call مستقیماً به Provider انتخاب‌شده ارسال می‌شود.
-- **Provider Accounts** — مسیر /local/provider-accounts یک Domain عمومی برای Integrationهای Account-based آینده باقی مانده است.
+- **Provider Accounts** — مسیر /local/provider-accounts چرخه‌ی عمومی ورود حساب برای Integrationهای مستند Provider را مدیریت می‌کند و OpenRouter اولین Adapter واقعی در خط توسعه‌ی 0.6 است.
 - **Native Tools** — Files، Search، Terminal/Process، Workspace reconciliation و ابزارهای Plugin/MCP از TL Studio Tool Executor عبور می‌کنند.
 
 در محصول دیگر Kilo binary، Kilo subprocess، Local Kilo server، Reverse Proxy، Session Adapter، Permission fallback، Question Adapter، Event stream، Provider sync، Model fallback یا Kilo داخل Release package وجود ندارد.
@@ -51,7 +51,11 @@ TL Studio در حال حاضر Direct Model Client برای این Protocolها 
 - OpenAI Responses
 - Anthropic Messages
 
-Provider definition در Local State خود TL Studio ذخیره می‌شود. API Key جداگانه داخل Credential Vault نگهداری می‌شود و وارد providers.json یا Browser storage نمی‌شود.
+Provider definition در Local State خود TL Studio ذخیره می‌شود. API Key و Credential حساب جداگانه داخل Credential Vault نگهداری می‌شوند و وارد providers.json یا Browser storage نمی‌شوند. Credential دستی API و اتصال حساب Slotهای جدا دارند و اتصال حساب، کلید دستی کاربر را overwrite نمی‌کند.
+
+در افزودن Provider سفارشی، TL Studio می‌تواند فهرست مدل‌ها را به‌صورت خودکار از API سازگار کشف کند. ورود دستی Model ID فقط به‌عنوان fallback برای مدل خصوصی یا فهرست‌نشده باقی می‌ماند.
+
+زیرساخت Account Provider در خط توسعه‌ی 0.6 شامل وضعیت معنایی Login، لغو، Refresh، Logout و Model Discovery است. OpenRouter در حال حاضر اولین Adapter واقعی این مسیر است و از OAuth + PKCE مستند خود سرویس استفاده می‌کند؛ Credential حاصل هرگز در اختیار Browser قرار نمی‌گیرد.
 
 اگر Model یا Protocol توسط Native Client پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد. هیچ Hidden fallback به Runtime دیگری وجود ندارد.
 

@@ -82,7 +82,7 @@ The provider registry is authoritative. Provider configuration and credentials a
 
 Supported direct model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
 
-Credentials are stored separately in the TL Studio credential vault. They do not appear in providers.json or Browser storage.
+Credentials are stored separately in the TL Studio credential vault. They do not appear in providers.json or Browser storage. Manual API credentials and account-backed credentials use separate vault slots; an account connection may temporarily take precedence without overwriting the user's manual API key.
 
 Unsupported models remain explicit unsupported capabilities; there is no fallback engine. JEV/OpenRouter uses the same native provider and Agent boundaries.
 
@@ -90,9 +90,13 @@ An external service such as Kilo Gateway may be configured only as a normal docu
 
 ## Provider Account domain
 
-ProviderAccountAdapter and /local/provider-accounts* remain generic abstractions for future account-backed integrations that expose a documented third-party authorization contract.
+ProviderAccountAdapter and /local/provider-accounts* define the generic account-backed integration boundary. The lifecycle covers typed login challenges, polling/completion, cancellation, refresh, status, model discovery, and logout.
 
-A build with no supported account adapters returns an empty account-provider list. Private or undocumented provider OAuth flows are not reverse-engineered.
+Browser code receives only semantic account state and safe login instructions. OAuth authorization codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets stay on the Go side and credential material is persisted only through the TL Studio credential vault.
+
+OpenRouter is the first concrete account adapter in the 0.6 development line. It uses OpenRouter's documented OAuth + PKCE flow, exchanges the authorization code server-side for a user-controlled OpenRouter key, stores that key in the account credential slot, discovers models through the normal provider discovery path, and then uses the existing Native Agent/provider execution path.
+
+Private or undocumented provider OAuth flows are not reverse-engineered. Account integrations must not introduce a second Agent runtime or compatibility engine.
 
 ## Tools and Plugins/MCP
 

@@ -73,8 +73,11 @@ import { K } from "./kernel";
         return Array.isArray(payload) ? payload : [];
       },
       status: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() })),
-      authorize: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/authorize`, { directory: projectDirectory() }), { method: "POST" }),
-      callback: (providerID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/callback`, { directory: projectDirectory() }), { method: "POST", signal }),
+      beginLogin: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login`, { directory: projectDirectory() }), { method: "POST" }),
+      pollLogin: (providerID: string, loginID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login/${enc(loginID)}`, { directory: projectDirectory() }), { signal }),
+      cancelLogin: (providerID: string, loginID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login/${enc(loginID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
+      refresh: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/refresh`, { directory: projectDirectory() }), { method: "POST" }),
+      models: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/models`, { directory: projectDirectory() })),
       disconnect: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
     },
 

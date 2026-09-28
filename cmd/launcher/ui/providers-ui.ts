@@ -28,7 +28,7 @@ import { K } from "./kernel";
   const validateDraft = (draft: any) => {
     const id = clean(draft.providerID);
     if (!PROVIDER_ID.test(id)) return "Provider ID must use lowercase letters, numbers, dashes, or underscores.";
-    if (!clean(draft.name)) return "Display name is required.";
+    if (!clean(draft.name)) return "Provider name could not be determined.";
     if (!PROTOCOLS.has(draft.protocol)) return "Choose a supported provider API.";
     if (!safeURL(draft.baseURL)) return "Enter a valid http(s) Base URL.";
     const discoveredModels = Array.isArray(draft.models) ? draft.models.filter((model: any) => clean(model?.id)) : [];
@@ -144,17 +144,17 @@ import { K } from "./kernel";
       <div class="provider-dialog-head">
         <div>
           <h2 id="providerFormTitle">Add provider</h2>
-          <p>Configuration is saved globally by TL Studio and is available across projects.</p>
+          <p>Enter the API address, compatibility type, and credential. TL Studio will discover the available models automatically.</p>
         </div>
         <button id="providerFormCancelTop" class="icon-button" type="button" aria-label="Close provider dialog">×</button>
       </div>
       <div id="providerDialogNotice" class="provider-notice hidden" role="status"></div>
       <form id="providerForm" class="provider-form">
         <div class="provider-form-grid">
-          <label><span>Provider ID</span><input id="providerIdInput" autocomplete="off" spellcheck="false" placeholder="my-provider" /></label>
-          <label><span>Display name</span><input id="providerNameInput" autocomplete="off" placeholder="My Provider" /></label>
-          <label><span>Provider API</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI Compatible</option><option value="openai-responses">OpenAI Responses</option><option value="anthropic-messages">Anthropic Messages</option></select></label>
-          <label class="provider-field-wide"><span>Base URL</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
+          <input id="providerIdInput" type="hidden" />
+          <label class="provider-field-wide"><span>Provider name <small>(optional)</small></span><input id="providerNameInput" autocomplete="off" placeholder="Detected from the API address if left blank" /></label>
+          <label><span>API type</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI-compatible</option><option value="anthropic-messages">Anthropic-compatible</option><option value="openai-responses" hidden>OpenAI Responses</option></select></label>
+          <label><span>API address</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
           <label class="provider-field-wide"><span>API key</span><input id="providerApiKeyInput" class="provider-api-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" data-form-type="other" data-lpignore="true" data-1p-ignore placeholder="Leave blank to keep an existing key" /></label>
           <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="model-id" /></label>
           <label><span>Model name</span><input id="providerModelNameInput" autocomplete="off" placeholder="Model name" /></label>
@@ -230,6 +230,42 @@ import { K } from "./kernel";
     for (const item of settingsDialog.querySelectorAll<HTMLElement>("[data-settings-panel]")) item.classList.toggle("hidden", item.dataset.settingsPanel !== "providers");
   };
 
+  const slug = (value: string) => clean(value)
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48);
+
+  const inferredProviderName = () => {
+    const explicit = clean(els.name.value);
+    if (explicit) return explicit;
+    try {
+      const host = new URL(clean(els.baseURL.value)).hostname.replace(/^api\./i, "");
+      const first = host.split(".")[0] || host;
+      return first ? first.charAt(0).toUpperCase() + first.slice(1) : "Custom Provider";
+    } catch {
+      return "Custom Provider";
+    }
+  };
+
+  const ensureProviderIdentity = () => {
+    if (editingID) {
+      els.id.value = editingID;
+      if (!clean(els.name.value)) els.name.value = inferredProviderName();
+      return;
+    }
+    if (!clean(els.name.value)) els.name.value = inferredProviderName();
+    const base = slug(clean(els.name.value)) || slug(clean(els.baseURL.value)) || "custom-provider";
+    const used = new Set((Array.isArray(providerConfig?.providers) ? providerConfig.providers : []).map((provider: any) => clean(provider?.id)));
+    let id = base;
+    let suffix = 2;
+    while (used.has(id)) {
+      id = `${base}-${suffix++}`;
+    }
+    els.id.value = id;
+  };
+
   const draft = () => ({
     providerID: els.id.value,
     name: els.name.value,
@@ -291,7 +327,7 @@ import { K } from "./kernel";
     els.id.disabled = !!existingID;
     els.title.textContent = existingID ? "Configure provider" : "Add provider";
     if (!providerDialog.open) providerDialog.showModal();
-    requestAnimationFrame(() => els.name.focus({ preventScroll: true }));
+    requestAnimationFrame(() => (editingID ? els.name : els.baseURL).focus({ preventScroll: true }));
   };
 
   K.__providersUi.openProvider = fillForm;
@@ -375,13 +411,25 @@ import { K } from "./kernel";
   const save = async (event: any) => {
     event?.preventDefault();
     if (saving) return;
-    const value = draft();
-    const error = validateDraft(value);
-    if (error) return notice(error, true);
+    ensureProviderIdentity();
+    let value = draft();
 
     setBusy(true);
     notice("");
     try {
+      if (!value.models.length && !clean(value.modelID)) {
+        const discovered = await K.__providersUi?.discoverySelection?.discoverAll?.();
+        if (!discovered) {
+          notice("TL Studio could not discover models automatically. Check the API address, compatibility type, and credential, or use Manual model entry.", true);
+          return;
+        }
+        value = draft();
+      }
+      const error = validateDraft(value);
+      if (error) {
+        notice(error, true);
+        return;
+      }
       const id = clean(value.providerID);
       const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === (editingID || id)) || {};
       const provider = buildProviderDefinition(value, existing);
@@ -398,8 +446,8 @@ import { K } from "./kernel";
         K.state.models.some((model) => model.providerID === id && model.id === modelID));
       clearForm();
       notice(loadedModelIDs.length === savedModelIDs.length
-        ? `${value.name} saved. ${savedModelIDs.length} model${savedModelIDs.length === 1 ? "" : "s"} available in the model selector.`
-        : `${value.name} was saved, but TL Studio can use ${loadedModelIDs.length} of ${savedModelIDs.length} selected models natively. Check tool-calling support, endpoint, and protocol.`,
+        ? `${provider.name} saved. ${savedModelIDs.length} model${savedModelIDs.length === 1 ? "" : "s"} available in the model selector.`
+        : `${provider.name} was saved, but TL Studio can use ${loadedModelIDs.length} of ${savedModelIDs.length} selected models natively. Check tool-calling support, endpoint, and protocol.`,
         loadedModelIDs.length !== savedModelIDs.length);
     } catch (err) {
       notice(`Could not save provider: ${err instanceof Error ? err.message : String(err)}`, true);

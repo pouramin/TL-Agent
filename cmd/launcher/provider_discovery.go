@@ -541,7 +541,7 @@ func (m *providerManager) discoverProviderModels(ctx context.Context, request pr
 		return providerDiscoveryResponse{}, err
 	}
 	if input.APIKey == "" && input.ProviderID != "" && m.credentials != nil {
-		if key, getErr := m.credentials.Get(input.ProviderID); getErr == nil {
+		if key, getErr := m.effectiveCredential(input.ProviderID); getErr == nil {
 			input.APIKey = strings.TrimSpace(key)
 		} else if !errors.Is(getErr, errCredentialNotFound) {
 			return providerDiscoveryResponse{}, getErr

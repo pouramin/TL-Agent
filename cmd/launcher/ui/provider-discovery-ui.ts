@@ -41,7 +41,7 @@ import { K } from "./kernel";
   block.className = "provider-discovery-block";
   block.innerHTML = `
     <div class="provider-discovery-head">
-      <div><strong>Models</strong><span>Test the provider connection and discover the model catalog before saving. Manual model IDs remain available as a fallback.</span></div>
+      <div><strong>Models</strong><span>TL Studio discovers models automatically when you save. You can also test the connection or refresh the catalog here.</span></div>
     </div>
     <div class="provider-discovery-actions">
       <button id="providerDiscoverModelsButton" type="button" class="ghost small">Test / Discover Models</button>
@@ -306,8 +306,10 @@ import { K } from "./kernel";
       const existingModels = Array.isArray(existing?.models) ? existing.models : [];
       catalog = mergeCatalog(discovered, existingModels);
       selectedIDs = new Set(existingModels.map((model: TLStudioDynamicRecord) => clean(model?.id)).filter(Boolean));
+      if (!existingModels.length) {
+        for (const model of catalog) selectedIDs.add(model.id);
+      }
       if (preferredModelID && catalog.some((model) => model.id === preferredModelID)) selectedIDs.add(preferredModelID);
-      if (!existingModels.length && catalog.length === 1) selectedIDs.add(catalog[0].id);
       searchInput.value = "";
       lastConnectionKey = key;
       catalogElement.classList.remove("hidden");
@@ -336,6 +338,7 @@ import { K } from "./kernel";
   };
 
   providersUI.discoverySelection.discoverModel = (modelID: string) => discover(clean(modelID));
+  providersUI.discoverySelection.discoverAll = () => discover();
   discoverButton.addEventListener("click", () => { void discover(); });
   searchInput.addEventListener("input", render);
   selectVisibleButton.addEventListener("click", () => {

@@ -271,6 +271,21 @@ func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	return err
 }
 
+func (m *providerManager) effectiveCredential(providerID string) (string, error) {
+	if m == nil || m.credentials == nil {
+		return "", errCredentialNotFound
+	}
+	if value, err := getProviderCredentialSlot(m.credentials, providerID, providerCredentialSlotAccount); err == nil {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value), nil
+		}
+	} else if !errors.Is(err, errCredentialNotFound) {
+		return "", err
+	}
+	return getProviderCredentialSlot(m.credentials, providerID, providerCredentialSlotAPI)
+}
+
+
 type catalogModel struct {
 	Name    string `json:"name"`
 	Kind    string `json:"kind,omitempty"`
@@ -335,7 +350,7 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 			}
 		}
 		if m.credentials != nil {
-			if key, credentialErr := m.credentials.Get(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
+			if key, credentialErr := m.effectiveCredential(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
 				result.Connected = appendUniqueString(result.Connected, definition.ID)
 			} else if credentialErr != nil && !errors.Is(credentialErr, errCredentialNotFound) {
 				return providerCatalogResponse{}, credentialErr
@@ -394,7 +409,7 @@ func registerProviderRoutes(mux *http.ServeMux, manager *providerManager) {
 		if err := manager.store.put(provider); err != nil { writeProviderManagerError(w, err); return }
 		if strings.TrimSpace(input.APIKey) != "" {
 			if manager.credentials == nil { writeProviderManagerError(w, errors.New("TL Studio credential store is unavailable")); return }
-			if err := manager.credentials.Put(provider.ID, input.APIKey); err != nil { writeProviderManagerError(w, err); return }
+			if err := putProviderCredentialSlot(manager.credentials, provider.ID, providerCredentialSlotAPI, input.APIKey); err != nil { writeProviderManagerError(w, err); return }
 		}
 		writeJSON(w, http.StatusOK, provider)
 	})
@@ -405,7 +420,8 @@ func registerProviderRoutes(mux *http.ServeMux, manager *providerManager) {
 		if _, ok, err := manager.store.get(id); err != nil { writeProviderManagerError(w, err); return
 		} else if !ok { writeJSON(w, http.StatusNotFound, jsonError{Error: "provider is not managed by TL Studio"}); return }
 		if manager.credentials != nil {
-			if err := manager.credentials.Delete(id); err != nil { writeProviderManagerError(w, err); return }
+			if err := deleteProviderCredentialSlot(manager.credentials, id, providerCredentialSlotAPI); err != nil { writeProviderManagerError(w, err); return }
+			if err := deleteProviderCredentialSlot(manager.credentials, id, providerCredentialSlotAccount); err != nil { writeProviderManagerError(w, err); return }
 		}
 		if err := manager.store.remove(id); err != nil { writeProviderManagerError(w, err); return }
 		if err := removeProviderDiscoveryCache(id); err != nil { writeProviderManagerError(w, err); return }
