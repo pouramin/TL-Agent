@@ -60,6 +60,8 @@ Provider definition در Local State خود TL Studio ذخیره می‌شود. 
 
 اتصال حساب Google به یک Desktop OAuth Client ثبت‌شده برای TL Studio و یک Google Cloud Project با Generative Language API فعال نیاز دارد. اشتراک مصرف‌کننده‌ی Gemini به‌عنوان Gemini API entitlement در نظر گرفته نمی‌شود.
 
+اتصال حساب ChatGPT/Codex، Claude و GitHub Copilot وقتی قرارداد رسمی فعلی با مرز Native execution پروژه سازگار نباشد، در Provider Settings به‌صورت شفاف غیرفعال نمایش داده می‌شود. این موارد Hidden fallback نیستند و تا زمان حل مرز معماری، به Runtime credential resolver ثبت نمی‌شوند.
+
 اگر Model یا Protocol توسط Native Client پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد. هیچ Hidden fallback به Runtime دیگری وجود ندارد.
 
 JEV هم از همان Native Agent، Tool Executor، Permission، Session و Event system استفاده می‌کند.
