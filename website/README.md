@@ -4,17 +4,16 @@ This directory contains the public documentation and product site for **TL Studi
 
 ## Source of truth
 
-The repository is the final source of truth. Before release-oriented documentation work, reconcile this site with current `main`, current `dev`, `VERSION`, the root READMEs, `docs/ARCHITECTURE.md`, and relevant implementation files.
+The stable `main` branch is the sole source of truth for this public documentation site. Reconcile the site with `main`, `VERSION`, the root READMEs, `docs/ARCHITECTURE.md`, and relevant stable implementation files.
 
 Current documented state:
 
 ```text
 Stable: v0.5.0
 main:   v0.5.0
-dev:    0.6.0-alpha.1 (5 commits ahead; version/readiness bookkeeping only)
 ```
 
-Document Stable behavior first. Treat current `dev` version/readiness changes separately from implemented unreleased features; do not invent capabilities that are not present in code.
+Document only behavior present in stable `main`; do not publish unreleased branch state.
 
 ## v0.5 public coverage
 
@@ -24,12 +23,10 @@ The public site covers:
 - Editor-centered workbench and locally bundled Monaco;
 - Project files, Search, Terminal, Changes, Command Palette, and Preview;
 - native Sessions, Questions, Permissions, Events, and Agent execution;
-- Provider Registry, model discovery, discovery cache, and credential vault;
+- model connection registry, discovery, discovery cache, and credential vault;
 - Native Tool Registry/Executor;
 - Plugins/MCP with current stdio transport and Project/Global scope;
-- Graphify integration behavior without claiming it is bundled;
-- optional JEV/OpenRouter Router and separate Decision Engine;
-- Provider Account foundation without claiming an account adapter exists;
+- generic account-connection foundation without claiming unavailable integrations;
 - local security/trust boundaries;
 - stable npm launcher and portable release model.
 
