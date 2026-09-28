@@ -185,7 +185,11 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 		server.closeWithError(err)
 	}()
 
-	initCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	initTimeout := 20 * time.Second
+	if strings.HasPrefix(command.Source, "npx") {
+		initTimeout = 60 * time.Second
+	}
+	initCtx, cancel := context.WithTimeout(context.Background(), initTimeout)
 	defer cancel()
 	var initialized map[string]any
 	if err := server.request(initCtx, "initialize", map[string]any{
