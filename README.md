@@ -8,7 +8,9 @@ TL Studio is a local-first browser IDE and coding-agent workspace. The product i
 
 Current stable release: **0.5.0**
 
-The validated native-runtime milestone is the stable v0.5.0 release line.
+Development line: **0.6.0-alpha.1**
+
+Stable main remains on v0.5.0 while new work continues on dev.
 
 ## Native architecture
 
