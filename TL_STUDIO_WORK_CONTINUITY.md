@@ -42,9 +42,9 @@ Completed 0.6 account-provider / validation UX PRs:
 #123 — Hugging Face account provider for 0.6
 #122 — Account provider foundation for 0.6
 
-Completed milestone PR:
+Completed milestone:
 
-#115 — Remove the Kilo runtime dependency completely
+v0.5 — TL Studio became a fully independent native product.
 
 Stable promotion rule:
 
