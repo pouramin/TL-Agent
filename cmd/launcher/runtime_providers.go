@@ -21,6 +21,7 @@ var providerProtocolPackages = map[string]string{
 	"openai-compatible":  "@ai-sdk/openai-compatible",
 	"openai-responses":   "@ai-sdk/openai",
 	"anthropic-messages": "@ai-sdk/anthropic",
+	"gemini-generate-content": "@google/genai",
 }
 
 type tlProviderModel struct {
@@ -39,6 +40,7 @@ type tlProviderDefinition struct {
 	Protocol  string            `json:"protocol"`
 	BaseURL   string            `json:"baseURL"`
 	ManagedBy string            `json:"managedBy,omitempty"`
+	ProjectID string            `json:"projectId,omitempty"`
 	Models    []tlProviderModel `json:"models"`
 }
 
@@ -193,6 +195,7 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
 	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
+	input.ProjectID = strings.TrimSpace(input.ProjectID)
 	if input.ManagedBy != "" && input.ManagedBy != "jev" && input.ManagedBy != "account" {
 		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
 	}
