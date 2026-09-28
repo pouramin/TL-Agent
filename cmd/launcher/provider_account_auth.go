@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"sort"
@@ -287,7 +286,3 @@ func registerProviderAccountRoutes(mux *http.ServeMux, service *providerAccountS
 		writeJSON(w, http.StatusOK, map[string]any{"disconnected": true})
 	})
 }
-
-// Keep encoding/json referenced in this file so accidental raw-provider payloads
-// cannot creep back into the HTTP contract without an explicit review.
-var _ = json.Valid
