@@ -33,7 +33,7 @@ The public site covers:
 - local security/trust boundaries;
 - stable npm launcher and portable release model.
 
-The public site should not preserve removed compatibility-runtime architecture or vendor implementation branding from historical releases.
+The public site should describe the current native product rather than preserving obsolete sidecar architecture or historical implementation branding.
 
 ## Languages
 
