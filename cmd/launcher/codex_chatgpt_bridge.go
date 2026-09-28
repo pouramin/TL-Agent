@@ -1,0 +1,550 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+)
+
+const codexChatGPTProviderProtocol = "codex-chatgpt"
+
+type codexCommand struct {
+	Executable string
+	PrefixArgs []string
+	Source     string
+}
+
+func (c codexCommand) valid() bool {
+	return strings.TrimSpace(c.Executable) != ""
+}
+
+func codexHomeDirectory() string {
+	return filepath.Join(tlStudioStateDirectory(), "codex-chatgpt")
+}
+
+func codexProcess(ctx context.Context, command codexCommand, args ...string) *exec.Cmd {
+	allArgs := append(append([]string(nil), command.PrefixArgs...), args...)
+	executable := strings.TrimSpace(command.Executable)
+	if runtime.GOOS == "windows" {
+		ext := strings.ToLower(filepath.Ext(executable))
+		if ext == ".cmd" || ext == ".bat" {
+			parts := make([]string, 0, len(allArgs)+1)
+			parts = append(parts, quoteWindowsBatchArg(executable))
+			for _, arg := range allArgs {
+				parts = append(parts, quoteWindowsBatchArg(arg))
+			}
+			return exec.CommandContext(ctx, "cmd.exe", "/d", "/s", "/c", strings.Join(parts, " "))
+		}
+	}
+	return exec.CommandContext(ctx, executable, allArgs...)
+}
+
+func quoteWindowsBatchArg(value string) string {
+	value = strings.ReplaceAll(value, """, "\\"")
+	return """ + value + """
+}
+
+func prepareCodexCommand(cmd *exec.Cmd) error {
+	if cmd == nil {
+		return errors.New("Codex process is unavailable")
+	}
+	home := codexHomeDirectory()
+	if err := os.MkdirAll(home, 0o700); err != nil {
+		return fmt.Errorf("create isolated Codex home: %w", err)
+	}
+	cmd.Env = append(os.Environ(),
+		"CODEX_HOME="+home,
+		"NO_COLOR=1",
+	)
+	return nil
+}
+
+type codexRPCError struct {
+	Code    int             `json:"code"`
+	Message string          `json:"message"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+type codexRPCEnvelope struct {
+	ID     json.RawMessage `json:"id,omitempty"`
+	Method string          `json:"method,omitempty"`
+	Params json.RawMessage `json:"params,omitempty"`
+	Result json.RawMessage `json:"result,omitempty"`
+	Error  *codexRPCError  `json:"error,omitempty"`
+}
+
+type codexAppServer struct {
+	command codexCommand
+	cmd     *exec.Cmd
+	stdin   io.WriteCloser
+
+	writeMu sync.Mutex
+	nextID  atomic.Int64
+
+	mu        sync.Mutex
+	pending   map[int64]chan codexRPCEnvelope
+	closed    bool
+	closeErr  error
+	done      chan struct{}
+	notify    chan codexRPCEnvelope
+}
+
+func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
+	if !command.valid() {
+		return nil, errors.New("official Codex CLI is not configured")
+	}
+	ctx := context.Background()
+	cmd := codexProcess(ctx, command, "app-server", "--stdio")
+	if err := prepareCodexCommand(cmd); err != nil {
+		return nil, err
+	}
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open Codex app-server stdin: %w", err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		_ = stdin.Close()
+		return nil, fmt.Errorf("open Codex app-server stdout: %w", err)
+	}
+	// Authentication output belongs to Codex. Avoid copying stderr into TL Studio logs.
+	cmd.Stderr = io.Discard
+	if err := cmd.Start(); err != nil {
+		_ = stdin.Close()
+		return nil, fmt.Errorf("start official Codex app-server: %w", err)
+	}
+	server := &codexAppServer{
+		command: command,
+		cmd: cmd,
+		stdin: stdin,
+		pending: map[int64]chan codexRPCEnvelope{},
+		done: make(chan struct{}),
+		notify: make(chan codexRPCEnvelope, 64),
+	}
+	go server.readLoop(stdout)
+	go func() {
+		err := cmd.Wait()
+		server.closeWithError(err)
+	}()
+
+	initCtx, cancel := context.WithTimeout(context.Background(), 15*timeSecond)
+	defer cancel()
+	var initialized map[string]any
+	if err := server.request(initCtx, "initialize", map[string]any{
+		"clientInfo": map[string]any{
+			"name": "tl_studio",
+			"title": "TL Studio",
+			"version": strings.TrimSpace(version),
+		},
+	}, &initialized); err != nil {
+		server.Close()
+		return nil, fmt.Errorf("initialize official Codex app-server: %w", err)
+	}
+	if err := server.notification("initialized", map[string]any{}); err != nil {
+		server.Close()
+		return nil, fmt.Errorf("acknowledge Codex app-server initialization: %w", err)
+	}
+	return server, nil
+}
+
+const timeSecond = 1_000_000_000 // time.Second without importing time in generated build helpers
+
+func (s *codexAppServer) readLoop(reader io.Reader) {
+	scanner := bufio.NewScanner(reader)
+	scanner.Buffer(make([]byte, 64<<10), 16<<20)
+	for scanner.Scan() {
+		var envelope codexRPCEnvelope
+		if err := json.Unmarshal(scanner.Bytes(), &envelope); err != nil {
+			continue
+		}
+		if len(envelope.ID) > 0 && string(envelope.ID) != "null" {
+			id, err := strconv.ParseInt(strings.Trim(string(envelope.ID), """), 10, 64)
+			if err == nil {
+				s.mu.Lock()
+				ch := s.pending[id]
+				s.mu.Unlock()
+				if ch != nil {
+					select {
+					case ch <- envelope:
+					default:
+					}
+				}
+			}
+			continue
+		}
+		if strings.TrimSpace(envelope.Method) != "" {
+			select {
+			case s.notify <- envelope:
+			default:
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		s.closeWithError(err)
+	} else {
+		s.closeWithError(io.EOF)
+	}
+}
+
+func (s *codexAppServer) closeWithError(err error) {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	s.closed = true
+	s.closeErr = err
+	close(s.done)
+	for id, ch := range s.pending {
+		delete(s.pending, id)
+		close(ch)
+	}
+	s.mu.Unlock()
+}
+
+func (s *codexAppServer) writeMessage(payload any) error {
+	if s == nil || s.stdin == nil {
+		return errors.New("Codex app-server is unavailable")
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	encoded = append(encoded, '\n')
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	_, err = s.stdin.Write(encoded)
+	return err
+}
+
+func (s *codexAppServer) notification(method string, params any) error {
+	return s.writeMessage(map[string]any{
+		"method": strings.TrimSpace(method),
+		"params": params,
+	})
+}
+
+func (s *codexAppServer) request(ctx context.Context, method string, params any, output any) error {
+	if s == nil {
+		return errors.New("Codex app-server is unavailable")
+	}
+	id := s.nextID.Add(1)
+	ch := make(chan codexRPCEnvelope, 1)
+	s.mu.Lock()
+	if s.closed {
+		err := s.closeErr
+		s.mu.Unlock()
+		if err == nil {
+			err = errors.New("Codex app-server is closed")
+		}
+		return err
+	}
+	s.pending[id] = ch
+	s.mu.Unlock()
+	defer func() {
+		s.mu.Lock()
+		delete(s.pending, id)
+		s.mu.Unlock()
+	}()
+	if err := s.writeMessage(map[string]any{
+		"id": id,
+		"method": strings.TrimSpace(method),
+		"params": params,
+	}); err != nil {
+		return err
+	}
+	select {
+	case envelope, ok := <-ch:
+		if !ok {
+			return errors.New("Codex app-server stopped before responding")
+		}
+		if envelope.Error != nil {
+			return fmt.Errorf("Codex app-server %s failed: %s", method, strings.TrimSpace(envelope.Error.Message))
+		}
+		if output == nil || len(envelope.Result) == 0 {
+			return nil
+		}
+		if err := json.Unmarshal(envelope.Result, output); err != nil {
+			return fmt.Errorf("decode Codex app-server %s response: %w", method, err)
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return errors.New("Codex app-server stopped before responding")
+	}
+}
+
+func (s *codexAppServer) Close() {
+	if s == nil {
+		return
+	}
+	if s.stdin != nil {
+		_ = s.stdin.Close()
+	}
+	if s.cmd != nil && s.cmd.Process != nil {
+		_ = s.cmd.Process.Kill()
+	}
+	s.closeWithError(nil)
+}
+
+type codexAccountInfo struct {
+	Type     string `json:"type"`
+	Email    string `json:"email,omitempty"`
+	PlanType string `json:"planType,omitempty"`
+}
+
+type codexAccountReadResponse struct {
+	Account *codexAccountInfo `json:"account"`
+}
+
+type codexModelListItem struct {
+	ID          string `json:"id"`
+	Model       string `json:"model"`
+	DisplayName string `json:"displayName"`
+	Hidden      bool   `json:"hidden"`
+	IsDefault   bool   `json:"isDefault"`
+}
+
+type codexModelListResponse struct {
+	Data       []codexModelListItem `json:"data"`
+	NextCursor *string              `json:"nextCursor"`
+}
+
+func codexReadAccount(ctx context.Context, command codexCommand, refresh bool) (*codexAccountInfo, error) {
+	server, err := startCodexAppServer(command)
+	if err != nil {
+		return nil, err
+	}
+	defer server.Close()
+	var response codexAccountReadResponse
+	if err := server.request(ctx, "account/read", map[string]any{"refreshToken": refresh}, &response); err != nil {
+		return nil, err
+	}
+	return response.Account, nil
+}
+
+func codexListModels(ctx context.Context, command codexCommand) ([]codexModelListItem, error) {
+	server, err := startCodexAppServer(command)
+	if err != nil {
+		return nil, err
+	}
+	defer server.Close()
+	return codexListModelsWithServer(ctx, server)
+}
+
+func codexListModelsWithServer(ctx context.Context, server *codexAppServer) ([]codexModelListItem, error) {
+	var all []codexModelListItem
+	var cursor *string
+	for page := 0; page < 20; page++ {
+		params := map[string]any{
+			"includeHidden": false,
+			"limit": 100,
+		}
+		if cursor != nil && strings.TrimSpace(*cursor) != "" {
+			params["cursor"] = strings.TrimSpace(*cursor)
+		}
+		var response codexModelListResponse
+		if err := server.request(ctx, "model/list", params, &response); err != nil {
+			return nil, err
+		}
+		all = append(all, response.Data...)
+		if response.NextCursor == nil || strings.TrimSpace(*response.NextCursor) == "" {
+			break
+		}
+		cursor = response.NextCursor
+	}
+	if len(all) == 0 {
+		return nil, errors.New("Codex returned no available ChatGPT models")
+	}
+	return all, nil
+}
+
+type codexBridgeToolCall struct {
+	Name      string         `json:"name"`
+	Arguments map[string]any `json:"arguments"`
+}
+
+type codexBridgeOutput struct {
+	Text      string                `json:"text"`
+	ToolCalls []codexBridgeToolCall `json:"toolCalls"`
+}
+
+func codexBridgeSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"additionalProperties": false,
+		"required": []string{"text", "toolCalls"},
+		"properties": map[string]any{
+			"text": map[string]any{"type": "string"},
+			"toolCalls": map[string]any{
+				"type": "array",
+				"items": map[string]any{
+					"type": "object",
+					"additionalProperties": false,
+					"required": []string{"name", "arguments"},
+					"properties": map[string]any{
+						"name": map[string]any{"type": "string"},
+						"arguments": map[string]any{"type": "object"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func codexBridgePrompt(request nativeModelRequest) (string, error) {
+	payload := map[string]any{
+		"system": request.System,
+		"messages": request.Messages,
+		"tools": request.Tools,
+	}
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(`
+You are the model transport for TL Studio. TL Studio itself owns the coding-agent loop and tool execution.
+
+For this turn:
+- Do not inspect the filesystem.
+- Do not execute shell commands.
+- Do not browse the web.
+- Do not invoke Codex built-in tools, MCP tools, subagents, or file-edit tools.
+- Do not modify any files.
+- Decide only the next assistant output for the supplied conversation.
+- If a TL Studio tool is needed, return it in toolCalls and stop. TL Studio will execute it.
+- Every toolCalls[].name must exactly match one of the supplied tool IDs.
+- toolCalls[].arguments must be a JSON object matching that tool's input schema.
+- If no tool is needed, return the assistant text in text and an empty toolCalls array.
+- Return only data matching the required output schema.
+
+TL Studio turn payload:
+`) + "\n" + string(encoded), nil
+}
+
+func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
+	if a == nil {
+		return nativeModelResponse{}, errors.New("ChatGPT account transport is unavailable")
+	}
+	command, err := a.resolveCommand()
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	account, err := codexReadAccount(ctx, command, false)
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	if account == nil || account.Type != "chatgpt" {
+		return nativeModelResponse{}, errors.New("ChatGPT account is not signed in")
+	}
+	prompt, err := codexBridgePrompt(request)
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	tempDir, err := os.MkdirTemp("", "tl-studio-codex-turn-*")
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	defer os.RemoveAll(tempDir)
+	schemaPath := filepath.Join(tempDir, "response-schema.json")
+	outputPath := filepath.Join(tempDir, "response.json")
+	schemaBytes, _ := json.Marshal(codexBridgeSchema())
+	if err := os.WriteFile(schemaPath, schemaBytes, 0o600); err != nil {
+		return nativeModelResponse{}, err
+	}
+
+	args := []string{
+		"exec",
+		"--ephemeral",
+		"--ignore-user-config",
+		"--ignore-rules",
+		"--skip-git-repo-check",
+		"--sandbox", "read-only",
+		"--color", "never",
+		"--model", strings.TrimSpace(request.Model.ID),
+		"-C", tempDir,
+		"--output-schema", schemaPath,
+		"--output-last-message", outputPath,
+		"-",
+	}
+	cmd := codexProcess(ctx, command, args...)
+	if err := prepareCodexCommand(cmd); err != nil {
+		return nativeModelResponse{}, err
+	}
+	cmd.Stdin = strings.NewReader(prompt)
+	cmd.Stdout = io.Discard
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return nativeModelResponse{}, fmt.Errorf("official Codex model bridge failed: %w", err)
+	}
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		return nativeModelResponse{}, errors.New("official Codex bridge did not return a final response")
+	}
+	if len(data) > 2<<20 {
+		return nativeModelResponse{}, errors.New("official Codex bridge response is too large")
+	}
+	var output codexBridgeOutput
+	if err := json.Unmarshal(data, &output); err != nil {
+		return nativeModelResponse{}, errors.New("official Codex bridge returned invalid structured output")
+	}
+
+	allowed := map[string]nativeModelToolDefinition{}
+	for _, tool := range request.Tools {
+		allowed[tool.ID] = tool
+		allowed[nativeToolWireName(tool.ID)] = tool
+	}
+	response := nativeModelResponse{
+		Text: strings.TrimSpace(output.Text),
+		FinishReason: "completed",
+		RoutedModel: strings.TrimSpace(request.Model.ID),
+		ToolCalls: []nativeModelToolCall{},
+	}
+	for _, call := range output.ToolCalls {
+		name := strings.TrimSpace(call.Name)
+		tool, ok := allowed[name]
+		if !ok {
+			return nativeModelResponse{}, fmt.Errorf("Codex bridge requested unknown TL Studio tool %q", name)
+		}
+		arguments, err := json.Marshal(call.Arguments)
+		if err != nil {
+			return nativeModelResponse{}, err
+		}
+		callID, err := randomBase64URL(12)
+		if err != nil {
+			return nativeModelResponse{}, err
+		}
+		response.ToolCalls = append(response.ToolCalls, nativeModelToolCall{
+			ID: "codex_" + callID,
+			Name: tool.ID,
+			Arguments: arguments,
+		})
+	}
+	if len(response.ToolCalls) > 0 {
+		response.FinishReason = "tool_calls"
+	}
+	if response.Text == "" && len(response.ToolCalls) == 0 {
+		return nativeModelResponse{}, errors.New("official Codex bridge returned an empty response")
+	}
+	if onTextDelta != nil && response.Text != "" {
+		onTextDelta(response.Text)
+	}
+	return response, nil
+}
