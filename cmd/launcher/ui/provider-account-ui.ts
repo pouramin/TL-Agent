@@ -26,6 +26,28 @@ import { K } from "./kernel";
   `;
   providerList.before(section);
 
+  const setupDialog = document.createElement("dialog");
+  setupDialog.id = "providerAccountSetupDialog";
+  setupDialog.innerHTML = `
+    <form id="providerAccountSetupForm" class="dialog-card provider-account-setup-dialog">
+      <div class="provider-dialog-head">
+        <div>
+          <h2 id="providerAccountSetupTitle">Provider setup</h2>
+          <p id="providerAccountSetupDescription"></p>
+        </div>
+        <button id="providerAccountSetupClose" class="icon-button" type="button" aria-label="Close provider setup">×</button>
+      </div>
+      <div id="providerAccountSetupNotice" class="provider-notice hidden" role="status"></div>
+      <div id="providerAccountSetupFields" class="provider-account-setup-fields"></div>
+      <div class="provider-security-note">These fields contain non-secret provider setup only. OAuth tokens and API credentials stay in the TL Studio credential vault.</div>
+      <div class="dialog-actions provider-form-actions">
+        <button id="providerAccountSetupCancel" class="ghost" type="button">Cancel</button>
+        <button id="providerAccountSetupSave" class="primary" type="submit">Save setup</button>
+      </div>
+    </form>
+  `;
+  document.body.appendChild(setupDialog);
+
   const style = document.createElement("style");
   style.id = "tl-provider-accounts-ui-style";
   style.textContent = `
@@ -42,6 +64,8 @@ import { K } from "./kernel";
     .provider-account-meta{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}
     .provider-account-actions{display:flex;gap:6px;align-items:center}
     .provider-account-unavailable{opacity:.72}
+    .provider-account-setup-dialog{width:min(620px,calc(100vw - 36px));padding:20px}
+    .provider-account-setup-fields{display:grid;gap:10px}.provider-account-setup-field>span{display:block;margin-bottom:5px;color:var(--muted);font-size:var(--tl-ui-xs);font-weight:650}.provider-account-setup-field input{box-sizing:border-box;width:100%;height:34px}.provider-account-setup-field small{display:block;margin-top:5px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
     .provider-section-divider{display:flex;align-items:center;gap:10px;margin:3px 0 1px;color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
     .provider-section-divider::before,.provider-section-divider::after{content:"";height:1px;background:var(--line);flex:1}
     @media(max-width:760px){.provider-account-item{grid-template-columns:1fr}.provider-account-actions{justify-content:flex-end}}
@@ -50,6 +74,68 @@ import { K } from "./kernel";
 
   const accountList = document.getElementById("providerAccountList")!;
   let loading = false;
+
+  const setupForm = document.getElementById("providerAccountSetupForm") as HTMLFormElement;
+  const setupTitle = document.getElementById("providerAccountSetupTitle") as HTMLElement;
+  const setupDescription = document.getElementById("providerAccountSetupDescription") as HTMLElement;
+  const setupFields = document.getElementById("providerAccountSetupFields") as HTMLElement;
+  const setupNotice = document.getElementById("providerAccountSetupNotice") as HTMLElement;
+  const setupClose = document.getElementById("providerAccountSetupClose") as HTMLButtonElement;
+  const setupCancel = document.getElementById("providerAccountSetupCancel") as HTMLButtonElement;
+  const setupSave = document.getElementById("providerAccountSetupSave") as HTMLButtonElement;
+  let setupProviderID = "";
+  let setupSaving = false;
+
+  const setSetupNotice = (message = "", error = false) => {
+    setupNotice.textContent = message;
+    setupNotice.classList.toggle("hidden", !message);
+    setupNotice.classList.toggle("error", !!message && error);
+  };
+
+  const closeSetup = () => {
+    setupProviderID = "";
+    setupFields.textContent = "";
+    setSetupNotice();
+    if (setupDialog.open) setupDialog.close();
+  };
+
+  const configureAccount = async (account: TLStudioProviderAccount) => {
+    if (!account.setup?.configurable || setupSaving) return;
+    setSetupNotice();
+    try {
+      const setup = await K.api.providerAccounts.setup(account.id);
+      setupProviderID = account.id;
+      setupTitle.textContent = clean(setup.title) || `Configure ${account.name || account.id}`;
+      setupDescription.textContent = clean(setup.description);
+      setupFields.textContent = "";
+      for (const field of Array.isArray(setup.fields) ? setup.fields : []) {
+        const label = document.createElement("label");
+        label.className = "provider-account-setup-field";
+        const title = document.createElement("span");
+        title.textContent = field.label || field.id;
+        const input = document.createElement("input");
+        input.type = "text";
+        input.dataset.providerSetupField = field.id;
+        input.value = field.value || "";
+        input.placeholder = field.placeholder || "";
+        input.required = field.required === true;
+        input.readOnly = field.readOnly === true;
+        input.autocomplete = "off";
+        input.spellcheck = false;
+        label.append(title, input);
+        if (field.description) {
+          const help = document.createElement("small");
+          help.textContent = field.description;
+          label.appendChild(help);
+        }
+        setupFields.appendChild(label);
+      }
+      if (!setupDialog.open) setupDialog.showModal();
+      requestAnimationFrame(() => setupFields.querySelector<HTMLInputElement>("input:not([readonly])")?.focus({ preventScroll: true }));
+    } catch (error) {
+      K.showError(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const statusText = (account: TLStudioProviderAccount) => {
     if (!account.available) return account.error ? `Unavailable · ${account.error}` : "Unavailable";
@@ -117,6 +203,16 @@ import { K } from "./kernel";
 
       const actions = document.createElement("div");
       actions.className = "provider-account-actions";
+      if (account.setup?.configurable) {
+        const setup = document.createElement("button");
+        setup.type = "button";
+        setup.className = "ghost small";
+        setup.dataset.providerAccountAction = "setup";
+        setup.textContent = account.setup.configured ? "API setup" : "Set up";
+        setup.title = account.setup.label || "Configure provider account setup";
+        setup.addEventListener("click", () => { void configureAccount(account); });
+        actions.appendChild(setup);
+      }
       if (account.connected) {
         const reconnect = document.createElement("button");
         reconnect.type = "button";
@@ -244,6 +340,37 @@ import { K } from "./kernel";
     }
   };
 
+  setupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!setupProviderID || setupSaving) return;
+    setupSaving = true;
+    setupSave.disabled = true;
+    setSetupNotice();
+    try {
+      const values: Record<string, string> = {};
+      for (const input of setupFields.querySelectorAll<HTMLInputElement>("[data-provider-setup-field]")) {
+        values[clean(input.dataset.providerSetupField)] = clean(input.value);
+      }
+      await K.api.providerAccounts.configureSetup(setupProviderID, values);
+      closeSetup();
+      await refreshProviderSurfaces();
+    } catch (error) {
+      setSetupNotice(error instanceof Error ? error.message : String(error), true);
+    } finally {
+      setupSaving = false;
+      setupSave.disabled = false;
+    }
+  });
+  setupClose.addEventListener("click", closeSetup);
+  setupCancel.addEventListener("click", closeSetup);
+  setupDialog.addEventListener("close", () => {
+    if (!setupSaving) {
+      setupProviderID = "";
+      setupFields.textContent = "";
+      setSetupNotice();
+    }
+  });
+
   const disconnectAccount = async (account: TLStudioProviderAccount) => {
     if (!account.connected) return;
     if (!window.confirm(`Sign out of ${account.name || account.id} on this computer?`)) return;
@@ -268,7 +395,7 @@ import { K } from "./kernel";
     ]);
   };
 
-  K.__providerAccountsUi = { load, render, open, connectAccount, disconnectAccount };
+  K.__providerAccountsUi = { load, render, open, connectAccount, configureAccount, disconnectAccount };
   K.openProviderAccounts = open;
 
   const previousRenderAccount = K.renderAccount;

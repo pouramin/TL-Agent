@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"sort"
@@ -34,6 +35,7 @@ type providerAccountStatus struct {
 	Models         []string                       `json:"models,omitempty"`
 	Capabilities   []string                       `json:"capabilities,omitempty"`
 	BillingNote    string                         `json:"billingNote,omitempty"`
+	Setup          *providerAccountSetupSummary   `json:"setup,omitempty"`
 	Error          string                         `json:"error,omitempty"`
 }
 
@@ -52,6 +54,33 @@ type providerAccountCallback struct {
 	Code  string
 	State string
 	Error string
+}
+
+type providerAccountSetupSummary struct {
+	Configurable bool   `json:"configurable"`
+	Configured   bool   `json:"configured"`
+	Label        string `json:"label,omitempty"`
+}
+
+type providerAccountSetupField struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
+	Placeholder string `json:"placeholder,omitempty"`
+	Value       string `json:"value,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+	ReadOnly    bool   `json:"readOnly,omitempty"`
+}
+
+type providerAccountSetup struct {
+	Title       string                      `json:"title"`
+	Description string                      `json:"description,omitempty"`
+	Fields      []providerAccountSetupField `json:"fields"`
+}
+
+type providerAccountConfigurable interface {
+	Setup(context.Context, string) (providerAccountSetup, error)
+	Configure(context.Context, string, map[string]string) (providerAccountStatus, error)
 }
 
 type providerAccountAdapter interface {
@@ -164,6 +193,58 @@ func registerProviderAccountRoutes(mux *http.ServeMux, service *providerAccountS
 		status, err := adapter.Status(r.Context(), r.URL.Query().Get("directory"))
 		if err != nil {
 			writeProviderAccountError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, normalizeProviderAccountStatus(adapter.ID(), status))
+	})
+
+	mux.HandleFunc("GET /local/provider-accounts/{id}/setup", func(w http.ResponseWriter, r *http.Request) {
+		adapter, ok := service.adapter(r.PathValue("id"))
+		if !ok {
+			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider account adapter not found"})
+			return
+		}
+		configurable, ok := adapter.(providerAccountConfigurable)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider account setup is not configurable"})
+			return
+		}
+		setup, err := configurable.Setup(r.Context(), r.URL.Query().Get("directory"))
+		if err != nil {
+			writeProviderAccountError(w, err)
+			return
+		}
+		if setup.Fields == nil {
+			setup.Fields = []providerAccountSetupField{}
+		}
+		writeJSON(w, http.StatusOK, setup)
+	})
+
+	mux.HandleFunc("PUT /local/provider-accounts/{id}/setup", func(w http.ResponseWriter, r *http.Request) {
+		adapter, ok := service.adapter(r.PathValue("id"))
+		if !ok {
+			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider account adapter not found"})
+			return
+		}
+		configurable, ok := adapter.(providerAccountConfigurable)
+		if !ok {
+			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider account setup is not configurable"})
+			return
+		}
+		var input struct {
+			Values map[string]string `json:"values"`
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
+		if err := decoder.Decode(&input); err != nil {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider account setup JSON body"})
+			return
+		}
+		if input.Values == nil {
+			input.Values = map[string]string{}
+		}
+		status, err := configurable.Configure(r.Context(), r.URL.Query().Get("directory"), input.Values)
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
 			return
 		}
 		writeJSON(w, http.StatusOK, normalizeProviderAccountStatus(adapter.ID(), status))

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +20,81 @@ const (
 	googleGeminiAccountProviderID = "gemini"
 	googleGeminiBaseURL           = "https://generativelanguage.googleapis.com/v1beta"
 	googleGeminiModelsURL         = "https://generativelanguage.googleapis.com/v1/models"
+	googleGeminiSetupVersion      = 1
 )
+
+type googleGeminiSetupConfig struct {
+	Version   int    `json:"version"`
+	ClientID  string `json:"clientId,omitempty"`
+	ProjectID string `json:"projectId,omitempty"`
+}
+
+var googleGeminiSetupMu sync.Mutex
+
+func googleGeminiSetupPath() string {
+	return filepath.Join(tlStudioStateDirectory(), "google-gemini.json")
+}
+
+func loadGoogleGeminiSetupConfig() (googleGeminiSetupConfig, error) {
+	googleGeminiSetupMu.Lock()
+	defer googleGeminiSetupMu.Unlock()
+	data, err := os.ReadFile(googleGeminiSetupPath())
+	if errors.Is(err, os.ErrNotExist) {
+		return googleGeminiSetupConfig{Version: googleGeminiSetupVersion}, nil
+	}
+	if err != nil {
+		return googleGeminiSetupConfig{}, err
+	}
+	var config googleGeminiSetupConfig
+	if err := json.Unmarshal(data, &config); err != nil {
+		return googleGeminiSetupConfig{}, fmt.Errorf("decode Google Gemini setup: %w", err)
+	}
+	if config.Version != 0 && config.Version != googleGeminiSetupVersion {
+		return googleGeminiSetupConfig{}, fmt.Errorf("unsupported Google Gemini setup version %d", config.Version)
+	}
+	config.Version = googleGeminiSetupVersion
+	config.ClientID = strings.TrimSpace(config.ClientID)
+	config.ProjectID = strings.TrimSpace(config.ProjectID)
+	return config, nil
+}
+
+func saveGoogleGeminiSetupConfig(config googleGeminiSetupConfig) error {
+	config.Version = googleGeminiSetupVersion
+	config.ClientID = strings.TrimSpace(config.ClientID)
+	config.ProjectID = strings.TrimSpace(config.ProjectID)
+
+	googleGeminiSetupMu.Lock()
+	defer googleGeminiSetupMu.Unlock()
+	path := googleGeminiSetupPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return err
+	}
+	temp, err := os.CreateTemp(filepath.Dir(path), "google-gemini-*.tmp")
+	if err != nil {
+		return err
+	}
+	name := temp.Name()
+	defer os.Remove(name)
+	if err := temp.Chmod(0o600); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if _, err := temp.Write(data); err != nil {
+		_ = temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(name, path); err != nil {
+		return os.WriteFile(path, data, 0o600)
+	}
+	return nil
+}
 
 type googleGeminiLoginTransaction struct {
 	LoginID     string
@@ -51,7 +126,15 @@ type googleGeminiAccountAdapter struct {
 }
 
 func newGoogleGeminiAccountAdapter(state *appState, manager *providerManager) *googleGeminiAccountAdapter {
+	saved, _ := loadGoogleGeminiSetupConfig()
+	clientID := strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_CLIENT_ID"))
+	if clientID == "" {
+		clientID = saved.ClientID
+	}
 	projectID := strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_PROJECT_ID"))
+	if projectID == "" {
+		projectID = saved.ProjectID
+	}
 	if projectID == "" && manager != nil && manager.store != nil {
 		if provider, ok, err := manager.store.get(googleGeminiAccountProviderID); err == nil && ok {
 			projectID = strings.TrimSpace(provider.ProjectID)
@@ -60,7 +143,7 @@ func newGoogleGeminiAccountAdapter(state *appState, manager *providerManager) *g
 	return &googleGeminiAccountAdapter{
 		state:        state,
 		manager:      manager,
-		clientID:     strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_CLIENT_ID")),
+		clientID:     clientID,
 		projectID:    projectID,
 		client:       &http.Client{Timeout: 20 * time.Second},
 		authorizeURL: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -76,21 +159,89 @@ func newGoogleGeminiAccountAdapter(state *appState, manager *providerManager) *g
 
 func (a *googleGeminiAccountAdapter) ID() string { return googleGeminiAccountProviderID }
 
+func (a *googleGeminiAccountAdapter) setupValues() (string, string) {
+	if a == nil {
+		return "", ""
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return strings.TrimSpace(a.clientID), strings.TrimSpace(a.projectID)
+}
+
+func (a *googleGeminiAccountAdapter) Setup(context.Context, string) (providerAccountSetup, error) {
+	clientID, projectID := a.setupValues()
+	return providerAccountSetup{
+		Title: "Configure Google / Gemini",
+		Description: "Use a Google Cloud project with the Generative Language API enabled. Until TL Studio ships its own registered OAuth client, alpha builds can use a Desktop OAuth client ID from that Google project.",
+		Fields: []providerAccountSetupField{
+			{
+				ID: "projectId", Label: "Google Cloud Project ID",
+				Description: "Used as the Gemini API quota and billing project.",
+				Placeholder: "my-google-cloud-project", Value: projectID, Required: true,
+				ReadOnly: strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_PROJECT_ID")) != "",
+			},
+			{
+				ID: "clientId", Label: "Desktop OAuth Client ID",
+				Description: "Non-secret OAuth client identifier for the TL Studio alpha login flow.",
+				Placeholder: "1234567890-example.apps.googleusercontent.com", Value: clientID, Required: true,
+				ReadOnly: strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_CLIENT_ID")) != "",
+			},
+		},
+	}, nil
+}
+
+func (a *googleGeminiAccountAdapter) Configure(ctx context.Context, directory string, values map[string]string) (providerAccountStatus, error) {
+	if a == nil {
+		return providerAccountStatus{}, errors.New("Google Gemini account adapter is unavailable")
+	}
+	currentClientID, currentProjectID := a.setupValues()
+	clientID := strings.TrimSpace(values["clientId"])
+	projectID := strings.TrimSpace(values["projectId"])
+	if env := strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_CLIENT_ID")); env != "" {
+		clientID = env
+	} else if clientID == "" {
+		clientID = currentClientID
+	}
+	if env := strings.TrimSpace(os.Getenv("TL_STUDIO_GOOGLE_PROJECT_ID")); env != "" {
+		projectID = env
+	} else if projectID == "" {
+		projectID = currentProjectID
+	}
+	if clientID == "" || !strings.HasSuffix(strings.ToLower(clientID), ".apps.googleusercontent.com") {
+		return providerAccountStatus{}, errors.New("enter a valid Google Desktop OAuth client ID")
+	}
+	if projectID == "" || strings.ContainsAny(projectID, " \t\r\n") {
+		return providerAccountStatus{}, errors.New("enter a valid Google Cloud project ID")
+	}
+	if err := saveGoogleGeminiSetupConfig(googleGeminiSetupConfig{
+		ClientID: clientID, ProjectID: projectID,
+	}); err != nil {
+		return providerAccountStatus{}, err
+	}
+	a.mu.Lock()
+	a.clientID = clientID
+	a.projectID = projectID
+	a.mu.Unlock()
+	return a.Status(ctx, directory)
+}
+
 func (a *googleGeminiAccountAdapter) available() bool {
+	clientID, projectID := a.setupValues()
 	return a != nil &&
 		a.state != nil &&
 		a.manager != nil &&
 		a.manager.credentials != nil &&
-		strings.TrimSpace(a.clientID) != "" &&
-		strings.TrimSpace(a.projectID) != ""
+		clientID != "" &&
+		projectID != ""
 }
 
 func (a *googleGeminiAccountAdapter) unavailableReason() string {
+	clientID, projectID := a.setupValues()
 	switch {
-	case strings.TrimSpace(a.clientID) == "":
-		return "TL Studio needs its registered Google Desktop OAuth client ID before Google account login can be enabled."
-	case strings.TrimSpace(a.projectID) == "":
-		return "Gemini OAuth requires a Google Cloud project with the Generative Language API enabled for quota and billing."
+	case clientID == "":
+		return "Configure a Google Desktop OAuth client ID before Google account login can be enabled."
+	case projectID == "":
+		return "Configure a Google Cloud project with the Generative Language API enabled for quota and billing."
 	default:
 		return "Google account login is unavailable in this build."
 	}
@@ -98,6 +249,7 @@ func (a *googleGeminiAccountAdapter) unavailableReason() string {
 
 func (a *googleGeminiAccountAdapter) baseStatus() providerAccountStatus {
 	description := "Official Google OAuth for Gemini API access. API quota and billing remain tied to a Google Cloud project."
+	clientID, projectID := a.setupValues()
 	status := providerAccountStatus{
 		ID:           googleGeminiAccountProviderID,
 		Name:         "Google / Gemini",
@@ -107,6 +259,11 @@ func (a *googleGeminiAccountAdapter) baseStatus() providerAccountStatus {
 		AuthModes:    []string{"authorization_code_pkce"},
 		Capabilities: []string{"models", "inference", "refresh", "revocation"},
 		BillingNote:  "A Gemini consumer subscription is separate from Gemini API quota and billing.",
+		Setup: &providerAccountSetupSummary{
+			Configurable: true,
+			Configured:   clientID != "" && projectID != "",
+			Label:        "Google API setup",
+		},
 	}
 	if !status.Available {
 		status.Error = a.unavailableReason()
@@ -177,7 +334,8 @@ func (a *googleGeminiAccountAdapter) Status(ctx context.Context, _ string) (prov
 	if err != nil {
 		return providerAccountStatus{}, err
 	}
-	if credential.needsRefresh(time.Now()) && strings.TrimSpace(credential.RefreshToken) != "" && strings.TrimSpace(a.clientID) != "" {
+	clientID, _ := a.setupValues()
+	if credential.needsRefresh(time.Now()) && strings.TrimSpace(credential.RefreshToken) != "" && clientID != "" {
 		if refreshed, refreshErr := a.refreshCredential(ctx, credential); refreshErr == nil {
 			credential = refreshed
 		} else {
@@ -243,8 +401,9 @@ func (a *googleGeminiAccountAdapter) BeginLogin(context.Context, string) (provid
 	if err != nil {
 		return providerAccountLogin{}, err
 	}
+	clientID, _ := a.setupValues()
 	query := authorize.Query()
-	query.Set("client_id", a.clientID)
+	query.Set("client_id", clientID)
 	query.Set("redirect_uri", redirectURI)
 	query.Set("response_type", "code")
 	query.Set("scope", strings.Join([]string{
@@ -381,7 +540,8 @@ func (a *googleGeminiAccountAdapter) CancelLogin(_ context.Context, _ string, lo
 func (a *googleGeminiAccountAdapter) exchangeAuthorizationCode(ctx context.Context, transaction *googleGeminiLoginTransaction, code string) (providerOAuthCredential, error) {
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
-	form.Set("client_id", a.clientID)
+	clientID, _ := a.setupValues()
+	form.Set("client_id", clientID)
 	form.Set("code", strings.TrimSpace(code))
 	form.Set("redirect_uri", transaction.RedirectURI)
 	form.Set("code_verifier", transaction.Verifier)
@@ -473,12 +633,13 @@ func (a *googleGeminiAccountAdapter) refreshCredential(ctx context.Context, curr
 	if strings.TrimSpace(current.RefreshToken) == "" {
 		return providerOAuthCredential{}, errors.New("Google account needs reauthentication")
 	}
-	if strings.TrimSpace(a.clientID) == "" {
+	clientID, _ := a.setupValues()
+	if clientID == "" {
 		return providerOAuthCredential{}, errors.New("TL Studio Google OAuth client is not configured")
 	}
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
-	form.Set("client_id", a.clientID)
+	form.Set("client_id", clientID)
 	form.Set("refresh_token", current.RefreshToken)
 	next, err := a.exchangeToken(ctx, form)
 	if err != nil {
@@ -541,7 +702,8 @@ func (a *googleGeminiAccountAdapter) DiscoverModels(ctx context.Context, directo
 }
 
 func (a *googleGeminiAccountAdapter) syncProvider(ctx context.Context, accessToken string) ([]string, error) {
-	if strings.TrimSpace(a.projectID) == "" {
+	_, projectID := a.setupValues()
+	if projectID == "" {
 		return nil, errors.New("Google Cloud project ID is required for Gemini API quota and billing")
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, a.modelsURL, nil)
@@ -550,7 +712,7 @@ func (a *googleGeminiAccountAdapter) syncProvider(ctx context.Context, accessTok
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Authorization", "Bearer "+accessToken)
-	request.Header.Set("x-goog-user-project", a.projectID)
+	request.Header.Set("x-goog-user-project", projectID)
 	request.Header.Set("x-goog-api-client", "tl-studio/"+strings.TrimSpace(version))
 	response, err := a.client.Do(request)
 	if err != nil {
@@ -619,7 +781,7 @@ func (a *googleGeminiAccountAdapter) syncProvider(ctx context.Context, accessTok
 		Protocol:  "gemini-generate-content",
 		BaseURL:   a.baseURL,
 		ManagedBy: "account",
-		ProjectID: a.projectID,
+		ProjectID: projectID,
 		Models:    models,
 	}
 	if err := a.manager.store.put(definition); err != nil {

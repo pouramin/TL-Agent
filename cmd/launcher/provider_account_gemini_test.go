@@ -208,6 +208,106 @@ func TestGoogleGeminiStatusExplainsMissingProductConfiguration(t *testing.T) {
 	}
 }
 
+func TestGoogleGeminiSetupCanBeConfiguredAndPersistsAcrossRestart(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	t.Setenv("TL_STUDIO_GOOGLE_CLIENT_ID", "")
+	t.Setenv("TL_STUDIO_GOOGLE_PROJECT_ID", "")
+
+	state := &appState{frontendURL: "http://127.0.0.1:32124"}
+	manager := newProviderManager(state)
+	adapter := newGoogleGeminiAccountAdapter(state, manager)
+
+	before, err := adapter.Status(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Available || before.Setup == nil || !before.Setup.Configurable || before.Setup.Configured {
+		t.Fatalf("unexpected unconfigured Gemini setup status %#v", before)
+	}
+
+	configured, err := adapter.Configure(context.Background(), "", map[string]string{
+		"clientId":  "1234567890-tl-studio.apps.googleusercontent.com",
+		"projectId": "tl-studio-test-project",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !configured.Available || configured.Setup == nil || !configured.Setup.Configured {
+		t.Fatalf("Gemini setup did not become available: %#v", configured)
+	}
+
+	saved, err := loadGoogleGeminiSetupConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.ClientID != "1234567890-tl-studio.apps.googleusercontent.com" || saved.ProjectID != "tl-studio-test-project" {
+		t.Fatalf("unexpected persisted Gemini setup %#v", saved)
+	}
+
+	restarted := newGoogleGeminiAccountAdapter(state, newProviderManager(state))
+	clientID, projectID := restarted.setupValues()
+	if clientID != saved.ClientID || projectID != saved.ProjectID {
+		t.Fatalf("Gemini setup did not survive restart: client=%q project=%q", clientID, projectID)
+	}
+
+	setup, err := restarted.Setup(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(setup.Fields) != 2 || setup.Fields[0].Value != saved.ProjectID || setup.Fields[1].Value != saved.ClientID {
+		t.Fatalf("unexpected Gemini setup fields %#v", setup.Fields)
+	}
+}
+
+func TestGoogleGeminiSetupRoutesUseGenericAccountContract(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	t.Setenv("TL_STUDIO_GOOGLE_CLIENT_ID", "")
+	t.Setenv("TL_STUDIO_GOOGLE_PROJECT_ID", "")
+
+	state := &appState{frontendURL: "http://127.0.0.1:32124"}
+	manager := newProviderManager(state)
+	adapter := newGoogleGeminiAccountAdapter(state, manager)
+	service := newProviderAccountService(adapter)
+	mux := http.NewServeMux()
+	registerProviderAccountRoutes(mux, service)
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	response, err := http.Get(server.URL + "/local/provider-accounts/gemini/setup")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var setup providerAccountSetup
+	if err := json.NewDecoder(response.Body).Decode(&setup); err != nil {
+		response.Body.Close()
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK || len(setup.Fields) != 2 {
+		t.Fatalf("unexpected setup response status=%d setup=%#v", response.StatusCode, setup)
+	}
+
+	body := strings.NewReader(`{"values":{"clientId":"1234567890-alpha.apps.googleusercontent.com","projectId":"alpha-project"}}`)
+	request, err := http.NewRequest(http.MethodPut, server.URL+"/local/provider-accounts/gemini/setup", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err = http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var status providerAccountStatus
+	if err := json.NewDecoder(response.Body).Decode(&status); err != nil {
+		response.Body.Close()
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK || !status.Available || status.Setup == nil || !status.Setup.Configured {
+		t.Fatalf("unexpected configured setup response status=%d status=%#v", response.StatusCode, status)
+	}
+}
+
 func TestGoogleGeminiProjectIDPersistsInProviderRegistry(t *testing.T) {
 	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
 	state := &appState{frontendURL: "http://127.0.0.1:32124"}
