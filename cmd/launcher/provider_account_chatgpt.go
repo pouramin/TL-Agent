@@ -417,6 +417,22 @@ func (a *chatGPTAccountAdapter) CompleteLogin(context.Context, string, providerA
 	return errors.New("ChatGPT callback is handled by OpenAI's official Codex app-server")
 }
 
+func preferredCodexReasoningEffort(item codexModelListItem) string {
+	supported := map[string]bool{}
+	for _, option := range item.SupportedReasoningEfforts {
+		effort := strings.ToLower(strings.TrimSpace(option.ReasoningEffort))
+		if effort != "" {
+			supported[effort] = true
+		}
+	}
+	for _, effort := range []string{"low", "minimal", "none"} {
+		if supported[effort] {
+			return effort
+		}
+	}
+	return strings.ToLower(strings.TrimSpace(item.DefaultReasoningEffort))
+}
+
 func (a *chatGPTAccountAdapter) syncProvider(ctx context.Context, server *codexAppServer) ([]string, error) {
 	if a.manager == nil || a.manager.store == nil {
 		return nil, errors.New("TL Studio Provider Registry is unavailable")
@@ -449,9 +465,11 @@ func (a *chatGPTAccountAdapter) syncProvider(ctx context.Context, server *codexA
 			name = id
 		}
 		models = append(models, tlProviderModel{
-			ID: id,
-			Name: name,
-			ToolCall: true,
+			ID:              id,
+			Name:            name,
+			ToolCall:        true,
+			Reasoning:       len(item.SupportedReasoningEfforts) > 0,
+			ReasoningEffort: preferredCodexReasoningEffort(item),
 		})
 		ids = append(ids, id)
 	}
@@ -588,20 +606,23 @@ func (a *chatGPTAccountAdapter) Refresh(ctx context.Context, directory string) (
 	return a.Status(ctx, directory)
 }
 
-func (a *chatGPTAccountAdapter) ResolveCredential(ctx context.Context, _ string) (string, error) {
-	command, err := a.resolveCommand()
-	if err != nil {
+func (a *chatGPTAccountAdapter) ResolveCredential(context.Context, string) (string, error) {
+	if a == nil || a.manager == nil || a.manager.store == nil {
 		return "", errCredentialNotFound
 	}
-	readCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	account, err := codexReadAccount(readCtx, command, false)
+	provider, found, err := a.manager.store.get(chatGPTAccountProviderID)
 	if err != nil {
 		return "", err
 	}
-	if account == nil || account.Type != "chatgpt" {
+	if !found || provider.ManagedBy != "account" || provider.Protocol != codexChatGPTProviderProtocol {
 		return "", errCredentialNotFound
 	}
+	if _, err := a.resolveCommand(); err != nil {
+		return "", errCredentialNotFound
+	}
+	// The official Codex client owns and refreshes ChatGPT OAuth state. Avoid an
+	// account/read subprocess on the hot path; codex exec returns an explicit
+	// authentication error if the session has actually expired.
 	return "official-codex-chatgpt-account", nil
 }
 
