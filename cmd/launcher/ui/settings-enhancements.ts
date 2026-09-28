@@ -118,6 +118,16 @@ import { K } from "./kernel";
 
   const permissionRules = document.getElementById("permissionRules");
   const projectName = (value: any) => String(value || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "Project";
+  const permissionGroup = (rule: any) => {
+    const permission = String(rule?.permission || "").toLowerCase();
+    const matcher = String(rule?.matcher || "").toLowerCase();
+    const combined = permission + " " + matcher;
+    if (matcher.includes("mcp.") || matcher.includes("plugin")) return { key: "plugins", label: "Plugins & MCP" };
+    if (/(bash|shell|terminal|command|execute)/.test(combined)) return { key: "terminal", label: "Terminal" };
+    if (/(write|edit|read|file|filesystem)/.test(combined)) return { key: "files", label: "Files" };
+    return { key: "other", label: "Other" };
+  };
+  const permissionGroupOrder = ["files", "terminal", "plugins", "other"];
   const renderPermissionRules = async () => {
     if (!permissionRules || !K.api?.permissions?.rules) return;
     permissionRules.textContent = "Loading…";
@@ -131,22 +141,50 @@ import { K } from "./kernel";
         permissionRules.appendChild(empty);
         return;
       }
+
+      const groups = new Map<string, { label: string; rules: any[] }>();
       for (const rule of rules) {
-        const row = document.createElement("div");
-        const copy = document.createElement("div");
-        const title = document.createElement("strong");
-        const meta = document.createElement("span");
-        const remove = document.createElement("button");
-        row.className = "permission-rule";
-        title.textContent = rule.permission || "action";
-        meta.textContent = `${projectName(rule.project)} · ${rule.matcher || "matching request"}`;
-        remove.type = "button";
-        remove.className = "ghost small";
-        remove.textContent = "Forget";
-        remove.dataset.ruleId = rule.id || "";
-        copy.append(title, meta);
-        row.append(copy, remove);
-        permissionRules.appendChild(row);
+        const group = permissionGroup(rule);
+        const entry = groups.get(group.key) || { label: group.label, rules: [] };
+        entry.rules.push(rule);
+        groups.set(group.key, entry);
+      }
+
+      for (const key of permissionGroupOrder) {
+        const entry = groups.get(key);
+        if (!entry?.rules.length) continue;
+        const group = document.createElement("section");
+        group.className = "permission-rule-group";
+        const head = document.createElement("div");
+        head.className = "permission-rule-group-head";
+        const label = document.createElement("strong");
+        label.textContent = entry.label;
+        const count = document.createElement("span");
+        count.className = "permission-rule-count";
+        count.textContent = String(entry.rules.length);
+        head.append(label, count);
+        group.appendChild(head);
+
+        for (const rule of entry.rules) {
+          const row = document.createElement("div");
+          const copy = document.createElement("div");
+          const title = document.createElement("strong");
+          const meta = document.createElement("span");
+          const remove = document.createElement("button");
+          row.className = "permission-rule";
+          title.textContent = rule.permission || "action";
+          const matcher = rule.matcher || "matching request";
+          meta.textContent = `${projectName(rule.project)} · ${matcher}`;
+          meta.title = `${rule.project || ""} · ${matcher}`;
+          remove.type = "button";
+          remove.className = "ghost small";
+          remove.textContent = "Forget";
+          remove.dataset.ruleId = rule.id || "";
+          copy.append(title, meta);
+          row.append(copy, remove);
+          group.appendChild(row);
+        }
+        permissionRules.appendChild(group);
       }
     } catch (error) {
       permissionRules.textContent = `Could not load permission rules: ${(error as Error).message || String(error)}`;
