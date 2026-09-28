@@ -29,8 +29,9 @@ The site covers:
 - Native Tool Registry/Executor;
 - Plugins/MCP with Project/Global scope;
 - stable v0.5 model connections;
-- the explicitly labeled v0.6 Provider Account preview for OpenRouter, Hugging Face, and Google/Gemini;
-- deferred account boundaries for ChatGPT/Codex, Claude, and GitHub Copilot;
+- the explicitly labeled v0.6 Provider Account preview for OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex;
+- the official Codex bridge used for ChatGPT-plan login/model access;
+- deferred account boundaries for Claude and GitHub Copilot;
 - local security/trust boundaries;
 - stable npm launcher, portable releases, and development Preview Builds.
 

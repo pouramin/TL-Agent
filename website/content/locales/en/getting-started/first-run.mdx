@@ -61,11 +61,14 @@ Available:
 
 - OpenRouter;
 - Hugging Face;
-- Google / Gemini.
+- Google / Gemini;
+- ChatGPT / Codex.
 
 Gemini currently requires non-secret Google Cloud Project ID and Desktop OAuth Client ID setup before sign-in.
 
-Deferred entries such as ChatGPT/Codex, Claude, and GitHub Copilot remain visible but disabled.
+ChatGPT uses OpenAI's official Codex login. TL Studio auto-detects codex on PATH, can use npx @openai/codex, or accepts an explicit Codex executable path in Provider Settings.
+
+Deferred entries for Claude and GitHub Copilot remain visible but disabled.
 
 ## Run the Agent
 

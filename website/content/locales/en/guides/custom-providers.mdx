@@ -82,9 +82,15 @@ Secrets do not appear in Browser storage or normal Provider JSON state.
 | **OpenRouter** | ✅ Available | Official OAuth + PKCE, user-controlled account credential, model discovery |
 | **Hugging Face** | ✅ Available | Public-client OAuth + PKCE, refresh lifecycle, Inference Providers discovery |
 | **Google / Gemini** | ✅ Available | Installed-app OAuth + PKCE, refresh/revocation, native Gemini transport |
-| **ChatGPT / Codex** | ⏳ Deferred | Current documented third-party model surface does not preserve TL Studio's native model-loop boundary |
+| **ChatGPT / Codex** | ✅ Available | Official Codex ChatGPT login, ChatGPT-plan model discovery, isolated Codex provider bridge |
 | **Claude account** | ⏳ Deferred | Waiting for a documented public third-party consumer-account authorization contract |
 | **GitHub Copilot** | ⏳ Deferred | Current documented model path remains coupled to the Copilot SDK/runtime |
+
+ChatGPT authentication is owned by OpenAI's official Codex client inside a TL Studio-specific isolated `CODEX_HOME`. TL Studio does not read or copy raw ChatGPT OAuth tokens, browser cookies, private session tokens, or undocumented backend credentials.
+
+For ChatGPT-plan model turns, TL Studio uses the official Codex CLI in an empty temporary working directory with user/project Codex config ignored, a read-only sandbox, approval policy `never`, and web search disabled. Structured bridge output becomes either assistant text or TL Studio Tool calls; Tool execution and Permission decisions still happen inside TL Studio.
+
+If `codex` is not available on PATH, the alpha can use `npx @openai/codex`, or the user can configure an explicit Codex executable path in Provider Settings.
 
 Deferred adapters are visible in Settings intentionally and are not registered as runtime credential sources.
 

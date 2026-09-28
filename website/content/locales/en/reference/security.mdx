@@ -47,11 +47,15 @@ Normal Provider and Plugin JSON stores definitions/references rather than raw se
 
 ### Account credentials
 
-Development v0.6 keeps manual API and account credentials in separate vault slots.
+Development v0.6 keeps manual API and TL Studio-managed account credentials in separate vault slots.
 
 OAuth codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets do not enter Browser state.
 
-Signing out from an account does not delete an existing manual API key.
+For ChatGPT, OpenAI's official Codex client owns the OAuth token store inside an isolated TL Studio-specific `CODEX_HOME`. TL Studio does not read, copy, or serialize those raw ChatGPT tokens.
+
+The ChatGPT model bridge runs from an empty temporary working directory with user/project Codex config and rules ignored, a read-only sandbox, approval policy set to `never`, and web search disabled. TL Studio still owns project Tool execution and Permission decisions.
+
+Signing out from a TL Studio-managed account does not delete an existing manual API key.
 
 ## Provider discovery boundary
 

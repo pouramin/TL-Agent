@@ -115,7 +115,7 @@ export default function HomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground">Development preview · v0.6.0-alpha.1</p>
             <h2 className="mt-2 text-3xl font-semibold">Account-backed model connections are landing in 0.6.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              The development line adds official account flows for OpenRouter, Hugging Face, and Google/Gemini, including model discovery and vault-backed credentials. ChatGPT/Codex, Claude account login, and GitHub Copilot remain explicit deferred boundaries until their documented third-party contracts fit TL Studio&apos;s native execution model.
+              The development line now includes account flows for OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex. ChatGPT uses OpenAI&apos;s official Codex login and model surface through an isolated provider bridge, while TL Studio keeps ownership of Tools, Permissions, Sessions, persistence, and the outer Agent loop. Claude account login and GitHub Copilot remain explicit deferred boundaries.
             </p>
             <Link href="/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore model connections <ArrowRight className="size-4" />

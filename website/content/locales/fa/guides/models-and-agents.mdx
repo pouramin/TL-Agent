@@ -77,6 +77,8 @@ Agent، Tool Definition را از این منابع می‌گیرد:
 
 ## مسیرهای حسابی در Development
 
-در خط توسعهٔ 0.6، Model می‌تواند از حساب متصل OpenRouter، Hugging Face یا Google/Gemini Resolve شود.
+در خط توسعهٔ 0.6، Model می‌تواند از حساب متصل OpenRouter، Hugging Face، Google/Gemini یا ChatGPT/Codex Resolve شود.
 
-Account Login فقط روش دریافت Credential را تغییر می‌دهد؛ Session، Agent، Tool Execution، Permission و Persistence همچنان از همان مسیر بومی TL Studio استفاده می‌کنند.
+OpenRouter، Hugging Face و Gemini، Credential را از Account Adapter خود TL Studio می‌گیرند. برای ChatGPT، Client رسمی OpenAI Codex، OAuth و Model Access مبتنی بر پلن ChatGPT را داخل CODEX_HOME ایزولهٔ مخصوص TL Studio مدیریت می‌کند.
+
+در Model Turnهای ChatGPT، Codex CLI رسمی فقط نقش Provider Bridge را دارد. Session، چرخهٔ بیرونی مدل/Tool/مدل، Tool Execution، Permission، تغییرات پروژه و Persistence همچنان در اختیار TL Studio هستند.

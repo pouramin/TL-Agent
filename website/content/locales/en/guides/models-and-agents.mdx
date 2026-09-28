@@ -77,6 +77,8 @@ Both enter the same Agent-facing Tool model and Permission system.
 
 ## Development account paths
 
-The 0.6 development line can resolve Models through connected OpenRouter, Hugging Face, and Google/Gemini accounts.
+The 0.6 development line can resolve Models through connected OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex accounts.
 
-Account authentication changes credential acquisition only. Sessions, Agent behavior, Tool execution, Permission handling, and persistence remain the same TL Studio-native path.
+OpenRouter, Hugging Face, and Gemini resolve credentials inside TL Studio's account adapters. ChatGPT uses OpenAI's official Codex client for ChatGPT OAuth and plan-backed model access under an isolated TL Studio-specific CODEX_HOME.
+
+For ChatGPT model turns, the official Codex CLI acts only as a provider bridge. TL Studio still owns Session lifecycle, the outer model/tool/model loop, Tool execution, Permission handling, project mutations, and persistence.

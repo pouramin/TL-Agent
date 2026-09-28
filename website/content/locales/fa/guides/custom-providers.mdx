@@ -82,9 +82,15 @@ Secretها وارد Browser Storage یا Provider JSON عادی نمی‌شون�
 | **OpenRouter** | ✅ فعال | OAuth + PKCE رسمی، Credential حساب و Model Discovery |
 | **Hugging Face** | ✅ فعال | Public-client OAuth + PKCE، Refresh و Inference Providers Discovery |
 | **Google / Gemini** | ✅ فعال | Installed-app OAuth + PKCE، Refresh/Revocation و Transport بومی Gemini |
-| **ChatGPT / Codex** | ⏳ Deferred | سطح رسمی فعلی Model Access با مرز Native Model Loop پروژه سازگار نیست |
+| **ChatGPT / Codex** | ✅ فعال | Login رسمی Codex، Model Discovery مبتنی بر پلن ChatGPT و Provider Bridge ایزوله |
 | **Claude account** | ⏳ Deferred | منتظر قرارداد عمومی و مستند برای Third-party Consumer Account Authorization |
 | **GitHub Copilot** | ⏳ Deferred | مسیر رسمی فعلی Model Access همچنان به Copilot SDK/runtime وابسته است |
+
+احراز هویت ChatGPT در اختیار Client رسمی OpenAI Codex و داخل `CODEX_HOME` ایزولهٔ مخصوص TL Studio باقی می‌ماند. TL Studio هیچ OAuth Token خام، Browser Cookie، Private Session Token یا Backend Credential مستندنشدهٔ ChatGPT را نمی‌خواند یا کپی نمی‌کند.
+
+برای Model Turnهای مبتنی بر پلن ChatGPT، برنامه Codex CLI رسمی را در Working Directory موقت و خالی، بدون User/Project Codex Config، با Sandbox فقط‌خواندنی، Approval Policy برابر `never` و Web Search غیرفعال اجرا می‌کند. خروجی ساختاریافته به متن Assistant یا TL Studio Tool Call تبدیل می‌شود و اجرای Tool و Permission همچنان داخل TL Studio انجام می‌شود.
+
+اگر `codex` روی PATH موجود نباشد، نسخهٔ Alpha می‌تواند از `npx @openai/codex` استفاده کند یا مسیر Codex Executable به‌صورت دستی در Provider Settings تنظیم شود.
 
 Providerهای Deferred عمداً در Settings دیده می‌شوند و به‌عنوان Runtime Credential Source ثبت نمی‌شوند.
 
