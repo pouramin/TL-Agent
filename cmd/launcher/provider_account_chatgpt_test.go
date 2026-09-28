@@ -347,3 +347,52 @@ func TestChatGPTCodexBridgeSchemaUsesStrictStringArguments(t *testing.T) {
 		t.Fatalf("tool arguments must be a JSON-encoded string in the strict output schema: %#v", arguments)
 	}
 }
+
+
+func TestRealCodexExecCLIContractSmoke(t *testing.T) {
+	if os.Getenv("TL_STUDIO_REAL_CODEX_SMOKE") != "1" {
+		t.Skip("real Codex smoke is opt-in")
+	}
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	adapter := newChatGPTAccountAdapter(&appState{}, nil)
+	command, err := adapter.resolveCommand()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tempDir := t.TempDir()
+	schemaPath := filepath.Join(tempDir, "schema.json")
+	if err := os.WriteFile(schemaPath, []byte(`{"type":"object","properties":{"text":{"type":"string"}},"required":["text"],"additionalProperties":false}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	outputPath := filepath.Join(tempDir, "output.json")
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := codexProcess(ctx, command,
+		"exec",
+		"--ephemeral",
+		"--ignore-user-config",
+		"--ignore-rules",
+		"--skip-git-repo-check",
+		"--sandbox", "read-only",
+		"-c", `approval_policy="never"`,
+		"-c", `web_search="disabled"`,
+		"--color", "never",
+		"--model", "gpt-5.5",
+		"-C", tempDir,
+		"--output-schema", schemaPath,
+		"--output-last-message", outputPath,
+		"--help",
+	)
+	if err := prepareCodexCommand(cmd); err != nil {
+		t.Fatal(err)
+	}
+	var output strings.Builder
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("official Codex exec CLI rejected TL Studio flags: %v — %s", err, strings.TrimSpace(output.String()))
+	}
+	if !strings.Contains(output.String(), "--output-schema") {
+		t.Fatalf("official Codex exec help did not expose expected output-schema flag: %s", output.String())
+	}
+}
