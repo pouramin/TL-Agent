@@ -115,11 +115,48 @@ func TestGoogleGeminiAccountLifecycleUsesPKCERefreshQuotaAndRevocation(t *testin
 		t.Fatal("authorization URL must not expose a client secret")
 	}
 
-	if err := adapter.CompleteLogin(context.Background(), "", providerAccountCallback{State: "wrong-state", Code: "bad"}); err == nil {
-		t.Fatal("invalid OAuth state must be rejected")
-	}
-	if err := adapter.CompleteLogin(context.Background(), "", providerAccountCallback{State: state, Code: "authorization-code"}); err != nil {
+	redirectURI := query.Get("redirect_uri")
+	redirect, err := url.Parse(redirectURI)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if redirect.Scheme != "http" || redirect.Hostname() != "127.0.0.1" || redirect.Port() == "" {
+		t.Fatalf("Google desktop OAuth must use an IPv4 loopback redirect with a random port, got %q", redirectURI)
+	}
+	if redirect.Path != "" && redirect.Path != "/" {
+		t.Fatalf("Google desktop loopback redirect must not use an application callback path, got %q", redirect.Path)
+	}
+	if redirect.Port() == "32124" {
+		t.Fatal("Google OAuth callback must use a dedicated temporary listener rather than the TL Studio control server")
+	}
+	if redirect.RawQuery != "" || redirect.Fragment != "" {
+		t.Fatalf("Google OAuth loopback redirect must be a bare loopback origin, got %q", redirectURI)
+	}
+
+	badCallback := *redirect
+	badCallback.RawQuery = url.Values{"state": {"wrong-state"}, "code": {"bad"}}.Encode()
+	response, err := http.Get(badCallback.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("invalid loopback OAuth state must be rejected, got %d", response.StatusCode)
+	}
+
+	goodCallback := *redirect
+	goodCallback.RawQuery = url.Values{"state": {state}, "code": {"authorization-code"}}.Encode()
+	response, err = http.Get(goodCallback.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	callbackBody, err := io.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || !strings.Contains(string(callbackBody), "Google sign-in complete") {
+		t.Fatalf("unexpected Google loopback callback response status=%d body=%q", response.StatusCode, callbackBody)
 	}
 
 	status, err := adapter.PollLogin(context.Background(), "", login.LoginID)
