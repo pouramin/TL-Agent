@@ -308,6 +308,14 @@ import { K } from "./kernel";
     activityButtons.set(name, item);
   }
 
+  const terminalActivity = button(">_", "Terminal", "workspace-activity-button workspace-terminal-activity");
+  terminalActivity.id = "workspaceTerminalActivity";
+  terminalActivity.type = "button";
+  terminalActivity.title = "Open Terminal";
+  terminalActivity.setAttribute("aria-label", "Terminal");
+  terminalActivity.setAttribute("aria-pressed", "false");
+  activityMain.appendChild(terminalActivity);
+
   const settingsButton = byId<HTMLButtonElement>("settingsButton");
   if (settingsButton) {
     settingsButton.textContent = "⚙";
@@ -468,6 +476,8 @@ import { K } from "./kernel";
     const open = !!terminalPanel && !terminalPanel.classList.contains("hidden");
     terminalSplitter.classList.toggle("hidden", !open);
     mainPane.classList.toggle("workspace-terminal-open", open);
+    terminalActivity.classList.toggle("active", open);
+    terminalActivity.setAttribute("aria-pressed", open ? "true" : "false");
   };
   if (terminalPanel) {
     new MutationObserver(syncTerminal).observe(terminalPanel, { attributes: true, attributeFilter: ["class"] });
@@ -475,6 +485,7 @@ import { K } from "./kernel";
   }
 
   const terminalButton = byId<HTMLButtonElement>("terminalButton");
+  terminalActivity.addEventListener("click", () => terminalButton?.click());
   statusTerminal.addEventListener("click", () => terminalButton?.click());
   statusChanges.addEventListener("click", () => setContext("changes"));
   agentRailChanges.addEventListener("click", () => setContext("changes"));
