@@ -1,20 +1,14 @@
 ---
-title: Custom Provider
-description: تنظیم Native Provider، Model Discovery و Credential Vault محلی در TL Studio.
+title: اتصال مدل‌ها
+description: تنظیم اتصال Model، Model Discovery و Credential Vault محلی در TL Studio.
 icon: Cable
 ---
 
 در v0.5، Provider Definition، Model Discovery، Model Catalog مربوط به Product و Provider Credential متعلق به خود TL Studio هستند.
 
-## Native Protocolهای پشتیبانی‌شده
+## Native Protocol Adapterها
 
-Protocolهای فعلی:
-
-- **OpenAI Compatible**؛
-- **OpenAI Responses**؛
-- **Anthropic Messages**.
-
-Provider Form به Vendor خاصی وابسته نیست. Base URL، API Key و یک یا چند Model را Configure می‌کنید.
+TL Studio، Protocol Adapterهای پشتیبانی‌شده را داخل خود Product پیاده‌سازی می‌کند. Connection را با Protocol Family موجود در Stable Build، Base URL، Credential و یک یا چند Model Configure می‌کنید.
 
 ## Discover Models
 
@@ -44,7 +38,7 @@ Provider Discovery:
 - Cross-origin Redirect را Block می‌کند؛
 - Redirect Chain محدود دارد.
 
-برای Anthropic-compatible Discovery، Model Listing صفحه‌بندی‌شده با Page Count محدود پشتیبانی می‌شود.
+برای Endpointهای سازگار با Discovery صفحه‌بندی‌شده، TL Studio تعداد Page را محدود می‌کند.
 
 ## Cache Fallback
 
@@ -58,11 +52,9 @@ model-catalog-cache.json
 
 Authentication/Authorization Failure با Cache قدیمی پنهان نمی‌شود.
 
-## رفتار OpenRouter
+## Authenticated Discovery
 
-برای OpenRouter از Authenticated User Model Catalog استفاده می‌شود، نه Public Generic Catalog. بنابراین API Key برای Discovery لازم است و Credential نامعتبر تشخیص داده می‌شود.
-
-این Catalog همچنین Availability/Preference فعلی User در OpenRouter را بهتر منعکس می‌کند.
+اگر Endpoint تنظیم‌شده برای Model Discovery به Authentication نیاز داشته باشد، TL Studio از Credential ذخیره‌شده استفاده می‌کند و Authentication Failure را به‌صورت صریح برمی‌گرداند؛ این Failure با Fallback مخفی نمی‌شود.
 
 ## Provider Registry
 
