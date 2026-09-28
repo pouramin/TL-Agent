@@ -244,6 +244,28 @@ interface TLStudioLiveEvent {
   path?: string;
 }
 
+interface TLStudioProviderAccountSetupSummary {
+  configurable: boolean;
+  configured: boolean;
+  label?: string;
+}
+
+interface TLStudioProviderAccountSetupField {
+  id: string;
+  label: string;
+  description?: string;
+  placeholder?: string;
+  value?: string;
+  required?: boolean;
+  readOnly?: boolean;
+}
+
+interface TLStudioProviderAccountSetup {
+  title: string;
+  description?: string;
+  fields: TLStudioProviderAccountSetupField[];
+}
+
 interface TLStudioProviderAccount {
   id: string;
   name: string;
@@ -258,6 +280,7 @@ interface TLStudioProviderAccount {
   models?: string[];
   capabilities?: string[];
   billingNote?: string;
+  setup?: TLStudioProviderAccountSetupSummary;
   error?: string;
 }
 
@@ -288,6 +311,8 @@ interface TLStudioProductAPI {
   providerAccounts: {
     list(): Promise<TLStudioProviderAccount[]>;
     status(providerID: string): Promise<TLStudioProviderAccount>;
+    setup(providerID: string): Promise<TLStudioProviderAccountSetup>;
+    configureSetup(providerID: string, values: Record<string, string>): Promise<TLStudioProviderAccount>;
     beginLogin(providerID: string): Promise<TLStudioProviderAccountLogin>;
     pollLogin(providerID: string, loginID: string, signal?: AbortSignal): Promise<TLStudioProviderAccount>;
     cancelLogin(providerID: string, loginID: string): Promise<TLStudioDynamicRecord>;
