@@ -132,6 +132,8 @@ func main() {
 
 func newServer(state *appState) (http.Handler, error) {
 	providerManager := newProviderManager(state)
+	huggingFaceAccount := newHuggingFaceAccountAdapter(state, providerManager)
+	providerManager.registerAccountCredentialSource(huggingFaceAccount)
 	providerAccounts := newProviderAccountService(
 		&unavailableProviderAccountAdapter{
 			id: "chatgpt",
@@ -145,7 +147,7 @@ func newServer(state *appState) (http.Handler, error) {
 			description: "Claude account connection is kept separate from Anthropic API configuration.",
 			reason: "Anthropic documents account OAuth for its own clients, but TL Studio has not found a public third-party consumer-account OAuth client contract. Anthropic API-key configuration remains supported.",
 		},
-		newHuggingFaceAccountAdapter(state, providerManager),
+		huggingFaceAccount,
 		&unavailableProviderAccountAdapter{
 			id: "gemini",
 			name: "Google / Gemini",
