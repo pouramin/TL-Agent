@@ -95,3 +95,35 @@ func TestProviderAccountBrowserContractHasNoCredentialFields(t *testing.T) {
 		}
 	}
 }
+
+
+func TestProviderAccountUIKeepsAccountAndAPIConfigurationSeparate(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		"Account connections",
+		"API configuration",
+		"Sign in with",
+		"Reconnect",
+		"Sign out",
+		"unsupportedReason",
+		"authorizationUrl",
+		"verificationUrl",
+		"userCode",
+		"providerAccounts.complete",
+		"providerAccounts.cancel",
+		"cancelActiveLogin",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Provider Account UI contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"localStorage",
+		"sessionStorage",
+		"parseDeviceCode",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("Provider Account UI must not use %q for account authentication", forbidden)
+		}
+	}
+}
