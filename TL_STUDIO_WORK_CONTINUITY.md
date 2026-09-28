@@ -138,6 +138,8 @@ Google/Gemini is merged on dev through PR #124. The implementation uses the offi
 
 Custom Provider setup is simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. PR #126 fixed edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
 
+PR #148 changes the compact Provider cards to reflect connection type rather than OAuth availability. ChatGPT/Codex and GitHub Copilot are the account-login slots. Claude/Anthropic, Google/Gemini, Hugging Face, and OpenRouter are user-facing API-credential cards; clicking them opens the existing Provider editor with a correct preset endpoint/protocol and automatic model discovery. Provider-account refresh no longer removes API-key connected state for these cards.
+
 ChatGPT/Codex account support is merged on dev through PR #143. It uses OpenAI's documented Codex surface. Login uses `codex app-server` with the official `account/login/start` ChatGPT browser flow, `account/read`, `account/logout`, and `model/list`. TL Studio uses an isolated `CODEX_HOME`, never imports browser cookies/session tokens, never copies a private OAuth client, and never calls undocumented ChatGPT backend endpoints.
 
 For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-chatgpt`. Each model turn launches the official Codex CLI in ephemeral read-only bridge mode with user/project Codex config and rules ignored, approval policy set to never, web search disabled, and an empty temporary working directory. The bridge receives the TL Studio conversation and TL Studio Tool schemas and must return structured assistant text or TL Studio Tool calls. TL Studio remains authoritative for the outer model → tool → model loop, Tool execution, permissions, project mutations, Session persistence, and semantic events.
@@ -211,7 +213,7 @@ Automated validation is green through PR #143, including fake-Codex account life
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
-A Windows x64 review package is produced by CI and should be used for real OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex sign-in tests. ChatGPT validation must include a real ChatGPT-plan login, model discovery, a plain response, and at least one TL Studio Tool round-trip. Do not promote dev to stable main until the intended real account integrations have passed this checklist or their remaining limitations have been explicitly accepted and documented.
+A Windows x64 review package is produced by CI and should be used for real API-key configuration tests for OpenRouter, Hugging Face, and Google/Gemini, plus real ChatGPT/Codex account sign-in. ChatGPT validation must include a real ChatGPT-plan login, model discovery, a plain response, and at least one TL Studio Tool round-trip. Do not promote dev to stable main until the intended real account integrations have passed this checklist or their remaining limitations have been explicitly accepted and documented.
 
 ## Resume protocol
 

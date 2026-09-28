@@ -111,24 +111,26 @@ Secrets are not stored in `providers.json`, Browser local storage, session stora
 
 Custom providers use a discovery-first setup: normally you provide an API address, API type, and API key, and TL Studio discovers available models automatically. Manual model entry remains an explicit fallback for private or unlisted models.
 
-### Account providers
+### Provider connections
 
-| Provider | Account login | Notes |
+The compact Provider cards use the connection method that matches the product:
+
+| Provider | Default setup | Status |
 | --- | --- | --- |
-| **OpenRouter** | ✅ Available | Official OAuth + PKCE, account-backed credential flow, model discovery. |
-| **Hugging Face** | ✅ Available | Public-client OAuth + PKCE, refresh support, Inference Providers model discovery. |
-| **Google / Gemini** | ✅ Available | Installed-app OAuth + PKCE, refresh/revocation, native Gemini transport, Google Cloud quota project support. |
-| **ChatGPT / Codex** | ✅ Available | Official Codex ChatGPT login, ChatGPT-plan model discovery, and an isolated provider bridge that keeps TL Studio's outer Native Agent and Tool Executor in control. |
-| **Claude account** | ⏳ Deferred | Anthropic API-key support is native; consumer-account login waits for a documented public third-party authorization contract. |
-| **GitHub Copilot** | ⏳ Deferred | Official account authentication exists, but the documented model path remains coupled to the Copilot SDK/runtime. |
+| **ChatGPT / Codex** | Account sign-in | ✅ Available through OpenAI's official Codex login/model surface. |
+| **GitHub Copilot** | Account sign-in | ⏳ Account slot reserved; model integration remains deferred. |
+| **Claude / Anthropic** | API key | ✅ Opens the Anthropic API configuration directly. |
+| **Google / Gemini** | API key | ✅ Uses Google's documented OpenAI-compatible Gemini endpoint. |
+| **Hugging Face** | API token | ✅ Uses the OpenAI-compatible Inference Providers router. |
+| **OpenRouter** | API key | ✅ Uses the OpenAI-compatible OpenRouter API. |
+
+Providers that use API credentials are **not** shown as unavailable just because they do not use consumer-account OAuth. Their cards open the existing discovery-first API configuration flow with the correct endpoint/protocol preset.
 
 The ChatGPT integration uses OpenAI's official Codex CLI/App Server surface. TL Studio never copies ChatGPT cookies, browser sessions, private OAuth clients, or undocumented backend tokens. Codex authentication is isolated under TL Studio's own `CODEX_HOME`; the Browser sees only semantic account state.
 
 For ChatGPT-plan model turns, TL Studio invokes the official Codex CLI in ephemeral, read-only bridge mode with user/project Codex configuration ignored. The structured result is converted back into TL Studio model text or TL Studio Tool calls, so permission checks, Tool execution, Session persistence, and the outer model → tool → model loop remain owned by TL Studio.
 
 If `codex` is not already on `PATH`, TL Studio can use `npx @openai/codex`; Provider Settings also accepts an explicit Codex executable path.
-
-Deferred providers are visible in Settings on purpose. They are architecture boundaries, not hidden fallbacks.
 
 ### Gemini alpha setup
 
