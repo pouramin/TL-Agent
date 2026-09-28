@@ -12,7 +12,7 @@ Run:
 
     .\tl-studio.exe
 
-Normal startup must not require a runtime flag or a second executable.
+Normal TL Studio startup must not require a runtime flag or a second Agent runtime. ChatGPT validation may lazily launch OpenAI's official Codex CLI only after the ChatGPT account integration is used.
 
 ## Hugging Face
 
@@ -96,15 +96,64 @@ A production build should eventually ship TL Studio's own registered Desktop OAu
 4. Run a Native Agent prompt with a tool-capable model.
 5. Sign out and confirm any pre-existing manual OpenRouter API credential remains intact.
 
+## ChatGPT / Codex
+
+ChatGPT account support uses OpenAI's official Codex login and model surfaces.
+
+Prerequisite:
+
+- either `codex` from the official OpenAI Codex CLI is available on PATH;
+- or `npx` is available so TL Studio can run `npx @openai/codex`;
+- or an explicit official Codex executable path is configured from Provider Settings.
+
+Validation:
+
+1. Open Settings → Providers.
+2. Find ChatGPT / Codex under Account providers.
+3. Confirm the entry is enabled rather than marked Deferred.
+4. If Codex is not auto-detected, choose Codex setup and configure the official Codex executable path.
+5. Choose Sign in with ChatGPT / Codex.
+6. Confirm the system browser opens the authorization URL returned by the official Codex App Server.
+7. Complete ChatGPT authorization.
+8. Return to TL Studio and confirm the account shows Connected.
+9. Confirm the connected account label/plan metadata is shown when available.
+10. Confirm ChatGPT-plan models discovered through Codex appear in the normal TL Studio model selector.
+11. Run a plain prompt and confirm a normal assistant response.
+12. Run a prompt that requires a TL Studio project-file Tool call.
+13. Approve/reject the TL Studio Permission prompt as appropriate and confirm Tool execution happens through TL Studio rather than Codex modifying the project directly.
+14. Confirm the continuation after the Tool result completes normally.
+15. Restart TL Studio and confirm the ChatGPT account remains usable through the isolated Codex auth store.
+16. Refresh/discover models again and confirm the model catalog still resolves.
+17. Sign out and confirm the account-managed ChatGPT provider disappears from the TL Studio model selector.
+
+Expected security/product boundary:
+
+- TL Studio does not read, copy, serialize, or expose raw ChatGPT OAuth tokens.
+- Codex auth material stays inside the official Codex client's TL Studio-specific isolated `CODEX_HOME`.
+- Browser state contains only semantic account/login state, not raw ChatGPT credentials.
+- The Codex model bridge runs from an empty temporary working directory.
+- User/project Codex config and rules are ignored for the bridge turn.
+- The bridge uses a read-only sandbox, approval policy `never`, and web search disabled.
+- Project mutations, Tool execution, Permission decisions, Session persistence, and the outer model → Tool → model loop remain TL Studio-owned.
+- No private OAuth client, ChatGPT browser cookie, private session token, or undocumented ChatGPT backend endpoint is used.
+
+If ChatGPT login succeeds but model execution fails, record separately whether the failure is:
+- Codex executable resolution;
+- account entitlement/model availability;
+- Codex App Server login/account state;
+- model bridge structured output;
+- TL Studio Tool-call conversion or continuation.
+
+Do not substitute an OpenAI API key for this test; the purpose is specifically to validate ChatGPT-plan account access.
+
 ## Deferred account integrations
 
 The following entries should be visible but unavailable, with an explicit reason:
 
-- ChatGPT / Codex
 - Claude
 - GitHub Copilot
 
-They must not expose a working Sign in action, create runtime credentials, or introduce another Agent runtime.
+They must not expose a working Sign in action or create runtime credentials.
 
 ## Release decision
 
@@ -116,6 +165,7 @@ Before stable promotion, record:
 - Hugging Face real sign-in result;
 - Google / Gemini real sign-in result;
 - model discovery result for each connected account provider;
+- ChatGPT real account login and plan-backed model result;
 - at least one Native Agent model/tool/model round trip for each provider intended to be declared usable;
 - sign-out/restart behavior;
 - any provider-specific limitation that must be documented.
