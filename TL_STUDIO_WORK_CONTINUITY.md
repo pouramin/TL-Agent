@@ -28,7 +28,7 @@ feature/account-provider-boundaries
 
 Current draft PR:
 
-Not opened yet.
+#125 — Expose deferred account-provider boundaries
 
 Completed 0.6 account-provider PRs:
 
