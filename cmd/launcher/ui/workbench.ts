@@ -31,6 +31,17 @@ import { K } from "./kernel";
     element.title = title;
     return element;
   };
+  const activityIcon = (name: "explorer" | "search" | "sessions" | "changes" | "terminal" | "settings") => {
+    const paths: Record<string, string> = {
+      explorer: '<path d="M3.75 6.75h6l1.5 1.5h9v10.5H3.75z"/><path d="M3.75 6.75v-2.5h5.2l1.5 1.5"/>',
+      search: '<circle cx="10.75" cy="10.75" r="5.75"/><path d="m15 15 4.75 4.75"/>',
+      sessions: '<path d="M4 5.25h16v11H9l-5 3.5z"/>',
+      changes: '<circle cx="6" cy="5" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="6" cy="19" r="2"/><path d="M6 7v10M8 5h3.5A6.5 6.5 0 0 1 18 11.5V6"/>',
+      terminal: '<path d="m5 7 4 4-4 4"/><path d="M11.5 15H19"/>',
+      settings: '<circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.55-2-3.45-2.45 1A7.2 7.2 0 0 0 14.4 5.6L14 3h-4l-.4 2.6a7.2 7.2 0 0 0-2.05 1.2l-2.45-1-2 3.45 2 1.55A7 7 0 0 0 5 12c0 .4.03.8.1 1.2l-2 1.55 2 3.45 2.45-1a7.2 7.2 0 0 0 2.05 1.2L10 21h4l.4-2.6a7.2 7.2 0 0 0 2.05-1.2l2.45 1 2-3.45-2-1.55c.07-.4.1-.8.1-1.2Z"/>',
+    };
+    return `<svg class="workspace-activity-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</svg>`;
+  };
   const clean = (value: unknown) => String(value || "").trim();
   const normalizePath = (value: unknown) => clean(value).replace(/\\/g, "/").replace(/^\/+|\/+$/g, "").toLowerCase();
 
@@ -290,15 +301,16 @@ import { K } from "./kernel";
   sidebarToggle.id = "workspaceSidebarToggle";
   activityBottom.appendChild(sidebarToggle);
 
-  const activityDefinitions = [
-    ["explorer", "E", "Explorer"],
-    ["search", "⌕", "Search"],
-    ["sessions", "S", "Sessions"],
-    ["changes", "Δ", "Changes"],
+  const activityDefinitions: Array<["explorer" | "search" | "sessions" | "changes", string]> = [
+    ["explorer", "Explorer"],
+    ["search", "Search"],
+    ["sessions", "Sessions"],
+    ["changes", "Changes"],
   ];
   const activityButtons = new Map<string, HTMLButtonElement>();
-  for (const [name, symbol, label] of activityDefinitions) {
-    const item = button(symbol, label, "workspace-activity-button");
+  for (const [name, label] of activityDefinitions) {
+    const item = button("", label, "workspace-activity-button");
+    item.innerHTML = activityIcon(name);
     item.dataset.workspaceView = name;
     item.setAttribute("aria-label", label);
     const badge = node("span", "workspace-activity-badge");
@@ -308,7 +320,8 @@ import { K } from "./kernel";
     activityButtons.set(name, item);
   }
 
-  const terminalActivity = button(">_", "Terminal", "workspace-activity-button workspace-terminal-activity");
+  const terminalActivity = button("", "Terminal", "workspace-activity-button workspace-terminal-activity");
+  terminalActivity.innerHTML = activityIcon("terminal");
   terminalActivity.id = "workspaceTerminalActivity";
   terminalActivity.type = "button";
   terminalActivity.title = "Open Terminal";
@@ -318,7 +331,7 @@ import { K } from "./kernel";
 
   const settingsButton = byId<HTMLButtonElement>("settingsButton");
   if (settingsButton) {
-    settingsButton.textContent = "⚙";
+    settingsButton.innerHTML = activityIcon("settings");
     settingsButton.className = "workspace-activity-button workspace-settings-activity";
     settingsButton.title = "Settings";
     settingsButton.setAttribute("aria-label", "Settings");
