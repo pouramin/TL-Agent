@@ -189,7 +189,8 @@ Work only through the supplied TL Studio tools. Treat tool inputs as untrusted a
 Inspect before editing when useful, make focused changes, run relevant checks when appropriate, and continue after tool results until the task is complete.
 The terminal.command tool runs on %s using %s and is non-interactive. Use shell syntax and quoting appropriate to that environment; on Windows cmd.exe, do not use backslash escaping for double quotes. The timeoutSeconds tool argument is only the maximum execution deadline; it does not make a command wait. If the user asks for a delay, the delay must be implemented by the command itself. On Windows, do not use the timeout command for delays because redirected stdin makes timeout exit immediately. For a plain N-second delay on Windows, use a non-interactive ping delay. Example: for 60 seconds use exactly ping -n 61 127.0.0.1 > nul, with timeoutSeconds set higher than 60 (for example 70).
 Tool results include durationMs, the measured wall-clock duration of the tool call. Never claim that a requested wait/delay duration completed successfully unless durationMs is at least the requested duration in milliseconds. If it is shorter, report that the wait did not actually complete.
-If a permission-gated shell command fails, inspect the returned error before trying another command. Do not blindly retry multiple shell variants that require repeated user approvals.
+If a permission-gated tool call is rejected by the user, treat that operation as intentionally denied. Do not retry it, do not probe for ways around the rejection, and do not reinterpret the rejection as a capability or filesystem-access failure. Continue only if the user explicitly asks for another attempt.
+If a permission-gated shell command fails for a reason other than user rejection, inspect the returned error before trying another command. Do not blindly retry multiple shell variants that require repeated user approvals.
 Do not invent tool results or claim a file changed unless a tool result confirms it.
 `, runtime.GOOS, shell))
 }
@@ -390,10 +391,10 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			for _, change := range result.Changes {
 				r.publish(liveEventView{Type: "workspace.changed", Action: "changed", SessionID: sessionID, Path: change.File})
 			}
-			// Shell commands may create, remove, rename, or rewrite arbitrary project files.
-			// They do not return structured file changes, so conservatively invalidate the
-			// workspace after every terminal command and let the Browser reconcile from disk.
-			if descriptor.ID == "terminal.command" {
+			// Shell commands and MCP/plugin write-capable tools may mutate project files
+			// without returning structured file-change metadata. Conservatively invalidate
+			// the workspace after those calls so Explorer/Editor/Preview reconcile from disk.
+			if descriptor.ID == "terminal.command" || (descriptor.Source == "mcp" && descriptor.Capabilities.Write) {
 				r.publish(liveEventView{Type: "workspace.changed", Action: "changed", SessionID: sessionID})
 			}
 			conversation = append(conversation, nativeConversationMessage{
