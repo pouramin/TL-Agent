@@ -943,7 +943,7 @@ func (m *pluginManager) AttachToProject(project, id, sourceProject string) (plug
 	if pluginMatchesProject(source, project) {
 		return m.View(project, id, true)
 	}
-	if existing, exists, findErr := m.store.find(project, id); findErr != nil {
+	if _, exists, findErr := m.store.find(project, id); findErr != nil {
 		return pluginView{}, findErr
 	} else if exists {
 		return pluginView{}, errors.New("current project already has a plugin with this ID")
