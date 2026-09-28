@@ -240,11 +240,19 @@ func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProvi
 	return result, changed
 }
 
+type providerAccountRuntimeCredentialSource interface {
+	ID() string
+	RuntimeCredential(context.Context) (string, error)
+}
+
 type providerManager struct {
 	state       *appState
 	store       *providerRegistryStore
 	credentials providerCredentialStore
 	registryMu  sync.Mutex
+
+	accountSourcesMu sync.RWMutex
+	accountSources   map[string]providerAccountRuntimeCredentialSource
 }
 
 func newProviderManager(state *appState) *providerManager {
@@ -252,6 +260,7 @@ func newProviderManager(state *appState) *providerManager {
 		state: state,
 		store: newProviderRegistryStore(providerRegistryPath()),
 		credentials: newProviderCredentialStore(),
+		accountSources: map[string]providerAccountRuntimeCredentialSource{},
 	}
 }
 
@@ -271,7 +280,33 @@ func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	return err
 }
 
-func (m *providerManager) runtimeCredential(providerID string) (string, error) {
+func (m *providerManager) registerAccountCredentialSource(source providerAccountRuntimeCredentialSource) {
+	if m == nil || source == nil {
+		return
+	}
+	id := strings.TrimSpace(source.ID())
+	if id == "" {
+		return
+	}
+	m.accountSourcesMu.Lock()
+	if m.accountSources == nil {
+		m.accountSources = map[string]providerAccountRuntimeCredentialSource{}
+	}
+	m.accountSources[id] = source
+	m.accountSourcesMu.Unlock()
+}
+
+func (m *providerManager) accountCredentialSource(providerID string) providerAccountRuntimeCredentialSource {
+	if m == nil {
+		return nil
+	}
+	m.accountSourcesMu.RLock()
+	source := m.accountSources[strings.TrimSpace(providerID)]
+	m.accountSourcesMu.RUnlock()
+	return source
+}
+
+func (m *providerManager) runtimeCredential(ctx context.Context, providerID string) (string, error) {
 	if m == nil || m.credentials == nil {
 		return "", errors.New("TL Studio credential store is unavailable")
 	}
@@ -286,6 +321,10 @@ func (m *providerManager) runtimeCredential(providerID string) (string, error) {
 		}
 	} else if !errors.Is(err, errCredentialNotFound) {
 		return "", err
+	}
+
+	if source := m.accountCredentialSource(providerID); source != nil {
+		return source.RuntimeCredential(ctx)
 	}
 
 	raw, err := m.credentials.Get(providerAccountCredentialID(providerID))
@@ -369,7 +408,7 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 				if _, exists := result.Default[definition.ID]; !exists { result.Default[definition.ID] = model.ID }
 			}
 		}
-		if _, credentialErr := m.runtimeCredential(definition.ID); credentialErr == nil {
+		if _, credentialErr := m.runtimeCredential(ctx, definition.ID); credentialErr == nil {
 			result.Connected = appendUniqueString(result.Connected, definition.ID)
 		} else if !errors.Is(credentialErr, errCredentialNotFound) &&
 			!strings.Contains(credentialErr.Error(), "credential expired") {
