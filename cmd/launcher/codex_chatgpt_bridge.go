@@ -444,8 +444,8 @@ func codexListModelsWithServer(ctx context.Context, server *codexAppServer) ([]c
 }
 
 type codexBridgeToolCall struct {
-	Name      string         `json:"name"`
-	Arguments map[string]any `json:"arguments"`
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"`
 }
 
 type codexBridgeOutput struct {
@@ -468,7 +468,10 @@ func codexBridgeSchema() map[string]any {
 					"required": []string{"name", "arguments"},
 					"properties": map[string]any{
 						"name": map[string]any{"type": "string"},
-						"arguments": map[string]any{"type": "object"},
+						"arguments": map[string]any{
+							"type": "string",
+							"description": "JSON-encoded object containing the TL Studio tool arguments.",
+						},
 					},
 				},
 			},
@@ -498,7 +501,7 @@ For this turn:
 - Decide only the next assistant output for the supplied conversation.
 - If a TL Studio tool is needed, return it in toolCalls and stop. TL Studio will execute it.
 - Every toolCalls[].name must exactly match one of the supplied tool IDs.
-- toolCalls[].arguments must be a JSON object matching that tool's input schema.
+- toolCalls[].arguments must be a JSON string encoding one object that matches that tool's input schema.
 - If no tool is needed, return the assistant text in text and an empty toolCalls array.
 - Return only data matching the required output schema.
 
@@ -559,8 +562,13 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 	}
 	cmd.Stdin = strings.NewReader(prompt)
 	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	bridgeStderr := newBoundedTextBuffer(8 << 10)
+	cmd.Stderr = bridgeStderr
 	if err := cmd.Run(); err != nil {
+		detail := bridgeStderr.String()
+		if detail != "" {
+			return nativeModelResponse{}, fmt.Errorf("official Codex model bridge failed: %w — %s", err, detail)
+		}
 		return nativeModelResponse{}, fmt.Errorf("official Codex model bridge failed: %w", err)
 	}
 	data, err := os.ReadFile(outputPath)
@@ -592,7 +600,15 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 		if !ok {
 			return nativeModelResponse{}, fmt.Errorf("Codex bridge requested unknown TL Studio tool %q", name)
 		}
-		arguments, err := json.Marshal(call.Arguments)
+		argumentsText := strings.TrimSpace(call.Arguments)
+		if argumentsText == "" {
+			argumentsText = "{}"
+		}
+		var argumentsObject map[string]any
+		if err := json.Unmarshal([]byte(argumentsText), &argumentsObject); err != nil {
+			return nativeModelResponse{}, fmt.Errorf("Codex bridge returned invalid JSON arguments for TL Studio tool %q", name)
+		}
+		arguments, err := json.Marshal(argumentsObject)
 		if err != nil {
 			return nativeModelResponse{}, err
 		}
