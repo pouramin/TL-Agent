@@ -1,6 +1,6 @@
 ---
 title: Security model
-description: Understand TL Studio v0.5 local network, filesystem, Provider, Plugin/MCP, credential, Permission, Session, and Preview boundaries.
+description: Understand TL Studio v0.5 local network, filesystem, model connection, Plugin/MCP, credential, Permission, Session, and Preview boundaries.
 icon: ShieldCheck
 ---
 
@@ -48,11 +48,11 @@ Normal `providers.json` and `plugins.json` store definitions/references rather t
 
 ## Provider discovery boundary
 
-Remote Model discovery treats the Provider as an external trust boundary.
+Remote Model discovery treats the configured model endpoint as a separate trust boundary.
 
 TL Studio validates HTTP(S) Base URLs, rejects embedded URL credentials, blocks cross-origin redirects, limits redirect depth, applies request/response bounds, and does not hide authentication failures behind stale cache.
 
-Provider requests still send data to the configured external Provider; configure only endpoints you trust.
+Model requests send data to the configured endpoint; configure only endpoints you trust.
 
 ## Plugin/MCP trust boundary
 
@@ -82,16 +82,8 @@ Previewed Project web content does not run on TL Studio's privileged control ori
 
 Static/file Preview uses a separate loopback origin; Node Preview accepts local URLs only; the file server is read-only.
 
-## JEV and OpenRouter
-
-JEV/OpenRouter is optional and uses the user's configured OpenRouter credential.
-
-Jev Router activation checks account/key state before reporting the Router as active.
-
-The separate paid Decision Engine is off by default and requires explicit enablement; it is not automatically used for Agent routing or Permission policy in v0.5.
-
 ## No product-owned telemetry/model proxy
 
 TL Studio does not require a product-owned telemetry backend, Model proxy, remote workspace service, or database.
 
-Network access comes from explicit Provider endpoints, optional integrations, package/release distribution, and configured Plugin behavior.
+Network access comes from explicitly configured model endpoints, package/release distribution, and configured Plugin behavior.
