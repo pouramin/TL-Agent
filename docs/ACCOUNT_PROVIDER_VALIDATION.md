@@ -117,10 +117,12 @@ Verified with a real ChatGPT-plan account on Windows:
 - a read → write → read continuation completed correctly through the TL Studio model → Tool → model loop;
 - Terminal execution completed through the TL Studio Tool path.
 
-Still to record separately before declaring the full ChatGPT account checklist closed:
+The full ChatGPT/Codex Windows checklist is now closed.
 
-- restart persistence of the connected ChatGPT account;
-- explicit sign-out cleanup/removal of the account-managed provider.
+Additional validation completed:
+
+- after fully closing and reopening TL Studio, the ChatGPT account remained connected and the discovered models were still usable;
+- after signing out, fully closing, and reopening TL Studio, the ChatGPT account remained signed out and required a fresh sign-in before use.
 
 
 Prerequisite:
@@ -145,9 +147,9 @@ Validation:
 12. Run a prompt that requires a TL Studio project-file Tool call.
 13. Approve/reject the TL Studio Permission prompt as appropriate and confirm Tool execution happens through TL Studio rather than Codex modifying the project directly.
 14. Confirm the continuation after the Tool result completes normally.
-15. Restart TL Studio and confirm the ChatGPT account remains usable through the isolated Codex auth store.
-16. Refresh/discover models again and confirm the model catalog still resolves.
-17. Sign out and confirm the account-managed ChatGPT provider disappears from the TL Studio model selector.
+15. ✅ Restart TL Studio and confirm the ChatGPT account remains usable through the isolated Codex auth store.
+16. ✅ Refresh/discover models again and confirm the model catalog still resolves.
+17. ✅ Sign out and confirm the account-managed ChatGPT provider disappears from the TL Studio model selector and remains signed out after restart.
 
 Expected security/product boundary:
 
@@ -188,9 +190,9 @@ Before stable promotion, record:
 - Hugging Face real sign-in result;
 - Google / Gemini real sign-in result;
 - model discovery result for each connected account provider;
-- ChatGPT real account login and plan-backed model result — core runtime passed on Windows on 2026-09-29;
+- ChatGPT real account login and plan-backed model result — passed on Windows on 2026-09-29;
 - at least one Native Agent model/tool/model round trip for each provider intended to be declared usable — ChatGPT passed on Windows on 2026-09-29;
-- sign-out/restart behavior;
+- sign-out/restart behavior — ChatGPT passed on Windows on 2026-09-29;
 - any provider-specific limitation that must be documented.
 
 If a real provider rejects a documented flow, keep the integration on dev and record the exact provider error before changing architecture or authentication behavior.
