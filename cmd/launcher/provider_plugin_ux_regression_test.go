@@ -204,6 +204,35 @@ func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
 	}
 }
 
+func TestProviderAccountCardsUseBundledBrandMarks(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`logo.dataset.provider = account.id`,
+		`data-provider="chatgpt"`,
+		`background:#D97757`,
+		`background:#FFD21E`,
+		`background:#94A3B8`,
+		`tlGeminiBrandGradient`,
+		`M22.2819 9.8211`,
+		`m4.7144 15.9555`,
+		`M23.922 16.997`,
+		`M12.025 1.13`,
+		`M16.778 1.844`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("provider brand mark contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`https://cdn.`,
+		`<img src=`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("provider brand marks must stay bundled/local; found %q", forbidden)
+		}
+	}
+}
+
 func TestProviderAccountBrowserUsesSemanticLoginLifecycle(t *testing.T) {
 	source := readBrowserSource(t, "provider-account-ui.ts")
 	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
