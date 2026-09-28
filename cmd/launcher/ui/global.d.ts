@@ -439,6 +439,7 @@ interface TLStudioState {
   revision: number;
   authController: AbortController | null;
   authURL: string;
+  authLoginID: string;
   attentionKey: string;
   attachments: TLStudioDynamicRecord[];
   activeEditorPath: string;
