@@ -98,10 +98,18 @@ select,.ghost.small,.sidebar-settings-button,.session-quick-delete { font-size: 
 .permission-policy-row > .settings-copy { max-width: 680px; }
 .permission-rules { width: 100%; display: grid; gap: 12px; }
 .permission-rules-empty { display: block; padding: 11px 0; color: var(--muted-2); font-size: var(--tl-ui-sm); }
-.permission-rule-group { display: grid; gap: 7px; padding: 10px; border: 1px solid var(--line-soft); border-radius: 10px; background: color-mix(in srgb,var(--panel-2),transparent 16%); }
-.permission-rule-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 1px 2px; }
+.permission-rule-group { overflow: hidden; border: 1px solid var(--line-soft); border-radius: 10px; background: color-mix(in srgb,var(--panel-2),transparent 16%); }
+.permission-rule-group[open] { border-color: color-mix(in srgb,var(--accent),var(--line) 68%); }
+.permission-rule-group-head { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 11px; cursor: pointer; user-select: none; list-style: none; }
+.permission-rule-group-head::-webkit-details-marker { display: none; }
+.permission-rule-group-head:hover { background: color-mix(in srgb,var(--panel-3),transparent 38%); }
+.permission-rule-group-head:focus-visible { outline: 2px solid color-mix(in srgb,var(--accent),white 18%); outline-offset: -2px; }
+.permission-rule-group-label { min-width: 0; display: flex; align-items: center; gap: 8px; }
 .permission-rule-group-head strong { font-size: var(--tl-ui-base); }
+.permission-rule-chevron { display: inline-grid; width: 16px; height: 16px; place-items: center; color: var(--muted); font-size: var(--tl-ui-md); transition: transform .14s ease; }
+.permission-rule-group[open] .permission-rule-chevron { transform: rotate(90deg); }
 .permission-rule-count { display: inline-grid; min-width: 22px; height: 20px; place-items: center; padding: 0 6px; border-radius: 999px; background: var(--panel-3); color: var(--muted); font-size: var(--tl-ui-xs); }
+.permission-rule-group-body { display: grid; gap: 7px; padding: 0 10px 10px; border-top: 1px solid var(--line-soft); }
 .permission-rule { min-width: 0; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 12px; padding: 9px 10px; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--panel); }
 .permission-rule > div { min-width: 0; }
 .permission-rule strong { display: block; font-size: var(--tl-ui-sm); text-transform: capitalize; }
