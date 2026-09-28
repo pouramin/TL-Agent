@@ -294,6 +294,8 @@ interface TLStudioProductAPI {
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
     list(): Promise<TLStudioPluginView[]>;
+    saved(): Promise<TLStudioPluginView[]>;
+    attach(pluginID: string, sourceProject: string): Promise<TLStudioPluginView>;
     create(plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
     update(pluginID: string, plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
     remove(pluginID: string): Promise<any>;
