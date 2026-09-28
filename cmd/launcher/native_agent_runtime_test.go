@@ -16,7 +16,7 @@ type nativeTestResolver struct {
 	model    tlProviderModel
 }
 
-func (r nativeTestResolver) resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+func (r nativeTestResolver) resolveNativeModel(_ context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
 	return r.provider, r.model, "test-key", nil
 }
 
