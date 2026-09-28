@@ -17,6 +17,7 @@ type providerOAuthCredential struct {
 	ExpiresAt    string   `json:"expiresAt,omitempty"`
 	Scopes       []string `json:"scopes,omitempty"`
 	AccountLabel string   `json:"accountLabel,omitempty"`
+	AccountType  string   `json:"accountType,omitempty"`
 }
 
 func encodeProviderOAuthCredential(credential providerOAuthCredential) (string, error) {
@@ -26,6 +27,7 @@ func encodeProviderOAuthCredential(credential providerOAuthCredential) (string, 
 	credential.TokenType = strings.TrimSpace(credential.TokenType)
 	credential.ExpiresAt = strings.TrimSpace(credential.ExpiresAt)
 	credential.AccountLabel = strings.TrimSpace(credential.AccountLabel)
+	credential.AccountType = strings.TrimSpace(credential.AccountType)
 	if credential.AccessToken == "" {
 		return "", errors.New("OAuth access token is required")
 	}
