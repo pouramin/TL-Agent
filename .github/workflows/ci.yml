@@ -235,3 +235,27 @@ jobs:
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+
+
+  # Compatibility status aliases for the current main-branch protection rule.
+  # Keep these until the repository rule is updated to require the native job names.
+  runtime-product-contract:
+    needs: native-product-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native product contract
+        run: echo "native-product-contract passed"
+
+  runtime-product-prompt-e2e:
+    needs: [test, native-product-contract]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native Agent regression coverage
+        run: echo "native Agent and product tests passed"
+
+  browser-workbench-smoke:
+    needs: native-browser-smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native Browser smoke
+        run: echo "native-browser-smoke passed"
