@@ -147,6 +147,10 @@ assert.match(hooks.validateDraft({ ...draft, contextLimit: "12.5" }), /Context l
 
 assert.equal(discoveryTsSource.includes('id="providerAssumeUnknownTools"'), true, "unknown tool capability must be an explicit UI choice");
 assert.equal(discoveryTsSource.includes('typeof model.toolCall === "boolean" ? model.toolCall : assumeUnknownTools.checked'), true, "unknown tool support must follow the explicit user setting");
+assert.equal(discoveryTsSource.includes('isManualVisible: () => manualVisible'), true, "manual model entry must be an explicit fallback state");
+assert.equal(providerTsSource.includes('const manualFallback = K.__providersUi?.discoverySelection?.isManualVisible?.() === true;'), true, "provider save must distinguish explicit manual fallback from hidden stale fields");
+assert.equal(providerTsSource.includes('if (!value.models.length && !manualFallback)'), true, "provider save must run discovery by default even when hidden legacy model fields contain values");
+assert.equal(providerTsSource.includes('if (!value.models.length && !clean(value.modelID))'), false, "hidden model IDs must not bypass automatic discovery");
 assert.equal(discoveryTsSource.includes('providersUI.discoverySelection.discoverModel'), true, "integrations must reuse the generic discovery UI rather than bypass it");
 assert.equal(jevTsSource.includes('const JEV_ROUTER_MODEL = "typesafe/jev-router"'), true, "Jev setup must use the exact free router model ID");
 assert.equal(jevTsSource.includes('const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"'), true, "Jev setup must use the official OpenRouter API");
