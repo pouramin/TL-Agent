@@ -100,6 +100,29 @@ A production build should eventually ship TL Studio's own registered Desktop OAu
 
 ChatGPT account support uses OpenAI's official Codex login and model surfaces.
 
+### Manual Windows status — 2026-09-29
+
+Core runtime validation passed on the current 0.6 development preview after PR #155.
+
+Verified with a real ChatGPT-plan account on Windows:
+
+- browser authorization completed successfully;
+- account state returned to TL Studio as Connected;
+- ChatGPT-plan models were discovered and selectable;
+- the selected model ID was routed correctly and reported correctly by the bridge;
+- simple warm responses completed in roughly 3–5 seconds after the persistent Codex app-server optimization;
+- project-file read completed through TL Studio Tools;
+- multi-file read and project Search completed through TL Studio Tools;
+- a write operation triggered TL Studio Permission handling and modified only the requested content;
+- a read → write → read continuation completed correctly through the TL Studio model → Tool → model loop;
+- Terminal execution completed through the TL Studio Tool path.
+
+Still to record separately before declaring the full ChatGPT account checklist closed:
+
+- restart persistence of the connected ChatGPT account;
+- explicit sign-out cleanup/removal of the account-managed provider.
+
+
 Prerequisite:
 
 - either `codex` from the official OpenAI Codex CLI is available on PATH;
@@ -165,8 +188,8 @@ Before stable promotion, record:
 - Hugging Face real sign-in result;
 - Google / Gemini real sign-in result;
 - model discovery result for each connected account provider;
-- ChatGPT real account login and plan-backed model result;
-- at least one Native Agent model/tool/model round trip for each provider intended to be declared usable;
+- ChatGPT real account login and plan-backed model result — core runtime passed on Windows on 2026-09-29;
+- at least one Native Agent model/tool/model round trip for each provider intended to be declared usable — ChatGPT passed on Windows on 2026-09-29;
 - sign-out/restart behavior;
 - any provider-specific limitation that must be documented.
 
