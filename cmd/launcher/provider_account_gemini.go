@@ -56,7 +56,7 @@ func newGoogleGeminiAccountAdapter(state *appState, manager *providerManager) *g
 		httpClient:   &http.Client{Timeout: 20 * time.Second},
 		authorizeURL: "https://accounts.google.com/o/oauth2/v2/auth",
 		tokenURL:     "https://oauth2.googleapis.com/token",
-		userInfoURL:  "https://openidconnect.googleapis.com/v1/userinfo",
+		userInfoURL:  "https://www.googleapis.com/oauth2/v2/userinfo",
 		modelsURL:    googleGeminiModelsURL,
 		revokeURL:    "https://oauth2.googleapis.com/revoke",
 		baseURL:      googleGeminiBaseURL,
@@ -221,9 +221,8 @@ func (a *googleGeminiAccountAdapter) BeginLogin(context.Context, string) (provid
 	query.Set("redirect_uri", redirectURI)
 	query.Set("response_type", "code")
 	query.Set("scope", strings.Join([]string{
-		"openid",
-		"profile",
-		"email",
+		"https://www.googleapis.com/auth/userinfo.profile",
+		"https://www.googleapis.com/auth/userinfo.email",
 		"https://www.googleapis.com/auth/generative-language.retriever",
 	}, " "))
 	query.Set("state", loginID)
