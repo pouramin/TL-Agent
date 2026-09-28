@@ -20,7 +20,18 @@ const (
 )
 
 type nativeModelResolver interface {
-	resolveNativeModel(context.Context, string, string) (tlProviderDefinition, tlProviderModel, string, error)
+	resolveNativeModel(string, string) (tlProviderDefinition, tlProviderModel, string, error)
+}
+
+type nativeContextModelResolver interface {
+	resolveNativeModelWithContext(context.Context, string, string) (tlProviderDefinition, tlProviderModel, string, error)
+}
+
+func resolveNativeModelForContext(ctx context.Context, resolver nativeModelResolver, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+	if contextual, ok := resolver.(nativeContextModelResolver); ok {
+		return contextual.resolveNativeModelWithContext(ctx, providerID, modelID)
+	}
+	return resolver.resolveNativeModel(providerID, modelID)
 }
 
 type nativeRunHandle struct {
@@ -67,7 +78,7 @@ func (r *nativeAgentRuntime) supports(input sessionRunInput) bool {
 	if providerID == "" || modelID == "" {
 		return false
 	}
-	_, _, _, err := r.resolver.resolveNativeModel(context.Background(), providerID, modelID)
+	_, _, _, err := r.resolver.resolveNativeModel(providerID, modelID)
 	return err == nil
 }
 
@@ -241,7 +252,7 @@ func nativeToolResultMessage(result nativeToolResult) string {
 }
 
 func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID string, input sessionRunInput) error {
-	provider, model, apiKey, err := r.resolver.resolveNativeModel(ctx, input.Model.ProviderID, input.Model.ID)
+	provider, model, apiKey, err := resolveNativeModelForContext(ctx, r.resolver, input.Model.ProviderID, input.Model.ID)
 	if err != nil {
 		return err
 	}
