@@ -28,7 +28,7 @@ feature/custom-provider-discovery-flow
 
 Current draft PR:
 
-Not opened yet.
+#126 — Keep custom provider setup discovery-first
 
 Completed 0.6 account-provider PRs:
 
