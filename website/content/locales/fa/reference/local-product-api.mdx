@@ -1,0 +1,81 @@
+---
+title: Local Product API
+description: مرجع Maintainer برای Product Contract بین Browser و Local Core در TL Studio v0.5.
+icon: Cable
+---
+
+Browser مستقیماً با Local Product API خود TL Studio کار می‌کند.
+
+## Route Familyهای اصلی
+
+Product Domainهای Browser:
+
+```text
+/local/status
+/local/health
+/local/path
+/local/agents
+/local/project
+/local/pick-directory
+
+/local/providers/*
+/local/provider-accounts*
+/local/jev-router
+/local/decision-engine
+
+/local/sessions*
+/local/questions*
+/local/permissions*
+/local/events
+
+/local/plugins*
+/local/tools
+
+/local/search
+/local/process*
+/local/preview*
+```
+
+Feature Moduleهای Browser باید از Typed Browser API Layer و Contractهای خود TL Studio استفاده کنند، نه Backend Behavior پراکنده.
+
+## Session
+
+`/local/sessions*`، Native Session Read/Mutation شامل Create، Update، Delete، Run، Abort، Message، Status، Usage و Changes را ارائه می‌دهد.
+
+## Question و Permission
+
+`/local/questions*` وضعیت Native Interactive Question را ارائه می‌دهد.
+
+`/local/permissions*` شامل Pending Permission و Remembered Project-scoped Rule است.
+
+هر دو Domain از Semantic Request/Response Shape متعلق به خود TL Studio استفاده می‌کنند.
+
+## Event
+
+`/local/events` همان Semantic SSE برای Browser Responsiveness است.
+
+Source آن Local Event Bus خود TL Studio است.
+
+## Provider
+
+`/local/providers/config` مربوط به Native Provider Registry است.
+
+`/local/providers/discover`، Remote Model Discovery محدود و کنترل‌شده را انجام می‌دهد.
+
+`/local/provider-accounts*` Adapter Domain برای Official Account-backed Integration آینده است و در v0.5.0 هیچ Account Adapter ثبت نشده است.
+
+## Tool و Plugin
+
+`/local/tools`، Tool Registry فعلی را برمی‌گرداند و اگر MCP Plugin فعال باشد Dynamic Tool Descriptor را هم شامل می‌شود.
+
+`/local/plugins*`، Saved Plugin، Enable صریح، Test، Project Attachment و Integration Action را مدیریت می‌کند.
+
+## JEV Surface
+
+`/local/jev-router` وضعیت Jev Router اختیاری را کنترل می‌کند.
+
+`/local/decision-engine` مربوط به Decision API اختیاری و جداگانه است.
+
+## Rule برای Maintainer
+
+Product Behavior جدید در Browser باید به‌عنوان Local Domain متعلق به TL Studio مدل شود و از Typed Browser API Layer عبور کند.
