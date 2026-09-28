@@ -288,3 +288,34 @@ func TestChatGPTIntegrationAvoidsPrivateAuthSurfaces(t *testing.T) {
 		}
 	}
 }
+
+
+func TestRealCodexAppServerInitializeSmoke(t *testing.T) {
+	if os.Getenv("TL_STUDIO_REAL_CODEX_SMOKE") != "1" {
+		t.Skip("real Codex smoke is opt-in")
+	}
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	adapter := newChatGPTAccountAdapter(&appState{}, nil)
+	command, err := adapter.resolveCommand()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err := startCodexAppServer(command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Close()
+}
+
+func TestWindowsBatchCommandLineKeepsOuterAndExecutableQuotes(t *testing.T) {
+	line := windowsBatchCommandLine(
+		`C:\Program Files\nodejs\npx.cmd`,
+		[]string{"--yes", "@openai/codex", "app-server", "--stdio"},
+	)
+	if !strings.HasPrefix(line, `""C:\Program Files\nodejs\npx.cmd"`) {
+		t.Fatalf("batch command must keep cmd.exe outer and executable quotes: %q", line)
+	}
+	if !strings.HasSuffix(line, `"--stdio""`) {
+		t.Fatalf("batch command must close the outer cmd.exe quote pair: %q", line)
+	}
+}
