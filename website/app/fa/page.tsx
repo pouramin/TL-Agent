@@ -99,9 +99,9 @@ export default function PersianHomePage() {
         <section className="border-t bg-fd-card/20">
           <div className="mx-auto max-w-6xl px-6 py-14">
             <p className="text-sm font-medium text-fd-muted-foreground">Stable Milestone · v0.5.0</p>
-            <h2 className="mt-2 text-3xl font-semibold">معماری Compatibility Runtime تمام شده است.</h2>
+            <h2 className="mt-2 text-3xl font-semibold">TL Studio حالا از ابتدا تا انتها Native اجرا می‌شود.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              Startup عادی فقط خود TL Studio و Browser Assetهای Embedded را بالا می‌آورد. Session، Provider Call، Interactive Question، Permission، Semantic Event، Native Tool و Plugin/MCP همگی پشت Contractهای Local خود TL Studio هستند. Capability پشتیبانی‌نشده به‌صورت شفاف Error می‌دهد و به Engine محلی دیگری Fallback نمی‌شود.
+              Startup عادی فقط خود TL Studio و Browser Assetهای Embedded را بالا می‌آورد. Session، Provider Call، Interactive Question، Permission، Semantic Event، Native Tool و Plugin/MCP همگی پشت Contractهای Local خود TL Studio هستند. Capability پشتیبانی‌نشده به‌صورت شفاف Error می‌دهد و به Local Service مخفی دیگری سپرده نمی‌شود.
             </p>
             <Link href="/fa/docs/reference/architecture" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               معماری پروژه <ArrowLeft className="size-4" />

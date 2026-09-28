@@ -99,9 +99,9 @@ export default function HomePage() {
         <section className="border-t bg-fd-card/20">
           <div className="mx-auto max-w-6xl px-6 py-14">
             <p className="text-sm font-medium text-fd-muted-foreground">Stable milestone · v0.5.0</p>
-            <h2 className="mt-2 text-3xl font-semibold">The compatibility-runtime era is over.</h2>
+            <h2 className="mt-2 text-3xl font-semibold">TL Studio now runs natively end to end.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Normal startup is one TL Studio process plus embedded Browser assets. Sessions, provider calls, interactive questions, permissions, semantic events, native tools, and Plugin/MCP execution all live behind TL Studio-owned local contracts. Unsupported model capabilities fail explicitly instead of falling back to another local engine.
+              Normal startup is one TL Studio process plus embedded Browser assets. Sessions, provider calls, interactive questions, permissions, semantic events, native tools, and Plugin/MCP execution all live behind TL Studio-owned local contracts. Unsupported model capabilities fail explicitly instead of being delegated to another hidden local service.
             </p>
             <Link href="/docs/reference/architecture" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore the architecture <ArrowRight className="size-4" />
