@@ -417,7 +417,8 @@ import { K } from "./kernel";
     setBusy(true);
     notice("");
     try {
-      if (!value.models.length && !clean(value.modelID)) {
+      const manualFallback = K.__providersUi?.discoverySelection?.isManualVisible?.() === true;
+      if (!value.models.length && !manualFallback) {
         const discovered = await K.__providersUi?.discoverySelection?.discoverAll?.();
         if (!discovered) {
           notice("TL Studio could not discover models automatically. Check the API address, compatibility type, and credential, or use Manual model entry.", true);

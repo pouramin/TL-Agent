@@ -24,14 +24,15 @@ The fully native runtime milestone is complete and released as stable v0.5.0. Th
 
 Current validation branch:
 
-feature/account-provider-boundaries
+feature/custom-provider-discovery-flow
 
 Current draft PR:
 
-#125 — Expose deferred account-provider boundaries
+#126 — Keep custom provider setup discovery-first
 
 Completed 0.6 account-provider PRs:
 
+#125 — Expose deferred account-provider boundaries
 #124 — Google Gemini account provider for 0.6
 #123 — Hugging Face account provider for 0.6
 #122 — Account provider foundation for 0.6
@@ -126,11 +127,11 @@ Hugging Face is merged on dev through PR #123. It uses TL Studio's public CIMD i
 
 Google/Gemini is merged on dev through PR #124. The implementation uses the official installed-app OAuth flow with PKCE, refresh and revocation, a Google Cloud quota project, native Gemini generateContent transport, model discovery, and preservation of Gemini thought signatures across tool-call continuation. No client secret is embedded. Production activation still requires a registered TL Studio Google Desktop OAuth client ID; during development the client ID and initial project ID can be supplied through TL_STUDIO_GOOGLE_CLIENT_ID and TL_STUDIO_GOOGLE_PROJECT_ID. The project ID persists in the account-managed provider definition after connection.
 
-Custom Provider setup is being simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback.
+Custom Provider setup is being simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. The current validation branch fixes edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
 
 ChatGPT/Codex account support remains a required 0.6 product goal. Current official OpenAI Codex app-server documentation exposes ChatGPT account login, device-code login, model listing, and Codex thread/turn execution, but no documented raw model transport suitable for preserving TL Studio's Native Agent loop was identified. The OpenAI internal chatgptAuthTokens route is explicitly internal-only and must not be used. TL Studio must not copy OpenCode's private Codex OAuth client or undocumented ChatGPT backend endpoints.
 
-The current boundary branch exposes ChatGPT/Codex, Claude, and GitHub Copilot as explicit unavailable account adapters in Provider Settings while keeping them out of runtime credential resolution. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
+PR #125 exposes ChatGPT/Codex, Claude, and GitHub Copilot as explicit unavailable account adapters in Provider Settings while keeping them out of runtime credential resolution. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
 
 Current official Kilo documentation exposes the Gateway to external clients through API-key based public endpoints. No documented public third-party OAuth/device contract suitable for TL Studio account login was identified for this milestone, so Sign in with Kilo is removed rather than reverse-engineering a private flow.
 
