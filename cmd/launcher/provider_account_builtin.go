@@ -510,6 +510,23 @@ func (a *huggingFaceAccountAdapter) refreshCredential(ctx context.Context, curre
 	return next, nil
 }
 
+func (a *huggingFaceAccountAdapter) RuntimeCredential(ctx context.Context) (string, error) {
+	credential, err := a.loadCredential()
+	if err != nil {
+		return "", err
+	}
+	if accountCredentialExpired(credential, 2*time.Minute) {
+		if credential.RefreshToken == "" {
+			return "", errors.New("Hugging Face account needs reauthentication")
+		}
+		credential, err = a.refreshCredential(ctx, credential)
+		if err != nil {
+			return "", err
+		}
+	}
+	return strings.TrimSpace(credential.AccessToken), nil
+}
+
 func (a *huggingFaceAccountAdapter) Refresh(ctx context.Context, _ string) (providerAccountStatus, error) {
 	credential, err := a.loadCredential()
 	if err != nil {
