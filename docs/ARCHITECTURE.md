@@ -80,7 +80,7 @@ The SSE stream is a responsiveness signal. Persisted semantic session data remai
 
 The provider registry is authoritative. Provider configuration and credentials are never mirrored into another local runtime.
 
-Supported direct model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
+Supported direct model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini generateContent.
 
 Credentials are stored separately in the TL Studio credential vault. They do not appear in providers.json or Browser storage. Manual API credentials and account-backed credentials use separate vault slots; an account connection may temporarily take precedence without overwriting the user's manual API key.
 
@@ -100,7 +100,9 @@ Hugging Face is the second concrete account adapter. TL Studio identifies itself
 
 Google/Gemini is implemented as an installed-app OAuth adapter using Authorization Code + PKCE, loopback callbacks, refresh tokens, and token revocation. Gemini model calls use the native generateContent transport and keep Google-specific thought-signature continuation state inside the model protocol boundary. The non-secret Google Cloud Project ID is stored with the account-managed provider definition and sent as x-goog-user-project for quota/billing; OAuth tokens remain only in the credential vault. A registered TL Studio Desktop OAuth client is still required before the integration can be enabled in production.
 
-Private or undocumented provider OAuth flows are not reverse-engineered. Account integrations must not introduce a second Agent runtime or compatibility engine.
+Account providers whose authentication or model-transport contract does not currently fit the native boundary remain visible as explicit unavailable adapters rather than disappearing from Settings. ChatGPT/Codex remains a required 0.6 target, but the documented OpenAI third-party surface currently couples ChatGPT-plan inference to the Codex thread/turn runtime rather than a raw model transport. Claude account login remains deferred until Anthropic exposes a documented arbitrary third-party consumer-account authorization contract. GitHub Copilot remains deferred while its documented model integration requires the Copilot SDK/runtime.
+
+Private or undocumented provider OAuth flows are not reverse-engineered. Deferred boundary adapters are never registered as runtime credential sources, and account integrations must not introduce a second Agent runtime or compatibility engine without an explicit architecture decision.
 
 ## Tools and Plugins/MCP
 

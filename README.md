@@ -55,6 +55,8 @@ The 0.6 account-provider foundation supports semantic login state, cancellation,
 
 Google account login requires a registered TL Studio Desktop OAuth client plus a Google Cloud project with the Generative Language API enabled. A Gemini consumer subscription is not treated as Gemini API entitlement.
 
+ChatGPT/Codex, Claude, and GitHub Copilot are shown in Provider Settings as explicit deferred account integrations when the current official contract does not fit TL Studio's native execution boundary. They are not hidden fallbacks and are not registered as runtime credential sources.
+
 A model or protocol that the native client cannot execute returns an explicit unsupported-capability error. It is never routed through a hidden compatibility runtime.
 
 JEV remains an optional product-managed router on top of the normal OpenRouter-compatible provider path. It uses the same Native Agent, Tool Executor, permissions, sessions, and event system.
