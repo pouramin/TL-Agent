@@ -17,12 +17,12 @@ import { K } from "./kernel";
   section.innerHTML = `
     <div class="provider-subsection-head">
       <div>
-        <strong>Account providers</strong>
-        <span>Connect an account or configure a supported provider.</span>
+        <strong>Providers</strong>
+        <span>Sign in where supported, or configure the provider API key.</span>
       </div>
     </div>
     <div id="providerAccountList" class="provider-account-grid"></div>
-    <div class="provider-section-divider"><span>API providers</span></div>
+    <div class="provider-section-divider"><span>Custom providers</span></div>
   `;
   providerList.before(section);
 
@@ -89,6 +89,61 @@ import { K } from "./kernel";
 
   const accountList = document.getElementById("providerAccountList")!;
   let loading = false;
+
+  const accountLoginProviderIDs = new Set(["chatgpt", "github-copilot"]);
+  const providerCardOrder = ["chatgpt", "claude", "gemini", "github-copilot", "huggingface", "openrouter"];
+  const apiProviderPresets: Record<string, TLStudioDynamicRecord> = {
+    claude: {
+      providerID: "claude",
+      name: "Claude",
+      protocol: "anthropic-messages",
+      baseURL: "https://api.anthropic.com/v1",
+      toolCall: true,
+      reasoning: true,
+      credentialLabel: "Anthropic API key",
+    },
+    gemini: {
+      providerID: "gemini",
+      name: "Google / Gemini",
+      protocol: "openai-compatible",
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      toolCall: true,
+      reasoning: true,
+      credentialLabel: "Gemini API key",
+    },
+    huggingface: {
+      providerID: "huggingface",
+      name: "Hugging Face",
+      protocol: "openai-compatible",
+      baseURL: "https://router.huggingface.co/v1",
+      toolCall: true,
+      reasoning: true,
+      credentialLabel: "Hugging Face token",
+    },
+    openrouter: {
+      providerID: "openrouter",
+      name: "OpenRouter",
+      protocol: "openai-compatible",
+      baseURL: "https://openrouter.ai/api/v1",
+      toolCall: true,
+      reasoning: true,
+      credentialLabel: "OpenRouter API key",
+    },
+  };
+
+  const apiPresetFor = (providerID: string) => apiProviderPresets[clean(providerID)];
+  const apiProviderConnected = (preset: TLStudioDynamicRecord) =>
+    !!preset?.providerID && K.state.connectedProviders.has(clean(preset.providerID));
+
+  const openAPIProviderPreset = async (preset: TLStudioDynamicRecord) => {
+    if (!preset || !K.__providersUi?.openPreset) return;
+    K.showError("");
+    try {
+      await K.__providersUi.openPreset(preset);
+    } catch (error) {
+      K.showError(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   const setupForm = document.getElementById("providerAccountSetupForm") as HTMLFormElement;
   const setupTitle = document.getElementById("providerAccountSetupTitle") as HTMLElement;
@@ -179,13 +234,15 @@ import { K } from "./kernel";
 
   const syncConnectedProviders = () => {
     for (const account of K.state.providerAccounts) {
+      if (!accountLoginProviderIDs.has(account.id)) continue;
       if (account.connected) K.state.connectedProviders.add(account.id);
       else K.state.connectedProviders.delete(account.id);
     }
   };
 
   const renderAccountButton = () => {
-    const connected = K.state.providerAccounts.filter((account) => account.connected).length;
+    const connected = K.state.providerAccounts.filter((account) =>
+      accountLoginProviderIDs.has(account.id) && account.connected).length;
     K.els.accountButton.textContent = "Account";
     K.els.accountButton.classList.toggle("signed-in", connected > 0);
     K.els.accountButton.title = connected
@@ -195,23 +252,39 @@ import { K } from "./kernel";
 
   const render = () => {
     accountList.textContent = "";
-    if (!K.state.providerAccounts.length) {
-      const empty = document.createElement("div");
-      empty.className = "provider-empty";
-      empty.textContent = "No account-based provider integrations are available in this build.";
-      accountList.appendChild(empty);
-      renderAccountButton();
-      return;
-    }
+    const accountByID = new Map(K.state.providerAccounts.map((account) => [account.id, account]));
+    const cards = providerCardOrder.map((id) => {
+      const account = accountByID.get(id);
+      if (account) return account;
+      const preset = apiPresetFor(id);
+      return {
+        id,
+        name: clean(preset?.name) || id,
+        description: "",
+        available: false,
+        connected: false,
+        state: "disconnected",
+        authModes: [],
+        capabilities: [],
+      } as TLStudioProviderAccount;
+    });
 
-    for (const account of K.state.providerAccounts) {
+    for (const account of cards) {
+      const apiPreset = apiPresetFor(account.id);
+      const isAPIProvider = !!apiPreset;
+      const connected = isAPIProvider ? apiProviderConnected(apiPreset) : account.connected;
+      const available = isAPIProvider || account.available;
+
       const card = document.createElement("div");
-      card.className = `provider-account-card${account.available ? "" : " provider-account-unavailable"}${account.connected ? " provider-account-connected" : ""}`;
+      card.className = `provider-account-card${available ? "" : " provider-account-unavailable"}${connected ? " provider-account-connected" : ""}`;
       card.dataset.providerAccountId = account.id;
-      const details = providerAccountDetails(account);
+
+      const details = isAPIProvider
+        ? `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`
+        : providerAccountDetails(account);
       if (details) card.title = details;
 
-      if (account.setup?.configurable) {
+      if (!isAPIProvider && account.setup?.configurable) {
         const setup = document.createElement("button");
         setup.type = "button";
         setup.className = "ghost provider-account-setup-button";
@@ -236,21 +309,33 @@ import { K } from "./kernel";
       const state = document.createElement("div");
       state.className = "provider-account-state";
       const dot = document.createElement("span");
-      dot.className = `provider-status-dot${account.connected ? " ok" : ""}`;
+      dot.className = `provider-status-dot${connected ? " ok" : ""}`;
       const stateLabel = document.createElement("span");
-      stateLabel.textContent = statusText(account);
+      stateLabel.textContent = isAPIProvider
+        ? (connected ? "API connected" : "API key")
+        : statusText(account);
       state.append(dot, stateLabel);
 
       const accountDetails = document.createElement("div");
       accountDetails.className = "provider-account-details";
-      accountDetails.textContent = account.connected
+      accountDetails.textContent = !isAPIProvider && account.connected
         ? [account.accountLabel, account.accountType, account.organizationId].filter(Boolean).join(" · ")
         : "";
       if (!accountDetails.textContent) accountDetails.setAttribute("aria-hidden", "true");
 
       const actions = document.createElement("div");
       actions.className = "provider-account-card-actions";
-      if (account.connected) {
+
+      if (isAPIProvider) {
+        const configure = document.createElement("button");
+        configure.type = "button";
+        configure.className = "primary small provider-account-signin";
+        configure.dataset.providerAccountAction = "configure-api";
+        configure.textContent = "Configure";
+        configure.title = `Configure ${account.name || account.id} with an API credential`;
+        configure.addEventListener("click", () => { void openAPIProviderPreset(apiPreset); });
+        actions.appendChild(configure);
+      } else if (account.connected) {
         const reconnect = document.createElement("button");
         reconnect.type = "button";
         reconnect.className = "ghost small";

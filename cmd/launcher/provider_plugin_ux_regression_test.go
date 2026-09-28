@@ -192,7 +192,10 @@ func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
 		`provider-account-logo`,
 		`providerAccountLogo`,
 		`provider-account-setup-button`,
-		`connect.textContent = account.available ? "Sign in" : "Unavailable"`,
+		`configure.textContent = "Configure"`,
+		`accountLoginProviderIDs`,
+		`apiProviderPresets`,
+		`openAPIProviderPreset`,
 		`grid-template-columns:repeat(3,minmax(0,1fr))`,
 	} {
 		if !strings.Contains(source, required) {
@@ -256,5 +259,47 @@ func TestProviderAccountBrowserUsesSemanticLoginLifecycle(t *testing.T) {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("browser provider account UI must not handle provider secrets or raw auth payloads; found %q", forbidden)
 		}
+	}
+}
+
+
+func TestProviderCardsRouteAPIBasedServicesToPresetConfiguration(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	providers := readBrowserSource(t, "providers-ui.ts")
+
+	for _, required := range []string{
+		`claude: {`,
+		`providerID: "claude"`,
+		`protocol: "anthropic-messages"`,
+		`baseURL: "https://api.anthropic.com/v1"`,
+		`gemini: {`,
+		`baseURL: "https://generativelanguage.googleapis.com/v1beta/openai"`,
+		`huggingface: {`,
+		`baseURL: "https://router.huggingface.co/v1"`,
+		`openrouter: {`,
+		`baseURL: "https://openrouter.ai/api/v1"`,
+		`configure.dataset.providerAccountAction = "configure-api"`,
+		`configure.textContent = "Configure"`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("API provider preset contract missing %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		`const openPreset = async (preset: any) =>`,
+		`providerConfig = await K.api.providers.config()`,
+		`K.__providersUi.openPreset = openPreset`,
+		`requestAnimationFrame(() => els.apiKey?.focus?.({ preventScroll: true }))`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("provider preset editor contract missing %q", required)
+		}
+	}
+
+	if strings.Contains(accounts, `if (!account.available) return;
+    K.showError("");
+    K.state.authController`) == false {
+		t.Fatal("account login lifecycle must remain intact for account-based providers")
 	}
 }
