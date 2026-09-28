@@ -1,0 +1,88 @@
+---
+title: Plugins و MCP
+description: اتصال MCP Server از نوع stdio به TL Studio و اضافه‌کردن Toolهای آن به Native Agent.
+icon: Cable
+---
+
+در Stable v0.5 یک **Plugin/MCP System متعلق به خود TL Studio** وجود دارد. MCP Server فعال می‌تواند Toolهای خودش را وارد همان Tool Registry و Native Agent کند که Built-in Toolهای کدنویسی استفاده می‌کنند.
+
+## پشتیبانی فعلی
+
+در نسخه فعلی:
+
+```text
+Type:      MCP
+Transport: stdio
+Scope:     project or global
+```
+
+Transportهای HTTP/SSE MCP فعلاً پیاده‌سازی نشده‌اند.
+
+## اضافه‌کردن Plugin
+
+از **Settings → Plugins → Add plugin** این موارد را تنظیم کنید:
+
+- Name و Description اختیاری؛
+- Command محلی MCP؛
+- هر Argument در یک Line؛
+- Scope از نوع Project یا Global؛
+- Working Directory اختیاری؛
+- Environment Variableهای لازم و Secret Valueهای آن‌ها.
+
+صرف Save کردن Plugin هیچ Commandی را Start نمی‌کند. Plugin جدید در حالت Disabled ذخیره می‌شود.
+
+Enable یک Action جدا و صریح است و قبل از Start شدن MCP Command، TL Studio از User تأیید می‌گیرد.
+
+## Scope پروژه و Global
+
+Plugin از نوع Project فقط برای همان Project ذخیره‌شده فعال است.
+
+Plugin از نوع Global در Projectهای مختلف در دسترس است، اما هنگام Project Switch، MCP Process Restart می‌شود تا با Working Directory مربوط به Project قبلی ادامه ندهد.
+
+Project Identity Normalize می‌شود تا Pathهای معادل، Junction و Symlink-resolved Path باعث Leakage بین Projectهای نامرتبط نشوند.
+
+## Secretها
+
+Secret Value مربوط به Environment Variable از Credential Vault خود TL Studio استفاده می‌کند.
+
+فایل `plugins.json` فقط Definition، اسم Environment Variable و Configured State را نگه می‌دارد؛ Secret Value داخل آن ذخیره نمی‌شود.
+
+## Test Connection
+
+گزینه **Test Connection**، MCP Process را موقت Start می‌کند، Initialization را انجام می‌دهد، Toolها را Discover می‌کند، Resource Discovery را امتحان می‌کند و بعد Client موقت را می‌بندد.
+
+نسخه MCP Protocol فعلی:
+
+```text
+2024-11-05
+```
+
+`tools/list` لازم است، اما `resources/list` اختیاری در نظر گرفته می‌شود تا MCP Server فقط-Tool هم بتواند وصل شود.
+
+## Toolهای Agent
+
+Toolهای Discover‌شده از MCP فعال به‌صورت Dynamic به Tool Registry و Tool Definition مربوط به Native Agent اضافه می‌شوند.
+
+قبل از اجرای واقعی، این Toolها همچنان از Permission Authorizer خود TL Studio عبور می‌کنند.
+
+اگر MCP Process یا Transport وسط Tool Call Fail شود، TL Studio می‌تواند Client را یک بار Restart و همان Call را Retry کند.
+
+## Bundled Plugin Foundation
+
+TL Studio امکان Stage کردن Plugin نسخه‌ثابت داخل Release Package را دارد. Bundled Plugin قابل Remove نیست، اما می‌تواند Enable یا Disable شود.
+
+**در v0.5.0 Catalog مربوط به Bundled Plugin خالی است.** هیچ Third-party MCP Plugin به‌صورت پیش‌فرض همراه این Stable Build توزیع نمی‌شود.
+
+## Graphify Integration
+
+برای Graphify، TL Studio Integration Hook محصولی دارد.
+
+اگر Graphify را خودتان Configure کرده باشید، TL Studio می‌تواند:
+
+- وجود Project Graph را بررسی کند؛
+- قبل از فعال‌شدن Graphify MCP Query، وجود Graph را الزامی کند؛
+- بعد از تأیید صریح دستور `graphify extract . --code-only` را اجرا کند؛
+- **Build Graph / Rebuild Graph** نشان دهد؛
+- در صورت وجود، `graphify-out/graph.html` را در Preview باز کند.
+
+خود Graphify در v0.5.0 Bundle نشده است و CLI/MCP Executable آن باید از قبل در Environment کاربر موجود باشد.
