@@ -183,6 +183,27 @@ func TestPluginStoreMatchesEquivalentProjectPath(t *testing.T) {
 	}
 }
 
+func TestPluginProjectMatchKeyResolvesEquivalentAliases(t *testing.T) {
+	temp := t.TempDir()
+	realProject := filepath.Join(temp, "real-project")
+	aliasOne := filepath.Join(temp, "project-alias-one")
+	aliasTwo := filepath.Join(temp, "project-alias-two")
+	if err := os.MkdirAll(realProject, 0o755); err != nil { t.Fatal(err) }
+	if err := os.Symlink(realProject, aliasOne); err != nil {
+		t.Skipf("symlink unavailable on this platform: %v", err)
+	}
+	if err := os.Symlink(realProject, aliasTwo); err != nil {
+		t.Skipf("second symlink unavailable on this platform: %v", err)
+	}
+
+	realKey := pluginProjectMatchKey(realProject)
+	oneKey := pluginProjectMatchKey(aliasOne)
+	twoKey := pluginProjectMatchKey(aliasTwo)
+	if realKey == "" || realKey != oneKey || oneKey != twoKey {
+		t.Fatalf("equivalent project paths produced different match keys: real=%q one=%q two=%q", realKey, oneKey, twoKey)
+	}
+}
+
 func TestMCPClientInitializesDiscoversAndCallsTools(t *testing.T) {
 	project := t.TempDir()
 	config := fakeMCPConfig(project, true)
