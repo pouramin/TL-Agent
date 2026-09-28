@@ -1,6 +1,6 @@
 ---
 title: TL Studio
-description: آشنایی با Workspace، Native Agent، Provider، Tool و Plugins/MCP در TL Studio v0.5.
+description: آشنایی با Workspace، Native Agent، Model Connection، Tool و Plugins/MCP در TL Studio v0.5.
 icon: House
 ---
 
@@ -36,13 +36,12 @@ TL Studio Local Core
 - Preview مبتنی بر Capability برای Web، Document، Image، Audio و Video؛
 - Session Lifecycle و Semantic Persistence کاملاً Native؛
 - Interactive Question و Permission Policy کاملاً Native؛
-- Direct Provider Execution برای OpenAI-compatible Chat Completions، OpenAI Responses و Anthropic Messages؛
+- اجرای مستقیم Model از طریق Native Protocol Adapterهای متعلق به خود TL Studio؛
 - Model Discovery برای Provider با Catalog قابل Search و Cache Fallback؛
 - Credential Vault محلی؛
 - Native Model/Tool/Model Agent Loop؛
 - Core Coding Toolها به‌همراه Toolهای Dynamic از MCP Plugin؛
 - تنظیم MCP از نوع stdio در Scope پروژه یا Global با Enable/Test صریح؛
-- Integration اختیاری JEV/OpenRouter روی همان Native Provider Path.
 
 ## نسخه Stable
 
@@ -60,12 +59,12 @@ npx --yes tl-studio
 
 نسخه Portable هم از GitHub Releases قابل دریافت است.
 
-## کانال Development
+## منبع Stable
 
-Branch `main` روی Stable v0.5.0 باقی مانده است. Branch `dev` در حال حاضر روی `0.6.0-alpha.1` قرار دارد و 5 Commit از `main` جلوتر است؛ این Commitهای Development فعلاً فقط Version/Release-readiness bookkeeping هستند و Feature جدید User-facing اضافه نکرده‌اند.
+این سایت فقط وضعیت Stable موجود در Branch `main` را مستند می‌کند. نسخه Stable فعلی `v0.5.0` است.
 
 ## از کجا شروع کنم؟
 
 از [نصب](./getting-started/installation) و [اولین اجرا](./getting-started/first-run) شروع کنید.
 
-بعد [Workspace و Editor](./guides/workspace-editor)، [Native Agent و Toolها](./guides/native-agent-and-tools)، [Plugins و MCP](./guides/plugins-and-mcp)، [Custom Provider](./guides/custom-providers) و [JEV و OpenRouter](./guides/jev-and-openrouter) را ببینید.
+بعد [Workspace و Editor](./guides/workspace-editor)، [Native Agent و Toolها](./guides/native-agent-and-tools)، [Plugins و MCP](./guides/plugins-and-mcp) و [اتصال مدل‌ها](./guides/custom-providers) را ببینید.
