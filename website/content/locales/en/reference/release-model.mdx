@@ -36,7 +36,6 @@ Stable Release builds are produced for:
 
 A package contains the TL Studio executable, licenses/notices, and any version-pinned bundled Plugins configured for that release.
 
-v0.5.0 does **not** include a separate coding-runtime binary.
 
 The current bundled Plugin manifest is empty, so no third-party bundled Plugin ships in v0.5.0.
 
@@ -49,7 +48,6 @@ The release pipeline:
 - runs Go tests;
 - cross-builds platform launchers;
 - stages version-pinned bundled Plugins;
-- asserts no obsolete sidecar binary leaked into the package;
 - runs a native Product Contract against the built TL Studio executable;
 - produces SHA-256 checksums.
 
