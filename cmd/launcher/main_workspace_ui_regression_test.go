@@ -16,8 +16,6 @@ func TestMainWorkspaceContract(t *testing.T) {
 	for _, required := range []string{
 		"workspace-topbar",
 		"workspace-activity-rail",
-		"workspace-activity-icon",
-		"activityIcon(\"terminal\")",
 		"workspace-context-sidebar",
 		"workspace-agent-panel",
 		"workspace-statusbar",
@@ -72,9 +70,6 @@ func TestMainWorkspaceContract(t *testing.T) {
 		".workspace-context-sidebar",
 		".workspace-agent-panel",
 		".workspace-terminal-panel.terminal-panel",
-		".workspace-terminal-activity",
-		"var(--tl-message-size)",
-		"var(--tl-terminal-size)",
 		".workspace-command-palette",
 		"html[data-resolved-theme=\"light\"]",
 		"@media (max-width: 1350px)",

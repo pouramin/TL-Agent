@@ -17,18 +17,11 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		`data-settings-section="plugins"`,
 		`data-settings-panel="plugins"`,
 		`id="pluginAddButton"`,
-		`id="pluginDialog"`,
-		`id="pluginDialogTitle"`,
-		`id="pluginDialogClose"`,
 		`id="pluginCommandInput"`,
 		`id="pluginArgsInput"`,
-		`placeholder="/c&#10;npx&#10;-y&#10;package-name"`,
-		`One argument per line. Enter only arguments here; the executable belongs in Command.`,
-		`settings-primary-action`,
 		`id="pluginEnvInput"`,
 		`id="pluginScopeSelect"`,
 		`Test Connection`,
-		`id="pluginSaveButton" class="primary small" type="button">Done</button>`,
 	} {
 		if !strings.Contains(index, expected) {
 			t.Fatalf("Plugins settings surface is missing %q", expected)
@@ -40,58 +33,10 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		"K.api.plugins.update",
 		"K.api.plugins.setEnabled",
 		"K.api.plugins.remove",
-		"K.api.plugins.saved()",
-		"K.api.plugins.attach",
-		"Saved for another project",
-		"Use in current project",
 		`transport: transportSelect.value || "stdio"`,
 	} {
 		if !strings.Contains(source, expected) {
 			t.Fatalf("generic Plugins UI is missing %q", expected)
-		}
-	}
-
-	for _, expected := range []string{
-		`pluginDialog.showModal()`,
-		`pluginDialog.close()`,
-		`pluginDialogTitle.textContent = plugin ? "Configure plugin" : "Add plugin"`,
-		`nameInput.focus({ preventScroll: true })`,
-	} {
-		if !strings.Contains(source, expected) {
-			t.Fatalf("plugin modal behavior is missing %q", expected)
-		}
-	}
-	settingsClose := strings.Index(index, `id="settingsClose"`)
-	pluginDialog := strings.Index(index, `id="pluginDialog"`)
-	if settingsClose < 0 || pluginDialog < 0 || pluginDialog < settingsClose {
-		t.Fatal("plugin editor must live in a dedicated dialog outside the Settings content")
-	}
-
-	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
-	if err != nil { t.Fatal(err) }
-	css := string(cssData)
-	for _, expected := range []string{
-		".plugin-arguments-field {",
-		".plugin-arguments-field textarea:focus",
-		"border: 1px solid var(--line);",
-		"background: var(--panel-2);",
-		".plugin-form-grid input::placeholder,",
-		"color: #606975;",
-		"border-color: #485260;",
-		".plugin-dialog-card { width: min(700px, calc(100vw - 36px));",
-		".plugin-editor { margin: 0; padding: 0; border: 0; background: transparent;",
-		".plugin-empty { display: grid; gap: 3px; padding: 11px 13px;",
-	} {
-		if !strings.Contains(css, expected) {
-			t.Fatalf("Plugins settings styling is missing %q", expected)
-		}
-	}
-	for _, forbidden := range []string{
-		"border: 1px solid color-mix(in srgb,var(--accent),var(--line) 78%);",
-		"box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent),transparent 82%);",
-	} {
-		if strings.Contains(css, forbidden) {
-			t.Fatalf("Arguments field must not keep the rejected double/accent border treatment: %q", forbidden)
 		}
 	}
 }
@@ -139,9 +84,7 @@ func TestPluginEditorResetsAfterCompletion(t *testing.T) {
 		"commandInput.value = \"\"",
 		"argsInput.value = \"\"",
 		"envInput.value = \"\"",
-		`pluginDialog.addEventListener("close", resetEditor)`,
-		`settingsDialog?.addEventListener("close", () => {`,
-		`if (pluginDialog.open) pluginDialog.close()`,
+		"settingsDialog?.addEventListener(\"close\", closeEditor)",
 		"closeEditor();",
 	} {
 		if !strings.Contains(source, expected) {

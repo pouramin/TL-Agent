@@ -29,9 +29,8 @@ func TestBrowserPermissionsUseTLStudioEngine(t *testing.T) {
 	}
 	engineText := string(engine)
 	for _, expected := range []string{
-		`nativePending map[string]*nativePermissionWaiter`,
-		`replyNativePermission`,
-		`nativePendingSnapshot`,
+		`"interactive": interactive`,
+		`"Approved by TL Studio project permission policy."`,
 		`permissionCanRemember`,
 		`permissions.json`,
 	} {

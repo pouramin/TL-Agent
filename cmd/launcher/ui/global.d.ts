@@ -8,7 +8,6 @@ interface TLStudioLocalStatus {
   platform: string;
   arch: string;
   frontendURL?: string;
-  runtime?: { mode?: "native" | string };
   [key: string]: unknown;
 }
 
@@ -244,18 +243,6 @@ interface TLStudioLiveEvent {
   path?: string;
 }
 
-interface TLStudioProviderAccount {
-  id: string;
-  name: string;
-  description?: string;
-  available: boolean;
-  connected: boolean;
-  authModes: string[];
-  accountType?: string;
-  organizationId?: string;
-  models?: string[];
-}
-
 interface TLStudioProviderState {
   all: TLStudioDynamicRecord[];
   connected: Set<string>;
@@ -263,19 +250,13 @@ interface TLStudioProviderState {
   failed: TLStudioDynamicRecord[];
 }
 
-interface TLStudioProductAPI {
+interface TLStudioRuntimeContract {
   readonly version: string;
   health(): Promise<any>;
   path(): Promise<any>;
+  runtime: { dispose(): Promise<any> };
   agents(): Promise<any[]>;
   providerState(): Promise<TLStudioProviderState>;
-  providerAccounts: {
-    list(): Promise<TLStudioProviderAccount[]>;
-    status(providerID: string): Promise<TLStudioProviderAccount>;
-    authorize(providerID: string): Promise<TLStudioDynamicRecord>;
-    callback(providerID: string, signal?: AbortSignal): Promise<TLStudioDynamicRecord>;
-    disconnect(providerID: string): Promise<TLStudioDynamicRecord>;
-  };
   providers: {
     config(): Promise<{ providers: TLStudioDynamicRecord[] }>;
     upsert(providerID: string, input?: TLStudioDynamicRecord): Promise<any>;
@@ -294,8 +275,6 @@ interface TLStudioProductAPI {
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
     list(): Promise<TLStudioPluginView[]>;
-    saved(): Promise<TLStudioPluginView[]>;
-    attach(pluginID: string, sourceProject: string): Promise<TLStudioPluginView>;
     create(plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
     update(pluginID: string, plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
     remove(pluginID: string): Promise<any>;
@@ -318,6 +297,10 @@ interface TLStudioProductAPI {
     run(sessionID: string, input?: TLStudioSessionRunInput, options?: { directory?: string }): Promise<{ accepted: boolean; sessionID: string }>;
     abort(sessionID: string, options?: { scope?: string; directory?: string }): Promise<{ aborted: boolean; sessionID: string }>;
   };
+  legacySessions: {
+    list(options?: TLStudioDynamicRecord): Promise<any>;
+    messages(sessionID: string, options?: TLStudioDynamicRecord): Promise<any>;
+  };
   permissions: {
     list(sessionID?: string): Promise<any[]>;
     reply(sessionID: string, requestID: string, reply: "once" | "always" | "reject", message?: string): Promise<any>;
@@ -328,6 +311,14 @@ interface TLStudioProductAPI {
     list(sessionID?: string): Promise<TLStudioQuestionRequest[]>;
     reply(sessionID: string, requestID: string, answers: string[][]): Promise<{ resolved: boolean }>;
     reject(sessionID: string, requestID: string): Promise<{ resolved: boolean }>;
+  };
+  hosted: {
+    readonly providerID: string;
+    readonly preferredModels: readonly string[];
+    status(): Promise<{ authenticated: boolean; type: string; organizationId: string }>;
+    authorize(): Promise<any>;
+    callback(signal?: AbortSignal): Promise<any>;
+    disconnect(): Promise<any>;
   };
   events: {
     subscribe(options?: {
@@ -404,7 +395,6 @@ interface TLStudioState {
   providers: TLStudioDynamicRecord[];
   providerDefaults: Record<string, string>;
   connectedProviders: Set<string>;
-  providerAccounts: TLStudioProviderAccount[];
   eventSource: EventSource | null;
   fallbackPolling: TLStudioTimer;
   sessionPolling: TLStudioTimer;
@@ -414,6 +404,7 @@ interface TLStudioState {
   authURL: string;
   attentionKey: string;
   attachments: TLStudioDynamicRecord[];
+  hostedAuth: TLStudioDynamicRecord | null;
   activeEditorPath: string;
   changes: TLStudioDynamicRecord[];
   editorTabs: TLStudioFileTab[];
@@ -436,7 +427,7 @@ type TLStudioCallable = (...args: any[]) => any;
 interface TLStudioKernel {
   els: TLStudioElements;
   state: TLStudioState;
-  api: TLStudioProductAPI;
+  api: TLStudioRuntimeContract;
 
   request<T = any>(path: string, options?: RequestInit): Promise<T>;
   basename(path?: string): string;
@@ -448,6 +439,7 @@ interface TLStudioKernel {
   loadLocalStatus(): Promise<void>;
   checkBackend(): Promise<boolean>;
   modelValue(model?: TLStudioModelRef | TLStudioSessionModelRef): string;
+  preferredHostedModel(): { providerID: string; id: string } | undefined;
   renderAccount(): void;
   renderAgents(): void;
   renderModels(): void;
@@ -479,11 +471,15 @@ interface TLStudioKernel {
   stopEvents: TLStudioCallable;
   startEvents: TLStudioCallable;
   handleLiveEvent: TLStudioCallable;
+  handleRuntimeEvent: TLStudioCallable;
+  handleKiloEvent: TLStudioCallable;
   stopSessionPolling: TLStudioCallable;
   startSessionPolling: TLStudioCallable;
-  openProviderAccounts: TLStudioCallable;
+  signInHosted: TLStudioCallable;
   cancelAuth: TLStudioCallable;
   copyAuthCode: TLStudioCallable;
+  applyHostedAuthStatus: TLStudioCallable;
+  refreshHostedAuthStatus: TLStudioCallable;
   loadAttention: TLStudioCallable;
   refreshPermissionRules: TLStudioCallable;
   loadToolRegistry: TLStudioCallable;
@@ -506,10 +502,10 @@ interface TLStudioKernel {
   previewWindow?: TLStudioDynamicRecord;
   terminal?: TLStudioDynamicRecord;
   workspaceFiles?: TLStudioDynamicRecord;
+  legacySessions?: TLStudioDynamicRecord;
   __statusDiagnostics?: TLStudioDynamicRecord;
   __providerRecovery?: TLStudioDynamicRecord;
   __providersUi?: TLStudioDynamicRecord;
-  __providerAccountsUi?: TLStudioDynamicRecord;
 
   __attachmentsInstalled?: boolean;
   __diagnosticsUiInstalled?: boolean;
@@ -523,7 +519,6 @@ interface TLStudioKernel {
   __providerRecoveryInstalled?: boolean;
   __providersSettingsBridgeInstalled?: boolean;
   __providersUiInstalled?: boolean;
-  __providerAccountsUiInstalled?: boolean;
   __settingsEnhancementsInstalled?: boolean;
   __terminalInstalled?: boolean;
   __toolRegistryInstalled?: boolean;

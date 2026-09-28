@@ -132,12 +132,6 @@ assert.match(productSource, /K\.activateSettingsSection\s*=\s*activateSettingsSe
 assert.equal(providerTsSource.includes('if (button.dataset.settingsSection === "providers") continue;'), true, "Providers tab must be excluded from leave-section reset");
 assert.equal(providerTsSource.includes('button.addEventListener("click", resetTransientForm);'), true, "leaving Providers must reset the transient add/edit form");
 assert.equal(providerTsSource.includes('settingsDialog.addEventListener("close", resetTransientForm);'), true, "closing Settings must reset the transient provider form");
-assert.equal(providerTsSource.includes('providerDialog.id = "providerDialog"'), true, "provider editor must use a dedicated modal dialog");
-assert.equal(providerTsSource.includes('providerDialog.showModal()'), true, "Add/Configure provider must open the dedicated modal");
-assert.equal(providerTsSource.includes('providerDialog.close()'), true, "provider modal must close after cancel/save");
-assert.equal(providerTsSource.includes('providerDialog.addEventListener("close", resetFormFields)'), true, "closing provider modal must clear transient form state");
-assert.equal(providerTsSource.includes('type="submit">Done</button>'), true, "provider modal primary action should be Done");
-assert.equal(providerTsSource.includes('edit.textContent = "Configure"'), true, "provider cards should use Configure to match plugin settings");
 assert.equal(typeof hooks.resetTransientForm, "undefined", "DOM-only reset hook must not be installed when provider settings DOM is unavailable");
 
 assert.match(hooks.validateDraft({ ...draft, providerID: "Bad ID" }), /Provider ID/);

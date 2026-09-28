@@ -28,8 +28,8 @@ import { K } from "./kernel";
   style.id = "tl-jev-ui-style";
   style.textContent = `
     .jev-compact-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
-    .jev-compact-copy{min-width:0}.jev-compact-copy strong{display:block;font-size:var(--tl-ui-base)}.jev-compact-copy span{display:block;margin-top:3px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.4}
-    .jev-compact-control{flex:none;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 5px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);cursor:pointer;font:inherit;font-size:var(--tl-ui-xs);font-weight:700}
+    .jev-compact-copy{min-width:0}.jev-compact-copy strong{display:block;font-size:11px}.jev-compact-copy span{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1.4}
+    .jev-compact-control{flex:none;display:flex;align-items:center;gap:8px;padding:4px 8px 4px 5px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--muted);cursor:pointer;font:inherit;font-size:9px;font-weight:700}
     .jev-compact-control:hover{border-color:color-mix(in srgb,var(--accent),var(--line) 55%);color:var(--text)}
     .jev-switch-track{position:relative;width:28px;height:16px;border-radius:999px;background:var(--panel-3);border:1px solid var(--line);transition:.15s ease}
     .jev-switch-knob{position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:var(--muted-2);transition:.15s ease}
@@ -38,11 +38,11 @@ import { K } from "./kernel";
     .jev-config-dialog{width:min(520px,calc(100vw - 32px));padding:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);box-shadow:var(--shadow)}
     .jev-config-dialog::backdrop{background:rgba(0,0,0,.58)}
     .jev-config-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--line-soft)}
-    .jev-config-head h3{margin:0;font-size:var(--tl-ui-lg)}.jev-config-head p{margin:4px 0 0;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
+    .jev-config-head h3{margin:0;font-size:14px}.jev-config-head p{margin:4px 0 0;color:var(--muted);font-size:9px;line-height:1.45}
     .jev-config-body{display:grid;gap:12px;padding:16px 18px 18px}.jev-config-section{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
-    .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:var(--tl-ui-sm)}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
-    .jev-key-field{display:grid;gap:5px}.jev-key-field span{color:var(--muted);font-size:var(--tl-ui-xs)}.jev-key-field input{width:100%;height:34px}.jev-api-key{-webkit-text-security:disc}
-    .jev-config-status{min-height:12px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}.jev-config-status.ok{color:color-mix(in srgb,var(--accent),var(--text) 35%)}.jev-config-status.error{color:var(--danger)}
+    .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:10px}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:9px;line-height:1.45}
+    .jev-key-field{display:grid;gap:5px}.jev-key-field span{color:var(--muted);font-size:9px}.jev-key-field input{width:100%;height:34px}.jev-api-key{-webkit-text-security:disc}
+    .jev-config-status{min-height:12px;color:var(--muted);font-size:9px;line-height:1.45}.jev-config-status.ok{color:color-mix(in srgb,var(--accent),var(--text) 35%)}.jev-config-status.error{color:var(--danger)}
     .jev-config-row select{min-width:190px;height:32px}.jev-config-actions{display:flex;justify-content:flex-end;gap:8px}
     @media(max-width:760px){.jev-compact-row{align-items:flex-start}.jev-config-row{display:grid;align-items:stretch}.jev-config-row select,.jev-config-row button{width:100%}}
   `;

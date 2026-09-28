@@ -5,16 +5,18 @@ import (
 	"testing"
 )
 
-func TestBrowserProductAPINeverUsesRuntimeProxy(t *testing.T) {
+func TestBrowserRuntimeBoundaryHidesImplementationRoute(t *testing.T) {
 	source := readBrowserSource(t, "runtime-api.ts")
-	for _, forbidden := range []string{"/runtime/", "hosted:", "legacySessions:", "Sign in with Kilo"} {
-		if strings.Contains(source, forbidden) {
-			t.Fatalf("native Browser product API contains removed compatibility marker %q", forbidden)
-		}
+	if !strings.Contains(source, "/runtime") {
+		t.Fatal("runtime adapter must use the TL Studio /runtime boundary")
 	}
-	for _, required := range []string{"/local/providers/catalog", "/local/providers/config", "/local/sessions", "/local/questions", "/local/permissions", "/local/events"} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("native Browser product API is missing %q", required)
-		}
+	if strings.Contains(source, `/kilo${path}`) || strings.Contains(source, `/kilo${route(path)}`) {
+		t.Fatal("browser adapter must not call the implementation proxy prefix")
+	}
+	if strings.Contains(source, "window.KLU") {
+		t.Fatal("runtime adapter must use the module-owned Browser kernel")
+	}
+	if _, err := webFS.ReadFile("web/kilo-api.js"); err == nil {
+		t.Fatal("legacy implementation-named browser adapter must not be shipped")
 	}
 }

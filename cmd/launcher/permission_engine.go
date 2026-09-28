@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -289,20 +292,87 @@ func (s *permissionPolicyStore) covers(project, permission string, matchers []st
 	return len(required) == 0, nil
 }
 
+type runtimePermissionError struct {
+	Status int
+	Body   string
+}
+
+func (e *runtimePermissionError) Error() string {
+	if e.Body == "" {
+		return fmt.Sprintf("runtime permission request failed with status %d", e.Status)
+	}
+	return fmt.Sprintf("runtime permission request failed with status %d: %s", e.Status, e.Body)
+}
+
 type permissionEngine struct {
 	state         *appState
+	backend       *runtimeBackend
 	store         *permissionPolicyStore
 	nativeMu      sync.Mutex
 	nativePending map[string]*nativePermissionWaiter
 	events        *liveEventBus
 }
 
-func newPermissionEngine(state *appState) *permissionEngine {
+func newPermissionEngine(state *appState, backendURL, username, password string) (*permissionEngine, error) {
+	backend, err := newRuntimeBackend(
+		state,
+		backendURL,
+		runtimeCredentials{Username: username, Password: password},
+		defaultRuntimeEngine(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return newPermissionEngineWithBackend(state, backend), nil
+}
+
+func newPermissionEngineWithBackend(state *appState, backend *runtimeBackend) *permissionEngine {
 	return &permissionEngine{
 		state:         state,
+		backend:       backend,
 		store:         newPermissionPolicyStore(permissionPolicyPath()),
 		nativePending: map[string]*nativePermissionWaiter{},
 	}
+}
+
+func (e *permissionEngine) runtimeRequest(ctx context.Context, method, route string, query url.Values, body any) (json.RawMessage, error) {
+	var reader io.Reader
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		reader = bytes.NewReader(encoded)
+	}
+	req, err := e.backend.newRequest(ctx, method, route, e.state.projectPath(), query, reader)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	response, err := e.backend.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(response.Body, 8<<20))
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, &runtimePermissionError{Status: response.StatusCode, Body: strings.TrimSpace(string(data))}
+	}
+	return json.RawMessage(data), nil
+}
+
+func (e *permissionEngine) runtimeQuery() url.Values {
+	query := url.Values{}
+	if project := strings.TrimSpace(e.state.projectPath()); project != "" {
+		query.Set("directory", project)
+	}
+	return query
 }
 
 func permissionString(item map[string]any) string {
@@ -359,6 +429,18 @@ func permissionCanRemember(item map[string]any) bool {
 	return len(permissionAlwaysMatchers(item)) > 0
 }
 
+func (e *permissionEngine) rawPending(ctx context.Context) ([]map[string]any, error) {
+	raw, err := e.runtimeRequest(ctx, http.MethodGet, "/permission", e.runtimeQuery(), nil)
+	if err != nil {
+		return nil, err
+	}
+	var pending []map[string]any
+	if err := json.Unmarshal(unwrapRuntimePayload(raw), &pending); err != nil {
+		return nil, fmt.Errorf("decode runtime permissions: %w", err)
+	}
+	return pending, nil
+}
+
 func permissionID(item map[string]any) string {
 	id, _ := item["id"].(string)
 	return strings.TrimSpace(id)
@@ -369,25 +451,123 @@ func permissionSessionID(item map[string]any) string {
 	return strings.TrimSpace(id)
 }
 
-func (e *permissionEngine) listPending(_ context.Context, sessionID string) ([]map[string]any, error) {
-	return e.nativePendingSnapshot(strings.TrimSpace(sessionID)), nil
+func (e *permissionEngine) runtimeReply(ctx context.Context, requestID, reply, message string, interactive bool) error {
+	payload := map[string]any{
+		"reply":       reply,
+		"interactive": interactive,
+	}
+	if strings.TrimSpace(message) != "" {
+		payload["message"] = strings.TrimSpace(message)
+	}
+	_, err := e.runtimeRequest(
+		ctx,
+		http.MethodPost,
+		"/permission/"+url.PathEscape(requestID)+"/reply",
+		e.runtimeQuery(),
+		payload,
+	)
+	return err
 }
 
-func (e *permissionEngine) reply(_ context.Context, requestID, sessionID, reply, _ string) (map[string]any, error) {
-	result, handled, err := e.replyNativePermission(
-		strings.TrimSpace(requestID),
-		strings.TrimSpace(sessionID),
-		strings.TrimSpace(reply),
-	)
-	if handled {
-		return result, err
+func (e *permissionEngine) shouldAutoAllow(item map[string]any) (bool, error) {
+	if !permissionCanRemember(item) {
+		return false, nil
+	}
+	return e.store.covers(e.state.projectPath(), permissionString(item), permissionAlwaysMatchers(item))
+}
+
+func (e *permissionEngine) listPending(ctx context.Context, sessionID string) ([]map[string]any, error) {
+	visible := e.nativePendingSnapshot(sessionID)
+	pending, err := e.rawPending(ctx)
+	if err != nil {
+		if len(visible) > 0 {
+			return visible, nil
+		}
+		return nil, err
+	}
+	for _, item := range pending {
+		if sessionID != "" && permissionSessionID(item) != sessionID {
+			continue
+		}
+		auto, policyErr := e.shouldAutoAllow(item)
+		if policyErr != nil {
+			return nil, policyErr
+		}
+		if auto {
+			id := permissionID(item)
+			if id != "" {
+				if replyErr := e.runtimeReply(ctx, id, "once", "Approved by TL Studio project permission policy.", false); replyErr == nil {
+					continue
+				}
+			}
+		}
+		visible = append(visible, item)
+	}
+	return visible, nil
+}
+
+func (e *permissionEngine) findPending(ctx context.Context, requestID, sessionID string) (map[string]any, error) {
+	pending, err := e.rawPending(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, item := range pending {
+		if permissionID(item) != requestID {
+			continue
+		}
+		if sessionID != "" && permissionSessionID(item) != sessionID {
+			continue
+		}
+		return item, nil
 	}
 	return nil, os.ErrNotExist
+}
+
+func (e *permissionEngine) reply(ctx context.Context, requestID, sessionID, reply, message string) (map[string]any, error) {
+	if result, handled, err := e.replyNativePermission(requestID, sessionID, reply); handled {
+		return result, err
+	}
+	item, err := e.findPending(ctx, requestID, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	switch reply {
+	case "once", "reject":
+		if err := e.runtimeReply(ctx, requestID, reply, message, true); err != nil {
+			return nil, err
+		}
+		return map[string]any{"ok": true, "reply": reply, "remembered": 0}, nil
+	case "always":
+		if !permissionCanRemember(item) {
+			return nil, errors.New("this permission cannot be remembered safely")
+		}
+		matchers := permissionAlwaysMatchers(item)
+		added, err := e.store.addAllowRules(e.state.projectPath(), permissionString(item), matchers)
+		if err != nil {
+			return nil, err
+		}
+		if err := e.runtimeReply(ctx, requestID, "once", message, true); err != nil {
+			_ = e.store.removeIDs(added)
+			return nil, err
+		}
+		return map[string]any{"ok": true, "reply": "once", "remembered": len(added)}, nil
+	default:
+		return nil, errors.New("reply must be once, always, or reject")
+	}
 }
 
 func writePermissionEngineError(w http.ResponseWriter, err error) {
 	if errors.Is(err, os.ErrNotExist) {
 		writeJSON(w, http.StatusNotFound, jsonError{Error: "permission request not found"})
+		return
+	}
+	var runtimeErr *runtimePermissionError
+	if errors.As(err, &runtimeErr) {
+		status := runtimeErr.Status
+		if status < 400 || status > 599 {
+			status = http.StatusBadGateway
+		}
+		writeJSON(w, status, jsonError{Error: runtimeErr.Error()})
 		return
 	}
 	writeJSON(w, http.StatusInternalServerError, jsonError{Error: err.Error()})
@@ -421,8 +601,7 @@ func registerPermissionRoutes(mux *http.ServeMux, engine *permissionEngine) {
 			body.Message,
 		)
 		if err != nil {
-			if strings.Contains(err.Error(), "cannot be remembered") || strings.Contains(err.Error(), "reply must be") ||
-				strings.Contains(err.Error(), "does not belong") {
+			if strings.Contains(err.Error(), "cannot be remembered") || strings.Contains(err.Error(), "reply must be") {
 				writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
 				return
 			}

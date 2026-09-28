@@ -65,11 +65,14 @@ func newNativeModelClient() nativeModelClient {
 	return &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
 }
 
-func (m *providerManager) resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+func (m *runtimeProviderManager) resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
 	providerID = strings.TrimSpace(providerID)
 	modelID = strings.TrimSpace(modelID)
 	if providerID == "" || modelID == "" {
 		return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("provider and model are required for native execution")
+	}
+	if providerID == runtimeHostedProviderID {
+		return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("hosted runtime models use the compatibility execution path")
 	}
 	provider, ok, err := m.store.get(providerID)
 	if err != nil {

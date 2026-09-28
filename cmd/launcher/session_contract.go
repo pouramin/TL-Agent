@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const maxSemanticSessions = 150
@@ -114,16 +117,43 @@ type nativeSessionStatusProvider interface {
 
 type sessionReadContract struct {
 	state        *appState
+	backend      *runtimeBackend
 	history      *projectHistoryStore
 	store        *sessionPersistenceStore
 	nativeStatus nativeSessionStatusProvider
 }
 
-func newSessionReadContract(state *appState) *sessionReadContract {
+type sessionRuntimeError struct {
+	Status int
+	Body   string
+}
+
+func (e *sessionRuntimeError) Error() string {
+	if e.Body == "" {
+		return fmt.Sprintf("runtime session request failed with status %d", e.Status)
+	}
+	return fmt.Sprintf("runtime session request failed with status %d: %s", e.Status, e.Body)
+}
+
+func newSessionReadContract(state *appState, backendURL, username, password string) (*sessionReadContract, error) {
+	backend, err := newRuntimeBackend(
+		state,
+		backendURL,
+		runtimeCredentials{Username: username, Password: password},
+		defaultRuntimeEngine(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return newSessionReadContractWithBackend(state, backend), nil
+}
+
+func newSessionReadContractWithBackend(state *appState, backend *runtimeBackend) *sessionReadContract {
 	return &sessionReadContract{
 		state:   state,
+		backend: backend,
 		history: recentProjects,
-		store:   newSessionPersistenceStore(sessionPersistenceRoot(), "native"),
+		store:   newSessionPersistenceStore(sessionPersistenceRoot(), backend.engine.ID()),
 	}
 }
 
@@ -132,7 +162,35 @@ func (c *sessionReadContract) setNativeStatusProvider(provider nativeSessionStat
 }
 
 func sessionUsesNativeExecution(session sessionView) bool {
-	return strings.TrimSpace(session.Execution) == "native" || strings.TrimSpace(session.Execution) == ""
+	return strings.TrimSpace(session.Execution) == "native"
+}
+
+func (c *sessionReadContract) runtimeGet(ctx context.Context, route, directory string, query url.Values) (json.RawMessage, error) {
+	if query == nil {
+		query = url.Values{}
+	}
+	if directory != "" {
+		query.Set("directory", directory)
+	}
+
+	req, err := c.backend.newRequest(ctx, http.MethodGet, route, directory, query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.backend.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(response.Body, 16<<20))
+	if err != nil {
+		return nil, err
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, &sessionRuntimeError{Status: response.StatusCode, Body: strings.TrimSpace(string(data))}
+	}
+	return unwrapRuntimePayload(json.RawMessage(data)), nil
 }
 
 func sessionMap(value any) map[string]any {
@@ -631,135 +689,310 @@ func (c *sessionReadContract) allowedDirectory(requested string) (string, error)
 	return "", errors.New("session directory is not in TL Studio recent-project history")
 }
 
-func (c *sessionReadContract) listProjectSessions(_ context.Context, directory string, limit int) ([]sessionView, error) {
-	if c.store == nil {
-		return []sessionView{}, nil
-	}
-	persisted, err := c.store.list(maxPersistedSessions)
+func (c *sessionReadContract) listProjectSessions(ctx context.Context, directory string, limit int) ([]sessionView, error) {
+	query := url.Values{}
+	query.Set("limit", strconv.Itoa(limit))
+	query.Set("roots", "true")
+	raw, err := c.runtimeGet(ctx, "/session", directory, query)
 	if err != nil {
+		if c.store != nil {
+			persisted, storeErr := c.store.list(maxPersistedSessions)
+			if storeErr == nil {
+				result := make([]sessionView, 0, len(persisted))
+				for _, session := range persisted {
+					if sameProjectPath(session.Directory, directory) {
+						result = append(result, session)
+						if limit > 0 && len(result) >= limit {
+							break
+						}
+					}
+				}
+				if len(result) > 0 {
+					return result, nil
+				}
+			}
+		}
 		return nil, err
 	}
-	result := make([]sessionView, 0, len(persisted))
-	for _, session := range persisted {
-		if sameProjectPath(session.Directory, directory) {
+	var rows []map[string]any
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return nil, fmt.Errorf("decode runtime sessions: %w", err)
+	}
+	result := make([]sessionView, 0, len(rows))
+	for _, row := range rows {
+		session := normalizeSession(row, directory)
+		if session.ID != "" {
 			result = append(result, session)
-			if limit > 0 && len(result) >= limit {
-				break
+			if c.store != nil {
+				_ = c.store.upsertSession(session)
 			}
 		}
 	}
 	return result, nil
 }
 
-func (c *sessionReadContract) listSessions(_ context.Context, limit int) ([]sessionView, error) {
+func (c *sessionReadContract) listSessions(ctx context.Context, limit int) ([]sessionView, error) {
 	if limit <= 0 || limit > maxSemanticSessions {
 		limit = maxSemanticSessions
 	}
 	current := c.state.projectPath()
 	c.history.remember(current)
-	if c.store == nil {
+	projects := c.history.list()
+	if current != "" && !containsProject(projects, current) {
+		projects = append([]string{current}, projects...)
+	}
+	if len(projects) == 0 {
 		return []sessionView{}, nil
 	}
-	sessions, err := c.store.list(maxPersistedSessions)
-	if err != nil {
-		return nil, err
+
+	type projectResult struct {
+		sessions []sessionView
+		err      error
 	}
-	allowed := map[string]bool{}
-	for _, project := range c.history.list() {
-		allowed[filepath.Clean(project)] = true
+	results := make(chan projectResult, len(projects))
+	semaphore := make(chan struct{}, 8)
+	var wg sync.WaitGroup
+	for _, directory := range projects {
+		directory := directory
+		if strings.TrimSpace(directory) == "" {
+			continue
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+			sessions, err := c.listProjectSessions(ctx, directory, 50)
+			results <- projectResult{sessions: sessions, err: err}
+		}()
 	}
-	if current != "" {
-		allowed[filepath.Clean(current)] = true
-	}
-	result := make([]sessionView, 0, len(sessions))
-	for _, session := range sessions {
-		if allowed[filepath.Clean(session.Directory)] {
-			result = append(result, session)
+	wg.Wait()
+	close(results)
+
+	merged := map[string]sessionView{}
+	successes := 0
+	var lastErr error
+	for result := range results {
+		if result.err != nil {
+			lastErr = result.err
+			continue
+		}
+		successes++
+		for _, session := range result.sessions {
+			previous, exists := merged[session.ID]
+			if !exists || session.UpdatedAt >= previous.UpdatedAt {
+				merged[session.ID] = session
+			}
 		}
 	}
-	sort.Slice(result, func(i, j int) bool {
-		if result[i].UpdatedAt == result[j].UpdatedAt {
-			return result[i].ID < result[j].ID
+	if c.store != nil {
+		if persisted, storeErr := c.store.list(maxPersistedSessions); storeErr == nil {
+			for _, session := range persisted {
+				previous, exists := merged[session.ID]
+				if !exists || session.UpdatedAt >= previous.UpdatedAt {
+					merged[session.ID] = session
+				}
+			}
 		}
-		return result[i].UpdatedAt > result[j].UpdatedAt
+	}
+	if len(merged) == 0 && successes == 0 && lastErr != nil {
+		return nil, lastErr
+	}
+	list := make([]sessionView, 0, len(merged))
+	for _, session := range merged {
+		list = append(list, session)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].UpdatedAt == list[j].UpdatedAt {
+			return list[i].ID < list[j].ID
+		}
+		return list[i].UpdatedAt > list[j].UpdatedAt
 	})
-	if len(result) > limit {
-		result = result[:limit]
+	if len(list) > limit {
+		list = list[:limit]
+	}
+	return list, nil
+}
+
+func (c *sessionReadContract) getSession(ctx context.Context, sessionID, directory string) (sessionView, error) {
+	if c.store != nil {
+		if persisted, ok, storeErr := c.store.getSession(sessionID); storeErr == nil && ok && sessionUsesNativeExecution(persisted) {
+			return persisted, nil
+		}
+	}
+	raw, err := c.runtimeGet(ctx, "/session/"+url.PathEscape(sessionID), directory, nil)
+	if err != nil {
+		if c.store != nil {
+			if persisted, ok, storeErr := c.store.getSession(sessionID); storeErr == nil && ok {
+				return persisted, nil
+			}
+		}
+		return sessionView{}, err
+	}
+	var row map[string]any
+	if err := json.Unmarshal(raw, &row); err != nil {
+		return sessionView{}, fmt.Errorf("decode runtime session: %w", err)
+	}
+	result := normalizeSession(row, directory)
+	if result.ID == "" {
+		return sessionView{}, errors.New("runtime session is missing an id")
+	}
+	if c.store != nil {
+		_ = c.store.upsertSession(result)
 	}
 	return result, nil
 }
 
-func (c *sessionReadContract) getSession(_ context.Context, sessionID, directory string) (sessionView, error) {
-	if c.store == nil {
-		return sessionView{}, errors.New("native session store is unavailable")
-	}
-	session, ok, err := c.store.getSession(strings.TrimSpace(sessionID))
-	if err != nil {
-		return sessionView{}, err
-	}
-	if !ok {
-		return sessionView{}, errors.New("session not found")
-	}
-	if directory != "" && !sameProjectPath(session.Directory, directory) {
-		return sessionView{}, errors.New("session does not belong to the selected project")
-	}
-	return session, nil
-}
-
-func (c *sessionReadContract) getMessages(_ context.Context, sessionID, directory string, limit int) ([]sessionMessageView, error) {
-	if _, err := c.getSession(context.Background(), sessionID, directory); err != nil {
-		return nil, err
-	}
+func (c *sessionReadContract) getMessages(ctx context.Context, sessionID, directory string, limit int) ([]sessionMessageView, error) {
 	if limit <= 0 || limit > 2000 {
 		limit = 200
 	}
-	messages, ok, err := c.store.getMessages(strings.TrimSpace(sessionID))
+	if c.store != nil {
+		if persistedSession, ok, storeErr := c.store.getSession(sessionID); storeErr == nil && ok && sessionUsesNativeExecution(persistedSession) {
+			if persisted, messagesOK, messagesErr := c.store.getMessages(sessionID); messagesErr == nil && messagesOK {
+				if len(persisted) > limit {
+					persisted = persisted[len(persisted)-limit:]
+				}
+				return persisted, nil
+			}
+		}
+	}
+	query := url.Values{}
+	query.Set("limit", strconv.Itoa(limit))
+	raw, err := c.runtimeGet(ctx, "/session/"+url.PathEscape(sessionID)+"/message", directory, query)
 	if err != nil {
+		if c.store != nil {
+			if persisted, ok, storeErr := c.store.getMessages(sessionID); storeErr == nil && ok {
+				if len(persisted) > limit {
+					persisted = persisted[len(persisted)-limit:]
+				}
+				return persisted, nil
+			}
+		}
 		return nil, err
 	}
-	if !ok {
-		return []sessionMessageView{}, nil
+	var rows []map[string]any
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return nil, fmt.Errorf("decode runtime session messages: %w", err)
 	}
-	if len(messages) > limit {
-		messages = messages[len(messages)-limit:]
+	result := make([]sessionMessageView, 0, len(rows))
+	for _, row := range rows {
+		message := normalizeMessage(row)
+		if message.Role != "" {
+			result = append(result, message)
+		}
 	}
-	return messages, nil
+	if c.store != nil {
+		session, _, _ := c.store.getSession(sessionID)
+		if session.ID == "" {
+			session = sessionView{ID: sessionID, Directory: directory}
+		}
+		_ = c.store.putMessages(session, result)
+	}
+	return result, nil
 }
 
-func (c *sessionReadContract) getStatuses(_ context.Context, directory string) (map[string]sessionStatusView, error) {
-	if c.nativeStatus == nil {
-		return map[string]sessionStatusView{}, nil
+func (c *sessionReadContract) getStatuses(ctx context.Context, directory string) (map[string]sessionStatusView, error) {
+	raw, err := c.runtimeGet(ctx, "/session/status", directory, nil)
+	if err != nil {
+		if c.nativeStatus != nil {
+			native := c.nativeStatus.NativeStatuses(directory)
+			if len(native) > 0 {
+				return native, nil
+			}
+		}
+		return nil, err
 	}
-	return c.nativeStatus.NativeStatuses(directory), nil
+	var rows map[string]map[string]any
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		return nil, fmt.Errorf("decode runtime session status: %w", err)
+	}
+	result := make(map[string]sessionStatusView, len(rows))
+	for sessionID, row := range rows {
+		result[sessionID] = normalizeSessionStatus(row)
+	}
+	if c.nativeStatus != nil {
+		for sessionID, status := range c.nativeStatus.NativeStatuses(directory) {
+			result[sessionID] = status
+		}
+	}
+	return result, nil
 }
 
-func (c *sessionReadContract) getChanges(_ context.Context, sessionID, directory string) ([]sessionChangeView, error) {
-	if _, err := c.getSession(context.Background(), sessionID, directory); err != nil {
-		return nil, err
+func (c *sessionReadContract) getChanges(ctx context.Context, sessionID, directory string) ([]sessionChangeView, error) {
+	if c.store != nil {
+		if persistedSession, ok, storeErr := c.store.getSession(sessionID); storeErr == nil && ok && sessionUsesNativeExecution(persistedSession) {
+			if persisted, changesOK, changesErr := c.store.getChanges(sessionID); changesErr == nil && changesOK {
+				return persisted, nil
+			}
+		}
 	}
-	if c.store == nil {
-		return []sessionChangeView{}, nil
+	raw, err := c.runtimeGet(ctx, "/session/"+url.PathEscape(sessionID)+"/diff", directory, nil)
+	if err == nil {
+		var rows []map[string]any
+		if decodeErr := json.Unmarshal(raw, &rows); decodeErr == nil {
+			changes := make([]sessionChangeView, 0, len(rows))
+			for _, row := range rows {
+				if change, ok := normalizeChange(row, ""); ok {
+					changes = append(changes, change)
+				}
+			}
+			if len(changes) > 0 {
+				changes = mergeSessionChanges(changes)
+				if c.store != nil {
+					session, _, _ := c.store.getSession(sessionID)
+					if session.ID == "" {
+						session = sessionView{ID: sessionID, Directory: directory}
+					}
+					_ = c.store.putChanges(session, changes)
+				}
+				return changes, nil
+			}
+		}
 	}
-	changes, ok, err := c.store.getChanges(strings.TrimSpace(sessionID))
-	if err != nil {
-		return nil, err
+
+	messages, messageErr := c.getMessages(ctx, sessionID, directory, 1000)
+	if messageErr != nil {
+		if c.store != nil {
+			if persisted, ok, storeErr := c.store.getChanges(sessionID); storeErr == nil && ok {
+				return persisted, nil
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		return nil, messageErr
 	}
-	if !ok {
-		return []sessionChangeView{}, nil
+	var changes []sessionChangeView
+	for _, message := range messages {
+		changes = append(changes, message.Changes...)
+	}
+	changes = mergeSessionChanges(changes)
+	if c.store != nil {
+		session, _, _ := c.store.getSession(sessionID)
+		if session.ID == "" {
+			session = sessionView{ID: sessionID, Directory: directory}
+		}
+		_ = c.store.putChanges(session, changes)
 	}
 	return changes, nil
 }
 
 func writeSessionContractError(w http.ResponseWriter, err error) {
-	message := err.Error()
-	switch {
-	case strings.Contains(message, "recent-project history"), strings.Contains(message, "does not belong"):
-		writeJSON(w, http.StatusForbidden, jsonError{Error: message})
-	case strings.Contains(message, "not found"):
-		writeJSON(w, http.StatusNotFound, jsonError{Error: message})
-	default:
-		writeJSON(w, http.StatusInternalServerError, jsonError{Error: message})
+	var runtimeErr *sessionRuntimeError
+	if errors.As(err, &runtimeErr) {
+		status := http.StatusBadGateway
+		if runtimeErr.Status == http.StatusNotFound {
+			status = http.StatusNotFound
+		}
+		writeJSON(w, status, jsonError{Error: runtimeErr.Error()})
+		return
 	}
+	if strings.Contains(err.Error(), "recent-project history") {
+		writeJSON(w, http.StatusForbidden, jsonError{Error: err.Error()})
+		return
+	}
+	writeJSON(w, http.StatusBadGateway, jsonError{Error: err.Error()})
 }
 
 func registerSessionReadRoutes(mux *http.ServeMux, contract *sessionReadContract) {

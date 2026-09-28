@@ -243,25 +243,29 @@ import { K } from "./kernel";
     return result;
   };
 
-  const originalHandleLiveEvent = K.handleLiveEvent;
-  K.handleLiveEvent = (event: TLStudioLiveEvent) => {
-    originalHandleLiveEvent(event);
-    const sessionID = event?.sessionID || "";
+  const originalHandleKiloEvent = K.handleKiloEvent;
+  K.handleKiloEvent = (event) => {
+    const type = event?.type || "";
+    const props = event?.properties || event?.data || {};
+    const sessionID = props.sessionID || props.info?.sessionID || props.part?.sessionID;
 
+    if (type === "session.status" && sessionID && props.status) K.state.activeSessions[sessionID] = props.status;
+    if (type === "session.idle" && sessionID) K.state.activeSessions[sessionID] = { type: "idle" };
+
+    originalHandleKiloEvent(event);
     K.refreshWorkspaceControls();
 
-    if (sessionID && sessionID === K.state.session?.id &&
-        (event.type === "workspace.changed" || event.type === "session.changed")) {
+    if (sessionID && sessionID === K.state.session?.id && (type === "session.diff" || type === "session.idle")) {
       window.setTimeout(() => K.loadChanges().catch(() => {}), 60);
     }
-    if (sessionID && sessionID === K.state.session?.id && event.type === "session.changed") {
+    if (sessionID && sessionID === K.state.session?.id && type === "session.idle") {
       window.setTimeout(() => settleSelectedSession().catch((error) => K.showError((error as any).message || String(error))), 80);
     }
   };
 
-  // Native semantic events are the primary source of progress. Keep only a
+  // Kilo's global SSE stream is the primary source of progress. Keep only a
   // low-frequency reconciliation watchdog while SSE is connected; retain the
-  // original polling path as a fallback for browsers without EventSource.
+  // original fast polling path as a fallback for browsers without EventSource.
   const fallbackStartSessionPolling = K.startSessionPolling;
   K.startSessionPolling = (startedAt = Date.now()) => {
     const source = K.state.eventSource;

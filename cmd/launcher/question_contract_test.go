@@ -2,128 +2,105 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"strings"
 	"testing"
-	"time"
 )
 
-func TestNativeQuestionAskReplyResumesCaller(t *testing.T) {
-	bus := newLiveEventBus()
-	contract := newQuestionContract(&appState{project: t.TempDir()}, bus)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
+type questionTestAdapter struct {
+	items        []questionRequestView
+	replyID      string
+	replyAnswers [][]string
+	rejectID     string
+}
 
-	type result struct {
-		answers  [][]string
-		rejected bool
-		err      error
-	}
-	done := make(chan result, 1)
-	go func() {
-		answers, rejected, err := contract.Ask(ctx, "tls_session", []questionPromptView{{
-			Header: "Choice", Question: "Which option?",
-			Options: []questionOptionView{{Label: "A"}, {Label: "B"}},
-			Custom: true,
-		}})
-		done <- result{answers: answers, rejected: rejected, err: err}
-	}()
+func (a *questionTestAdapter) ListQuestions(context.Context, *runtimeBackend, string) ([]questionRequestView, error) {
+	return append([]questionRequestView(nil), a.items...), nil
+}
 
-	var pending []questionRequestView
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		pending = contract.list("tls_session")
-		if len(pending) == 1 {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	if len(pending) != 1 {
-		t.Fatal("native question did not become pending")
-	}
-	if pending[0].SessionID != "tls_session" || len(pending[0].Questions) != 1 {
-		t.Fatalf("unexpected pending question %#v", pending[0])
-	}
+func (a *questionTestAdapter) ReplyQuestion(_ context.Context, _ *runtimeBackend, _ string, requestID string, answers [][]string) error {
+	a.replyID = requestID
+	a.replyAnswers = answers
+	return nil
+}
 
+func (a *questionTestAdapter) RejectQuestion(_ context.Context, _ *runtimeBackend, _ string, requestID string) error {
+	a.rejectID = requestID
+	return nil
+}
+
+type questionTestEngine struct {
+	adapter *questionTestAdapter
+}
+
+func (*questionTestEngine) ID() string { return "question-test" }
+func (*questionTestEngine) FindBinary(override string) (string, error) { return override, nil }
+func (*questionTestEngine) Command(context.Context, string, int, runtimeCredentials) *exec.Cmd { return nil }
+func (*questionTestEngine) PrepareRequest(*http.Request, string, runtimeCredentials) {}
+func (e *questionTestEngine) Questions() runtimeQuestionAdapter { return e.adapter }
+
+func TestQuestionRoutesUseSemanticAdapter(t *testing.T) {
+	project := t.TempDir()
+	adapter := &questionTestAdapter{
+		items: []questionRequestView{
+			{
+				ID: "q1", SessionID: "s1",
+				Questions: []questionPromptView{{
+					Header: "Choice", Question: "Pick one", Custom: true,
+					Options: []questionOptionView{{Label: "A"}, {Label: "B", Description: "second"}},
+				}},
+			},
+			{ID: "q2", SessionID: "s2", Questions: []questionPromptView{{Question: "Other", Custom: true}}},
+		},
+	}
+	engine := &questionTestEngine{adapter: adapter}
+	state := &appState{project: project}
+	backend, err := newRuntimeBackend(state, "http://127.0.0.1:1", runtimeCredentials{}, engine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contract := newQuestionContract(state, backend)
 	mux := http.NewServeMux()
 	registerQuestionRoutes(mux, contract)
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	body := `{"sessionID":"tls_session","answers":[["B","custom detail"]]}`
-	res, err := http.Post(server.URL+"/local/questions/"+pending[0].ID+"/reply", "application/json", strings.NewReader(body))
+	res, err := http.Get(server.URL + "/local/questions?sessionID=s1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("reply status=%d", res.StatusCode)
-	}
-
-	select {
-	case got := <-done:
-		if got.err != nil {
-			t.Fatal(got.err)
-		}
-		if got.rejected || len(got.answers) != 1 || len(got.answers[0]) != 2 || got.answers[0][0] != "B" {
-			t.Fatalf("unexpected question result %#v", got)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("native Agent question waiter did not resume")
-	}
-	if len(contract.list("tls_session")) != 0 {
-		t.Fatal("resolved question remained pending")
-	}
-}
-
-func TestNativeQuestionRejectAndCancellation(t *testing.T) {
-	contract := newQuestionContract(&appState{project: t.TempDir()}, newLiveEventBus())
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	done := make(chan bool, 1)
-	go func() {
-		_, rejected, err := contract.Ask(ctx, "tls_reject", []questionPromptView{{
-			Question: "Continue?", Options: []questionOptionView{{Label: "Yes"}, {Label: "No"}},
-		}})
-		done <- err == nil && rejected
-	}()
-
-	var pending []questionRequestView
-	deadline := time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		pending = contract.list("tls_reject")
-		if len(pending) == 1 {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
-	}
-	if len(pending) != 1 {
-		t.Fatal("native reject question did not become pending")
-	}
-	if err := contract.resolve(pending[0].ID, "tls_reject", questionResolution{rejected: true}); err != nil {
+	var listed []questionRequestView
+	if err := json.NewDecoder(res.Body).Decode(&listed); err != nil {
 		t.Fatal(err)
 	}
-	if !<-done {
-		t.Fatal("native question reject did not resume caller")
+	_ = res.Body.Close()
+	if res.StatusCode != http.StatusOK || len(listed) != 1 || listed[0].ID != "q1" {
+		t.Fatalf("semantic question list mismatch: status=%d items=%#v", res.StatusCode, listed)
 	}
 
-	cancelCtx, cancelNow := context.WithCancel(context.Background())
-	cancelDone := make(chan error, 1)
-	go func() {
-		_, _, err := contract.Ask(cancelCtx, "tls_cancel", []questionPromptView{{Question: "Wait?", Custom: true}})
-		cancelDone <- err
-	}()
-	deadline = time.Now().Add(time.Second)
-	for time.Now().Before(deadline) {
-		if len(contract.list("tls_cancel")) == 1 {
-			break
-		}
-		time.Sleep(5 * time.Millisecond)
+	body := strings.NewReader(`{"sessionID":"s1","answers":[["A"],["custom value"]]}`)
+	replyReq, _ := http.NewRequest(http.MethodPost, server.URL+"/local/questions/q1/reply", body)
+	replyReq.Header.Set("Content-Type", "application/json")
+	replyRes, err := http.DefaultClient.Do(replyReq)
+	if err != nil {
+		t.Fatal(err)
 	}
-	cancelNow()
-	if err := <-cancelDone; err == nil {
-		t.Fatal("cancelled native question must return context cancellation")
+	_ = replyRes.Body.Close()
+	if replyRes.StatusCode != http.StatusOK || adapter.replyID != "q1" || len(adapter.replyAnswers) != 2 {
+		t.Fatalf("semantic question reply mismatch: status=%d id=%q answers=%#v", replyRes.StatusCode, adapter.replyID, adapter.replyAnswers)
+	}
+
+	rejectReq, _ := http.NewRequest(http.MethodPost, server.URL+"/local/questions/q1/reject", strings.NewReader(`{"sessionID":"s1"}`))
+	rejectReq.Header.Set("Content-Type", "application/json")
+	rejectRes, err := http.DefaultClient.Do(rejectReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = rejectRes.Body.Close()
+	if rejectRes.StatusCode != http.StatusOK || adapter.rejectID != "q1" {
+		t.Fatalf("semantic question reject mismatch: status=%d id=%q", rejectRes.StatusCode, adapter.rejectID)
 	}
 }
