@@ -1,87 +1,77 @@
 ---
 title: Contributing
-description: Contribute to the fully native TL Studio v0.5 architecture without weakening local security or product boundaries.
+description: Contribute to TL Studio while preserving local security, native product boundaries, and clearly labeled release channels.
 icon: GitPullRequest
 ---
 
 ## Source layout
 
-The Go launcher and native local product domains live under:
+The Go launcher and local product domains live under:
 
-```text
+~~~text
 cmd/launcher/
-```
+~~~
 
 Browser source is strict TypeScript under:
 
-```text
+~~~text
 cmd/launcher/ui/
-```
+~~~
 
 Generated Browser JavaScript is emitted under:
 
-```text
+~~~text
 cmd/launcher/web/
-```
-
-Do not edit generated JavaScript as the primary source.
+~~~
 
 Public Fumadocs documentation lives under:
 
-```text
+~~~text
 website/
-```
+~~~
 
 ## Local checks
 
 Before proposing product changes:
 
-```bash
+~~~bash
 npm install --ignore-scripts --no-audit --no-fund
 npm run check:web
 npm run build:web
 go test ./...
 go vet ./...
-```
+~~~
 
-Run the relevant contract/regression scripts when changing model connections, Session, Question, Permission, Tool, Plugin/MCP, Browser, or release behavior.
+Run the relevant contract/regression scripts when changing model connections, Sessions, Questions, Permissions, Tools, Plugins/MCP, Browser behavior, Provider Accounts, or release behavior.
 
-## Native architecture rules
+## Architecture rules
 
-- New Browser behavior should use TL Studio-owned `/local/*` product domains.
-- Model connection definitions, discovery, credentials, and direct model execution belong to TL Studio.
+- New Browser behavior should use TL Studio-owned /local/* product domains.
+- Model connection definitions, discovery, credentials, account adapters, and direct model execution belong to TL Studio.
 - Sessions, Questions, Permissions, and semantic Events belong to TL Studio.
 - Built-in Tool execution should reuse Project filesystem/Search/process/Permission infrastructure.
-- Plugin/MCP tools must continue through the TL Studio Tool Registry and Permission path.
+- Plugin/MCP Tools must continue through the TL Studio Tool Registry and Permission path.
 - Secrets must stay out of ordinary JSON configuration and Browser storage.
 - Monaco is an Editor engine, not a filesystem authority.
-- Previewed Project code stays on a separate loopback origin from the privileged control server.
+- Previewed Project code stays on a separate loopback origin.
 - Do not load Editor assets from a CDN.
 
-## Plugin/MCP rules
+## Provider Account rules
 
-The current Plugin contract is MCP over stdio.
+Provider Account integrations must use documented public third-party mechanisms.
 
-Saving a Plugin must not start arbitrary local code. Enablement remains an explicit confirmed action.
+OAuth and API credential material stays on the Go side and in the credential vault.
 
-Project/Global scoping, working-directory confinement, credential references, Tool discovery, and process cleanup must preserve the existing trust boundary.
+Manual API credentials and account credentials remain separate.
 
-Bundled Plugins must be version-pinned and declared through the release manifest; do not silently introduce a bundled executable.
+An account integration must not replace TL Studio's Native Agent or Tool execution model.
 
-## Account connection rule
+## Release and documentation rules
 
-The generic account adapter domain is part of TL Studio's internal product boundary. Public documentation describes only account behavior that exists in the stable `main` source.
+Stable behavior on main may be documented as released behavior.
 
-## Release rules
+Development behavior from dev may be documented only when it is clearly labeled as a development preview.
 
-`main` is the documentation source of truth for the public stable product. Stable npm publishing and release packaging are derived from the validated stable source.
+Do not present an unreleased capability as part of the stable npm/GitHub Release path.
 
-Release/CI gates enforce the current TL Studio product architecture and validate production packaging.
-
-## Documentation rules
-
-The stable `main` source is the documentation source of truth.
-
-Keep public language centered on **TL Studio** and document only behavior that exists in the current stable source.
-
-Do not preserve obsolete architecture wording merely for historical continuity.
+Historical implementation wording does not belong in current product documentation.
