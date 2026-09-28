@@ -87,10 +87,11 @@ type huggingFaceAccountAdapter struct {
 	state       *appState
 	manager     *providerManager
 	clientID    string
-	httpClient  *http.Client
-	authorizeURL string
-	tokenURL    string
-	userInfoURL string
+	httpClient       *http.Client
+	authorizeURL      string
+	tokenURL          string
+	userInfoURL       string
+	inferenceBaseURL  string
 
 	mu     sync.Mutex
 	logins map[string]*huggingFaceLoginTransaction
@@ -105,6 +106,7 @@ func newHuggingFaceAccountAdapter(state *appState, manager *providerManager) *hu
 		authorizeURL: "https://huggingface.co/oauth/authorize",
 		tokenURL: "https://huggingface.co/oauth/token",
 		userInfoURL: "https://huggingface.co/oauth/userinfo",
+		inferenceBaseURL: a.inferenceBaseURL,
 		logins: map[string]*huggingFaceLoginTransaction{},
 	}
 }
@@ -364,10 +366,6 @@ func (a *huggingFaceAccountAdapter) HandleCallback(ctx context.Context, _ string
 	return err
 }
 
-func (a *huggingFaceAccountAdapter) CancelLogin(context.Context, string, string) error {
-	return nil
-}
-
 func (a *huggingFaceAccountAdapter) cancelLogin(loginID string) {
 	a.mu.Lock()
 	transaction, ok := a.logins[loginID]
@@ -542,7 +540,7 @@ func (a *huggingFaceAccountAdapter) DiscoverModels(ctx context.Context, _ string
 }
 
 func (a *huggingFaceAccountAdapter) syncProvider(ctx context.Context, accessToken string) ([]string, error) {
-	discovered, err := discoverOpenAICompatibleModels(ctx, huggingFaceInferenceBaseURL, accessToken)
+	discovered, err := discoverOpenAICompatibleModels(ctx, a.inferenceBaseURL, accessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -578,7 +576,7 @@ func (a *huggingFaceAccountAdapter) syncProvider(ctx context.Context, accessToke
 		ID: huggingFaceAccountProviderID,
 		Name: "Hugging Face",
 		Protocol: "openai-compatible",
-		BaseURL: huggingFaceInferenceBaseURL,
+		BaseURL: a.inferenceBaseURL,
 		ManagedBy: "account",
 		Models: models,
 	}
