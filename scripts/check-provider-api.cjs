@@ -42,7 +42,11 @@ async function main() {
   assert.ok(K.api?.providerAccounts?.list);
   assert.ok(K.api?.providerAccounts?.status);
   assert.ok(K.api?.providerAccounts?.authorize);
+  assert.ok(K.api?.providerAccounts?.complete);
   assert.ok(K.api?.providerAccounts?.callback);
+  assert.ok(K.api?.providerAccounts?.cancel);
+  assert.ok(K.api?.providerAccounts?.refresh);
+  assert.ok(K.api?.providerAccounts?.models);
   assert.ok(K.api?.providerAccounts?.disconnect);
   assert.ok(K.api?.providers?.config);
   assert.ok(K.api?.providers?.upsert);
