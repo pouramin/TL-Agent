@@ -44,12 +44,12 @@ go test ./...
 go vet ./...
 ```
 
-Run the relevant contract/regression scripts when changing Provider, Session, Question, Permission, Tool, Plugin/MCP, Browser, or release behavior.
+Run the relevant contract/regression scripts when changing model connections, Session, Question, Permission, Tool, Plugin/MCP, Browser, or release behavior.
 
 ## Native architecture rules
 
 - New Browser behavior should use TL Studio-owned `/local/*` product domains.
-- Provider definitions, Model discovery, credentials, and direct model execution belong to TL Studio.
+- Model connection definitions, discovery, credentials, and direct model execution belong to TL Studio.
 - Sessions, Questions, Permissions, and semantic Events belong to TL Studio.
 - Built-in Tool execution should reuse Project filesystem/Search/process/Permission infrastructure.
 - Plugin/MCP tools must continue through the TL Studio Tool Registry and Permission path.
@@ -68,26 +68,20 @@ Project/Global scoping, working-directory confinement, credential references, To
 
 Bundled Plugins must be version-pinned and declared through the release manifest; do not silently introduce a bundled executable.
 
-## Provider Account rule
+## Account connection rule
 
-The generic Provider Account adapter domain exists without a concrete adapter in v0.5.0.
-
-Do not add undocumented Provider OAuth flows or reverse-engineer private account protocols. An account integration should be an explicit, documented adapter.
+The generic account adapter domain is part of TL Studio's internal product boundary. Public documentation describes only account behavior that exists in the stable `main` source.
 
 ## Release rules
 
-`main` is stable production. `dev` is the next integration line.
-
-`main` is stable v0.5.0. `dev` is currently `0.6.0-alpha.1`; its current commits are version/readiness bookkeeping rather than a new user-facing feature set.
-
-Stable npm publishing comes from `main`; development builds use Preview artifacts until a deliberate stable promotion.
+`main` is the documentation source of truth for the public stable product. Stable npm publishing and release packaging are derived from the validated stable source.
 
 Release/CI gates enforce the current TL Studio product architecture and validate production packaging.
 
 ## Documentation rules
 
-The repository is the source of truth.
+The stable `main` source is the documentation source of truth.
 
-Keep public language centered on **TL Studio** and document only behavior that exists in the current stable source or clearly identified active development code.
+Keep public language centered on **TL Studio** and document only behavior that exists in the current stable source.
 
 Do not preserve obsolete architecture wording merely for historical continuity.
