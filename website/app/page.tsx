@@ -34,7 +34,7 @@ const capabilities = [
   'Tool Executor',
   'Plugins / MCP',
   'Provider Discovery',
-  'JEV / OpenRouter',
+  'Native model connections',
   'Live Preview',
   'Credential Vault',
 ];
