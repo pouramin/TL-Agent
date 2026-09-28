@@ -476,6 +476,8 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 		"--ignore-rules",
 		"--skip-git-repo-check",
 		"--sandbox", "read-only",
+		"-c", `approval_policy="never"`,
+		"-c", `web_search="disabled"`,
 		"--color", "never",
 		"--model", strings.TrimSpace(request.Model.ID),
 		"-C", tempDir,
