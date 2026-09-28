@@ -113,13 +113,22 @@ Development v0.6 adds typed Provider Account adapters for:
 
 - OpenRouter;
 - Hugging Face;
-- Google / Gemini.
+- Google / Gemini;
+- ChatGPT / Codex.
 
 The generic lifecycle includes status, begin/complete login, polling where needed, cancellation, refresh, credential resolution, model discovery, and disconnect.
 
-Manual API credentials and account credentials use separate vault slots.
+Manual API credentials and TL Studio-managed account credentials use separate vault slots.
 
-Browser code receives only semantic account state and safe login instructions. OAuth codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets stay on the Go side.
+Browser code receives only semantic account state and safe login instructions. OAuth codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets never enter Browser state. For ChatGPT, OpenAI's official Codex client owns the OAuth token store inside an isolated TL Studio-specific CODEX_HOME; TL Studio does not read or serialize those raw tokens.
+
+### ChatGPT / Codex provider bridge
+
+ChatGPT login uses the official Codex account/login/start flow and model/list catalog.
+
+ChatGPT-plan model turns launch the official Codex CLI as an ephemeral provider bridge from an empty temporary working directory. User/project Codex configuration and rules are ignored, the sandbox is read-only, approval policy is never, and web search is disabled.
+
+Structured bridge output is converted into assistant text or TL Studio Tool calls. TL Studio remains authoritative for Session state, Tool execution, Permissions, project mutations, persistence, and semantic events.
 
 ### Gemini desktop loopback
 
