@@ -1,14 +1,14 @@
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { ArrowRight, Download, FolderCode, Plug, ServerOff, SquareTerminal } from 'lucide-react';
+import { ArrowRight, Box, Download, FolderCode, Plug, SquareTerminal } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { site } from '@/lib/site';
 
 const features = [
   {
     title: 'One local application',
-    description: 'TL Studio runs as its own local application. There is no coding-runtime sidecar, reverse proxy, or hidden fallback engine underneath the product.',
-    icon: ServerOff,
+    description: 'TL Studio keeps the workspace, local core, Agent, sessions, tools, providers, and Plugin/MCP lifecycle inside one local product boundary.',
+    icon: Box,
   },
   {
     title: 'Editor-centered workspace',
@@ -101,7 +101,7 @@ export default function HomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground">Stable milestone · v0.5.0</p>
             <h2 className="mt-2 text-3xl font-semibold">TL Studio now runs natively end to end.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Normal startup is one TL Studio process plus embedded Browser assets. Sessions, provider calls, interactive questions, permissions, semantic events, native tools, and Plugin/MCP execution all live behind TL Studio-owned local contracts. Unsupported model capabilities fail explicitly instead of being delegated to another hidden local service.
+              Normal startup is one TL Studio process plus embedded Browser assets. Sessions, provider calls, interactive questions, permissions, semantic events, native tools, and Plugin/MCP execution all live behind TL Studio-owned local contracts. Unsupported model capabilities return an explicit error at the TL Studio product boundary.
             </p>
             <Link href="/docs/reference/architecture" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore the architecture <ArrowRight className="size-4" />
@@ -114,7 +114,7 @@ export default function HomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground">Local trust boundary</p>
             <h2 className="mt-2 text-3xl font-semibold">Your Project stays local; external connections are explicit.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              TL Studio has no product-owned model proxy, workspace cloud, or telemetry backend. Model Providers and MCP servers are separate trust boundaries you configure, while project files, sessions, permissions, credentials, and workspace state remain managed locally.
+              Project files, sessions, permissions, credentials, and workspace state are managed locally. Network access happens through the external Providers, optional integrations, package distribution, and MCP servers that you explicitly configure.
             </p>
           </div>
         </section>
