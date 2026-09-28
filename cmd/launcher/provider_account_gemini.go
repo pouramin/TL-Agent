@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -97,13 +98,14 @@ func saveGoogleGeminiSetupConfig(config googleGeminiSetupConfig) error {
 }
 
 type googleGeminiLoginTransaction struct {
-	LoginID     string
-	State       string
-	Verifier    string
-	RedirectURI string
-	ExpiresAt   time.Time
-	Completed   bool
-	Err         string
+	LoginID        string
+	State          string
+	Verifier       string
+	RedirectURI    string
+	ExpiresAt      time.Time
+	Completed      bool
+	Err            string
+	CallbackServer *http.Server
 }
 
 type googleGeminiAccountAdapter struct {
@@ -349,22 +351,83 @@ func (a *googleGeminiAccountAdapter) Status(ctx context.Context, _ string) (prov
 	return a.statusFromCredential(credential), nil
 }
 
-func (a *googleGeminiAccountAdapter) callbackURL() (string, error) {
-	if a == nil || a.state == nil {
-		return "", errors.New("TL Studio local server is unavailable")
+func shutdownGoogleGeminiCallbackServer(server *http.Server) {
+	if server == nil {
+		return
 	}
-	a.state.mu.RLock()
-	base := strings.TrimRight(a.state.frontendURL, "/")
-	a.state.mu.RUnlock()
-	if base == "" {
-		return "", errors.New("TL Studio local callback URL is unavailable")
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = server.Shutdown(ctx)
+	}()
+}
+
+func (a *googleGeminiAccountAdapter) startLoopbackCallback(transaction *googleGeminiLoginTransaction) (string, error) {
+	if a == nil || transaction == nil {
+		return "", errors.New("Google account login transaction is unavailable")
 	}
-	callback := base + "/local/provider-accounts/" + googleGeminiAccountProviderID + "/oauth/callback"
-	parsed, err := url.Parse(callback)
-	if err != nil || parsed.Scheme != "http" || !isLoopbackHost(parsed.Hostname()) {
-		return "", errors.New("Google account login requires the TL Studio loopback server")
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", fmt.Errorf("start Google OAuth loopback listener: %w", err)
 	}
-	return callback, nil
+	address, ok := listener.Addr().(*net.TCPAddr)
+	if !ok || address.Port <= 0 {
+		_ = listener.Close()
+		return "", errors.New("Google OAuth loopback listener did not allocate a port")
+	}
+	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", address.Port)
+
+	mux := http.NewServeMux()
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	transaction.RedirectURI = redirectURI
+	transaction.CallbackServer = server
+
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+		returnedState := strings.TrimSpace(r.URL.Query().Get("state"))
+		if returnedState == "" || returnedState != transaction.State {
+			http.Error(w, "Invalid OAuth state. Return to TL Studio and try again.", http.StatusBadRequest)
+			return
+		}
+		callback := providerAccountCallback{
+			Code:  strings.TrimSpace(r.URL.Query().Get("code")),
+			State: returnedState,
+			Error: strings.TrimSpace(r.URL.Query().Get("error")),
+		}
+		if err := a.CompleteLogin(r.Context(), "", callback); err != nil {
+			http.Error(w, "Google sign-in could not be completed. Return to TL Studio and try again.", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<!doctype html><meta charset=\"utf-8\"><title>TL Studio</title><p>Google sign-in complete. You can close this window and return to TL Studio.</p>"))
+	})
+
+	go func() {
+		err := server.Serve(listener)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			a.setLoginError(transaction.LoginID, "Google OAuth loopback listener stopped unexpectedly")
+		}
+	}()
+
+	go func() {
+		delay := time.Until(transaction.ExpiresAt)
+		if delay > 0 {
+			timer := time.NewTimer(delay)
+			defer timer.Stop()
+			<-timer.C
+		}
+		shutdownGoogleGeminiCallbackServer(server)
+	}()
+
+	return redirectURI, nil
 }
 
 func (a *googleGeminiAccountAdapter) BeginLogin(context.Context, string) (providerAccountLogin, error) {
@@ -383,24 +446,23 @@ func (a *googleGeminiAccountAdapter) BeginLogin(context.Context, string) (provid
 	if err != nil {
 		return providerAccountLogin{}, err
 	}
-	redirectURI, err := a.callbackURL()
+	authorize, err := url.Parse(a.authorizeURL)
 	if err != nil {
 		return providerAccountLogin{}, err
 	}
 	expiresAt := time.Now().UTC().Add(10 * time.Minute)
 	transaction := &googleGeminiLoginTransaction{
 		LoginID: loginID, State: state, Verifier: verifier,
-		RedirectURI: redirectURI, ExpiresAt: expiresAt,
+		ExpiresAt: expiresAt,
+	}
+	redirectURI, err := a.startLoopbackCallback(transaction)
+	if err != nil {
+		return providerAccountLogin{}, err
 	}
 	a.mu.Lock()
 	a.logins[loginID] = transaction
 	a.byState[state] = loginID
 	a.mu.Unlock()
-
-	authorize, err := url.Parse(a.authorizeURL)
-	if err != nil {
-		return providerAccountLogin{}, err
-	}
 	clientID, _ := a.setupValues()
 	query := authorize.Query()
 	query.Set("client_id", clientID)
@@ -471,18 +533,23 @@ func (a *googleGeminiAccountAdapter) CompleteLogin(ctx context.Context, _ string
 	transaction.Completed = true
 	transaction.Verifier = ""
 	delete(a.byState, transaction.State)
+	callbackServer := transaction.CallbackServer
 	a.mu.Unlock()
+	shutdownGoogleGeminiCallbackServer(callbackServer)
 	return nil
 }
 
 func (a *googleGeminiAccountAdapter) setLoginError(loginID, message string) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	var callbackServer *http.Server
 	if transaction := a.logins[loginID]; transaction != nil {
 		transaction.Err = message
 		transaction.Verifier = ""
 		delete(a.byState, transaction.State)
+		callbackServer = transaction.CallbackServer
 	}
+	a.mu.Unlock()
+	shutdownGoogleGeminiCallbackServer(callbackServer)
 }
 
 func (a *googleGeminiAccountAdapter) PollLogin(ctx context.Context, directory, loginID string) (providerAccountStatus, error) {
@@ -527,13 +594,16 @@ func (a *googleGeminiAccountAdapter) CancelLogin(_ context.Context, _ string, lo
 		return nil
 	}
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	transaction := a.logins[loginID]
 	if transaction == nil {
+		a.mu.Unlock()
 		return nil
 	}
 	delete(a.byState, transaction.State)
 	delete(a.logins, loginID)
+	callbackServer := transaction.CallbackServer
+	a.mu.Unlock()
+	shutdownGoogleGeminiCallbackServer(callbackServer)
 	return nil
 }
 
