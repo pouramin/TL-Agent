@@ -12,7 +12,7 @@ This file is a durable operating instruction for future TL Studio development se
 ## Branch and release discipline
 
 - `main` is stable production only. The current stable line is `v0.4.0`, promoted after automated gates and hands-on Windows validation.
-- `dev` is the active private development line; the current development target is `0.5.0-alpha.1`.
+- `dev` is the active private development line; the current development target is `0.5.0-alpha.2`.
 - Feature/fix branches start from `dev`.
 - Experimental work must not be merged into `main`.
 - Private alpha builds use the GitHub Actions Preview Build artifact flow.
@@ -26,7 +26,7 @@ Current stable baseline after the validated 0.4 promotion:
 
 Current private development target:
 
-`0.5.0-alpha.1`
+`0.5.0-alpha.2`
 
 ## v0.5.0-alpha.1 Kilo-free core checkpoint
 
@@ -72,7 +72,48 @@ Native-only Windows review build:
 - inner package SHA-256: `c34a405a311c4c4eafde5d72ab05f4e2a237bdf82bf522644ea42683cb67cc06`
 - package intentionally contains no `bin/kilo.exe`.
 
-The remaining gate for this checkpoint is hands-on Windows validation of the native-only package. Do not merge PR #113 to `dev` until that review is complete.
+Hands-on Windows validation completed successfully. The native-only package reported `Runtime: native-only`, loaded the full Browser workspace, used a configured custom provider, and executed `files.write` to create a real `native-proof.txt` file that immediately reconciled into the Workspace. PR #113 was then squash-merged into `dev`.
+
+Merged PR:
+
+`#113 — Make Kilo an optional compatibility runtime`
+
+Squash merge commit:
+
+`44d43bebef571c862e2f5174e022c2f18fc54559`
+
+## v0.5.0-alpha.2 provider account authentication
+
+Feature branch:
+
+`feature/provider-account-auth`
+
+This milestone moves account-based authentication behind a TL Studio-owned provider domain rather than treating Kilo login as a special global Hosted Models dialog.
+
+Architecture:
+
+```text
+Settings → Providers
+        ├── Account providers
+        │    └── provider-account adapter
+        │         └── Kilo (first implementation)
+        └── API providers
+             └── TL Studio custom provider registry + credential vault
+```
+
+Current implementation goals:
+
+- generic `ProviderAccountAdapter` contract owned by TL Studio;
+- semantic `/local/provider-accounts*` routes for list/status/authorize/callback/disconnect;
+- Kilo is the first Account Provider adapter;
+- Kilo account login remains backed by the optional official Kilo compatibility runtime because Kilo does not currently document a public third-party OAuth flow; no private OAuth protocol is copied into TL Studio;
+- the old `/runtime/hosted/*` routes remain temporary compatibility aliases while Browser UI moves to the provider-account domain;
+- Settings → Providers shows Account Providers above API Providers;
+- the top Account action opens Providers rather than a separate Hosted Models dialog;
+- the authorization dialog is provider-neutral;
+- future official account adapters can implement the same domain without changing Provider UI.
+
+The Kilo Gateway's documented external-client path remains API-key based and can continue to be added as a normal API provider independently of Kilo account sign-in.
 
 ## v0.4.0 stable promotion checkpoint
 

@@ -4,7 +4,7 @@
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center"><strong>Development branch: 0.5.0-alpha.1</strong> · نسخه Stable: v0.4.0.</p>
+<p align="center"><strong>Development branch: 0.5.0-alpha.2</strong> · نسخه Stable: v0.4.0.</p>
 
 <p align="center">
   یک محیط توسعه‌ی سریع و لوکال با AI داخلی.
@@ -57,7 +57,8 @@ Runtime لوکال سازگار از قبل داخل Release قرار دارد.
 - **محیط توسعه‌ی مستقل و لوکال** — Editor، File Explorer، Search، Terminal، Preview و Agent در یک Workspace مرورگری.
 - **انتخاب مستقیم Project** — بازکردن فولدر با Folder Picker خود سیستم‌عامل.
 - **انتخاب Agent و Model** — تغییر Agent و مدل‌های Providerها از داخل Composer.
-- **Custom Provider و کشف مدل** — اتصال Endpointهای سازگار با OpenAI، OpenAI Responses و Anthropic، تست و کشف مدل قبل از Save، جست‌وجو و انتخاب چند مدل، Refresh کردن Catalog و نگه‌داشتن ورود دستی Model ID به‌عنوان fallback.
+- **Provider Account و API Provider** — اتصال Accountهای پشتیبانی‌شده از مسیر Settings → Providers یا اضافه‌کردن Endpointهای API سازگار با OpenAI، OpenAI Responses و Anthropic؛ Login حساب و API Credential دو مسیر جدا ولی زیر یک سطح Provider متعلق به TL Studio هستند.
+- **Custom Provider و کشف مدل** — تست و کشف مدل قبل از Save، جست‌وجو و انتخاب چند مدل، Refresh کردن Catalog و نگه‌داشتن ورود دستی Model ID به‌عنوان fallback.
 - **Plugin و MCP** — اضافه‌کردن MCP serverهای دلخواه و پشتیبانی از Pluginهای bundled و version-pinned از همان Plugin Manager؛ Toolها به‌صورت Dynamic کشف و namespace می‌شوند و همگی از همان Tool Registry، Permission Engine و Native Agent موجود عبور می‌کنند.
 - **File attachment** — ارسال تصویر، PDF و فایل‌های متنی/کد؛ همراه با Multi-select، Drag & Drop و Paste از Clipboard.
 - **اجرای Native بدون وابستگی اجباری به Kilo** — TL Studio می‌تواند بدون وجود Binary مربوط به Kilo بالا بیاید و Workspace مرورگر، Custom Providerهای پشتیبانی‌شده، Sessionهای Native، Agent، Permission، Event، فایل، Search، Terminal، Preview و Plugin/MCP را اجرا کند؛ Kilo فقط مسیر سازگاری اختیاری برای قابلیت‌های Hosted/Legacy است.

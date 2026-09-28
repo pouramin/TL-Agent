@@ -248,6 +248,19 @@ interface TLStudioLiveEvent {
   path?: string;
 }
 
+interface TLStudioProviderAccount {
+  id: string;
+  name: string;
+  description?: string;
+  available: boolean;
+  connected: boolean;
+  authModes: string[];
+  requiresCompatibility?: boolean;
+  accountType?: string;
+  organizationId?: string;
+  models?: string[];
+}
+
 interface TLStudioProviderState {
   all: TLStudioDynamicRecord[];
   connected: Set<string>;
@@ -262,6 +275,13 @@ interface TLStudioRuntimeContract {
   runtime: { dispose(): Promise<any> };
   agents(): Promise<any[]>;
   providerState(): Promise<TLStudioProviderState>;
+  providerAccounts: {
+    list(): Promise<TLStudioProviderAccount[]>;
+    status(providerID: string): Promise<TLStudioProviderAccount>;
+    authorize(providerID: string): Promise<TLStudioDynamicRecord>;
+    callback(providerID: string, signal?: AbortSignal): Promise<TLStudioDynamicRecord>;
+    disconnect(providerID: string): Promise<TLStudioDynamicRecord>;
+  };
   providers: {
     config(): Promise<{ providers: TLStudioDynamicRecord[] }>;
     upsert(providerID: string, input?: TLStudioDynamicRecord): Promise<any>;
@@ -401,6 +421,7 @@ interface TLStudioState {
   providers: TLStudioDynamicRecord[];
   providerDefaults: Record<string, string>;
   connectedProviders: Set<string>;
+  providerAccounts: TLStudioProviderAccount[];
   eventSource: EventSource | null;
   fallbackPolling: TLStudioTimer;
   sessionPolling: TLStudioTimer;
@@ -410,7 +431,6 @@ interface TLStudioState {
   authURL: string;
   attentionKey: string;
   attachments: TLStudioDynamicRecord[];
-  hostedAuth: TLStudioDynamicRecord | null;
   activeEditorPath: string;
   changes: TLStudioDynamicRecord[];
   editorTabs: TLStudioFileTab[];
@@ -481,11 +501,9 @@ interface TLStudioKernel {
   handleKiloEvent: TLStudioCallable;
   stopSessionPolling: TLStudioCallable;
   startSessionPolling: TLStudioCallable;
-  signInHosted: TLStudioCallable;
+  openProviderAccounts: TLStudioCallable;
   cancelAuth: TLStudioCallable;
   copyAuthCode: TLStudioCallable;
-  applyHostedAuthStatus: TLStudioCallable;
-  refreshHostedAuthStatus: TLStudioCallable;
   loadAttention: TLStudioCallable;
   refreshPermissionRules: TLStudioCallable;
   loadToolRegistry: TLStudioCallable;
@@ -512,6 +530,7 @@ interface TLStudioKernel {
   __statusDiagnostics?: TLStudioDynamicRecord;
   __providerRecovery?: TLStudioDynamicRecord;
   __providersUi?: TLStudioDynamicRecord;
+  __providerAccountsUi?: TLStudioDynamicRecord;
 
   __attachmentsInstalled?: boolean;
   __diagnosticsUiInstalled?: boolean;
@@ -525,6 +544,7 @@ interface TLStudioKernel {
   __providerRecoveryInstalled?: boolean;
   __providersSettingsBridgeInstalled?: boolean;
   __providersUiInstalled?: boolean;
+  __providerAccountsUiInstalled?: boolean;
   __settingsEnhancementsInstalled?: boolean;
   __terminalInstalled?: boolean;
   __toolRegistryInstalled?: boolean;

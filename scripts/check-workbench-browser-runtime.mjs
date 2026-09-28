@@ -188,6 +188,17 @@ await waitFor('document.getElementById("terminalOutput")?.textContent.includes("
 
 await evaluate('document.getElementById("settingsButton")?.click()');
 await waitFor('document.getElementById("settingsDialog")?.open === true', "Settings did not open from Activity Rail");
+await evaluate('document.querySelector(\'[data-settings-section="providers"]\')?.click()');
+await waitFor('document.querySelector(\'[data-settings-panel="providers"]\')?.classList.contains("hidden") === false', "Providers settings did not activate");
+await waitFor('document.querySelector(\'[data-provider-account-id="kilo"]\') !== null', "Kilo Account Provider card did not render");
+const providerAccountState = await evaluate('(async () => { const accounts=await fetch("/local/provider-accounts").then(r=>r.json()); const kilo=accounts.find(a=>a.id==="kilo"); const row=document.querySelector(\'[data-provider-account-id="kilo"]\'); const connect=row?.querySelector(\'[data-provider-account-action="connect"]\'); const disconnect=row?.querySelector(\'[data-provider-account-action="disconnect"]\'); return {available:kilo?.available===true,connected:kilo?.connected===true,connectDisabled:connect?.disabled===true,hasConnect:!!connect,hasDisconnect:!!disconnect}; })()');
+assert(providerAccountState, "Provider account state was unavailable");
+if (providerAccountState.connected) {
+  assert(providerAccountState.hasDisconnect, "Connected account did not render Sign out");
+} else {
+  assert(providerAccountState.hasConnect, "Disconnected account did not render Sign in");
+  assert(providerAccountState.connectDisabled === !providerAccountState.available, "Provider account Sign in availability does not match backend status");
+}
 await evaluate('document.getElementById("settingsClose")?.click()');
 
 for (const viewport of [[1280,720],[1440,900],[1920,1080]]) {

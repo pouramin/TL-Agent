@@ -172,19 +172,29 @@ Custom provider definitions are persisted in TL Studio's own local state as `pro
 
 On first use, when no TL Studio provider registry exists yet, the launcher imports compatible custom providers from the current runtime configuration so existing alpha users do not lose supported provider definitions. After that, TL Studio is the source of truth for those managed definitions.
 
-The browser uses only TL Studio routes for this surface:
+The browser uses TL Studio-owned provider routes for this surface.
+
+API-provider configuration and discovery:
 
 - `GET /runtime/providers/catalog`
 - `GET /runtime/providers/config`
 - `PUT /runtime/providers/config/{id}`
 - `DELETE /runtime/providers/config/{id}`
 - `POST /runtime/providers/discover`
-- `GET /runtime/hosted/status`
-- `POST /runtime/hosted/authorize`
-- `POST /runtime/hosted/callback`
-- `DELETE /runtime/hosted`
 
-The launcher translates managed definitions to the current engine's provider config internally. Hosted provider IDs and preferred hosted models (including the current Auto Free route) are returned as runtime metadata rather than hard-coded by the browser.
+Account-provider authentication:
+
+- `GET /local/provider-accounts`
+- `GET /local/provider-accounts/{id}`
+- `POST /local/provider-accounts/{id}/authorize`
+- `POST /local/provider-accounts/{id}/callback`
+- `DELETE /local/provider-accounts/{id}`
+
+Account authentication is provider-neutral in Browser and launcher code. Each implementation sits behind the internal `ProviderAccountAdapter` contract. Kilo is the first adapter. Its current account login delegates to the optional Kilo compatibility runtime because Kilo's documented external-client Gateway authentication is API-key based and no public third-party OAuth contract is assumed by TL Studio.
+
+The old `/runtime/hosted/*` routes remain compatibility aliases for older Browser/tests while the product UI uses `/local/provider-accounts*`.
+
+The launcher translates managed API-provider definitions to the current compatibility engine only when needed. Account-provider availability is reported separately from API credentials, so a provider can expose an account path without conflating that state with TL Studio's API-key vault.
 
 Model discovery is a TL Studio-owned edge service, not a Kilo capability. A draft provider can call `POST /runtime/providers/discover` before it has been saved. OpenAI-compatible and OpenAI Responses protocols first use the generic `<baseURL>/models` contract; Anthropic Messages uses a provider-specific model-list adapter with pagination and Anthropic authentication headers. Both paths normalize results into one discovered-model shape. Unknown tool/reasoning/vision capabilities stay unknown during discovery rather than being invented from model names.
 
