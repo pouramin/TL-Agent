@@ -1,22 +1,41 @@
 ---
 title: Model connections
-description: Configure native model connections, discover model catalogs, and keep credentials in TL Studio's local vault.
+description: Configure direct model providers, discover catalogs, and use supported account-backed connections.
 icon: Cable
 ---
 
-TL Studio v0.5 owns Provider definitions, model discovery, the Model catalog presented to the product, and Provider credentials.
+TL Studio owns Provider definitions, model discovery, the model catalog shown in the product, and Provider credentials.
 
-## Native protocol adapters
+Released behavior and development-preview behavior are labeled separately below.
 
-TL Studio implements its supported model protocol adapters inside the product. Configure a connection with the protocol family exposed by the stable build, a Base URL, credential, and one or more Models.
+## Native model protocols
+
+| Protocol | Stable v0.5 | Development v0.6 |
+| --- | --- | --- |
+| OpenAI-compatible Chat Completions | ✅ | ✅ |
+| OpenAI Responses | ✅ | ✅ |
+| Anthropic Messages | ✅ | ✅ |
+| Google Gemini generateContent | — | ✅ |
+
+Model requests go directly from TL Studio to the configured Provider endpoint.
+
+## Custom Provider setup
+
+The 0.6 setup stays discovery-first. For a normal custom Provider you provide:
+
+- API address;
+- API type: OpenAI-compatible or Anthropic-compatible;
+- API key.
+
+TL Studio then attempts model discovery automatically. Manual Model ID entry remains an explicit fallback for private or unlisted Models.
+
+Existing OpenAI Responses Provider definitions remain editable for compatibility with saved configurations.
 
 ## Discover Models
 
-Use **Test / Discover Models** before saving when the Provider exposes a model-list API.
+When the Provider exposes a model-list API, TL Studio validates the Base URL, sends the discovery request, normalizes the returned Models, and presents a searchable catalog.
 
-TL Studio validates the Base URL, sends the discovery request, normalizes the returned Models, and presents a searchable catalog.
-
-The discovery layer can normalize:
+Normalized metadata can include:
 
 - Model ID and name;
 - context/output limits;
@@ -25,62 +44,67 @@ The discovery layer can normalize:
 - Vision;
 - Router kind.
 
-You can select visible Models, clear selection, search the catalog, or keep manual Model entry for a private/unlisted Model.
-
 ## Discovery safety
 
 Provider discovery:
 
 - accepts valid HTTP(S) Base URLs without embedded credentials;
-- uses a 15-second request timeout;
-- limits catalog responses to 8 MiB;
-- caps normalized catalogs at 5000 Models;
-- blocks cross-origin redirects;
-- allows at most a small bounded redirect chain.
+- uses a bounded request timeout;
+- limits catalog response size;
+- caps normalized catalog size;
+- blocks unsafe cross-origin redirect behavior;
+- uses bounded pagination where supported.
 
-For compatible paginated discovery endpoints, TL Studio uses a bounded page count.
-
-## Cached catalog fallback
-
-A successful catalog can be cached locally in:
-
-```text
-model-catalog-cache.json
-```
-
-If later live discovery fails for a non-authentication reason, TL Studio can return the matching cached catalog as stale data.
-
-Authentication/authorization failures do **not** silently fall back to cache.
-
-## Authenticated discovery
-
-When a configured model endpoint requires authentication for catalog discovery, TL Studio uses the saved credential and treats authentication failures as explicit failures rather than silently falling back.
+Authentication failures remain explicit and are not hidden behind stale cache.
 
 ## Provider registry
 
-Saved definitions live in TL Studio's versioned:
+Saved definitions live in:
 
-```text
+~~~text
 providers.json
-```
+~~~
 
-The registry stores Provider ID/name, protocol, Base URL, Model definitions, capability flags, and optional limits.
-
-It does not contain API keys.
+The registry stores Provider metadata and Model definitions. It does not contain API keys or OAuth tokens.
 
 ## Credential vault
 
-API keys live in the TL Studio credential vault:
+Manual API credentials and account credentials use separate vault slots.
 
-- Windows DPAPI;
-- macOS Keychain when available;
-- Linux Secret Service through `secret-tool` when available;
-- encrypted private-file fallback otherwise.
+A connected account can take precedence while active, but signing out does not delete the user's existing manual API key.
 
-Provider calls use this TL Studio-owned credential directly.
+Secrets do not appear in Browser storage or normal Provider JSON state.
 
-## Account-based Provider foundation
+## Account Providers — v0.6 development preview
 
-TL Studio also has a generic `/local/provider-accounts*` adapter domain for future official account-backed integrations.
+| Provider | Status | Integration |
+| --- | --- | --- |
+| **OpenRouter** | ✅ Available | Official OAuth + PKCE, user-controlled account credential, model discovery |
+| **Hugging Face** | ✅ Available | Public-client OAuth + PKCE, refresh lifecycle, Inference Providers discovery |
+| **Google / Gemini** | ✅ Available | Installed-app OAuth + PKCE, refresh/revocation, native Gemini transport |
+| **ChatGPT / Codex** | ⏳ Deferred | Current documented third-party model surface does not preserve TL Studio's native model-loop boundary |
+| **Claude account** | ⏳ Deferred | Waiting for a documented public third-party consumer-account authorization contract |
+| **GitHub Copilot** | ⏳ Deferred | Current documented model path remains coupled to the Copilot SDK/runtime |
 
-**The current v0.5.0 build registers no account adapters.** The Providers UI therefore reports that no account-based Provider integrations are available in this build. Do not expect an account sign-in flow unless a future build explicitly adds a documented adapter.
+Deferred adapters are visible in Settings intentionally and are not registered as runtime credential sources.
+
+## Gemini setup
+
+During the current alpha, Gemini account login requires two non-secret setup values:
+
+~~~text
+Google Cloud Project ID
+Desktop OAuth Client ID
+~~~
+
+They can be configured from Provider Settings.
+
+OAuth access and refresh tokens stay only in the TL Studio credential vault.
+
+Each sign-in starts a temporary listener bound to:
+
+~~~text
+127.0.0.1:<random-port>
+~~~
+
+The listener validates OAuth state, completes the PKCE flow, and shuts down after success, cancellation, or expiry.
