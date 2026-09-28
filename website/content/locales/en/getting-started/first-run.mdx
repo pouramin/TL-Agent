@@ -1,6 +1,6 @@
 ---
 title: First run
-description: Start TL Studio v0.5, open a Project, and get oriented in the native workspace.
+description: Start TL Studio, open a Project, configure a model connection, and run the Native Agent.
 icon: Play
 ---
 
@@ -8,9 +8,9 @@ icon: Play
 
 Run the portable executable, or start from a Project directory with:
 
-```bash
+~~~bash
 npx --yes tl-studio
-```
+~~~
 
 TL Studio starts its loopback local server and opens the Browser workspace.
 
@@ -18,52 +18,66 @@ TL Studio starts its loopback local server and opens the Browser workspace.
 
 The normal workflow is graphical: use the operating-system Folder Picker.
 
-If you started from inside a Project with `npx --yes tl-studio`, that directory is selected automatically.
+If you started from inside a Project with the npm launcher, that directory is selected automatically.
 
 You can also preselect a Project:
 
-```bash
+~~~bash
 tl-studio --project /path/to/project
-```
+~~~
 
 Windows:
 
-```powershell
+~~~powershell
 tl-studio.exe --project "C:\Users\you\Projects\my-project"
-```
+~~~
 
 ## Get oriented
 
-The v0.5 workspace is Editor-centered:
+The workspace is Editor-centered:
 
-1. choose **Explorer**, **Search**, **Sessions**, **Changes**, or **Settings** from the Activity Rail;
+1. choose Explorer, Search, Sessions, Changes, or Settings from the Activity Rail;
 2. work with files in the Monaco Editor;
 3. use the Agent panel in Collapsed, Compact, or Focused mode;
 4. run Project commands from the resizable bottom Terminal;
 5. open Live Preview when the active file or Project is previewable;
 6. use the Status Bar for local status, changes, Agent state, selected Model, cursor position, and Terminal access.
 
-Open the Command Palette with `Ctrl/Cmd+K`. Project Search uses `Ctrl/Cmd+Shift+F`.
+Open the Command Palette with Ctrl/Cmd+K. Project Search uses Ctrl/Cmd+Shift+F.
 
 ## Configure a Provider
 
 Open **Settings → Providers**.
 
-You can enter a Provider manually or use **Test / Discover Models** to validate the connection and load its model catalog. Select the Models you want to keep, then save the Provider.
+For a custom Provider, configure the endpoint, API type, and credential. TL Studio can discover the available model catalog automatically when the Provider exposes a compatible model-list API.
 
-Provider definitions and credentials are stored separately. API keys go to TL Studio's credential vault, not Browser storage.
+Provider definitions and credentials are stored separately.
+
+## Development account sign-in
+
+In the v0.6 development line, the same Providers page also exposes account-backed integrations.
+
+Available:
+
+- OpenRouter;
+- Hugging Face;
+- Google / Gemini.
+
+Gemini currently requires non-secret Google Cloud Project ID and Desktop OAuth Client ID setup before sign-in.
+
+Deferred entries such as ChatGPT/Codex, Claude, and GitHub Copilot remain visible but disabled.
 
 ## Run the Agent
 
 Choose a configured Model and send a prompt.
 
-```text
+~~~text
 Browser
 → TL Studio Session
 → Native Agent
-→ selected Provider
+→ Selected Provider
 → Tool Executor when needed
-→ Session persistence + local events
-```
+→ Session Persistence + Local Events
+~~~
 
 A Tool that needs approval pauses at TL Studio's Permission UI. The Agent can also ask a native interactive Question and resume after your answer.
