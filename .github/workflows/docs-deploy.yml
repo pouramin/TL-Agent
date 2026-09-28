@@ -34,7 +34,7 @@ jobs:
       - name: Build static site
         env:
           DEPLOY_TARGET: static
-          NEXT_PUBLIC_BASE_PATH: /TL-Agent
+          NEXT_PUBLIC_BASE_PATH: /TL-Studio
         run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
