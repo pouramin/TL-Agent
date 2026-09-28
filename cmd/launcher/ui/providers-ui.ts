@@ -408,6 +408,29 @@ import { K } from "./kernel";
     }, entry.id);
   };
 
+  const openPreset = async (preset: any) => {
+    if (!preset || saving) return;
+    notice("");
+    providerConfig = await K.api.providers.config();
+    const providerID = clean(preset.providerID);
+    const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === providerID);
+    if (existing) {
+      editEntry(existing);
+    } else {
+      fillForm({
+        providerID,
+        name: clean(preset.name),
+        protocol: clean(preset.protocol) || "openai-compatible",
+        baseURL: clean(preset.baseURL),
+        toolCall: preset.toolCall !== false,
+        reasoning: preset.reasoning === true,
+      }, providerID);
+    }
+    requestAnimationFrame(() => els.apiKey?.focus?.({ preventScroll: true }));
+  };
+
+  K.__providersUi.openPreset = openPreset;
+
   const save = async (event: any) => {
     event?.preventDefault();
     if (saving) return;
