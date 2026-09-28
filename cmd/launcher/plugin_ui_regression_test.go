@@ -17,6 +17,9 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		`data-settings-section="plugins"`,
 		`data-settings-panel="plugins"`,
 		`id="pluginAddButton"`,
+		`id="pluginDialog"`,
+		`id="pluginDialogTitle"`,
+		`id="pluginDialogClose"`,
 		`id="pluginCommandInput"`,
 		`id="pluginArgsInput"`,
 		`placeholder="/c&#10;npx&#10;-y&#10;package-name"`,
@@ -25,6 +28,7 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		`id="pluginEnvInput"`,
 		`id="pluginScopeSelect"`,
 		`Test Connection`,
+		`id="pluginSaveButton" class="primary small" type="button">Done</button>`,
 	} {
 		if !strings.Contains(index, expected) {
 			t.Fatalf("Plugins settings surface is missing %q", expected)
@@ -47,18 +51,20 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		}
 	}
 
-	editorIndex := strings.Index(index, `id="pluginEditor"`)
-	listIndex := strings.Index(index, `id="pluginList"`)
-	if editorIndex < 0 || listIndex < 0 || editorIndex > listIndex {
-		t.Fatal("plugin editor must render before the plugin list so Add/Configure never opens below a long list")
-	}
 	for _, expected := range []string{
-		`editor.scrollIntoView({ behavior: "smooth", block: "start" })`,
+		`pluginDialog.showModal()`,
+		`pluginDialog.close()`,
+		`pluginDialogTitle.textContent = plugin ? "Configure plugin" : "Add plugin"`,
 		`nameInput.focus({ preventScroll: true })`,
 	} {
 		if !strings.Contains(source, expected) {
-			t.Fatalf("plugin editor focus behavior is missing %q", expected)
+			t.Fatalf("plugin modal behavior is missing %q", expected)
 		}
+	}
+	settingsClose := strings.Index(index, `id="settingsClose"`)
+	pluginDialog := strings.Index(index, `id="pluginDialog"`)
+	if settingsClose < 0 || pluginDialog < 0 || pluginDialog < settingsClose {
+		t.Fatal("plugin editor must live in a dedicated dialog outside the Settings content")
 	}
 
 	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
@@ -72,7 +78,8 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		".plugin-form-grid input::placeholder,",
 		"color: #606975;",
 		"border-color: #485260;",
-		".plugin-editor { margin: 0 0 16px; padding: 14px;",
+		".plugin-dialog-card { width: min(700px, calc(100vw - 36px));",
+		".plugin-editor { margin: 0; padding: 0; border: 0; background: transparent;",
 		".plugin-empty { display: grid; gap: 3px; padding: 11px 13px;",
 	} {
 		if !strings.Contains(css, expected) {
