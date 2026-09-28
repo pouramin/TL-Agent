@@ -256,10 +256,15 @@ func TestChatGPTIntegrationAvoidsPrivateAuthSurfaces(t *testing.T) {
 			}
 		}
 	}
-	source, err := os.ReadFile("provider_account_chatgpt.go")
+	adapterSource, err := os.ReadFile("provider_account_chatgpt.go")
 	if err != nil {
 		t.Fatal(err)
 	}
+	bridgeSource, err := os.ReadFile("codex_chatgpt_bridge.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	combined := string(adapterSource) + "\n" + string(bridgeSource)
 	for _, required := range []string{
 		`"account/login/start"`,
 		`map[string]any{"type": "chatgpt"}`,
@@ -267,7 +272,7 @@ func TestChatGPTIntegrationAvoidsPrivateAuthSurfaces(t *testing.T) {
 		`"model/list"`,
 		`"account/logout"`,
 	} {
-		if !strings.Contains(string(source), required) {
+		if !strings.Contains(combined, required) {
 			t.Fatalf("official Codex account lifecycle missing %q", required)
 		}
 	}
