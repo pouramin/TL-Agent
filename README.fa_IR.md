@@ -514,6 +514,8 @@ third_party/           Required third-party notices/licenses
 
 <p dir="rtl" align="right"><a href="./THIRD_PARTY_NOTICES.md"><span dir="ltr">THIRD_PARTY_NOTICES.md</span></a></p>
 
-<p dir="rtl" align="right">---</p>
+---
 
-<p dir="rtl" align="right"><<span dir="ltr">p align</span>="<span dir="ltr">center</span>"> ساخته‌شده تحت هویت <<span dir="ltr">strong</span>><span dir="ltr">TunnelLab</span></<span dir="ltr">strong</span>>. </<span dir="ltr">p</span>></p>
+<p align="center" dir="rtl">
+  ساخته‌شده تحت هویت <strong><span dir="ltr">TunnelLab</span></strong>.
+</p>
