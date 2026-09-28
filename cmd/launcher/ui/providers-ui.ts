@@ -153,7 +153,7 @@ import { K } from "./kernel";
         <div class="provider-form-grid">
           <input id="providerIdInput" type="hidden" />
           <label class="provider-field-wide"><span>Provider name <small>(optional)</small></span><input id="providerNameInput" autocomplete="off" placeholder="Detected from the API address if left blank" /></label>
-          <label><span>API type</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI-compatible</option><option value="anthropic-messages">Anthropic-compatible</option></select></label>
+          <label><span>API type</span><select id="providerProtocolSelect"><option value="openai-compatible">OpenAI-compatible</option><option value="anthropic-messages">Anthropic-compatible</option><option value="openai-responses" hidden>OpenAI Responses</option></select></label>
           <label><span>API address</span><input id="providerBaseUrlInput" autocomplete="off" spellcheck="false" placeholder="https://api.example.com/v1" /></label>
           <label class="provider-field-wide"><span>API key</span><input id="providerApiKeyInput" class="provider-api-key" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" data-form-type="other" data-lpignore="true" data-1p-ignore placeholder="Leave blank to keep an existing key" /></label>
           <label><span>Model ID</span><input id="providerModelIdInput" autocomplete="off" spellcheck="false" placeholder="model-id" /></label>
@@ -257,7 +257,7 @@ import { K } from "./kernel";
     }
     if (!clean(els.name.value)) els.name.value = inferredProviderName();
     const base = slug(clean(els.name.value)) || slug(clean(els.baseURL.value)) || "custom-provider";
-    const used = new Set(customProviderEntries(providerConfig).map((provider: any) => clean(provider?.id)));
+    const used = new Set((Array.isArray(providerConfig?.providers) ? providerConfig.providers : []).map((provider: any) => clean(provider?.id)));
     let id = base;
     let suffix = 2;
     while (used.has(id)) {
