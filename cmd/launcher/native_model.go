@@ -102,7 +102,7 @@ func (m *providerManager) resolveNativeModel(ctx context.Context, providerID, mo
 			return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("JEV is disabled; enable it in Settings → Providers before using Jev Router")
 		}
 	}
-	key, err := m.runtimeCredential(ctx, providerID)
+	key, err := m.runtimeCredentialWithContext(ctx, providerID)
 	if err != nil {
 		if errors.Is(err, errCredentialNotFound) {
 			return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("provider %q has no TL Studio-owned credential", providerID)
