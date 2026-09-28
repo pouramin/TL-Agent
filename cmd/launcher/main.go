@@ -133,7 +133,9 @@ func main() {
 func newServer(state *appState) (http.Handler, error) {
 	providerManager := newProviderManager(state)
 	huggingFaceAccount := newHuggingFaceAccountAdapter(state, providerManager)
+	googleGeminiAccount := newGoogleGeminiAccountAdapter(state, providerManager)
 	providerManager.registerAccountCredentialSource(huggingFaceAccount)
+	providerManager.registerAccountCredentialSource(googleGeminiAccount)
 	providerAccounts := newProviderAccountService(
 		&unavailableProviderAccountAdapter{
 			id: "chatgpt",
@@ -148,12 +150,7 @@ func newServer(state *appState) (http.Handler, error) {
 			reason: "Anthropic documents account OAuth for its own clients, but TL Studio has not found a public third-party consumer-account OAuth client contract. Anthropic API-key configuration remains supported.",
 		},
 		huggingFaceAccount,
-		&unavailableProviderAccountAdapter{
-			id: "gemini",
-			name: "Google / Gemini",
-			description: "Google account authentication for Gemini API access.",
-			reason: "Gemini account OAuth support is planned after TL Studio's registered Google OAuth client configuration is wired to the generic account adapter.",
-		},
+		googleGeminiAccount,
 		&unavailableProviderAccountAdapter{
 			id: "github-copilot",
 			name: "GitHub Copilot",
