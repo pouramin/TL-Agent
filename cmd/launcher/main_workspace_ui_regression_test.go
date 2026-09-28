@@ -70,6 +70,7 @@ func TestMainWorkspaceContract(t *testing.T) {
 		".workspace-context-sidebar",
 		".workspace-agent-panel",
 		".workspace-terminal-panel.terminal-panel",
+		".workspace-terminal-activity",
 		".workspace-command-palette",
 		"html[data-resolved-theme=\"light\"]",
 		"@media (max-width: 1350px)",
