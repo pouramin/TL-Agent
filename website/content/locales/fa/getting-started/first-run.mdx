@@ -1,16 +1,16 @@
 ---
 title: اولین اجرا
-description: اجرای TL Studio v0.5، بازکردن Project و آشنایی با Native Workspace.
+description: اجرای TL Studio، باز کردن Project، تنظیم اتصال مدل و اجرای Native Agent.
 icon: Play
 ---
 
 ## اجرای TL Studio
 
-نسخه Portable را اجرا کنید یا داخل Folder پروژه این دستور را بزنید:
+نسخهٔ Portable را اجرا کنید یا داخل Folder پروژه این دستور را بزنید:
 
-```bash
+~~~bash
 npx --yes tl-studio
-```
+~~~
 
 TL Studio، Local Server خودش را روی Loopback بالا می‌آورد و Browser Workspace را باز می‌کند.
 
@@ -18,52 +18,66 @@ TL Studio، Local Server خودش را روی Loopback بالا می‌آورد 
 
 روش معمول گرافیکی است و از Folder Picker سیستم‌عامل استفاده می‌کند.
 
-اگر دستور `npx --yes tl-studio` را داخل Folder پروژه اجرا کرده باشید، همان Directory به‌صورت خودکار انتخاب می‌شود.
+اگر npm Launcher را داخل Folder پروژه اجرا کرده باشید، همان Directory به‌صورت خودکار انتخاب می‌شود.
 
 برای Preselect کردن Project:
 
-```bash
+~~~bash
 tl-studio --project /path/to/project
-```
+~~~
 
 در Windows:
 
-```powershell
+~~~powershell
 tl-studio.exe --project "C:\Users\you\Projects\my-project"
-```
+~~~
 
 ## آشنایی با Workspace
 
-Workspace نسخه v0.5 با محوریت Editor طراحی شده است:
+Workspace با محوریت Editor طراحی شده است:
 
-1. از Activity Rail بین **Explorer**، **Search**، **Sessions**، **Changes** و **Settings** جابه‌جا شوید؛
+1. از Activity Rail بین Explorer، Search، Sessions، Changes و Settings جابه‌جا شوید؛
 2. Fileها را در Monaco Editor باز و Edit کنید؛
 3. Agent Panel را در حالت Collapsed، Compact یا Focused استفاده کنید؛
 4. Commandهای Project را در Terminal قابل Resize پایین Workspace اجرا کنید؛
 5. برای File یا Project پشتیبانی‌شده Live Preview را باز کنید؛
 6. Status Bar، Local Status، Changes، Agent State، Model انتخاب‌شده، Cursor و Terminal را نشان می‌دهد.
 
-برای Command Palette از `Ctrl/Cmd+K` و برای Project Search از `Ctrl/Cmd+Shift+F` استفاده کنید.
+برای Command Palette از Ctrl/Cmd+K و برای Project Search از Ctrl/Cmd+Shift+F استفاده کنید.
 
 ## تنظیم Provider
 
 وارد **Settings → Providers** شوید.
 
-Provider را می‌توانید دستی بسازید یا با **Test / Discover Models** Connection را بررسی و Model Catalog را دریافت کنید. Modelهای موردنظر را انتخاب و Provider را Save کنید.
+برای Provider سفارشی، Endpoint، API Type و Credential را تنظیم کنید. اگر Provider دارای Model-list API سازگار باشد، TL Studio می‌تواند Model Catalog را خودکار Discover کند.
 
-Provider Definition و Credential جدا ذخیره می‌شوند و API Key داخل Credential Vault خود TL Studio می‌رود، نه Browser Storage.
+Provider Definition و Credential جدا ذخیره می‌شوند.
+
+## Account Login در Development
+
+در خط توسعهٔ v0.6، همان صفحهٔ Providers اتصال حساب را هم نمایش می‌دهد.
+
+Providerهای فعال:
+
+- OpenRouter؛
+- Hugging Face؛
+- Google / Gemini.
+
+برای Gemini فعلاً قبل از Sign-in باید Google Cloud Project ID و Desktop OAuth Client ID غیرمحرمانه تنظیم شوند.
+
+Entryهای Deferred مثل ChatGPT/Codex، Claude و GitHub Copilot دیده می‌شوند اما غیرفعال هستند.
 
 ## اجرای Agent
 
 Model را انتخاب کنید و Prompt بفرستید.
 
-```text
+~~~text
 Browser
 → TL Studio Session
 → Native Agent
 → Selected Provider
 → Tool Executor when needed
 → Session Persistence + Local Events
-```
+~~~
 
-Tool نیازمند Approval در Permission UI خود TL Studio Pause می‌شود. Agent همچنین می‌تواند Interactive Question Native بپرسد و بعد از پاسخ شما ادامه دهد.
+Tool نیازمند Approval در Permission UI خود TL Studio Pause می‌شود. Agent همچنین می‌تواند Interactive Question بپرسد و بعد از پاسخ شما ادامه دهد.
