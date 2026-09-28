@@ -155,7 +155,7 @@ import { K } from "./kernel";
         <label><input id="providerToolCallInput" type="checkbox" checked /> <span>Tool calling</span></label>
         <label><input id="providerReasoningInput" type="checkbox" /> <span>Reasoning</span></label>
       </div>
-      <div class="provider-security-note">TL Studio keeps API keys out of provider config and browser storage. Keys are stored in TL Studio's local credential vault; runtime credential sync is compatibility-only.</div>
+      <div class="provider-security-note">TL Studio keeps API keys out of provider config and browser storage. Keys are stored only in TL Studio's local credential vault.</div>
       <div class="provider-limit-note">For custom models, set context/output limits when you know them. Automatic context compaction may be unavailable when a model has no known context limit.</div>
       <div class="dialog-actions provider-form-actions"><button id="providerFormCancel" class="ghost" type="button">Cancel</button><button id="providerFormSave" class="primary" type="submit">Save provider</button></div>
     </form>
@@ -370,7 +370,7 @@ import { K } from "./kernel";
       clearForm();
       notice(loadedModelIDs.length === savedModelIDs.length
         ? `${value.name} saved. ${savedModelIDs.length} model${savedModelIDs.length === 1 ? "" : "s"} available in the model selector.`
-        : `${value.name} was saved, but the active runtime loaded ${loadedModelIDs.length} of ${savedModelIDs.length} selected models. Refresh models or check the endpoint and protocol.`,
+        : `${value.name} was saved, but TL Studio can use ${loadedModelIDs.length} of ${savedModelIDs.length} selected models natively. Check tool-calling support, endpoint, and protocol.`,
         loadedModelIDs.length !== savedModelIDs.length);
     } catch (err) {
       notice(`Could not save provider: ${err instanceof Error ? err.message : String(err)}`, true);
@@ -390,7 +390,7 @@ import { K } from "./kernel";
 
       // The delete has already succeeded in TL Studio's provider registry.
       // Update the visible state immediately instead of waiting on a runtime
-      // catalog refresh, which can briefly fail while the runtime reloads.
+      // catalog refresh, which can briefly fail while the provider catalog refreshes.
       providerConfig = withoutProvider(providerConfig, entry.id);
       K.state.providers = Array.isArray(K.state.providers)
         ? K.state.providers.filter((provider) => provider?.id !== entry.id)

@@ -795,11 +795,10 @@ import { K } from "./kernel";
     return originalAfterProjectChange(...args);
   };
 
-  const originalHandleRuntimeEvent = K.handleRuntimeEvent;
-  K.handleRuntimeEvent = (event) => {
-    originalHandleRuntimeEvent(event);
-    const type = event?.type || "";
-    const shouldRefresh = type.startsWith("file.") || type === "session.diff" || type === "session.idle";
+  const originalHandleLiveEvent = K.handleLiveEvent;
+  K.handleLiveEvent = (event: TLStudioLiveEvent) => {
+    originalHandleLiveEvent(event);
+    const shouldRefresh = event?.type === "workspace.changed";
     if (!shouldRefresh) return;
     window.setTimeout(async () => {
       if (!ui.panel?.classList.contains("hidden")) await loadDirectory(K.state.filesPath || "", { preserveSelection: true });

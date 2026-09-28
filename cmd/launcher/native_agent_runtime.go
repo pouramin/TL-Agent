@@ -63,7 +63,7 @@ func (r *nativeAgentRuntime) supports(input sessionRunInput) bool {
 	}
 	providerID := strings.TrimSpace(input.Model.ProviderID)
 	modelID := strings.TrimSpace(input.Model.ID)
-	if providerID == "" || modelID == "" || providerID == runtimeHostedProviderID {
+	if providerID == "" || modelID == "" {
 		return false
 	}
 	_, _, _, err := r.resolver.resolveNativeModel(providerID, modelID)
@@ -416,77 +416,4 @@ func (r *nativeAgentRuntime) persistFailure(directory, sessionID string, input s
 		Changes:     []sessionChangeView{},
 	})
 	r.publish(liveEventView{Type: "message.changed", Action: "changed", SessionID: sessionID})
-}
-
-type hybridSessionCommandAdapter struct {
-	fallback runtimeSessionCommandAdapter
-	native   *nativeAgentRuntime
-}
-
-func newHybridSessionCommandAdapter(fallback runtimeSessionCommandAdapter, native *nativeAgentRuntime) runtimeSessionCommandAdapter {
-	return &hybridSessionCommandAdapter{fallback: fallback, native: native}
-}
-
-func (a *hybridSessionCommandAdapter) ownsRunPersistence(input sessionRunInput) bool {
-	return a.native != nil && a.native.supports(input)
-}
-
-func (a *hybridSessionCommandAdapter) CreateSession(ctx context.Context, backend *runtimeBackend, directory string, input sessionCreateInput) (string, error) {
-	if backend == nil || !backend.available() {
-		if a.native == nil || a.native.store == nil {
-			return "", errSessionCommandsUnsupported
-		}
-		session, err := a.native.store.createNativeSession(directory, input)
-		if err != nil {
-			return "", err
-		}
-		return session.ID, nil
-	}
-	if a.fallback == nil {
-		return "", errSessionCommandsUnsupported
-	}
-	return a.fallback.CreateSession(ctx, backend, directory, input)
-}
-
-func (a *hybridSessionCommandAdapter) UpdateSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionUpdateInput) error {
-	if strings.HasPrefix(strings.TrimSpace(sessionID), "tls_") {
-		return &sessionRuntimeError{Status: 404}
-	}
-	if a.fallback == nil {
-		return errSessionCommandsUnsupported
-	}
-	return a.fallback.UpdateSession(ctx, backend, directory, sessionID, input)
-}
-
-func (a *hybridSessionCommandAdapter) DeleteSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string) error {
-	if strings.HasPrefix(strings.TrimSpace(sessionID), "tls_") {
-		return &sessionRuntimeError{Status: 404}
-	}
-	if a.fallback == nil {
-		return errSessionCommandsUnsupported
-	}
-	return a.fallback.DeleteSession(ctx, backend, directory, sessionID)
-}
-
-func (a *hybridSessionCommandAdapter) RunSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionRunInput) error {
-	if a.native != nil && a.native.supports(input) {
-		return a.native.Start(directory, sessionID, input)
-	}
-	if a.fallback == nil {
-		return errSessionCommandsUnsupported
-	}
-	return a.fallback.RunSession(ctx, backend, directory, sessionID, input)
-}
-
-func (a *hybridSessionCommandAdapter) AbortSession(ctx context.Context, backend *runtimeBackend, directory, sessionID string, input sessionAbortInput) error {
-	if a.native != nil && a.native.Abort(sessionID) {
-		return nil
-	}
-	if strings.HasPrefix(strings.TrimSpace(sessionID), "tls_") {
-		return nil
-	}
-	if a.fallback == nil {
-		return errSessionCommandsUnsupported
-	}
-	return a.fallback.AbortSession(ctx, backend, directory, sessionID, input)
 }

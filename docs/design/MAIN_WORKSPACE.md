@@ -22,7 +22,7 @@ TL Studio currently composes one persistent workspace with these regions:
 - Floating Live Preview.
 - compact Status Bar.
 
-The redesign changes product composition and interaction hierarchy. It does not replace the backend, runtime, filesystem, model, permission or session architecture.
+The redesign changes product composition and interaction hierarchy. The current product architecture is TL Studio-native across workspace, model, permission, question, session, and Agent execution.
 
 ## Global Top Bar
 
@@ -31,7 +31,7 @@ The top bar reuses real product controls and state:
 - TL Studio identity.
 - the real current-project button and operating-system project picker.
 - Command Palette trigger.
-- real local runtime status.
+- real local TL Studio service status.
 - real Live Preview trigger.
 - appearance shortcut connected to the existing preference.
 - existing refresh action.
@@ -117,7 +117,7 @@ When the current semantic Agent session reports a changed path matching an open 
 
 ### Externally modified
 
-Open tabs reconcile against disk/runtime file events. A dirty buffer whose disk SHA changes is marked externally changed.
+Open tabs reconcile against TL Studio workspace file events. A dirty buffer whose disk SHA changes is marked externally changed.
 
 ### Deleted externally
 
@@ -174,7 +174,7 @@ Normal collaboration state with real conversation, tool activity, permissions/qu
 
 A wider Agent workspace for planning/review while the Editor remains available.
 
-No second Agent runtime is introduced.
+The workspace uses the single TL Studio Native Agent execution path.
 
 ## Terminal
 
@@ -235,16 +235,16 @@ Existing safeguards remain:
 - unsaved Editor buffers prompt before switching.
 - Terminal follows existing project-switch cleanup.
 - Preview follows existing project-switch cleanup.
-- Plugin/runtime project lifecycle remains in existing hooks.
+- Plugin and project lifecycle remains in existing TL Studio hooks.
 - workspace file/editor state reloads against the selected project.
 
 ## Local status and Status Bar
 
-Local execution remains quietly visible in the top and bottom workspace chrome. It uses real backend/runtime state.
+Local execution remains quietly visible in the top and bottom workspace chrome. It uses real TL Studio local service state.
 
 The Status Bar currently exposes reliable state only:
 
-- local runtime status.
+- local service status.
 - change count.
 - Agent state.
 - selected model.
@@ -308,6 +308,6 @@ The Changes view is session-change oriented rather than a complete source-contro
 
 ## Future possibility
 
-Possible future extension points include richer source-control state, optional PTY infrastructure, richer Focused-Agent planning surfaces, additional runtime adapters, richer Plugin presentation and optional remote/cloud services if product direction changes.
+Possible future extension points include richer source-control state, optional PTY infrastructure, richer Focused-Agent planning surfaces, additional documented provider adapters, richer Plugin presentation, and optional remote/cloud services if product direction changes.
 
 Future workspace work should preserve the Editor-centered hierarchy and read this document together with TL_STUDIO_DESIGN_SYSTEM.md.

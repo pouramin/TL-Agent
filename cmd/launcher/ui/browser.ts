@@ -34,7 +34,6 @@ import "./provider-account-ui";
 import "./provider-discovery-ui";
 import "./jev-ui";
 import "./providers-settings-bridge";
-import "./legacy-sessions";
 import "./workbench";
 
 import "./app";
