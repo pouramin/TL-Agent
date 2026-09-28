@@ -157,7 +157,7 @@ func TestOpenRouterAccountLogoutKeepsManualAPIKey(t *testing.T) {
 }
 
 func TestOpenRouterAccountStatusSurvivesAdapterRestart(t *testing.T) {
-	adapter, manager, state, providerServer := newOpenRouterAdapterTestFixture(t)
+	_, manager, state, providerServer := newOpenRouterAdapterTestFixture(t)
 	defer providerServer.Close()
 
 	if err := putProviderCredentialSlot(manager.credentials, openRouterAccountProviderID, providerCredentialSlotAccount, "account-secret"); err != nil {
