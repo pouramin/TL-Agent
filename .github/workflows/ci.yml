@@ -93,7 +93,7 @@ jobs:
         shell: pwsh
         env:
           TL_STUDIO_REAL_CODEX_SMOKE: '1'
-        run: go test ./cmd/launcher -run TestRealCodexAppServerInitializeSmoke -count=1 -v
+        run: go test ./cmd/launcher -run 'TestRealCodex(AppServerInitialize|ExecCLIContract)Smoke' -count=1 -v
 
   native-product-contract:
     runs-on: ubuntu-latest
