@@ -1,59 +1,84 @@
 ---
 title: Permissions and questions
-description: Handle TL Studio-owned permission policy and semantic interactive Questions in stable v0.3.
+description: Handle fully native Tool permissions and interactive Agent questions in TL Studio v0.5.
 icon: ShieldCheck
 ---
 
-Stable v0.3 owns the product-facing Permission policy and Question contracts while keeping final enforcement at the execution boundary.
+Permissions and Questions are first-class TL Studio native domains in v0.5.
 
-## Permission decisions
+## Native Permission Engine
 
-A request can expose:
+The Permission Engine is authoritative for native Tool execution.
 
-- **Reject** — deny the action;
-- **Allow once** — approve this request only;
-- **Always allow these** — remember exact reusable matching rules when persistence is safe.
+It owns:
 
-Remembered allow rules are stored locally in:
+- pending requests;
+- allow-once decisions;
+- rejection;
+- Project-scoped remembered allow rules;
+- sensitive-action restrictions;
+- policy matching;
+- enforcement;
+- semantic attention events.
+
+The Browser uses only:
+
+```text
+/local/permissions*
+```
+
+## Read versus write/execute
+
+Read-only built-in Tools without write/execute/network capability can run without an approval prompt.
+
+Write/edit and command execution go through Permission authorization.
+
+For native write/edit Tools, a safe exact Project-scoped matcher can be remembered.
+
+Execute- or network-capable requests are sensitive and cannot be remembered as reusable approvals.
+
+Unknown native Tools cannot be authorized.
+
+## Remembered rules
+
+Remembered allow rules live locally in:
 
 ```text
 permissions.json
 ```
 
-They are scoped to the selected Project.
+TL Studio uses exact reusable matchers rather than inventing broader wildcard rules.
 
-## Conservative remembered rules
+Rules are Project-scoped and can be inspected/forgotten from Settings.
 
-TL Studio does not invent broad wildcard Permission rules.
+## Native Questions
 
-For compatibility requests, it stores exact canonical matcher tokens supplied by the runtime. Every matcher on a future request must already be covered before automatic approval.
-
-For the native Tool path, write/edit requests can produce Project-scoped reusable matchers. Execute- or network-capable Tool requests are treated as sensitive and cannot be remembered.
-
-Sensitive compatibility classes such as `skillShell` and `sandboxEscalation`, and requests marked `disableAlways`, always remain interactive.
-
-Remembered rules are visible in Settings and can be forgotten.
-
-## Native Tool permissions
-
-Read-only native Tools that have no write/execute/network capability can run without an approval prompt.
-
-Write/edit and command execution pass through TL Studio's native Permission authorizer before the Tool Executor performs the action.
-
-Unknown native Tools cannot be authorized.
-
-## Questions
-
-Interactive Questions use TL Studio-owned routes:
+The Native Agent can pause through:
 
 ```text
-GET  /local/questions
-POST /local/questions/{requestID}/reply
-POST /local/questions/{requestID}/reject
+interaction.question
 ```
 
-The UI can represent option lists, single or multiple selection, defaults, and custom answers. TL Studio validates that the Question request is active for the target Session before forwarding the decision through the active engine adapter.
+The flow is:
+
+```text
+Native Agent
+→ Question Manager
+→ /local/questions
+→ Browser
+→ reply or reject
+→ Question Manager
+→ Agent resumes
+```
+
+Questions are scoped to the Session.
+
+The current system supports multiple-choice options, multiple selection, custom text answers, defaults, rejection, and context cancellation.
+
+Pending/resolved Question changes emit semantic `attention.changed` events.
 
 ## Human responsibility
 
-Loopback isolation protects the network surface, but approving a local command or write still grants real access on your machine. Read the requested action, patterns, and metadata before approving.
+Permissions can authorize real local file changes and commands. MCP Plugin tools can also request capabilities.
+
+Read the requested action and context before approval, especially for command execution or third-party Plugin tools.

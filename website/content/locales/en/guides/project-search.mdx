@@ -1,37 +1,39 @@
 ---
 title: Project Search
-description: Search text across the selected project without leaving TL Studio.
+description: Search text across the active Project with TL Studio's native local search.
 icon: Search
 ---
 
-Project Search is implemented by TL Studio itself and scans only the currently selected local project.
+Project Search is implemented directly by TL Studio. It does not require an external search binary or an Agent Tool call.
 
-## Open Search
-
-Use the Search surface or the standard shortcut:
+Open it from the Activity Rail or use:
 
 ```text
-Windows / Linux: Ctrl + Shift + F
-macOS:           Cmd + Shift + F
+Ctrl/Cmd + Shift + F
 ```
 
 ## Search controls
 
-The current search supports:
+The search surface supports:
 
+- literal text search;
 - case-sensitive matching;
-- lightweight include patterns;
-- lightweight exclude patterns;
-- grouped results by file;
-- click-to-open navigation into the editor.
+- include patterns;
+- exclude patterns;
+- direct navigation to the exact file, line, and column.
 
-Selecting a result opens or activates the matching file and selects the matching range.
+The UI cancels stale in-flight searches when a newer query replaces them.
 
-## Local and bounded
+## Built-in limits
 
-Search does not build a shell command and does not require an external search binary. TL Studio scans the project through its own local filesystem boundary.
+Current native limits are:
 
-For safety and performance it does not follow symlink entries, ignores binary/non-UTF-8 files, bounds searchable file/result sizes, and skips common generated or heavy directories by default, including:
+- maximum query size: **512 bytes**;
+- maximum scanned file size: **2 MiB**;
+- maximum returned matches: **500**;
+- result snippet: up to **240 runes**.
+
+Common generated/heavy directories are ignored by default:
 
 ```text
 .git
@@ -43,4 +45,10 @@ coverage
 .next
 ```
 
-Use include/exclude patterns when you want to narrow a large project further.
+Symlinks and files that cannot be treated as normal searchable text are not traversed as ordinary Project content.
+
+## Include and exclude patterns
+
+Use include/exclude filters to narrow large Projects. Exclude patterns are also useful for generated folders that are specific to your stack.
+
+Project Search is read-only. **Replace in Files is not implemented in v0.5.**

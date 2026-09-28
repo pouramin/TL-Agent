@@ -1,37 +1,39 @@
 ---
 title: Project Search
-description: جست‌وجوی متن در Project انتخاب‌شده بدون خروج از TL Studio.
+description: جست‌وجوی متن در Project فعال با Native Search خود TL Studio.
 icon: Search
 ---
 
-Project Search توسط خود TL Studio اجرا می‌شود و فقط Project Local فعال را Scan می‌کند.
+Project Search مستقیماً توسط TL Studio اجرا می‌شود و به External Search Binary یا Agent Tool Call نیاز ندارد.
 
-## بازکردن Search
-
-از بخش Search یا Shortcut استاندارد استفاده کنید:
+از Activity Rail آن را باز کنید یا از این Shortcut استفاده کنید:
 
 ```text
-Windows / Linux: Ctrl + Shift + F
-macOS:           Cmd + Shift + F
+Ctrl/Cmd + Shift + F
 ```
 
 ## Search Controlها
 
-نسخه فعلی از این موارد پشتیبانی می‌کند:
+Search از این موارد پشتیبانی می‌کند:
 
-- Case-sensitive Search؛
-- Include Patternهای سبک؛
-- Exclude Patternهای سبک؛
-- Group شدن Resultها براساس File؛
-- بازشدن مستقیم Match داخل Editor.
+- Literal Text Search؛
+- Case-sensitive Matching؛
+- Include Pattern؛
+- Exclude Pattern؛
+- رفتن مستقیم به File، Line و Column دقیق.
 
-با کلیک روی Result، File مربوط باز یا Active می‌شود و محدوده Match انتخاب می‌شود.
+اگر Query جدیدی جای Query قبلی بیاید، UI Search قدیمی در حال اجرا را Cancel می‌کند.
 
-## Local و Bounded
+## Limitهای فعلی
 
-Search هیچ Shell Commandی نمی‌سازد و به Search Binary خارجی نیاز ندارد. Scan از Filesystem Boundary خود TL Studio انجام می‌شود.
+Limitهای Native فعلی:
 
-برای Security و Performance، Symlinkها Follow نمی‌شوند، Fileهای Binary/Non-UTF8 نادیده گرفته می‌شوند، اندازه File و تعداد Resultها Limit دارند و Directoryهای سنگین یا Generated زیر به‌صورت پیش‌فرض Skip می‌شوند:
+- Maximum Query برابر **512 bytes**؛
+- Maximum File قابل Scan برابر **2 MiB**؛
+- Maximum Result برابر **500 Match**؛
+- Snippet تا **240 Rune**.
+
+Directoryهای سنگین/Generated زیر به‌صورت پیش‌فرض Ignore می‌شوند:
 
 ```text
 .git
@@ -43,4 +45,10 @@ coverage
 .next
 ```
 
-برای Projectهای بزرگ می‌توانید با Include/Exclude دامنه Search را محدودتر کنید.
+Symlink و Fileهایی که Text عادی قابل Search نیستند مثل Project Content معمولی Traverse نمی‌شوند.
+
+## Include و Exclude
+
+برای Project بزرگ از Include/Exclude استفاده کنید. Exclude برای Folderهای Generated مخصوص Stack هم مفید است.
+
+Project Search فقط Read است و **Replace in Files در v0.5 پیاده‌سازی نشده است.**
