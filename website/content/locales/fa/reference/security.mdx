@@ -47,11 +47,15 @@ Provider و Plugin JSON عادی Definition/Reference را ذخیره می‌ک�
 
 ### Credential حساب
 
-در Development v0.6، Credential دستی API و Credential حساب در Slotهای جدا هستند.
+در Development v0.6، Credential دستی API و Credential حسابی که TL Studio مدیریت می‌کند در Slotهای جدا هستند.
 
 OAuth Code، PKCE Verifier، Access Token، Refresh Token، API Key، Cookie و Client Secret وارد Browser State نمی‌شوند.
 
-Sign out کردن حساب API Key دستی موجود را حذف نمی‌کند.
+برای ChatGPT، Client رسمی OpenAI Codex، OAuth Token Store را داخل `CODEX_HOME` ایزولهٔ مخصوص TL Studio نگه می‌دارد. TL Studio آن Tokenهای خام را نمی‌خواند، کپی نمی‌کند و Serialize نمی‌کند.
+
+Provider Bridge مربوط به ChatGPT از Working Directory موقت و خالی اجرا می‌شود؛ User/Project Codex Config و Ruleها Ignore می‌شوند، Sandbox فقط‌خواندنی است، Approval Policy روی `never` قرار دارد و Web Search غیرفعال است. اجرای Toolهای پروژه و Permission Decision همچنان در اختیار TL Studio است.
+
+Sign out کردن حسابی که TL Studio مدیریت می‌کند API Key دستی موجود را حذف نمی‌کند.
 
 ## مرز Provider Discovery
 
