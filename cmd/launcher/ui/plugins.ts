@@ -6,6 +6,7 @@ import { K } from "./kernel";
   if (!K || K.__pluginsInstalled) return;
   K.__pluginsInstalled = true;
   K.state.plugins = [];
+  let savedPlugins: TLStudioPluginView[] = [];
 
   const panel = document.querySelector<HTMLElement>('[data-settings-panel="plugins"]');
   const list = document.getElementById("pluginList");
@@ -180,12 +181,50 @@ import { K } from "./kernel";
     return card;
   };
 
+  const renderSavedCard = (plugin: TLStudioPluginView) => {
+    const card = document.createElement("article");
+    card.className = "plugin-card plugin-card-saved";
+    card.dataset.pluginId = plugin.id;
+
+    const head = document.createElement("div");
+    head.className = "plugin-card-head";
+    const copy = document.createElement("div");
+    copy.className = "plugin-card-copy";
+    const title = document.createElement("strong");
+    title.textContent = plugin.name;
+    const description = document.createElement("span");
+    description.textContent = plugin.description || "Saved MCP plugin";
+    copy.append(title, description);
+
+    const state = document.createElement("span");
+    state.className = "plugin-status";
+    state.textContent = "Saved";
+    head.append(copy, state);
+
+    const meta = document.createElement("div");
+    meta.className = "plugin-meta plugin-saved-project";
+    meta.textContent = `Saved for: ${plugin.project || "another project"}`;
+    meta.title = plugin.project || "";
+
+    const command = document.createElement("code");
+    command.className = "plugin-command";
+    command.textContent = [plugin.command, ...(plugin.arguments || [])].join(" ");
+
+    const actions = document.createElement("div");
+    actions.className = "plugin-card-actions";
+    actions.append(actionButton("Use in current project", "attach", plugin.id, "primary small"));
+
+    card.append(head, meta, command, actions);
+    return card;
+  };
+
   const appendSection = (
     titleText: string,
     subtitleText: string,
     plugins: TLStudioPluginView[],
     emptyTitle: string,
     emptyText: string,
+    renderer: (plugin: TLStudioPluginView) => HTMLElement = renderCard,
   ) => {
     const section = document.createElement("section");
     section.className = "plugin-section";
@@ -198,7 +237,7 @@ import { K } from "./kernel";
     head.append(title, subtitle);
     section.appendChild(head);
     if (plugins.length) {
-      for (const plugin of plugins) section.appendChild(renderCard(plugin));
+      for (const plugin of plugins) section.appendChild(renderer(plugin));
     } else {
       const empty = document.createElement("div");
       empty.className = "plugin-empty";
@@ -230,11 +269,26 @@ import { K } from "./kernel";
       "No plugins added yet",
       "Add any compatible stdio MCP server with the button above.",
     );
+    if (savedPlugins.length) {
+      appendSection(
+        "Saved for another project",
+        "These plugins still exist in TL Studio, but their saved project path no longer matches the project currently open.",
+        savedPlugins,
+        "",
+        "",
+        renderSavedCard,
+      );
+    }
   };
 
   const load = async () => {
     try {
-      K.state.plugins = await K.api.plugins.list();
+      const [current, saved] = await Promise.all([
+        K.api.plugins.list(),
+        K.api.plugins.saved(),
+      ]);
+      K.state.plugins = current;
+      savedPlugins = saved;
       render();
       return K.state.plugins;
     } catch (error) {
@@ -305,10 +359,26 @@ import { K } from "./kernel";
   list.addEventListener("click", async (event) => {
     const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button[data-plugin-action]");
     if (!button) return;
-    const plugin = K.state.plugins.find((item) => item.id === button.dataset.pluginId);
-    if (!plugin) return;
     const action = button.dataset.pluginAction;
+    const plugin = (action === "attach" ? savedPlugins : K.state.plugins).find((item) => item.id === button.dataset.pluginId);
+    if (!plugin) return;
 
+    if (action === "attach") {
+      const sourceProject = String(plugin.project || "");
+      if (!sourceProject) return;
+      if (!window.confirm(`Use “${plugin.name}” in the current project?\n\nIts saved project scope will move from:\n${sourceProject}`)) return;
+      busy(button, true, "Moving…");
+      try {
+        await K.api.plugins.attach(plugin.id, sourceProject);
+        await load();
+        await K.loadToolRegistry?.().catch(() => {});
+      } catch (error) {
+        K.showError((error as Error).message || String(error));
+      } finally {
+        busy(button, false);
+      }
+      return;
+    }
     if (action === "configure") {
       openEditor(plugin);
       return;
