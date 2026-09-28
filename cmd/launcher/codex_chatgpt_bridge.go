@@ -481,6 +481,11 @@ func codexBridgeSchema() map[string]any {
 
 func codexBridgePrompt(request nativeModelRequest) (string, error) {
 	payload := map[string]any{
+		"selectedModel": map[string]any{
+			"id": strings.TrimSpace(request.Model.ID),
+			"name": strings.TrimSpace(request.Model.Name),
+			"provider": chatGPTAccountProviderID,
+		},
 		"system": request.System,
 		"messages": request.Messages,
 		"tools": request.Tools,
@@ -499,6 +504,7 @@ For this turn:
 - Do not invoke Codex built-in tools, MCP tools, subagents, or file-edit tools.
 - Do not modify any files.
 - Decide only the next assistant output for the supplied conversation.
+- The model identity for this turn is the selectedModel supplied by TL Studio. If the user asks which model or model version is being used, report selectedModel.id exactly and do not replace it with a generic Codex family name.
 - If a TL Studio tool is needed, return it in toolCalls and stop. TL Studio will execute it.
 - Every toolCalls[].name must exactly match one of the supplied tool IDs.
 - toolCalls[].arguments must be a JSON string encoding one object that matches that tool's input schema.
