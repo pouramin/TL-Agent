@@ -169,7 +169,7 @@ func TestChatGPTAccountLoginUsesOfficialCodexAndSyncsModels(t *testing.T) {
 
 func TestChatGPTCodexBridgeReturnsTLStudioToolCall(t *testing.T) {
 	_, adapter := newChatGPTTestManager(t)
-	t.Setenv("FAKE_CODEX_OUTPUT", `{"text":"","toolCalls":[{"name":"files.read","arguments":{"path":"README.md"}}]}`)
+	t.Setenv("FAKE_CODEX_OUTPUT", `{"text":"","toolCalls":[{"name":"files.read","arguments":"{\"path\":\"README.md\"}"}]}`)
 
 	client := newNativeModelClient(adapter)
 	response, err := client.Complete(context.Background(), nativeModelRequest{
@@ -317,5 +317,33 @@ func TestWindowsBatchCommandLineKeepsOuterAndExecutableQuotes(t *testing.T) {
 	}
 	if !strings.HasSuffix(line, `"--stdio""`) {
 		t.Fatalf("batch command must close the outer cmd.exe quote pair: %q", line)
+	}
+}
+
+
+func TestChatGPTCodexBridgeSchemaUsesStrictStringArguments(t *testing.T) {
+	schema := codexBridgeSchema()
+	properties, ok := schema["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("bridge schema properties are missing")
+	}
+	toolCalls, ok := properties["toolCalls"].(map[string]any)
+	if !ok {
+		t.Fatal("toolCalls schema is missing")
+	}
+	items, ok := toolCalls["items"].(map[string]any)
+	if !ok {
+		t.Fatal("toolCalls item schema is missing")
+	}
+	if items["additionalProperties"] != false {
+		t.Fatal("toolCalls item schema must be strict")
+	}
+	itemProperties, ok := items["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("toolCalls item properties are missing")
+	}
+	arguments, ok := itemProperties["arguments"].(map[string]any)
+	if !ok || arguments["type"] != "string" {
+		t.Fatalf("tool arguments must be a JSON-encoded string in the strict output schema: %#v", arguments)
 	}
 }
