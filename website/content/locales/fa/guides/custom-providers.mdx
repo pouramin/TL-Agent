@@ -1,79 +1,94 @@
 ---
 title: Custom Provider
-description: مدیریت Provider/Model و Credential متعلق به TL Studio در Stable v0.3.
+description: تنظیم Native Provider، Model Discovery و Credential Vault محلی در TL Studio.
 icon: Cable
 ---
 
-TL Studio تعریف Custom Providerها را از **Settings → Providers** مدیریت می‌کند و برای این کار به Gateway ابری متعلق به TL Studio نیاز ندارد.
+در v0.5، Provider Definition، Model Discovery، Model Catalog مربوط به Product و Provider Credential متعلق به خود TL Studio هستند.
 
-## API Familyهای پشتیبانی‌شده
+## Native Protocolهای پشتیبانی‌شده
 
-Form فعلی از این Protocolها پشتیبانی می‌کند:
+Protocolهای فعلی:
 
 - **OpenAI Compatible**؛
 - **OpenAI Responses**؛
 - **Anthropic Messages**.
 
-برای Modelهای پشتیبانی‌شده، همین Protocolها می‌توانند توسط Native Agent Runtime خود TL Studio استفاده شوند.
+Provider Form به Vendor خاصی وابسته نیست. Base URL، API Key و یک یا چند Model را Configure می‌کنید.
 
-## اضافه‌کردن Provider
+## Discover Models
 
-از **Settings → Providers → Add provider** این موارد را تنظیم کنید:
+اگر Provider دارای Model-list API باشد، قبل از Save از **Test / Discover Models** استفاده کنید.
 
-- Provider ID؛
-- Display Name؛
-- Protocol؛
-- Base URL؛
-- API Key؛
-- Model ID و Display Name اختیاری؛
-- Context/Output Limit اختیاری؛
+TL Studio، Base URL را Validate می‌کند، Discovery Request می‌فرستد، Modelها را Normalize می‌کند و Catalog قابل Search نشان می‌دهد.
+
+Metadata قابل Normalize شامل:
+
+- Model ID و Name؛
+- Context/Output Limit؛
 - Tool Calling؛
-- Reasoning.
+- Reasoning؛
+- Vision؛
+- Router Kind.
+
+می‌توانید Visible Modelها را Select کنید، Selection را Clear کنید، Catalog را Search کنید یا برای Private/Unlisted Model از Manual Entry استفاده کنید.
+
+## Security مربوط به Discovery
+
+Provider Discovery:
+
+- فقط HTTP(S) Base URL معتبر و بدون Embedded Credential را قبول می‌کند؛
+- Request Timeout برابر 15 ثانیه دارد؛
+- Response Catalog را به 8 MiB محدود می‌کند؛
+- حداکثر 5000 Model Normalize می‌کند؛
+- Cross-origin Redirect را Block می‌کند؛
+- Redirect Chain محدود دارد.
+
+برای Anthropic-compatible Discovery، Model Listing صفحه‌بندی‌شده با Page Count محدود پشتیبانی می‌شود.
+
+## Cache Fallback
+
+Catalog موفق می‌تواند در این فایل Local Cache شود:
+
+```text
+model-catalog-cache.json
+```
+
+اگر Discovery زنده بعداً به دلیل غیرAuthentication Fail شود، TL Studio می‌تواند Catalog Cache‌شده‌ی Matching را به‌عنوان Stale Data برگرداند.
+
+Authentication/Authorization Failure با Cache قدیمی پنهان نمی‌شود.
+
+## رفتار OpenRouter
+
+برای OpenRouter از Authenticated User Model Catalog استفاده می‌شود، نه Public Generic Catalog. بنابراین API Key برای Discovery لازم است و Credential نامعتبر تشخیص داده می‌شود.
+
+این Catalog همچنین Availability/Preference فعلی User در OpenRouter را بهتر منعکس می‌کند.
 
 ## Provider Registry
 
-تعریف Provider و Model داخل فایل Versioned متعلق به TL Studio ذخیره می‌شود:
+Definitionهای ذخیره‌شده داخل فایل Versioned زیر هستند:
 
 ```text
 providers.json
 ```
 
-این Registry فقط Conceptهای TL Studio را نگه می‌دارد:
+Registry، Provider ID/Name، Protocol، Base URL، Model Definition، Capability Flag و Limit اختیاری را نگه می‌دارد.
 
-- Provider ID/Name؛
-- Protocol؛
-- Base URL؛
-- Model Definition؛
-- Capability Flag؛
-- Context/Output Limit اختیاری.
-
-Engine Package Name یا Config Shape خصوصی داخل این فایل قرار نمی‌گیرد.
+API Key داخل آن قرار نمی‌گیرد.
 
 ## Credential Vault
 
-API Key داخل `providers.json` یا Browser Storage نوشته نمی‌شود.
+API Key داخل Credential Vault خود TL Studio ذخیره می‌شود:
 
-در Stable v0.3، Credential Persistence متعلق به Credential Vault خود TL Studio است:
+- Windows با DPAPI؛
+- macOS با Keychain در صورت دسترسی؛
+- Linux با Secret Service از طریق `secret-tool` در صورت وجود؛
+- در غیر این صورت Encrypted Private-file Fallback.
 
-- در Windows از **DPAPI** استفاده می‌شود؛
-- در macOS در صورت وجود ابزار `security` از **Keychain** استفاده می‌شود؛
-- در Linux در صورت وجود `secret-tool` از **Secret Service** استفاده می‌شود؛
-- در حالت Fallback از Encrypted Private-file Store داخل Local State خود TL Studio استفاده می‌شود.
+Provider Call مستقیم از Credential متعلق به TL Studio استفاده می‌کند و چیزی با Local Runtime دیگری Sync نمی‌شود.
 
-Fallback یک Master Key خصوصی Local و Authenticated Encryption دارد و Fileها با Permission خصوصی ساخته می‌شوند، جایی که سیستم‌عامل پشتیبانی کند.
+## Provider Account Foundation
 
-## انتخاب Native Execution
+یک Domain عمومی با Routeهای `/local/provider-accounts*` برای Integrationهای رسمی Account-backed آینده وجود دارد.
 
-وقتی Provider Definition، Credential و Protocol/Model توسط TL Studio قابل Resolve و پشتیبانی باشند، Run می‌تواند از Native Agent Loop استفاده کند.
-
-Hosted Account، Legacy Provider Resolve‌نشده یا Capability بدون Handler Native از Compatibility Adapter عبور می‌کند.
-
-## Migration و Remove
-
-هنگام Upgrade از Buildهای قدیمی، اگر Registry خود TL Studio هنوز وجود نداشته باشد، تعریف Provider سازگار می‌تواند از Config قبلی Import شود.
-
-Credential مدیریت‌شده فقط هنگام نیاز با Compatibility Execution Sync می‌شود. با Remove کردن Provider مدیریت‌شده، Credential متعلق به TL Studio هم حذف می‌شود.
-
-## نکته Security
-
-Base URL تنظیم‌شده محتوای Prompt و Model Request همان Provider را دریافت می‌کند. فقط Endpoint قابل‌اعتماد اضافه کنید و API Key را داخل Screenshot، Log، Issue یا Bug Report منتشر نکنید.
+**در Build فعلی v0.5.0 هیچ Account Adapter ثبت نشده است.** بنابراین Providers UI هم اعلام می‌کند که Account-based Provider Integration در این Build موجود نیست.

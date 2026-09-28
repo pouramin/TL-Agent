@@ -1,57 +1,108 @@
 ---
 title: Workspace و Editor
-description: کار با Project Fileها در Monaco لوکال و File Contract متعلق به TL Studio v0.3.
+description: Workspace با محوریت Editor، Monaco، Panelها، File State و Command Palette در TL Studio v0.5.
 icon: FolderCode
 ---
 
-در Stable v0.3، **Monaco Editor 0.56.0** نقش Editor Engine پیشرفته را دارد، اما Project File، Buffer، Save، Conflict و External-change Reconciliation همچنان در مالکیت TL Studio هستند.
+TL Studio v0.5 یک **AI-native Development Workspace** است، نه Chat Application که یک Editor هم کنارش گذاشته شده باشد. Editor مرکز اصلی Layout باقی می‌ماند و Agent می‌تواند برای Collaboration بازتر شود یا وقتی Manual Coding مهم‌تر است Collapse شود.
 
-## File Explorer
+## ساختار Workspace
 
-از بخش **Files** می‌توانید:
+Workspace دسکتاپ این بخش‌ها را دارد:
 
-- File باز کنید؛
-- File و Folder بسازید؛
-- Rename کنید؛
-- Delete کنید؛
-- Project Tree را Refresh کنید؛
-- با **Show in Folder** محل File فعال را در File Manager سیستم باز کنید.
+- **Global Top Bar** برای Product، Project فعال، Command Palette، Local Status، Preview، Appearance، Refresh و Account Surface؛
+- **Activity Rail** برای Explorer، Search، Sessions، Changes و Settings؛
+- **Context Sidebar** برای Activity انتخاب‌شده؛
+- **Editor Workspace** برای File Tabها و Monaco؛
+- **TL Agent Panel** در حالت Collapsed، Compact یا Focused؛
+- **Terminal** به‌عنوان Bottom Panel قابل Resize؛
+- **Live Preview** به‌عنوان Floating Local Window؛
+- **Status Bar** برای Stateهای مطمئن و فشرده.
 
-همه عملیات Filesystem داخل Boundary همان Project انتخاب‌شده Resolve می‌شوند.
+طراحی Desktop-first است. در Width کمتر ابتدا Density ثانویه کم می‌شود، بعد Context Sidebar و Agent Collapse می‌شوند تا فضای مفید Editor حفظ شود.
 
-## Monaco کاملاً Local است
+## Monaco Editor
 
-Monaco و Workerهایش همراه TL Studio Bundle می‌شوند و از Local Application Origin Load می‌شوند. Editor پیشرفته فقط هنگام اولین نیاز Lazy Load می‌شود و CDN برای Editor لازم نیست.
+Monaco به‌صورت Local Bundle و Lazy Load می‌شود. Editor سبک textarea هم Fallback باقی مانده است.
 
-اگر Monaco Load نشود، Editor سبک مبتنی بر textarea همچنان به‌عنوان Fallback کار می‌کند.
+این بخش‌ها همچنان متعلق به TL Studio هستند، نه Monaco:
 
-## Multi-tab Editing
+- Project Path و File Access؛
+- Buffer/Model هر File؛
+- Multi-tab State؛
+- Save؛
+- SHA-256 Revision Protection؛
+- Save Conflict؛
+- External-change Reconciliation؛
+- Preview-only Media Tab.
 
-هر File بازشده Buffer مستقل دارد. TL Studio وضعیت Clean و Dirty هر Tab را جدا نگه می‌دارد تا با جابه‌جایی بین Fileها Editهای Save‌نشده از بین نروند.
+برای Save از `Ctrl/Cmd+S` استفاده کنید.
 
-برای Save از `Ctrl+S` در Windows/Linux یا `Cmd+S` در macOS استفاده کنید.
+## Explorer
 
-قابلیت‌های استاندارد Monaco مثل Find/Replace و Multi-cursor هم در دسترس‌اند.
+Explorer عملیات واقعی Project را انجام می‌دهد:
 
-## Conflict Protection
+- Open File؛
+- Create File/Folder؛
+- Rename و Delete؛
+- Refresh Tree؛
+- **Show in Folder** برای File فعال.
 
-وقتی File خوانده می‌شود، TL Studio یک SHA-256 Revision Token نگه می‌دارد. Save معمولی همان Revision را برمی‌گرداند. اگر نسخه روی Disk بعد از Open تغییر کرده باشد، Silent Overwrite انجام نمی‌شود.
+همه Filesystem Operationها داخل Boundary همان Project باقی می‌مانند.
 
-Force Save یک Action جدا و آگاهانه بعد از بررسی Conflict است.
+## File Stateها
 
-## تغییرات Agent، Git و برنامه‌های دیگر
+Tab باز می‌تواند این Stateها را داشته باشد:
 
-File ممکن است توسط Agent، Git، Build Tool یا برنامه‌ای دیگر تغییر کند.
+- **Clean** وقتی Buffer با آخرین Disk Revision برابر است؛
+- **Dirty** برای Edit ذخیره‌نشده؛
+- **Agent modified** وقتی Session فعلی همان Path را تغییر داده و با Marker حرف `A` نشان داده می‌شود؛
+- **Externally modified** وقتی SHA نسخه روی Disk تغییر کند؛
+- **Deleted externally** که برای Buffer کثیف همچنان محافظت انجام می‌شود؛
+- **Conflict** وقتی Save با Expected SHA قدیمی انجام شده باشد.
 
-- Buffer تمیز تغییر Disk را خودکار دنبال می‌کند؛
-- Buffer کثیف حفظ می‌شود و تغییر یا حذف نسخه Disk را علامت می‌زند.
+Marker مربوط به Agent فقط Session Change را نشان می‌دهد و سیستم Git Authorship نیست.
 
-## Read-only Preview Tab
+## Panelهای قابل Resize
 
-Fileهای Binary/Media قابل Preview می‌توانند به‌عنوان Tab واقعی و Read-only داخل Workspace باز شوند. Render محتوا از Preview System می‌آید و File به Text قابل‌ویرایش تبدیل نمی‌شود.
+سه Splitter اصلی داریم:
 
-برای فرمت‌ها، [Live Preview](./live-preview) را ببینید.
+1. لبه راست Context Sidebar؛
+2. لبه چپ TL Agent؛
+3. لبه بالای Terminal.
 
-## Ask Agent از Selected Code
+Constraint فعلی شامل حداقل 180px برای Context Sidebar، حداقل 280px برای Agent بازشده، حدود 420px فضای هدف برای Editor و حداقل 96px برای Terminal بازشده است.
 
-بخش انتخاب‌شده‌ی Code را می‌توانید مستقیم به Agent بدهید تا Context لازم بدون Copy/Paste دستی منتقل شود.
+Geometry به‌صورت Local زیر این Key Persist می‌شود:
+
+```text
+tl-studio.workspace-layout.v1
+```
+
+## حالت‌های Agent
+
+TL Agent Panel سه حالت Presentation دارد:
+
+- **Collapsed** برای بیشترین فضای Editor؛
+- **Compact** برای Collaboration عادی؛
+- **Focused** برای Planning/Review با Agent بزرگ‌تر در کنار Editor.
+
+این‌ها فقط Presentation را تغییر می‌دهند و هر سه از همان Native Session/Agent استفاده می‌کنند.
+
+## Command Palette
+
+Shortcut اصلی:
+
+```text
+Ctrl/Cmd + K
+```
+
+Commandهای فعلی فقط Behavior واقعی Product را ارائه می‌دهند؛ مثل Open Project، Explorer، Search، Switch Session، تغییر Agent State، Preview، Terminal، Change Model و Settings.
+
+## Changes و Status Bar
+
+بخش **Changes** بر Semantic Session Change تکیه دارد و می‌تواند File Path، Addition/Deletion و Patch را در صورت وجود نشان دهد. این بخش Full Git Client نیست.
+
+Status Bar موارد قابل اتکا مثل Local Status، Change Count، Agent State، Model انتخاب‌شده، Cursor Position و Terminal Entry را نشان می‌دهد.
+
+تا وقتی Data Source مطمئن برای Git Branch وجود نداشته باشد، Branch ساختگی در UI نمایش داده نمی‌شود.

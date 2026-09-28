@@ -1,54 +1,33 @@
 ---
 title: Native Agent و Toolها
-description: مسیر Native Model Execution، Tool Registry، Tool Executor، Permission و Compatibility Fallback در TL Studio v0.3.
+description: Native Model/Tool/Model Loop، Built-in Tool، MCP Tool، Permission و Loop Guard در TL Studio v0.5.
 icon: Bot
 ---
 
-در نسخه Stable v0.3، Taskهای Coding مربوط به Custom Providerهای پشتیبانی‌شده می‌توانند بدون سپردن Agent Loop یا Core Tool Execution به Compatibility Engine همراه برنامه اجرا شوند.
+در v0.5، Native Execution یک Path اختیاری نیست؛ معماری اصلی Agent در TL Studio است.
 
-## مسیر Native Execution
-
-برای Custom Provider و Model پشتیبانی‌شده:
+## Execution Flow
 
 ```text
 Browser
-  ↓
-TL Studio Semantic Session Command
-  ↓
-TL Studio Native Agent Loop
-  ↓
-Direct Model Request
-  ↓
-Normalized Tool Call
-  ↓
-TL Studio Permission Policy
-  ↓
-TL Studio Tool Executor
-  ↓
-TL Studio Local Project Subsystem
-  ↓
-Structured Tool Result
-  ↓
-Next Model Turn
-  ↓
-Final Response + Session Persistence + Live Events
+→ /local/sessions/{id}/runs
+→ TL Studio Session Domain
+→ Native Agent
+→ Selected Provider
+→ Normalized Model Response
+→ TL Studio Tool Executor
+→ Native Subsystem or MCP Plugin
+→ Structured Tool Result
+→ Provider Continuation
+→ Final Response
+→ Persistence + /local/events
 ```
 
-مسیر Native فقط وقتی انتخاب می‌شود که Provider و Model درخواست‌شده از Provider Definition و Credential متعلق به خود TL Studio قابل Resolve باشند.
+Provider Protocol یا Capability پشتیبانی‌نشده Error صریح می‌دهد و به Local Engine دیگری Route نمی‌شود.
 
-## Protocolهای مستقیم Provider
+## Built-in Toolهای قابل اجرا
 
-Native Model Client در نسخه Stable از این مسیرها پشتیبانی می‌کند:
-
-- OpenAI-compatible Chat Completions؛
-- OpenAI Responses؛
-- Anthropic Messages compatible.
-
-ترافیک Provider مستقیم به Endpoint تنظیم‌شده توسط User می‌رود و از Cloud Service متعلق به پروژه عبور نمی‌کند.
-
-## Core Toolهای Native
-
-Tool Executor در v0.3 این Toolها را به‌صورت Native اجرا می‌کند:
+Native Agent فعلی این Built-in Tool IDها را ارائه می‌دهد:
 
 ```text
 files.read
@@ -57,34 +36,41 @@ files.write
 files.edit
 search.content
 terminal.command
+interaction.question
 ```
 
-این Handlerها از همان Project Boundary، Symlink Protection، Search، Process Manager، Cancellation و Permission Infrastructure خود TL Studio استفاده می‌کنند.
+Toolهای File/Search/Terminal از همان Project Boundary، Symlink Protection، Search، Process، Cancellation و Permission Infrastructure خود TL Studio استفاده می‌کنند.
 
-Tool ID ناشناخته در Native Path حدس زده نمی‌شود و Reject می‌شود.
+## Interactive Question Tool
+
+Tool به نام `interaction.question` می‌تواند بین 1 تا 20 Question Block ارسال کند.
+
+هر Question می‌تواند Header، Question Text، Option، Multiple Selection، Custom Text و Default Custom Answer داشته باشد.
+
+Agent تا Reply، Reject یا Cancellation از سمت Question Manager Pause می‌شود.
+
+## MCP Toolهای Dynamic
+
+MCP Plugin فعال می‌تواند Tool Definitionهای اضافی برای Project جاری اضافه کند.
+
+این Toolها به‌صورت Dynamic وارد Agent Tool List و TL Studio Tool Registry می‌شوند. Call مربوط به Plugin از Plugin Manager Resolve می‌شود و همچنان از Native Permission Authorizer عبور می‌کند.
 
 ## Tool Registry
 
-مالکیت Semantic Toolهای شناخته‌شده با TL Studio است. Tool Registry محلی Descriptorهای پایدار زیر را ارائه می‌دهد:
+Tool Registry Descriptor محصولی شامل Tool ID، Name، Description، Category، Permission Class، Capability، Input Schema، Presentation Hint، Source و در صورت نیاز Plugin ID ارائه می‌دهد.
 
-- Semantic Tool ID؛
-- Name و Description محصولی؛
-- Category؛
-- Permission Class؛
-- Capability Flagهای Read/Write/Execute/Network؛
-- Input Schema؛
-- Presentation Hint.
-
-خود Registry Permission نمی‌دهد. Enforcement نهایی در همان مسیری انجام می‌شود که Tool را واقعاً اجرا می‌کند.
+Registry فقط Tool را توصیف می‌کند؛ Authorization و Execution مرحله‌های جدا هستند.
 
 ## Safety و Loop Guard
 
-Native Agent Runtime برای تعداد Iteration، Tool Round، Tool در هر Round و تکرار Tool Call یکسان Limit مشخص دارد. Tool Execution هم از Structured Validation، Project Confinement، Cancellation و Command Timeout محدود استفاده می‌کند.
+Native Agent Guard صریح برای این موارد دارد:
 
-Requestهای دارای قابلیت Execute یا Network به Approval قابل‌استفاده‌ی دائمی تبدیل نمی‌شوند.
+- Maximum Agent Iteration؛
+- Maximum Tool Round؛
+- Maximum Tool در یک Round؛
+- تکرار Tool Call یکسان؛
+- Context Cancellation.
 
-## Compatibility Fallback
+Tool Input به‌عنوان Untrusted Data در نظر گرفته می‌شود و Built-in Tool ID ناشناخته Reject می‌شود.
 
-برای Hosted Authentication/Model، Providerهای Legacy یا Resolve‌نشده و Capabilityهایی که هنوز Handler Native ندارند، Compatibility Engine همراه برنامه همچنان استفاده می‌شود.
-
-این مسیر پشت Contractهای متعلق به TL Studio قرار دارد تا Browser Product Surface به API Nameهای مخصوص Engine وابسته نباشد.
+Command Execution Timeout محدود دارد و از Process Manager خود TL Studio استفاده می‌کند.

@@ -1,41 +1,67 @@
 ---
 title: Models and agents
-description: Understand Agent/Model selection and the stable v0.3 native versus compatibility execution paths.
+description: Choose models and run the fully native TL Studio Agent in v0.5.
 icon: Bot
 ---
 
-TL Studio owns the product-facing Provider/Model and Session contracts. Stable v0.3 can also execute supported custom-provider coding runs through a native Agent path.
+Stable v0.5 uses one core execution mode: the **TL Studio Native Agent**.
 
-## Agent and Model selection
+There is no local fallback coding engine. A Provider/Model must be executable through TL Studio's supported native Provider protocols and capabilities.
 
-Agent and Model selection happens in the TL Studio composer.
+## Provider protocols
 
-For a custom Provider/Model that TL Studio can resolve from its own registry and credential vault, the run can use the TL Studio-native Agent loop.
-
-Hosted models and capabilities that are not native yet remain behind the compatibility adapter.
-
-## Native model protocols
-
-The direct native model path supports:
+Current direct model protocols are:
 
 - OpenAI-compatible Chat Completions;
 - OpenAI Responses;
-- Anthropic Messages compatible APIs.
+- Anthropic Messages.
 
-See [Native Agent and tools](./native-agent-and-tools) for the model/tool/model loop and native Tool set.
+The selected Provider endpoint receives model requests directly from TL Studio.
 
-## Tool semantics
+## Model catalog
 
-TL Studio owns the semantic Tool Registry used by the Browser UI. Known Tool IDs resolve to TL Studio descriptors containing names, categories, Permission classes, capability metadata, schemas, and presentation hints.
+Provider definitions and configured Models live in TL Studio's local Provider registry.
 
-On the native path, the core Tool Executor runs supported coding Tools through TL Studio-owned handlers. On the compatibility path, execution remains with the bundled engine while Browser presentation stays mapped to TL Studio semantics.
+The Provider UI can also discover a remote model catalog, normalize useful metadata, and let you choose which Models to save.
 
-## Hosted account flow
+Metadata can include:
 
-Hosted authentication/models remain a compatibility capability. TL Studio presents authorization through generic local product routes so the Browser does not need engine-specific auth endpoints.
+- context limit;
+- output limit;
+- Tool Calling capability;
+- Reasoning capability;
+- Vision capability;
+- Router kind.
 
-## Failures and recovery
+When a Provider does not publish Tool capability metadata, the UI lets you decide whether unknown capability should be treated as supporting Tool Calling when saving the Model.
 
-Upstream authentication, quota, context, or transient failures can occur while TL Studio itself remains healthy.
+## Agent execution
 
-Compatibility runs can expose **Resume** after retryable failures. Native runs preserve semantic Session state and file Changes through TL Studio persistence; cancellation and failure state are recorded locally.
+For a selected supported Model:
+
+```text
+Session prompt
+→ Native Agent
+→ Provider model response
+→ Tool calls when requested
+→ TL Studio Tool Executor
+→ Tool results back to Provider
+→ final response
+```
+
+The Agent includes cancellation plus guards for maximum iterations, Tool rounds, Tools per round, and repeated identical Tool calls.
+
+## Native interaction
+
+The Agent can call the built-in `interaction.question` Tool to pause and ask the user for structured input.
+
+Questions can include choices, multiple selection, custom text, and defaults.
+
+## Tool sources
+
+The Agent can receive Tool definitions from two sources:
+
+1. built-in native TL Studio Tools;
+2. enabled compatible MCP Plugins for the active Project.
+
+Both enter the same Agent-facing Tool model and Permission system.

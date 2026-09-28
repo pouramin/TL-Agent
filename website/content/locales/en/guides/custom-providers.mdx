@@ -1,75 +1,94 @@
 ---
 title: Custom providers
-description: Manage TL Studio-owned Provider/Model definitions and credentials in stable v0.3.
+description: Configure native Providers, discover model catalogs, and keep credentials in TL Studio's local vault.
 icon: Cable
 ---
 
-TL Studio manages custom Provider definitions from **Settings → Providers** without requiring a TL Studio-hosted gateway.
+TL Studio v0.5 owns Provider definitions, model discovery, the Model catalog presented to the product, and Provider credentials.
 
-## Supported API families
+## Supported native protocols
 
-The current Provider form supports:
+Current protocols:
 
 - **OpenAI Compatible**;
 - **OpenAI Responses**;
 - **Anthropic Messages**.
 
-For supported models, these same protocol families can be used by the TL Studio-native Agent runtime.
+The Provider form is vendor-agnostic: configure a Base URL, API key, and one or more Models.
 
-## Add a Provider
+## Discover Models
 
-Open **Settings → Providers → Add provider** and configure:
+Use **Test / Discover Models** before saving when the Provider exposes a model-list API.
 
-- Provider ID;
-- display name;
-- protocol;
-- Base URL;
-- API key;
-- Model ID and optional display name;
-- optional context/output limits;
-- Tool Calling support;
-- Reasoning support.
+TL Studio validates the Base URL, sends the discovery request, normalizes the returned Models, and presents a searchable catalog.
+
+The discovery layer can normalize:
+
+- Model ID and name;
+- context/output limits;
+- Tool Calling;
+- Reasoning;
+- Vision;
+- Router kind.
+
+You can select visible Models, clear selection, search the catalog, or keep manual Model entry for a private/unlisted Model.
+
+## Discovery safety
+
+Provider discovery:
+
+- accepts valid HTTP(S) Base URLs without embedded credentials;
+- uses a 15-second request timeout;
+- limits catalog responses to 8 MiB;
+- caps normalized catalogs at 5000 Models;
+- blocks cross-origin redirects;
+- allows at most a small bounded redirect chain.
+
+For Anthropic-compatible discovery, TL Studio supports paginated Model listing with a bounded page count.
+
+## Cached catalog fallback
+
+A successful catalog can be cached locally in:
+
+```text
+model-catalog-cache.json
+```
+
+If later live discovery fails for a non-authentication reason, TL Studio can return the matching cached catalog as stale data.
+
+Authentication/authorization failures do **not** silently fall back to cache.
+
+## OpenRouter behavior
+
+OpenRouter discovery uses its authenticated user-model catalog instead of the public generic catalog. An API key is therefore required for discovery and invalid credentials are detected.
+
+This also lets the catalog reflect the user's current OpenRouter availability/preferences.
 
 ## Provider registry
 
-Provider/Model definitions are stored in TL Studio's versioned local `providers.json`.
+Saved definitions live in TL Studio's versioned:
 
-That registry contains TL Studio concepts only:
+```text
+providers.json
+```
 
-- Provider ID/name;
-- protocol;
-- Base URL;
-- Model definitions;
-- capability flags;
-- optional context/output limits.
+The registry stores Provider ID/name, protocol, Base URL, Model definitions, capability flags, and optional limits.
 
-Implementation-specific engine package names and private config shapes are excluded.
+It does not contain API keys.
 
 ## Credential vault
 
-API keys are **not** written into `providers.json` and are not stored in Browser storage.
+API keys live in the TL Studio credential vault:
 
-Stable v0.3 owns credential persistence through the TL Studio credential vault:
+- Windows DPAPI;
+- macOS Keychain when available;
+- Linux Secret Service through `secret-tool` when available;
+- encrypted private-file fallback otherwise.
 
-- **Windows:** DPAPI;
-- **macOS:** Keychain when the system `security` tool is available;
-- **Linux:** Secret Service through `secret-tool` when available;
-- **fallback:** an encrypted private-file store under TL Studio's local state.
+Provider calls use this TL Studio-owned credential directly. Nothing is synchronized to another local runtime.
 
-The fallback uses a local private master key and authenticated encryption; credential files and the key are created with private filesystem permissions where supported.
+## Account-based Provider foundation
 
-## Native execution selection
+TL Studio also has a generic `/local/provider-accounts*` adapter domain for future official account-backed integrations.
 
-A custom Provider/Model can use the native TL Studio Agent loop when the Provider definition and credential are resolvable by TL Studio and the protocol/model is supported.
-
-Hosted accounts, unresolved legacy runtime Providers, and capabilities without native handlers fall back to the compatibility adapter.
-
-## Migration and removal
-
-When upgrading from older builds, TL Studio can import compatible Provider definitions from previous runtime configuration when its own registry does not exist yet.
-
-Managed credentials are synchronized to compatibility execution only when needed. Removing a managed Provider also removes its TL Studio-managed credential.
-
-## Security note
-
-The configured Base URL receives prompts and Model requests for that Provider. Only add endpoints you trust, and never publish API keys in screenshots, logs, Issues, or bug reports.
+**The current v0.5.0 build registers no account adapters.** The Providers UI therefore reports that no account-based Provider integrations are available in this build. Do not expect an account sign-in flow unless a future build explicitly adds a documented adapter.

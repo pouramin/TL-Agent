@@ -1,69 +1,80 @@
 ---
 title: Project و Session
-description: Project Scope، Session Contract، Persistence و Live Activity در TL Studio v0.3.
+description: Project Scope و Session Domain کاملاً Native در TL Studio v0.5.
 icon: FolderCode
 ---
 
 ## Project Boundary
 
-Project فعال مرز کاری TL Studio است. Fileها، Editor Tabها، Search، Terminal، Preview، Session، Changes، Agent Context، Permission و Question همگی Project فعال را دنبال می‌کنند.
+Project انتخاب‌شده مرز کاری TL Studio است.
 
-با Project Switch، Attachmentهای Pending پاک می‌شوند و TL Studio قبل از تغییر Project از Editor Bufferهای Save‌نشده محافظت می‌کند.
+File، Editor State، Search، Terminal Process، Preview، Session، Changes، Agent Context، Permission، Question و Plugin از نوع Project همگی Project فعال را دنبال می‌کنند.
 
-## Sessionهای Semantic خود TL Studio
+هنگام Project Switch، Safety Ruleهای موجود حفظ می‌شوند: Unsaved Work محافظت می‌شود، Lifecycle مربوط به Terminal/Preview Cleanup می‌شود، Plugin Processها Restart یا Re-scope می‌شوند و Workspace State برای Project جدید Reload می‌شود.
 
-در Stable v0.3، Browser دیگر برای Sessionهای فعلی Raw Session Envelope مربوط به Engine را Product Model اصلی در نظر نمی‌گیرد.
+## Native Session Domain
 
-Readهای Session از Routeهای متعلق به Launcher عبور می‌کنند:
+تمام Sessionهای فعال در v0.5 **Sessionهای خود TL Studio** هستند.
+
+TL Studio مالک این بخش‌هاست:
+
+- Session ID؛
+- Create، Select، Rename و Delete؛
+- Run و Abort؛
+- Status؛
+- Message و Activity؛
+- Usage Metadata؛
+- File Changes؛
+- Persistence.
+
+Browser از Routeهای Semantic زیر استفاده می‌کند:
 
 ```text
 /local/sessions*
 ```
 
-TL Studio، Session Metadata، Message، Activity، Status، Usage و Changes را به Shapeهای Semantic متعلق به خودش Project می‌کند.
+زیر Product دیگر Session Owner زنده و جداگانه‌ای وجود ندارد.
 
-Commandهای Session هم از همین Product Boundary استفاده می‌کنند:
+## Persistence محلی
 
-- Create؛
-- Rename؛
-- Delete؛
-- Run/Prompt؛
-- Abort.
+TL Studio Semantic Session Snapshot را در Local State خودش نگه می‌دارد.
 
-Adapter اجرای فعال این Commandها را به Native Path یا Compatibility Path ترجمه می‌کند.
-
-## Session Persistence محلی
-
-TL Studio وضعیت Semantic مربوط به Session را در Local State خودش Mirror می‌کند.
-
-Snapshot ذخیره‌شده می‌تواند شامل این موارد باشد:
+Snapshot می‌تواند شامل این موارد باشد:
 
 - Session Metadata؛
-- Transcript مربوط به User/Assistant؛
+- User/Assistant Transcript؛
 - Agent/Model Selection؛
-- Usage و Activity History؛
+- Activity و Usage؛
 - File Changes.
 
-در نتیجه اگر History مربوط به Compatibility Engine از بین برود، نسخه Local همچنان می‌تواند قابل خواندن باشد. Session فقط‌ذخیره‌شده را هم می‌توان Local Rename یا Delete کرد.
+Persistence دارای Limit است و برای حفظ Product Transcript بین Restartها استفاده می‌شود.
 
-TL Studio همچنین Execution Owner هر Session را ثبت می‌کند تا History مربوط به Native Path با Readهای Compatibility به‌اشتباه Overwrite نشود.
+قبل از Write شدن Snapshot، Payloadهای Inline با Prefix `data:` از Attachment حذف می‌شوند؛ Metadata Attachment می‌تواند کنار Message باقی بماند.
+
+## Native Agent Lifecycle
+
+Run عادی:
+
+```text
+Browser
+→ TL Studio Session
+→ Native Agent
+→ Selected Provider
+→ Optional Tool / Question / Permission
+→ Final Assistant Response
+→ Session Persistence + Semantic Events
+```
+
+Abort، Native Run فعال را Cancel می‌کند.
 
 ## Live Activity
 
-Updateهای Browser از SSE Semantic زیر می‌آیند:
+Browser Updateهای Semantic را از این Route می‌گیرد:
 
 ```text
 /local/events
 ```
 
-Eventها به Conceptهای محصولی مثل Session State، Message Change، Workspace Change و Attention Request برای Permission یا Question تبدیل می‌شوند.
+Local Event Bus تنها Product Event Source برای Agent، Tool، Session، Question، Permission و Workspace Change است.
 
-Native Run و Compatibility Run از یک Event Architecture مشترک استفاده می‌کنند.
-
-## Sessionهای Legacy
-
-برای Sessionهای مربوط به Protocol قدیمی Alpha یک Bridge فقط‌خواندنی و محدود باقی مانده است. این Historyها Project-scoped هستند و از مسیر Legacy تغییر داده نمی‌شوند.
-
-## Usage
-
-هرجا داده موجود باشد، TL Studio مصرف هر Turn و مجموع Project مثل Token، Request، Time، Reasoning و Cache را نشان می‌دهد. این داده‌ها Summary لوکال Workspace هستند و به Cloud Service متعلق به TL Studio ارسال نمی‌شوند.
+Persisted Session Data مرجع Transcript باقی می‌ماند و SSE برای Responsiveness استفاده می‌شود.

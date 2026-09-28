@@ -1,57 +1,108 @@
 ---
 title: Workspace and editor
-description: Work with Project files in TL Studio v0.3 using locally bundled Monaco and TL Studio-owned file semantics.
+description: Understand the Editor-centered TL Studio v0.5 workspace, Monaco, panels, file states, and Command Palette.
 icon: FolderCode
 ---
 
-Stable v0.3 uses **Monaco Editor 0.56.0** as the enhanced Editor engine while TL Studio remains the authority for Project files, buffers, saves, conflicts, and external-change reconciliation.
+TL Studio v0.5 is an **AI-native development workspace**, not a chat window with an Editor attached. The Editor remains the visual center of gravity while the Agent can expand for collaboration or collapse when manual coding is primary.
 
-## File Explorer
+## Workspace layout
 
-From **Files** you can:
+The persistent desktop workspace is composed of:
+
+- **Global Top Bar** — product identity, current Project, Command Palette entry, Local status, Preview, appearance, refresh, and account surface;
+- **Activity Rail** — Explorer, Search, Sessions, Changes, and Settings;
+- **Context Sidebar** — the content for the selected Activity;
+- **Editor Workspace** — file tabs and Monaco;
+- **TL Agent panel** — Collapsed, Compact, or Focused;
+- **Terminal** — resizable bottom panel;
+- **Live Preview** — floating local tool window;
+- **Status Bar** — compact reliable state.
+
+The product is desktop-first and adapts by reducing secondary density, collapsing the Context Sidebar, then collapsing the Agent before sacrificing useful Editor width.
+
+## Monaco Editor
+
+Monaco Editor is bundled locally and loaded lazily. A lightweight textarea Editor remains as fallback.
+
+TL Studio, not Monaco, owns:
+
+- Project paths and file access;
+- one buffer/model per open file;
+- multi-tab state;
+- save operations;
+- SHA-256 revision protection;
+- save-conflict handling;
+- external-change reconciliation;
+- Preview-only media tabs.
+
+Use `Ctrl/Cmd+S` to save the active file.
+
+## Explorer
+
+The Explorer supports real Project operations:
 
 - open files;
 - create files and folders;
-- rename entries;
-- delete entries;
-- refresh the Project tree;
+- rename and delete;
+- refresh the tree;
 - reveal the active file with **Show in Folder**.
 
-Filesystem operations are resolved inside the selected Project boundary.
+Filesystem operations remain confined to the selected Project.
 
-## Monaco is local
+## File states
 
-Monaco and its workers are bundled with TL Studio and loaded from the local application origin. The enhanced Editor is lazy-loaded when first needed; no Editor CDN is required.
+Open tabs can represent several real states:
 
-If the Monaco bundle cannot load, the lightweight textarea-based Editor remains a functional fallback.
+- **Clean** — buffer matches the last known disk revision;
+- **Dirty** — unsaved local edits;
+- **Agent modified** — the current semantic Agent Session reports that path as changed, shown with an explicit `A` marker;
+- **Externally modified** — disk SHA changed while the file was open;
+- **Deleted externally** — clean tabs may close while dirty buffers remain protected;
+- **Conflict** — a save used a stale expected SHA and needs an explicit decision.
 
-## Multi-tab editing
+The Agent marker is Session-change information, not Git authorship.
 
-Each open file has its own in-memory buffer. Clean and dirty tabs are tracked independently, so you can move between files without losing unsaved edits.
+## Resizable panels
 
-Use `Ctrl+S` on Windows/Linux or `Cmd+S` on macOS to save the active file.
+The current workspace has three drag splitters:
 
-Monaco also provides standard workflows such as Find/Replace and multi-cursor editing.
+1. Context Sidebar right edge;
+2. TL Agent left edge;
+3. Terminal top edge.
 
-## Conflict protection
+Current constraints include a 180px minimum Context Sidebar, 280px minimum expanded Agent, about 420px useful Editor target, and 96px minimum expanded Terminal.
 
-When TL Studio reads a file, it records a SHA-256 revision token. A normal save sends that revision back. If the file changed on disk after you opened it, TL Studio refuses to silently overwrite the newer version.
+Panel geometry is stored locally under:
 
-Force-save is a separate deliberate action after reviewing the conflict.
+```text
+tl-studio.workspace-layout.v1
+```
 
-## Agent, Git, and external changes
+## Agent presentation states
 
-A file can change because of the Agent, Git, a build tool, or another application.
+The TL Agent panel has:
 
-- clean buffers follow external disk changes automatically;
-- dirty buffers are preserved and marked when the disk version changes or disappears.
+- **Collapsed** — narrow rail, maximum Editor space;
+- **Compact** — normal coding collaboration;
+- **Focused** — wider Agent surface for planning/review while keeping the Editor present.
 
-## Read-only preview tabs
+This changes presentation only; all states use the same native Session and Agent implementation.
 
-Previewable binary/media files can open as real read-only Workspace tabs. Their content is rendered by the Preview system rather than treated as editable text.
+## Command Palette
 
-See [Live Preview](./live-preview) for the supported capability types.
+Open the Command Palette with:
 
-## Ask Agent from selected code
+```text
+Ctrl/Cmd + K
+```
 
-Selected Editor content can be handed to the Agent as context without manually copying the surrounding file.
+Current commands expose implemented behavior such as opening a Project, Explorer, Project Search, switching Session, changing Agent presentation state, opening Preview, toggling Terminal, changing Model, and opening Settings.
+
+## Changes and Status Bar
+
+The **Changes** view is Session-change oriented. It can show changed file paths, additions/deletions, and patch data where available; it is not a complete Git client.
+
+The Status Bar shows reliable product state such as Local service state, change count, Agent state, selected Model, cursor position, and Terminal entry.
+
+TL Studio intentionally does not display a Git branch until it has a reliable branch data source.

@@ -1,41 +1,67 @@
 ---
 title: Model و Agent
-description: انتخاب Agent/Model و تفاوت Native Execution با Compatibility Path در Stable v0.3.
+description: انتخاب Model و اجرای TL Studio Native Agent در v0.5.
 icon: Bot
 ---
 
-TL Studio مالک Contractهای Product-facing مربوط به Provider/Model و Session است. در Stable v0.3، اجرای Coding برای Custom Providerهای پشتیبانی‌شده می‌تواند از Native Agent Path خود TL Studio انجام شود.
+در Stable v0.5 فقط یک Core Execution Mode داریم: **TL Studio Native Agent**.
 
-## انتخاب Agent و Model
+Local Fallback Coding Engine وجود ندارد. Provider/Model انتخاب‌شده باید از Protocol و Capabilityهای Native پشتیبانی‌شده توسط TL Studio قابل اجرا باشد.
 
-انتخاب Agent و Model داخل Composer خود TL Studio انجام می‌شود.
+## Provider Protocolها
 
-اگر Custom Provider و Model از Registry و Credential Vault خود TL Studio قابل Resolve باشند، Run می‌تواند از Native Agent Loop استفاده کند.
-
-Modelهای Hosted و Capabilityهایی که هنوز Native نشده‌اند پشت Compatibility Adapter باقی می‌مانند.
-
-## Protocolهای Native Model
-
-مسیر مستقیم Native از این API Familyها پشتیبانی می‌کند:
+Direct Model Protocolهای فعلی:
 
 - OpenAI-compatible Chat Completions؛
 - OpenAI Responses؛
-- Anthropic Messages compatible.
+- Anthropic Messages.
 
-برای جزئیات Model/Tool/Model Loop و Toolهای Native، [Native Agent و Toolها](./native-agent-and-tools) را ببینید.
+Model Request مستقیم از TL Studio به Endpoint همان Provider می‌رود.
 
-## Tool Semantics
+## Model Catalog
 
-TL Studio مالک Tool Registry Semantic مربوط به Browser UI است. Toolهای شناخته‌شده به Descriptorهایی با Name، Category، Permission Class، Capability Metadata، Schema و Presentation Hint متعلق به TL Studio Resolve می‌شوند.
+Provider Definition و Modelهای Configure‌شده داخل Local Provider Registry خود TL Studio هستند.
 
-در Native Path، Core Tool Executor از Handlerهای خود TL Studio استفاده می‌کند. در Compatibility Path، اجرای واقعی در Engine همراه باقی می‌ماند ولی Presentation در Browser همچنان از Semanticهای TL Studio استفاده می‌کند.
+Provider UI همچنین می‌تواند Remote Model Catalog را Discover کند، Metadata مفید را Normalize کند و اجازه دهد فقط Modelهای موردنظر Save شوند.
 
-## Hosted Account Flow
+Metadata می‌تواند شامل این موارد باشد:
 
-Hosted Authentication و Hosted Model هنوز Capability مربوط به Compatibility Path هستند. TL Studio آن‌ها را از Product Routeهای عمومی خودش نمایش می‌دهد تا Browser به Auth Endpoint مخصوص Engine وابسته نشود.
+- Context Limit؛
+- Output Limit؛
+- Tool Calling؛
+- Reasoning؛
+- Vision؛
+- Router Kind.
 
-## Failure و Recovery
+اگر Provider Metadata مربوط به Tool Calling را منتشر نکند، UI اجازه می‌دهد هنگام Save مشخص کنید Capability ناشناخته به‌صورت Tool-capable در نظر گرفته شود یا نه.
 
-Authentication، Quota، Context یا Failure موقت Upstream ممکن است رخ دهد درحالی‌که خود TL Studio سالم است.
+## Agent Execution
 
-در Compatibility Run، Error قابل‌Retry می‌تواند **Resume** را فعال کند. در Native Run، Session State و File Changes توسط Persistence خود TL Studio حفظ می‌شوند و Cancellation/Failure هم Local ثبت می‌شود.
+برای Model پشتیبانی‌شده:
+
+```text
+Session Prompt
+→ Native Agent
+→ Provider Model Response
+→ Tool Calls when requested
+→ TL Studio Tool Executor
+→ Tool Results back to Provider
+→ Final Response
+```
+
+Agent از Cancellation و Guard برای Maximum Iteration، Tool Round، تعداد Tool در هر Round و تکرار Tool Call یکسان استفاده می‌کند.
+
+## Native Interaction
+
+Agent می‌تواند Tool داخلی `interaction.question` را Call کند تا Pause شود و Structured Input از User بگیرد.
+
+Question می‌تواند Choice، Multiple Selection، Custom Text و Default داشته باشد.
+
+## Tool Sourceها
+
+Agent Tool Definition را از دو منبع می‌گیرد:
+
+1. Built-in Native Toolهای TL Studio؛
+2. MCP Pluginهای فعال و سازگار برای Project.
+
+هر دو وارد همان Tool Model و Permission System می‌شوند.

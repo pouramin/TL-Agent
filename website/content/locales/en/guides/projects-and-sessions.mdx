@@ -1,69 +1,80 @@
 ---
 title: Projects and sessions
-description: Understand TL Studio v0.3 Project scoping, semantic Session contracts, persistence, and live activity.
+description: Understand Project scoping and the fully native Session domain in TL Studio v0.5.
 icon: FolderCode
 ---
 
 ## Project boundary
 
-The selected Project is the working boundary for TL Studio. Files, Editor tabs, Search, Terminal commands, Preview, Sessions, Changes, Agent context, Permissions, and Questions all follow the active Project.
+The selected Project is the working boundary for TL Studio.
 
-Switching Projects clears pending composer attachments. Unsaved Editor buffers are protected before the active Project changes.
+Files, Editor state, Search, Terminal processes, Preview, Sessions, Changes, Agent context, Permissions, Questions, and Project-scoped Plugins follow the active Project.
 
-## TL Studio semantic Sessions
+Project switching preserves the existing safety rules: unsaved Editor work is protected, Terminal/Preview lifecycle is cleaned up, Plugin processes are restarted or re-scoped, and workspace state reloads for the new Project.
 
-Stable v0.3 no longer exposes raw engine Session envelopes as the normal Browser model.
+## Native Session domain
 
-Current Session reads use launcher-owned semantic routes under:
+All active Sessions in v0.5 are **TL Studio Sessions**.
+
+TL Studio owns:
+
+- Session IDs;
+- create, select, rename, and delete;
+- run and abort;
+- status;
+- Messages and activity;
+- usage metadata;
+- file Changes;
+- persistence.
+
+The Browser uses semantic local routes under:
 
 ```text
 /local/sessions*
 ```
 
-TL Studio projects Session metadata, Messages, activity, status, usage, and Changes into its own product-facing shapes.
+There is no separate live Session owner underneath the product.
 
-Session commands use the same product boundary for:
+## Local persistence
 
-- create;
-- rename;
-- delete;
-- run/prompt;
-- abort.
+TL Studio stores semantic Session snapshots in its own local state.
 
-The active execution adapter translates those commands to either the native TL Studio path or the compatibility path.
-
-## Local Session persistence
-
-TL Studio mirrors semantic Session state into its own local state directory.
-
-Persisted snapshots can include:
+Snapshots can contain:
 
 - Session metadata;
-- user/assistant transcript;
+- user and assistant transcript;
 - Agent/Model selection;
-- usage/activity history;
+- activity and usage data;
 - file Changes.
 
-This means history can remain readable even if compatibility-engine history disappears. A persisted-only Session can still be renamed or deleted locally.
+Persistence is bounded and intended to preserve the product transcript across restarts.
 
-TL Studio records whether a Session is owned by native execution or the compatibility path so native semantic history is not accidentally overwritten by compatibility reads.
+Inline `data:` attachment payloads are removed before Session snapshots are written; attachment metadata can remain associated with the Message.
+
+## Native Agent lifecycle
+
+A normal run is:
+
+```text
+Browser
+→ TL Studio Session
+→ Native Agent
+→ selected Provider
+→ optional Tool / Question / Permission work
+→ final assistant response
+→ Session persistence + semantic events
+```
+
+Abort requests cancel the active native run.
 
 ## Live activity
 
-Browser updates arrive through TL Studio's semantic SSE endpoint:
+The Browser receives semantic updates through:
 
 ```text
 /local/events
 ```
 
-The event surface projects changes into product concepts such as Session state, Message changes, workspace changes, and attention requests for Permissions or Questions.
+The local Event Bus is the single product event source for Agent, Tool, Session, Question, Permission, and Workspace changes.
 
-Native runs and compatibility runs share the same Browser event architecture.
-
-## Legacy Sessions
-
-A narrow read-only bridge remains for Sessions created during an older alpha protocol window. Those histories are Project-scoped and are not mutated through the legacy bridge.
-
-## Usage
-
-Where data is available, TL Studio shows per-turn and Project-level totals such as tokens, requests, elapsed time, Reasoning, and cache usage. These are local workspace summaries, not telemetry sent to a TL Studio cloud service.
+Persisted Session data remains the transcript authority; SSE is the responsiveness channel.
