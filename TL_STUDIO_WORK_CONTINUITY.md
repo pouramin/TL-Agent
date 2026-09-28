@@ -28,7 +28,7 @@ Real Windows provider-account validation is in progress on current dev.
 
 Current open development PR:
 
-None.
+#143 — Enable ChatGPT account login through official Codex (in progress).
 
 Completed 0.6 account-provider / validation UX PRs:
 
@@ -74,9 +74,11 @@ Owned by TL Studio:
 - generic Provider Account domain
 - JEV/OpenRouter integration
 
-Normal startup initializes TL Studio services and the loopback local server directly. There is no compatibility-runtime discovery, port allocation, credential creation, subprocess, reverse proxy, or fallback engine.
+Normal startup initializes TL Studio services and the loopback local server directly.
 
-The old flags --runtime-bin and --native-only are removed because native execution is the normal and only core execution mode.
+Optional provider/plugin integrations may launch their own explicit helper processes only when that integration is used. The ChatGPT account path is provider-specific and uses the official OpenAI Codex CLI; it does not replace TL Studio Session, Permission, Tool, persistence, or Native Agent ownership.
+
+Native execution is the normal core execution mode.
 
 ## Session architecture
 
@@ -87,8 +89,6 @@ Browser
 → selected Provider
 
 Session create, rename, delete, run, abort, status, transcript, activity, changes, and persistence are TL Studio-owned.
-
-Old live sidecar-only alpha state is not preserved through a permanent compatibility dependency.
 
 ## Question architecture
 
@@ -118,13 +118,15 @@ There is no external runtime event stream.
 
 ## Providers
 
-Provider configuration is authoritative in TL Studio and is never synchronized into a local compatibility runtime.
+Provider configuration and model catalogs are authoritative in TL Studio.
 
-Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini generateContent. Unsupported capabilities return explicit errors; there is no fallback engine.
+Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini generateContent. ChatGPT-plan access uses the explicit `codex-chatgpt` provider bridge. Unsupported capabilities return explicit errors.
 
 The generic ProviderAccountAdapter architecture now has a typed account lifecycle: begin login, OAuth callback completion or polling, cancellation, refresh, status, model discovery, and logout. Browser state is semantic only and does not carry provider access tokens, refresh tokens, authorization codes, PKCE verifiers, API keys, cookies, or client secrets.
 
-Manual API credentials and account credentials use separate credential-vault slots. An account credential takes precedence for native model execution while connected, but signing out exposes the preserved manual API credential instead of deleting it.
+Manual API credentials and TL Studio-managed account credentials use separate credential-vault slots. An account credential takes precedence for native model execution while connected, but signing out exposes the preserved manual API credential instead of deleting it.
+
+ChatGPT is the exception to token persistence ownership: OpenAI's official Codex client manages ChatGPT OAuth/refresh material inside an isolated TL Studio-specific `CODEX_HOME`. TL Studio never reads or serializes the raw ChatGPT tokens.
 
 OpenRouter is the first concrete 0.6 account adapter. It uses the documented OpenRouter OAuth + PKCE flow, performs code exchange server-side, stores the resulting account key only in the TL Studio credential vault, discovers models through the normal provider discovery layer, and exposes those models through the existing Native Agent/model selector path.
 
@@ -134,29 +136,27 @@ Google/Gemini is merged on dev through PR #124. The implementation uses the offi
 
 Custom Provider setup is simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. PR #126 fixed edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
 
-ChatGPT/Codex account support remains a required 0.6 product goal. Current official OpenAI Codex app-server documentation exposes ChatGPT account login, device-code login, model listing, and Codex thread/turn execution, but no documented raw model transport suitable for preserving TL Studio's Native Agent loop was identified. The OpenAI internal chatgptAuthTokens route is explicitly internal-only and must not be used. TL Studio must not copy OpenCode's private Codex OAuth client or undocumented ChatGPT backend endpoints.
+PR #143 enables ChatGPT/Codex account support through OpenAI's documented Codex surface. Login uses `codex app-server` with the official `account/login/start` ChatGPT browser flow, `account/read`, `account/logout`, and `model/list`. TL Studio uses an isolated `CODEX_HOME`, never imports browser cookies/session tokens, never copies a private OAuth client, and never calls undocumented ChatGPT backend endpoints.
 
-PR #125 exposes ChatGPT/Codex, Claude, and GitHub Copilot as explicit unavailable account adapters in Provider Settings while keeping them out of runtime credential resolution. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
+For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-chatgpt`. Each model turn launches the official Codex CLI in ephemeral read-only bridge mode with user/project Codex config and rules ignored, approval policy set to never, web search disabled, and an empty temporary working directory. The bridge receives the TL Studio conversation and TL Studio Tool schemas and must return structured assistant text or TL Studio Tool calls. TL Studio remains authoritative for the outer model → tool → model loop, Tool execution, permissions, project mutations, Session persistence, and semantic events.
 
-Current official Kilo documentation exposes the Gateway to external clients through API-key based public endpoints. No documented public third-party OAuth/device contract suitable for TL Studio account login was identified for this milestone, so Sign in with Kilo is removed rather than reverse-engineering a private flow.
+The ChatGPT adapter auto-detects an installed `codex` executable. When unavailable it can use `npx @openai/codex`; Provider Settings also exposes a non-secret Codex executable override. Tests use a fake Codex executable and no real credentials.
 
-Kilo Gateway may still be configured as a normal external API provider by a user. That does not create a runtime dependency.
+PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. After PR #143 only Claude and GitHub Copilot remain deferred. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
 
 ## Browser contract
 
-Browser code uses TL Studio-owned /local/* APIs. The generic /runtime/* reverse proxy and hosted aliases are removed.
+Browser code uses TL Studio-owned /local/* APIs.
 
-The Browser must not reintroduce implementation-runtime routes.
+Provider-specific helper processes are not Browser-facing control surfaces; the Browser sees only semantic TL Studio Provider Account state.
 
 ## Packaging
 
-Preview and Release workflows build only TL Studio plus still-supported bundled plugins and notices.
+Preview and Release workflows build TL Studio plus supported bundled plugins and notices.
 
-They do not download, stage, or package Kilo.
+The ChatGPT integration does not bundle Codex into the TL Studio package in this alpha. It uses an installed Codex executable or the explicit npx fallback at runtime.
 
-CI explicitly fails if kilo or kilo.exe is found in a review or release staging directory.
-
-KILO_VERSION, Kilo license payload, Kilo API contract documentation, and Kilo-specific contract scripts have been removed from this development line.
+Release and review packages remain subject to package-content validation.
 
 ## Regression proof
 
@@ -166,15 +166,15 @@ Required evidence before review:
 - go test ./...
 - go vet ./...
 - supported platform cross-compiles
-- standalone normal startup with no sidecar
+- standalone normal startup
 - native Product Contract
 - native Custom Provider contract
 - Native Agent model/tool/model filesystem E2E
 - Native Agent interactive Question E2E
 - Native Permission tests
 - real Browser smoke
-- no /runtime/* Browser dependency
-- no Kilo executable in Windows review package
+- ChatGPT official-Codex account lifecycle with fake Codex fixture
+- ChatGPT structured model/tool bridge regression test
 - SHA256 for the Windows review package
 
 ## Manual Windows validation
@@ -183,11 +183,8 @@ The final review package must run as:
 
 .\tl-studio.exe
 
-No --native-only flag should be required.
-
 Manual review should verify:
 
-- package contains no kilo.exe
 - normal startup
 - project loading
 - Explorer and Monaco
@@ -202,18 +199,17 @@ Manual review should verify:
 - Preview
 - Plugins/MCP
 - JEV/OpenRouter where configured
-
-## Stable-history note
-
-Older commits and PRs used Kilo as a bundled or optional compatibility runtime. Those historical milestones explain how TL Studio reached the current architecture, but they are not the current product contract. Current architecture is defined by the repository source, README files, and docs/ARCHITECTURE.md on the active development head.
+- ChatGPT sign-in through official Codex
+- ChatGPT account model discovery
+- ChatGPT model response and TL Studio Tool call round-trip
 
 ## Current manual validation gate
 
-Automated validation is green through PR #130. The next release gate remains real provider-account validation rather than more mocked OAuth work.
+Automated validation is green through the provider-card/README work. PR #143 adds automated fake-Codex coverage for ChatGPT but real account validation remains a release gate.
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
-A Windows x64 review package is produced by CI and should be used for real Hugging Face and Google/Gemini sign-in tests. Do not promote dev to stable main until the intended real account integrations have passed this checklist or their remaining limitations have been explicitly accepted and documented.
+A Windows x64 review package is produced by CI and should be used for real OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex sign-in tests. ChatGPT validation must include a real ChatGPT-plan login, model discovery, a plain response, and at least one TL Studio Tool round-trip. Do not promote dev to stable main until the intended real account integrations have passed this checklist or their remaining limitations have been explicitly accepted and documented.
 
 ## Resume protocol
 
