@@ -198,57 +198,59 @@ normal local API responses
 
 <p dir="rtl" align="right">ورود دستی <span dir="ltr">Model</span> فقط به‌عنوان <span dir="ltr">Fallback</span> صریح برای مدل‌های خصوصی یا فهرست‌نشده باقی می‌ماند.</p>
 
-<h3 dir="rtl" align="right"><span dir="ltr">Provider</span>های حسابی</h3>
+<h3 dir="rtl" align="right">روش اتصال <span dir="ltr">Provider</span>ها</h3>
+
+<p dir="rtl" align="right">کارت‌های <span dir="ltr">Provider</span> بر اساس روش واقعی اتصال هر سرویس عمل می‌کنند؛ نداشتن <span dir="ltr">OAuth</span> به معنی <span dir="ltr">Unavailable</span> بودن نیست.</p>
 
 <table dir="rtl">
   <thead>
     <tr>
       <th align="right"><span dir="ltr">Provider</span></th>
-      <th align="right"><span dir="ltr">Account Login</span></th>
-      <th align="right">توضیح</th>
+      <th align="right">روش پیش‌فرض</th>
+      <th align="right">وضعیت</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="right"><strong><span dir="ltr">OpenRouter</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">OAuth</span> + <span dir="ltr">PKCE</span> رسمی، <span dir="ltr">Credential</span> مبتنی بر حساب و <span dir="ltr">Model Discovery.</span></td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">Hugging Face</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">Public-client OAuth</span> + <span dir="ltr">PKCE</span>، <span dir="ltr">Refresh</span> و <span dir="ltr">Model Discovery</span> برای <span dir="ltr">Inference Providers.</span></td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">Google</span> / <span dir="ltr">Gemini</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">Installed-app OAuth</span> + <span dir="ltr">PKCE</span>، <span dir="ltr">Refresh/Revocation</span>، <span dir="ltr">Transport</span> بومی <span dir="ltr">Gemini</span> و پشتیبانی از <span dir="ltr">Google Cloud quota project.</span></td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">ChatGPT</span> / <span dir="ltr">Codex</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">Login</span> رسمی <span dir="ltr">Codex</span>، <span dir="ltr">Model Discovery</span> مبتنی بر پلن <span dir="ltr">ChatGPT</span> و یک <span dir="ltr">Bridge</span> ایزوله که چرخهٔ بیرونی <span dir="ltr">Native Agent</span> و <span dir="ltr">Tool Executor</span> را در اختیار <span dir="ltr">TL Studio</span> نگه می‌دارد.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">Claude account</span></strong></td>
-      <td align="right">⏳ <span dir="ltr">Deferred</span></td>
-      <td align="right">پشتیبانی <span dir="ltr">Anthropic</span> با <span dir="ltr">API Key</span> بومی است؛ <span dir="ltr">Login</span> حساب مصرف‌کننده منتظر یک قرارداد عمومی و مستند برای <span dir="ltr">Third-party authorization</span> می‌ماند.</td>
+      <td align="right"><strong><span dir="ltr">ChatGPT / Codex</span></strong></td>
+      <td align="right"><span dir="ltr">Account sign-in</span></td>
+      <td align="right">✅ فعال از مسیر رسمی <span dir="ltr">OpenAI Codex</span></td>
     </tr>
     <tr>
       <td align="right"><strong><span dir="ltr">GitHub Copilot</span></strong></td>
-      <td align="right">⏳ <span dir="ltr">Deferred</span></td>
-      <td align="right">احراز هویت رسمی وجود دارد، اما مسیر مستند <span dir="ltr">Model Access</span> همچنان به <span dir="ltr">Copilot SDK/runtime</span> وابسته است.</td>
+      <td align="right"><span dir="ltr">Account sign-in</span></td>
+      <td align="right">⏳ جایگاه اتصال حساب آماده است، اما مسیر مدل هنوز <span dir="ltr">Deferred</span> است.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">Claude / Anthropic</span></strong></td>
+      <td align="right"><span dir="ltr">API key</span></td>
+      <td align="right">✅ مستقیم وارد تنظیمات <span dir="ltr">Anthropic API</span> می‌شود.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">Google / Gemini</span></strong></td>
+      <td align="right"><span dir="ltr">API key</span></td>
+      <td align="right">✅ از Endpoint رسمی سازگار با <span dir="ltr">OpenAI</span> برای <span dir="ltr">Gemini API</span> استفاده می‌کند.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">Hugging Face</span></strong></td>
+      <td align="right"><span dir="ltr">API token</span></td>
+      <td align="right">✅ از <span dir="ltr">Inference Providers</span> سازگار با <span dir="ltr">OpenAI</span> استفاده می‌کند.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">OpenRouter</span></strong></td>
+      <td align="right"><span dir="ltr">API key</span></td>
+      <td align="right">✅ از <span dir="ltr">OpenRouter API</span> سازگار با <span dir="ltr">OpenAI</span> استفاده می‌کند.</td>
     </tr>
   </tbody>
 </table>
+
+<p dir="rtl" align="right">برای <span dir="ltr">Provider</span>های مبتنی بر <span dir="ltr">API</span>، کارت مستقیماً همان فرم موجود و <span dir="ltr">Discovery-first</span> را با Endpoint و Protocol درست باز می‌کند؛ بنابراین <span dir="ltr">Claude</span>، <span dir="ltr">Gemini</span>، <span dir="ltr">Hugging Face</span> و <span dir="ltr">OpenRouter</span> دیگر فقط به‌خاطر نداشتن ورود حسابی <span dir="ltr">Unavailable</span> نمایش داده نمی‌شوند.</p>
 
 <p dir="rtl" align="right">اتصال <span dir="ltr">ChatGPT</span> فقط از Surface رسمی <span dir="ltr">OpenAI Codex CLI/App Server</span> استفاده می‌کند. <span dir="ltr">TL Studio</span> هیچ <span dir="ltr">Cookie</span>، <span dir="ltr">Browser Session</span>، <span dir="ltr">Private OAuth Client</span> یا <span dir="ltr">Backend Token</span> مستندنشده را کپی نمی‌کند. احراز هویت <span dir="ltr">Codex</span> داخل <code dir="ltr">CODEX_HOME</code> ایزولهٔ خود <span dir="ltr">TL Studio</span> باقی می‌ماند و <span dir="ltr">Browser</span> فقط وضعیت معنایی حساب را می‌بیند.</p>
 
 <p dir="rtl" align="right">برای Turnهای مدل مبتنی بر پلن <span dir="ltr">ChatGPT</span>، برنامه <span dir="ltr">Codex CLI</span> رسمی را به‌صورت <span dir="ltr">Ephemeral</span>، <span dir="ltr">Read-only</span> و بدون <span dir="ltr">User/Project Codex Config</span> اجرا می‌کند. خروجی ساختاریافته دوباره به متن مدل یا <span dir="ltr">TL Studio Tool Call</span> تبدیل می‌شود؛ بنابراین <span dir="ltr">Permission</span>، اجرای Tool، <span dir="ltr">Session Persistence</span> و چرخهٔ بیرونی مدل → ابزار → مدل همچنان متعلق به خود <span dir="ltr">TL Studio</span> هستند.</p>
 
 <p dir="rtl" align="right">اگر فرمان <span dir="ltr">codex</span> روی <span dir="ltr">PATH</span> موجود نباشد، برنامه می‌تواند از <span dir="ltr">npx @openai/codex</span> استفاده کند. در <span dir="ltr">Provider Settings</span> نیز می‌توان مسیر مستقیم Executable را تنظیم کرد.</p>
-
-<p dir="rtl" align="right"><span dir="ltr">Provider</span>های <span dir="ltr">Deferred</span> عمداً در <span dir="ltr">Settings</span> دیده می‌شوند. آن‌ها مرز معماری مشخص هستند، نه قابلیت‌های فراموش‌شده.</p>
 
 <h3 dir="rtl" align="right">تنظیمات <span dir="ltr">Gemini</span> در نسخهٔ <span dir="ltr">Alpha</span></h3>
 
