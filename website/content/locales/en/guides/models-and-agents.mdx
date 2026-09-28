@@ -6,17 +6,11 @@ icon: Bot
 
 Stable v0.5 uses one core execution mode: the **TL Studio Native Agent**.
 
-There is no local fallback coding engine. A Provider/Model must be executable through TL Studio's supported native Provider protocols and capabilities.
+A Model must be executable through TL Studio's native protocol adapters and supported capabilities.
 
-## Provider protocols
+## Native model protocols
 
-Current direct model protocols are:
-
-- OpenAI-compatible Chat Completions;
-- OpenAI Responses;
-- Anthropic Messages.
-
-The selected Provider endpoint receives model requests directly from TL Studio.
+TL Studio implements its supported model protocol adapters inside the product. The selected model endpoint receives requests directly from TL Studio.
 
 ## Model catalog
 
