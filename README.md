@@ -22,7 +22,7 @@ TL Studio now runs normally without a compatibility sidecar.
 - **Native permissions** — pending approvals, one-time decisions, project-scoped remembered rules, rejection, and enforcement are owned by TL Studio.
 - **Native events** — /local/events is the authoritative semantic SSE stream.
 - **Native providers** — provider definitions, model catalogs, discovery, and credentials are owned by TL Studio. Model calls go directly from TL Studio to configured providers.
-- **Provider accounts** — /local/provider-accounts remains a generic adapter domain for future documented account integrations.
+- **Provider accounts** — /local/provider-accounts owns documented account-login integrations, PKCE/login state, refresh/logout, account model discovery, and semantic account status without exposing tokens to the Browser.
 - **Native tools** — files, Search, Terminal/process execution, workspace reconciliation, and Plugin/MCP tools run through the TL Studio Tool Executor.
 
 There is no Kilo binary requirement, subprocess, local Kilo server, reverse proxy, session adapter, permission fallback, question adapter, event stream, provider synchronization, model fallback, or release payload.
@@ -45,9 +45,13 @@ The Browser workspace includes:
 
 ## Provider support
 
-TL Studio currently has direct model clients for OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
+TL Studio currently has direct model clients for OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and native Google Gemini GenerateContent.
 
-Provider definitions live in TL Studio local state. API keys are stored separately in the TL Studio credential vault and are never written to providers.json or Browser storage.
+Provider definitions live in TL Studio local state. API keys and account credentials are stored separately in the TL Studio credential vault and are never written to providers.json or Browser storage. Explicit API keys and account login use the same Provider/Model path from the Native Agent's point of view.
+
+The 0.6 development line includes official account-auth adapters for Hugging Face and Google / Gemini. Hugging Face requires a registered public OAuth client ID. Gemini requires a registered Google Desktop OAuth client and a Google Cloud project with the Gemini API enabled; Gemini consumer subscriptions are not treated as API billing entitlement.
+
+ChatGPT / Codex account support remains a required 0.6 product target, but TL Studio will not copy another application's OAuth client or undocumented ChatGPT backend. Claude remains available through its documented API configuration while consumer-account login is withheld until Anthropic exposes a suitable third-party client contract. GitHub Copilot OAuth is documented, but its current SDK/runtime boundary is not embedded beneath the TL Studio Native Agent.
 
 A model or protocol that the native client cannot execute returns an explicit unsupported-capability error. It is never routed through a hidden compatibility runtime.
 
