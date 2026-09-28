@@ -100,11 +100,19 @@ There is no external runtime event stream.
 
 Provider configuration is authoritative in TL Studio and is never synchronized into a local compatibility runtime.
 
-Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages. Unsupported capabilities return explicit errors; there is no fallback engine.
+Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and native Google Gemini GenerateContent. Unsupported capabilities return explicit errors; there is no fallback engine.
 
-The generic ProviderAccountAdapter architecture remains. If no documented account integration is implemented, /local/provider-accounts returns an empty list.
+The generic ProviderAccountAdapter architecture now has a typed lifecycle for status, login start/completion, provider callback, cancellation, refresh, logout, and model discovery. Account credentials live in a separate credential-vault namespace and never enter providers.json or Browser state. The Native Agent still resolves the normal provider/model abstraction regardless of whether an explicit API key or account credential is used.
 
-Current official Kilo documentation exposes the Gateway to external clients through API-key based public endpoints. No documented public third-party OAuth/device contract suitable for TL Studio account login was identified for this milestone, so Sign in with Kilo is removed rather than reverse-engineering a private flow.
+Current 0.6 account-provider work on feature/account-providers:
+
+- Hugging Face: real official OAuth + PKCE adapter, refresh, model discovery, account-backed native provider. A registered public client ID must be configured through TL_STUDIO_HUGGINGFACE_CLIENT_ID.
+- Google / Gemini: real installed-app OAuth + PKCE adapter, refresh, revocation, model discovery, and a native Gemini GenerateContent model client. TL_STUDIO_GOOGLE_CLIENT_ID and TL_STUDIO_GOOGLE_PROJECT_ID are required. API billing/quota belongs to the configured Google Cloud project.
+- ChatGPT / Codex: product priority, but not enabled until OpenAI exposes a documented public third-party authorization/model-access contract. Do not copy another client's embedded OAuth client or undocumented ChatGPT backend.
+- Claude: API-key configuration and automatic model discovery remain supported; consumer-account login is not enabled without a documented third-party client contract.
+- GitHub Copilot: third-party OAuth is documented, but integration remains deferred while the SDK requires a separate Copilot runtime boundary that would violate the Native Agent product boundary.
+
+Custom Provider setup is being simplified around API URL, API type, API key, automatic model discovery, and manual model entry only as fallback.
 
 Kilo Gateway may still be configured as a normal external API provider by a user. That does not create a runtime dependency.
 
