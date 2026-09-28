@@ -325,6 +325,26 @@ html, body {
 .workspace-activity-badge.visible {
   display: grid;
 }
+.workspace-terminal-activity {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+.workspace-terminal-activity.active {
+  background: color-mix(in srgb, var(--tl-brand-navy) 62%, var(--tl-panel));
+  color: #FFFFFF;
+}
+.workspace-terminal-activity.active::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 9px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 0 2px 2px 0;
+  background: var(--tl-brand-green);
+}
 .workspace-settings-activity.sidebar-settings-button {
   display: grid;
   min-height: 44px;
