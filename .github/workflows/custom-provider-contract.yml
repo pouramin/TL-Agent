@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  native-custom-provider-contract:
+  runtime-custom-provider-contract:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,25 +18,32 @@ jobs:
         with:
           go-version: '1.23.x'
       - name: Verify contract test syntax
-        run: python3 -m py_compile scripts/check-provider-config.py
-      - name: Build TL Studio
+        run: python3 -m py_compile scripts/check-kilo-provider-config.py
+      - name: Build launcher and download pinned runtime
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/tl-provider-contract
+          mkdir -p /tmp/tl-provider-contract/bin /tmp/tl-provider-upstream
           go build -trimpath -o /tmp/tl-provider-contract/tl-studio ./cmd/launcher
-          chmod +x /tmp/tl-provider-contract/tl-studio
-          test ! -e /tmp/tl-provider-contract/kilo
-          test ! -e /tmp/tl-provider-contract/kilo.exe
-      - name: Run native custom-provider contract
+          KILO_VERSION="$(tr -d '[:space:]' < KILO_VERSION)"
+          test "$KILO_VERSION" = "7.6.2"
+          ASSET="kilo-linux-x64.tar.gz"
+          curl --fail --location --retry 3 \
+            "https://github.com/Kilo-Org/kilocode/releases/download/v${KILO_VERSION}/${ASSET}" \
+            -o "/tmp/tl-provider-upstream/${ASSET}"
+          tar -xzf "/tmp/tl-provider-upstream/${ASSET}" -C /tmp/tl-provider-upstream
+          KILO_BIN="$(find /tmp/tl-provider-upstream -type f -name kilo | head -n 1)"
+          test -n "$KILO_BIN"
+          cp "$KILO_BIN" /tmp/tl-provider-contract/bin/kilo
+          chmod +x /tmp/tl-provider-contract/tl-studio /tmp/tl-provider-contract/bin/kilo
+      - name: Run real bundled-runtime custom-provider contract
         shell: bash
         run: |
           set -euo pipefail
           LOG="$(mktemp)"
-          STATE_DIR="$(mktemp -d)"
           START_DIR="$PWD"
           cd /tmp
-          TL_STUDIO_STATE_DIR="$STATE_DIR" /tmp/tl-provider-contract/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
+          /tmp/tl-provider-contract/tl-studio --no-browser --project "$GITHUB_WORKSPACE" >"$LOG" 2>&1 &
           PID=$!
           cd "$START_DIR"
           cleanup() {
@@ -50,19 +57,10 @@ jobs:
           LOCAL_URL=""
           for _ in $(seq 1 100); do
             LOCAL_URL="$(awk '/Local:/ {print $2; exit}' "$LOG" || true)"
-            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/local/health" >/dev/null; then
+            if [[ -n "$LOCAL_URL" ]] && curl --fail --silent "$LOCAL_URL/runtime/global/health" >/dev/null; then
               break
             fi
             sleep 0.2
           done
           test -n "$LOCAL_URL"
-          python3 scripts/check-provider-config.py "$LOCAL_URL"
-
-
-  # Compatibility status alias for the current main-branch protection rule.
-  runtime-custom-provider-contract:
-    needs: native-custom-provider-contract
-    runs-on: ubuntu-latest
-    steps:
-      - name: Confirm native custom-provider contract
-        run: echo "native-custom-provider-contract passed"
+          python3 scripts/check-kilo-provider-config.py "$LOCAL_URL"

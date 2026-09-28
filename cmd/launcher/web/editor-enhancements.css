@@ -34,8 +34,8 @@ html, body, button, input, select, textarea, dialog { font-family: var(--tl-ui-f
   pointer-events: none;
   white-space: pre;
   tab-size: 2;
-  font-size: var(--tl-editor-size, 13px);
-  line-height: 1.55;
+  font-size: 10px;
+  line-height: 1.6;
   color: var(--text, #d9e1ec);
   background: transparent;
 }
@@ -50,8 +50,8 @@ html, body, button, input, select, textarea, dialog { font-family: var(--tl-ui-f
   -webkit-text-fill-color: transparent;
   white-space: pre;
   tab-size: 2;
-  font-size: var(--tl-editor-size, 13px);
-  line-height: 1.55;
+  font-size: 10px;
+  line-height: 1.6;
 }
 .file-editor-input::selection {
   background: color-mix(in srgb, var(--accent, #b8ff42) 28%, transparent);
@@ -88,5 +88,3 @@ html[data-editor-theme="mono"] {
 .settings-row-stack { align-items: flex-start; }
 .settings-row-stack .settings-control-stack { display: grid; gap: 8px; min-width: 260px; }
 .settings-control-hint { color: var(--muted, #8b95a5); font-size: 12px; }
-
-.file-line-numbers { font-size: var(--tl-editor-size, 13px); line-height: 1.55; }

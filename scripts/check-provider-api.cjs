@@ -10,18 +10,27 @@ const K = {
   state: { local: { project: "C:\\Projects\\demo" } },
   request: async (path, options = {}) => {
     calls.push({ path, options });
-    if (path.startsWith("/local/providers/catalog")) {
+    if (path.includes("/providers/catalog")) {
       return {
-        all: [{ id: "agentrouter", name: "AgentRouter", models: { "deepseek-v4-flash": { name: "DeepSeek V4 Flash" } } }],
-        connected: ["agentrouter"],
-        default: { agentrouter: "deepseek-v4-flash" },
+        all: [{ id: "kilo", name: "Hosted", models: { "kilo-auto/free": { name: "Auto Free" } } }],
+        connected: ["kilo"],
+        default: { kilo: "kilo-auto/free" },
         failed: [],
+        hosted: { providerID: "kilo", preferredModels: ["kilo-auto/free"] },
       };
     }
-    if (path === "/local/providers/config" && (!options.method || options.method === "GET")) {
+    if (path === "/runtime/providers/config" && (!options.method || options.method === "GET")) {
       return { providers: [] };
     }
-    if (path.startsWith("/local/provider-accounts")) return [];
+    if (path.includes("/hosted/status")) {
+      return {
+        authenticated: true,
+        type: "oauth",
+        organizationId: "org-1",
+        providerID: "kilo",
+        preferredModels: ["kilo-auto/free"],
+      };
+    }
     return { ok: true };
   },
 };
@@ -39,29 +48,19 @@ const context = vm.createContext({
 vm.runInContext(source, context, { filename: "runtime-api.ts" });
 
 async function main() {
-  assert.ok(K.api?.providerAccounts?.list);
-  assert.ok(K.api?.providerAccounts?.status);
-  assert.ok(K.api?.providerAccounts?.authorize);
-  assert.ok(K.api?.providerAccounts?.callback);
-  assert.ok(K.api?.providerAccounts?.disconnect);
   assert.ok(K.api?.providers?.config);
   assert.ok(K.api?.providers?.upsert);
   assert.ok(K.api?.providers?.remove);
-  assert.ok(K.api?.providers?.discover);
 
   const state = await K.api.providerState();
-  assert.equal(state.all[0].id, "agentrouter");
-  assert.equal(state.connected.has("agentrouter"), true);
-  assert.equal(state.defaults.agentrouter, "deepseek-v4-flash");
-  assert.match(calls.at(-1).path, /^\/local\/providers\/catalog\?/);
+  assert.equal(state.all[0].id, "kilo");
+  assert.equal(K.api.hosted.providerID, "kilo");
+  assert.deepEqual(Array.from(K.api.hosted.preferredModels), ["kilo-auto/free"]);
+  assert.match(calls.at(-1).path, /^\/runtime\/providers\/catalog\?/);
   assert.match(calls.at(-1).path, /directory=C%3A%5CProjects%5Cdemo/);
 
-  const accounts = await K.api.providerAccounts.list();
-  assert.deepEqual(Array.from(accounts), []);
-  assert.match(calls.at(-1).path, /^\/local\/provider-accounts\?/);
-
   await K.api.providers.config();
-  assert.equal(calls.at(-1).path, "/local/providers/config");
+  assert.equal(calls.at(-1).path, "/runtime/providers/config");
 
   const provider = {
     id: "agentrouter",
@@ -72,7 +71,7 @@ async function main() {
   };
   await K.api.providers.upsert("agentrouter", { provider, apiKey: "secret-key" });
   const put = calls.at(-1);
-  assert.equal(put.path, "/local/providers/config/agentrouter");
+  assert.equal(put.path, "/runtime/providers/config/agentrouter");
   assert.equal(put.options.method, "PUT");
   const putBody = JSON.parse(put.options.body);
   assert.deepEqual(putBody.provider, provider);
@@ -81,29 +80,24 @@ async function main() {
 
   await K.api.providers.remove("agentrouter");
   const remove = calls.at(-1);
-  assert.equal(remove.path, "/local/providers/config/agentrouter");
+  assert.equal(remove.path, "/runtime/providers/config/agentrouter");
   assert.equal(remove.options.method, "DELETE");
 
-  await K.api.providers.discover({
-    providerID: "agentrouter",
-    protocol: "openai-compatible",
-    baseURL: provider.baseURL,
-    apiKey: "secret-key",
-  });
-  const discover = calls.at(-1);
-  assert.equal(discover.path, "/local/providers/discover");
-  assert.equal(discover.options.method, "POST");
+  const hosted = await K.api.hosted.status();
+  assert.equal(hosted.authenticated, true);
+  assert.equal(K.api.hosted.providerID, "kilo");
+  assert.equal(calls.at(-1).path.startsWith("/runtime/hosted/status?"), true);
 
   for (const forbidden of [
-    "/runtime/",
     "/config/overlay",
     "/provider/kilo/",
     "/kilo/auth-status",
-    "kilo-auto/free",
-    "providerID: \"kilo\"",
+    '"/auth/',
+    '"kilo-auto/free"',
+    'providerID: "kilo"',
     "@ai-sdk/",
   ]) {
-    assert.equal(source.includes(forbidden), false, `runtime-api.ts leaked removed implementation detail: ${forbidden}`);
+    assert.equal(source.includes(forbidden), false, `runtime-api.ts leaked implementation detail: ${forbidden}`);
   }
 
   console.log("provider API adapter regressions: ok");

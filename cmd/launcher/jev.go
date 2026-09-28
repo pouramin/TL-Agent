@@ -83,7 +83,7 @@ type openRouterKeyInfo struct {
 }
 
 type jevRouterService struct {
-	providers *providerManager
+	providers *runtimeProviderManager
 	client    *http.Client
 }
 
@@ -328,7 +328,7 @@ func openRouterDecisionEndpoint(raw string) (string, error) {
 	return parsed.String(), nil
 }
 
-func (m *providerManager) findOpenRouterProvider() (tlProviderDefinition, string, error) {
+func (m *runtimeProviderManager) findOpenRouterProvider() (tlProviderDefinition, string, error) {
 	providers, _, err := m.store.snapshot()
 	if err != nil {
 		return tlProviderDefinition{}, "", err
@@ -457,7 +457,7 @@ func providerHasJevRouter(provider tlProviderDefinition) bool {
 	return false
 }
 
-func (m *providerManager) findJevRouterProvider() (tlProviderDefinition, string, error) {
+func (m *runtimeProviderManager) findJevRouterProvider() (tlProviderDefinition, string, error) {
 	providers, _, err := m.store.snapshot()
 	if err != nil {
 		return tlProviderDefinition{}, "", err
@@ -510,7 +510,7 @@ func (m *providerManager) findJevRouterProvider() (tlProviderDefinition, string,
 	}
 }
 
-func newJevRouterService(providers *providerManager) *jevRouterService {
+func newJevRouterService(providers *runtimeProviderManager) *jevRouterService {
 	return &jevRouterService{
 		providers: providers,
 		client: &http.Client{Timeout: jevRouterStatusTimeout},
@@ -794,7 +794,7 @@ func saveDecisionEngineConfig(input decisionEngineConfig) (decisionEngineConfig,
 }
 
 type decisionEngineService struct {
-	providers *providerManager
+	providers *runtimeProviderManager
 	client    *http.Client
 }
 
@@ -838,7 +838,7 @@ func newDecisionEngineHTTPClient() *http.Client {
 	}
 }
 
-func newDecisionEngineService(providers *providerManager) *decisionEngineService {
+func newDecisionEngineService(providers *runtimeProviderManager) *decisionEngineService {
 	return &decisionEngineService{
 		providers: providers,
 		client:    newDecisionEngineHTTPClient(),

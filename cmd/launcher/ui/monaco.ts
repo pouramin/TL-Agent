@@ -93,13 +93,6 @@ import { K } from "./kernel";
     document.head.appendChild(script);
   });
 
-  const editorTypography = () => {
-    const size = document.documentElement.dataset.fontSize || "default";
-    if (size === "small") return { fontSize: 12, lineHeight: 19 };
-    if (size === "large") return { fontSize: 15, lineHeight: 23 };
-    return { fontSize: 14, lineHeight: 21 };
-  };
-
   const modelUri = (monaco: any, path: any) => {
     const encoded = String(path || "").replace(/\\/g, "/").split("/").filter(Boolean).map(encodeURIComponent).join("/");
     return monaco.Uri.parse(`tl-studio://workspace/${encoded || "untitled"}`);
@@ -118,11 +111,6 @@ import { K } from "./kernel";
       textarea.dispatchEvent(new Event("select", { bubbles: true }));
     } catch (_) {}
   };
-
-  window.addEventListener("tl-studio:font-size", () => {
-    state.editor?.updateOptions?.(editorTypography());
-    state.editor?.layout?.();
-  });
 
   const ensureEditor = async () => {
     if (state.editor) return state.editor;
@@ -149,7 +137,8 @@ import { K } from "./kernel";
           model: null,
           theme: currentTheme(),
           automaticLayout: true,
-          ...editorTypography(),
+          fontSize: 12,
+          lineHeight: 20,
           fontLigatures: false,
           minimap: { enabled: false },
           stickyScroll: { enabled: false },

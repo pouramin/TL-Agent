@@ -325,26 +325,6 @@ html, body {
 .workspace-activity-badge.visible {
   display: grid;
 }
-.workspace-terminal-activity {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: -0.5px;
-}
-.workspace-terminal-activity.active {
-  background: color-mix(in srgb, var(--tl-brand-navy) 62%, var(--tl-panel));
-  color: #FFFFFF;
-}
-.workspace-terminal-activity.active::before {
-  content: "";
-  position: absolute;
-  left: -5px;
-  top: 9px;
-  bottom: 8px;
-  width: 2px;
-  border-radius: 0 2px 2px 0;
-  background: var(--tl-brand-green);
-}
 .workspace-settings-activity.sidebar-settings-button {
   display: grid;
   min-height: 44px;
@@ -1184,69 +1164,3 @@ html.workspace-resize-ns * {
     max-width: calc(100vw - 24px);
   }
 }
-
-
-/* Readable workspace typography and IDE-style activity rail */
-.workspace-activity-icon {
-  width: 22px;
-  height: 22px;
-  display: block;
-}
-.workspace-terminal-activity {
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: inherit;
-  letter-spacing: normal;
-}
-.workspace-activity-button[data-workspace-view="changes"] .workspace-activity-badge.visible {
-  background: var(--tl-brand-green);
-  color: #fff;
-}
-.workspace-brand-copy strong { font-size: var(--tl-ui-md); }
-.workspace-brand-copy span { font-size: var(--tl-ui-xs); }
-.workspace-project-switcher.project-button #projectName { font-size: var(--tl-ui-base); }
-.workspace-project-switcher.project-button #projectPath { font-size: var(--tl-ui-xs); }
-.workspace-command-trigger { font-size: var(--tl-ui-base); }
-.workspace-command-trigger kbd { font-size: var(--tl-ui-xs); }
-.workspace-local-status.status-dot,
-.workspace-top-action,
-.workspace-icon-button,
-.workspace-account-button { font-size: var(--tl-ui-sm) !important; }
-.workspace-activity-badge { font-size: var(--tl-ui-xs); }
-
-.workspace-context-sidebar .files-head strong { font-size: var(--tl-ui-base); }
-.workspace-context-sidebar .files-head-actions .ghost { font-size: var(--tl-ui-xs); }
-.workspace-context-sidebar .workspace-explorer-action { font-size: var(--tl-ui-sm); }
-.workspace-context-sidebar .files-selection-actions .ghost { font-size: var(--tl-ui-xs); }
-.workspace-context-sidebar .file-copy strong { font-size: var(--tl-ui-base); }
-.workspace-context-sidebar .file-copy small { font-size: var(--tl-ui-xs); }
-.workspace-context-sidebar .session-item strong { font-size: var(--tl-ui-base); }
-.workspace-context-sidebar .session-item span { font-size: var(--tl-ui-xs); }
-.workspace-context-sidebar .project-search-input { font-size: var(--tl-ui-base) !important; }
-.workspace-context-sidebar .project-search-loc,
-.workspace-context-sidebar .project-search-snippet { font-size: var(--tl-ui-xs) !important; }
-
-.workspace-agent-kicker { font-size: var(--tl-ui-xs); }
-.workspace-agent-title strong { font-size: var(--tl-ui-base); }
-.workspace-agent-title span { font-size: var(--tl-ui-xs); }
-.workspace-agent-thread .message-text { font-size: var(--tl-message-size); }
-.workspace-agent-thread .message-head,
-.workspace-agent-thread .activity-card summary strong { font-size: var(--tl-ui-sm); }
-.workspace-agent-thread .activity-meta,
-.workspace-agent-thread .activity-status,
-.workspace-agent-thread .activity-label { font-size: var(--tl-ui-xs); }
-.workspace-agent-composer-wrap textarea { font-size: var(--tl-compose-size); }
-.workspace-agent-composer-wrap select { font-size: var(--tl-control-size); }
-.workspace-terminal-panel .terminal-output { font-size: var(--tl-terminal-size); }
-.workspace-terminal-panel .terminal-input-row { font-size: var(--tl-terminal-size); }
-.workspace-statusbar,
-.workspace-status-item,
-.workspace-status-button { font-size: var(--tl-ui-xs); }
-
-.workspace-v2 .file-editor-head { font-size: var(--tl-ui-base); }
-.workspace-v2 .file-editor-statusbar { font-size: var(--tl-ui-xs); }
-.workspace-v2 .file-tab { font-size: var(--tl-ui-sm); }
-
-html[data-font-size="large"] .workspace-topbar { min-height: 48px; }
-html[data-font-size="large"] .workspace-agent-header { min-height: 47px; }
-html[data-font-size="large"] .workspace-context-head { min-height: 40px !important; }

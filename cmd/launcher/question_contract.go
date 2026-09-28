@@ -6,8 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 )
+
+var errQuestionsUnsupported = errors.New("runtime engine does not provide interactive question capability")
 
 type questionOptionView struct {
 	Label       string `json:"label"`
@@ -38,77 +39,83 @@ type questionRejectInput struct {
 	SessionID string `json:"sessionID,omitempty"`
 }
 
-type questionResolution struct {
-	answers  [][]string
-	rejected bool
+type runtimeQuestionAdapter interface {
+	ListQuestions(ctx context.Context, backend *runtimeBackend, directory string) ([]questionRequestView, error)
+	ReplyQuestion(ctx context.Context, backend *runtimeBackend, directory, requestID string, answers [][]string) error
+	RejectQuestion(ctx context.Context, backend *runtimeBackend, directory, requestID string) error
 }
 
-type nativeQuestionWaiter struct {
-	request  questionRequestView
-	response chan questionResolution
+type runtimeQuestionProvider interface {
+	Questions() runtimeQuestionAdapter
 }
 
 type questionContract struct {
-	state  *appState
-	events *liveEventBus
-	mu     sync.Mutex
-	pending map[string]*nativeQuestionWaiter
+	state   *appState
+	backend *runtimeBackend
+	adapter runtimeQuestionAdapter
 }
 
-func newQuestionContract(state *appState, events *liveEventBus) *questionContract {
-	return &questionContract{
-		state: state,
-		events: events,
-		pending: map[string]*nativeQuestionWaiter{},
+func newQuestionContract(state *appState, backend *runtimeBackend) *questionContract {
+	var adapter runtimeQuestionAdapter
+	if provider, ok := backend.engine.(runtimeQuestionProvider); ok {
+		adapter = provider.Questions()
 	}
+	return &questionContract{state: state, backend: backend, adapter: adapter}
 }
 
-func (c *questionContract) publish(sessionID, action string) {
-	if c != nil && c.events != nil {
-		c.events.publish(liveEventView{
-			Type: "attention.changed", Action: action,
-			SessionID: strings.TrimSpace(sessionID), AttentionKind: "question",
-		})
+func (c *questionContract) requireAdapter() (runtimeQuestionAdapter, error) {
+	if c.adapter == nil {
+		return nil, errQuestionsUnsupported
 	}
+	return c.adapter, nil
 }
 
-func normalizeQuestionPrompts(prompts []questionPromptView) ([]questionPromptView, error) {
-	if len(prompts) == 0 || len(prompts) > 20 {
-		return nil, errors.New("at least one question is required")
+func (c *questionContract) directory() string {
+	if c.state == nil {
+		return ""
 	}
-	result := make([]questionPromptView, 0, len(prompts))
-	for _, prompt := range prompts {
-		prompt.Header = strings.TrimSpace(prompt.Header)
-		prompt.Question = strings.TrimSpace(prompt.Question)
-		prompt.Default = strings.TrimSpace(prompt.Default)
-		if prompt.Question == "" {
-			return nil, errors.New("question text is required")
+	return c.state.projectPath()
+}
+
+func (c *questionContract) list(ctx context.Context, sessionID string) ([]questionRequestView, error) {
+	adapter, err := c.requireAdapter()
+	if err != nil {
+		return nil, err
+	}
+	items, err := adapter.ListQuestions(ctx, c.backend, c.directory())
+	if err != nil {
+		return nil, err
+	}
+	sessionID = strings.TrimSpace(sessionID)
+	result := make([]questionRequestView, 0, len(items))
+	for _, item := range items {
+		if sessionID != "" && item.SessionID != sessionID {
+			continue
 		}
-		if len(prompt.Question) > 8000 || len(prompt.Header) > 500 || len(prompt.Default) > 8000 {
-			return nil, errors.New("question content is too long")
+		if item.ID == "" || item.SessionID == "" || len(item.Questions) == 0 {
+			continue
 		}
-		if len(prompt.Options) > 100 {
-			return nil, errors.New("too many question options")
-		}
-		options := make([]questionOptionView, 0, len(prompt.Options))
-		for _, option := range prompt.Options {
-			option.Label = strings.TrimSpace(option.Label)
-			option.Description = strings.TrimSpace(option.Description)
-			if option.Label == "" {
-				continue
-			}
-			if len(option.Label) > 1000 || len(option.Description) > 4000 {
-				return nil, errors.New("question option is too long")
-			}
-			options = append(options, option)
-		}
-		prompt.Options = options
-		if len(prompt.Options) == 0 && !prompt.Custom {
-			prompt.Custom = true
-		}
-		result = append(result, prompt)
+		result = append(result, item)
 	}
 	return result, nil
+}
+
+func (c *questionContract) validateRequest(ctx context.Context, sessionID, requestID string) error {
+	sessionID = strings.TrimSpace(sessionID)
+	requestID = strings.TrimSpace(requestID)
+	if sessionID == "" || requestID == "" {
+		return errors.New("session id and question request id are required")
+	}
+	items, err := c.list(ctx, sessionID)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item.ID == requestID {
+			return nil
+		}
+	}
+	return errors.New("question request is not active for this session")
 }
 
 func normalizeQuestionAnswers(answers [][]string) ([][]string, error) {
@@ -137,92 +144,14 @@ func normalizeQuestionAnswers(answers [][]string) ([][]string, error) {
 	return result, nil
 }
 
-func (c *questionContract) Ask(ctx context.Context, sessionID string, prompts []questionPromptView) ([][]string, bool, error) {
-	if c == nil {
-		return nil, false, errors.New("native question manager is unavailable")
-	}
-	sessionID = strings.TrimSpace(sessionID)
-	if sessionID == "" {
-		return nil, false, errors.New("session id is required")
-	}
-	normalized, err := normalizeQuestionPrompts(prompts)
-	if err != nil {
-		return nil, false, err
-	}
-	token, err := randomSecret(12)
-	if err != nil {
-		return nil, false, err
-	}
-	requestID := "tlsq_" + token
-	waiter := &nativeQuestionWaiter{
-		request: questionRequestView{ID: requestID, SessionID: sessionID, Questions: normalized},
-		response: make(chan questionResolution, 1),
-	}
-
-	c.mu.Lock()
-	c.pending[requestID] = waiter
-	c.mu.Unlock()
-	c.publish(sessionID, "requested")
-	defer func() {
-		c.mu.Lock()
-		delete(c.pending, requestID)
-		c.mu.Unlock()
-		c.publish(sessionID, "resolved")
-	}()
-
-	select {
-	case resolution := <-waiter.response:
-		return resolution.answers, resolution.rejected, nil
-	case <-ctx.Done():
-		return nil, false, ctx.Err()
-	}
-}
-
-func (c *questionContract) list(sessionID string) []questionRequestView {
-	if c == nil {
-		return []questionRequestView{}
-	}
-	sessionID = strings.TrimSpace(sessionID)
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	result := make([]questionRequestView, 0, len(c.pending))
-	for _, waiter := range c.pending {
-		if sessionID != "" && waiter.request.SessionID != sessionID {
-			continue
-		}
-		item := waiter.request
-		item.Questions = append([]questionPromptView(nil), item.Questions...)
-		result = append(result, item)
-	}
-	return result
-}
-
-func (c *questionContract) resolve(requestID, sessionID string, resolution questionResolution) error {
-	requestID = strings.TrimSpace(requestID)
-	sessionID = strings.TrimSpace(sessionID)
-	if requestID == "" || sessionID == "" {
-		return errors.New("session id and question request id are required")
-	}
-	c.mu.Lock()
-	waiter, ok := c.pending[requestID]
-	c.mu.Unlock()
-	if !ok {
-		return errors.New("question request is not active")
-	}
-	if waiter.request.SessionID != sessionID {
-		return errors.New("question request is not active for this session")
-	}
-	select {
-	case waiter.response <- resolution:
-		return nil
-	default:
-		return errors.New("question request is already resolved")
-	}
-}
-
 func writeQuestionError(w http.ResponseWriter, err error) {
-	if strings.Contains(err.Error(), "not active") || strings.Contains(err.Error(), "already resolved") {
-		writeJSON(w, http.StatusNotFound, jsonError{Error: err.Error()})
+	if errors.Is(err, errQuestionsUnsupported) {
+		writeJSON(w, http.StatusNotImplemented, jsonError{Error: err.Error()})
+		return
+	}
+	var runtimeErr *sessionRuntimeError
+	if errors.As(err, &runtimeErr) {
+		writeSessionContractError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
@@ -230,48 +159,61 @@ func writeQuestionError(w http.ResponseWriter, err error) {
 
 func registerQuestionRoutes(mux *http.ServeMux, contract *questionContract) {
 	mux.HandleFunc("GET /local/questions", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, contract.list(r.URL.Query().Get("sessionID")))
+		items, err := contract.list(r.Context(), r.URL.Query().Get("sessionID"))
+		if err != nil {
+			writeQuestionError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
 	})
 
 	mux.HandleFunc("POST /local/questions/{requestID}/reply", func(w http.ResponseWriter, r *http.Request) {
+		adapter, err := contract.requireAdapter()
+		if err != nil {
+			writeQuestionError(w, err)
+			return
+		}
 		var input questionReplyInput
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&input); err != nil {
 			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid question reply body"})
 			return
 		}
 		answers, err := normalizeQuestionAnswers(input.Answers)
-		if err != nil { writeQuestionError(w, err); return }
+		if err != nil {
+			writeQuestionError(w, err)
+			return
+		}
 		requestID := strings.TrimSpace(r.PathValue("requestID"))
-		candidates := contract.list(input.SessionID)
-		var expected int
-		for _, item := range candidates {
-			if item.ID == requestID {
-				expected = len(item.Questions)
-				break
-			}
-		}
-		if expected == 0 {
-			writeQuestionError(w, errors.New("question request is not active for this session"))
+		if err := contract.validateRequest(r.Context(), input.SessionID, requestID); err != nil {
+			writeQuestionError(w, err)
 			return
 		}
-		if len(answers) != expected {
-			writeQuestionError(w, errors.New("answer count does not match question count"))
+		if err := adapter.ReplyQuestion(r.Context(), contract.backend, contract.directory(), requestID, answers); err != nil {
+			writeQuestionError(w, err)
 			return
-		}
-		if err := contract.resolve(requestID, input.SessionID, questionResolution{answers: answers}); err != nil {
-			writeQuestionError(w, err); return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"resolved": true})
 	})
 
 	mux.HandleFunc("POST /local/questions/{requestID}/reject", func(w http.ResponseWriter, r *http.Request) {
+		adapter, err := contract.requireAdapter()
+		if err != nil {
+			writeQuestionError(w, err)
+			return
+		}
 		var input questionRejectInput
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10)).Decode(&input); err != nil {
 			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid question reject body"})
 			return
 		}
-		if err := contract.resolve(strings.TrimSpace(r.PathValue("requestID")), input.SessionID, questionResolution{rejected: true}); err != nil {
-			writeQuestionError(w, err); return
+		requestID := strings.TrimSpace(r.PathValue("requestID"))
+		if err := contract.validateRequest(r.Context(), input.SessionID, requestID); err != nil {
+			writeQuestionError(w, err)
+			return
+		}
+		if err := adapter.RejectQuestion(r.Context(), contract.backend, contract.directory(), requestID); err != nil {
+			writeQuestionError(w, err)
+			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"resolved": true})
 	})

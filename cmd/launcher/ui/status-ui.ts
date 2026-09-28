@@ -309,7 +309,7 @@ import { K } from "./kernel";
     const modelID = String(model?.modelID || "").trim();
     const providerID = String(model?.providerID || "").trim();
     if (!modelID) return "";
-    if (!providerID || modelID.includes("/")) return modelID;
+    if (!providerID || providerID === K.api.hosted.providerID || modelID.includes("/")) return modelID;
     return `${providerID}/${modelID}`;
   };
 
