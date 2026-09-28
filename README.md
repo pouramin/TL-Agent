@@ -53,7 +53,7 @@ Custom provider setup can discover models automatically from compatible model-li
 
 The 0.6 account-provider foundation supports semantic login state, cancellation, refresh, logout, and account-backed model discovery. OpenRouter uses its documented OAuth + PKCE flow to create a user-controlled key. Hugging Face uses its documented public-client OAuth + PKCE flow with TL Studio's published CIMD metadata and refresh-token lifecycle. Google/Gemini uses the official installed-app OAuth + PKCE flow, refresh/revocation, and a user quota project for Gemini API usage. Account credentials are never exposed to Browser code.
 
-Google account login requires a registered TL Studio Desktop OAuth client plus a Google Cloud project with the Generative Language API enabled. A Gemini consumer subscription is not treated as Gemini API entitlement.
+Google account login requires a Desktop OAuth client plus a Google Cloud project with the Generative Language API enabled. During the 0.6 alpha these non-secret setup values can be configured directly in Provider Settings and are persisted locally; environment variables remain available as development overrides. A future production build can ship TL Studio's registered OAuth client ID so end users only need the appropriate Google project. A Gemini consumer subscription is not treated as Gemini API entitlement.
 
 ChatGPT/Codex, Claude, and GitHub Copilot are shown in Provider Settings as explicit deferred account integrations when the current official contract does not fit TL Studio's native execution boundary. They are not hidden fallbacks and are not registered as runtime credential sources.
 
