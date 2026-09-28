@@ -24,9 +24,13 @@ The fully native runtime milestone is complete and released as stable v0.5.0. Th
 
 Current validation branch:
 
-feature/account-providers-foundation
+feature/huggingface-account-provider
 
 Current draft PR:
+
+#123 — Hugging Face account provider for 0.6
+
+Completed 0.6 foundation PR:
 
 #122 — Account provider foundation for 0.6
 
@@ -115,6 +119,8 @@ The generic ProviderAccountAdapter architecture now has a typed account lifecycl
 Manual API credentials and account credentials use separate credential-vault slots. An account credential takes precedence for native model execution while connected, but signing out exposes the preserved manual API credential instead of deleting it.
 
 OpenRouter is the first concrete 0.6 account adapter. It uses the documented OpenRouter OAuth + PKCE flow, performs code exchange server-side, stores the resulting account key only in the TL Studio credential vault, discovers models through the normal provider discovery layer, and exposes those models through the existing Native Agent/model selector path.
+
+Hugging Face is the next concrete adapter under validation in PR #123. It uses TL Studio's public CIMD identity at https://pouramin.dev/.well-known/oauth-cimd, Authorization Code + PKCE, loopback callbacks, account-vault access/refresh token persistence, automatic refresh in the Provider Account adapter, and the official OpenAI-compatible Inference Providers router. The provider-specific credential lifecycle remains behind ProviderAccountAdapter; the Native Agent receives only the resolved runtime credential.
 
 Custom Provider setup is being simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback.
 
