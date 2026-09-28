@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const codexChatGPTProviderProtocol = "codex-chatgpt"
@@ -52,8 +52,8 @@ func codexProcess(ctx context.Context, command codexCommand, args ...string) *ex
 }
 
 func quoteWindowsBatchArg(value string) string {
-	value = strings.ReplaceAll(value, """, "\\"")
-	return """ + value + """
+	value = strings.ReplaceAll(value, "\"", "\\\"")
+	return "\"" + value + "\""
 }
 
 func prepareCodexCommand(cmd *exec.Cmd) error {
@@ -139,7 +139,7 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 		server.closeWithError(err)
 	}()
 
-	initCtx, cancel := context.WithTimeout(context.Background(), 15*timeSecond)
+	initCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	var initialized map[string]any
 	if err := server.request(initCtx, "initialize", map[string]any{
@@ -152,14 +152,13 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 		server.Close()
 		return nil, fmt.Errorf("initialize official Codex app-server: %w", err)
 	}
-	if err := server.notification("initialized", map[string]any{}); err != nil {
+	if err := server.notification("initialized", nil); err != nil {
 		server.Close()
 		return nil, fmt.Errorf("acknowledge Codex app-server initialization: %w", err)
 	}
 	return server, nil
 }
 
-const timeSecond = 1_000_000_000 // time.Second without importing time in generated build helpers
 
 func (s *codexAppServer) readLoop(reader io.Reader) {
 	scanner := bufio.NewScanner(reader)
@@ -170,7 +169,7 @@ func (s *codexAppServer) readLoop(reader io.Reader) {
 			continue
 		}
 		if len(envelope.ID) > 0 && string(envelope.ID) != "null" {
-			id, err := strconv.ParseInt(strings.Trim(string(envelope.ID), """), 10, 64)
+			id, err := strconv.ParseInt(strings.Trim(string(envelope.ID), "\""), 10, 64)
 			if err == nil {
 				s.mu.Lock()
 				ch := s.pending[id]
@@ -233,10 +232,11 @@ func (s *codexAppServer) writeMessage(payload any) error {
 }
 
 func (s *codexAppServer) notification(method string, params any) error {
-	return s.writeMessage(map[string]any{
-		"method": strings.TrimSpace(method),
-		"params": params,
-	})
+	payload := map[string]any{"method": strings.TrimSpace(method)}
+	if params != nil {
+		payload["params"] = params
+	}
+	return s.writeMessage(payload)
 }
 
 func (s *codexAppServer) request(ctx context.Context, method string, params any, output any) error {
@@ -489,8 +489,7 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 	}
 	cmd.Stdin = strings.NewReader(prompt)
 	cmd.Stdout = io.Discard
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	cmd.Stderr = io.Discard
 	if err := cmd.Run(); err != nil {
 		return nativeModelResponse{}, fmt.Errorf("official Codex model bridge failed: %w", err)
 	}
