@@ -307,7 +307,7 @@ func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
 		"Do not blindly retry multiple shell variants",
 		"durationMs",
 		"Never claim that a requested wait/delay duration completed successfully",
-		"ping -n N+1 127.0.0.1 > nul",
+		"ping -n 61 127.0.0.1 > nul",
 	} {
 		if !strings.Contains(prompt, required) {
 			t.Fatalf("native Agent system prompt missing %q", required)
