@@ -1,146 +1,357 @@
-# TL Studio
+[English](./README.md) · [فارسی](./README.fa_IR.md)
 
 <p align="center">
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-TL Studio یک IDE مرورگری و Workspace محلی برای Coding Agent است. Workspace، Editor، Search، Terminal، Preview، Sessionها، Permissionها، Questionها، Providerها، Plugin/MCP و Native Agent همگی پشت قراردادهای محلی خود TL Studio اجرا می‌شوند.
+<p align="center">
+  <strong>یک محیط کدنویسی محلی با Agent هوش مصنوعی بومی.</strong>
+</p>
 
-نسخه‌ی پایدار فعلی: **0.5.0**
+<p align="center">
+  ویرایش، جست‌وجو، اجرا، Preview، گفتگو، Toolها و اتصال مدل‌ها؛ همه در یک Workspace محلی روی سیستم خودتان.
+</p>
 
-خط توسعه‌ی فعلی: **0.6.0-alpha.1**
+<p align="center">
+  <a href="https://www.npmjs.com/package/tl-studio"><img src="https://img.shields.io/npm/v/tl-studio?label=npm&color=CB3837" alt="npm version"></a>
+  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Studio?sort=semver&label=release" alt="Latest release"></a>
+  <a href="https://github.com/pouramin/TL-Studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pouramin/TL-Studio/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/downloads/pouramin/TL-Studio/total?label=downloads" alt="Downloads"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+</p>
 
-شاخه‌ی main روی v0.5.0 پایدار می‌ماند و توسعه‌ی جدید روی dev ادامه پیدا می‌کند.
+<p align="center">
+  <img src="https://img.shields.io/badge/stable-v0.5.0-16a34a" alt="Stable v0.5.0">
+  <img src="https://img.shields.io/badge/dev-v0.6.0--alpha.1-f59e0b" alt="Development v0.6.0-alpha.1">
+</p>
 
-## معماری Native
+---
 
-اجرای عادی TL Studio دیگر به Sidecar یا Compatibility Runtime وابسته نیست.
+## TL Studio چیست؟
 
-- **Native Agent** — حلقه‌ی Model/Tool/Model، Cancellation، Loop Guard، Persistence معنایی و Live Event متعلق به TL Studio است.
-- **Native Sessions** — Create، Rename، Delete، Run، Abort، Status، Message، Changes و Persistence کاملاً در اختیار TL Studio است.
-- **Native Interactive Questions** — Agent می‌تواند با interaction.question متوقف شود، سؤال را به Browser بفرستد، پاسخ Multiple Choice یا Custom Text بگیرد و ادامه دهد.
-- **Native Permissions** — Pending Request، Allow Once، Reject، Ruleهای Project-scoped و Enforcement در اختیار TL Studio است.
-- **Native Events** — مسیر /local/events منبع اصلی Semantic SSE است.
-- **Native Providers** — Provider Registry، Catalog، Discovery و Credential Vault متعلق به TL Studio است و Model Call مستقیماً به Provider انتخاب‌شده ارسال می‌شود.
-- **Provider Accounts** — مسیر /local/provider-accounts چرخه‌ی عمومی ورود حساب برای Integrationهای مستند Provider را مدیریت می‌کند و OpenRouter، Hugging Face و Google/Gemini روی خط توسعه‌ی 0.6 پیاده‌سازی شده‌اند.
-- **Native Tools** — Files، Search، Terminal/Process، Workspace reconciliation و ابزارهای Plugin/MCP از TL Studio Tool Executor عبور می‌کنند.
+**TL Studio** یک محیط توسعهٔ محلی و مستقل است که حول یک Agent کدنویسی بومی ساخته شده است.
 
-در محصول دیگر Kilo binary، Kilo subprocess، Local Kilo server، Reverse Proxy، Session Adapter، Permission fallback، Question Adapter، Event stream، Provider sync، Model fallback یا Kilo داخل Release package وجود ندارد.
+محیط مرورگری و Backend نوشته‌شده با Go به‌عنوان یک محصول واحد کار می‌کنند. چرخهٔ Agent، Sessionها، Toolها، Permissionها، Providerها، Credentialها، Processهای Terminal، فایل‌های پروژه، Preview، Plugins/MCP و Eventهای معنایی همگی در اختیار خود TL Studio هستند.
 
-اگر کاربر بخواهد، Kilo Gateway فقط می‌تواند مانند هر Provider خارجی دیگر از طریق Endpoint عمومی HTTPS و API Key مستندشده تنظیم شود. این حالت هیچ وابستگی محلی به Kilo ایجاد نمی‌کند.
+Sessionهای کدنویسی از طریق Native Agent و Tool Executor خود TL Studio اجرا می‌شوند.
 
-## Workspace
+پروژه روی سیستم کاربر باقی می‌ماند و ترافیک مدل مستقیماً به Provider انتخاب‌شده ارسال می‌شود.
 
-Browser Workspace شامل این بخش‌هاست:
+## شروع سریع
 
-- File Explorer با Create، Rename، Delete، Save، Refresh و Optimistic Concurrency؛
-- Monaco Editor که به‌صورت Local bundle شده و CDN لازم ندارد؛
-- Project Search؛
-- Terminal/Process پروژه با Stop؛
-- Live Preview روی Loopback origin جدا؛
-- Agent conversation، Sessionها، Usage/Activity، Changes، Permission و Interactive Question؛
-- Provider Settings و Credential Vault؛
-- Plugin/MCP با Configuration و Tool Discovery؛
-- JEV/OpenRouter از مسیر Native Provider.
+### اجرا با npm
 
-## Providerها
+اگر Node.js و npm نصب هستند، داخل پوشهٔ پروژه این دستور را اجرا کنید:
 
-TL Studio در حال حاضر Direct Model Client برای این Protocolها دارد:
+```bash
+npx --yes tl-studio
+```
 
-- OpenAI-compatible Chat Completions
-- OpenAI Responses
-- Anthropic Messages
-- Google Gemini generateContent
+پکیج npm Launcher سبک نسخهٔ پایدار متناظر در GitHub Releases است. پلتفرم را تشخیص می‌دهد، Binary رسمی را دانلود می‌کند، SHA-256 را بررسی می‌کند، فایل را در Cache محلی نگه می‌دارد و پوشهٔ فعلی را به‌عنوان پروژه باز می‌کند.
 
-Provider definition در Local State خود TL Studio ذخیره می‌شود. API Key و Credential حساب جداگانه داخل Credential Vault نگهداری می‌شوند و وارد providers.json یا Browser storage نمی‌شوند. Credential دستی API و اتصال حساب Slotهای جدا دارند و اتصال حساب، کلید دستی کاربر را overwrite نمی‌کند.
+برای اجرا بدون باز شدن خودکار Browser:
 
-در افزودن Provider سفارشی، TL Studio می‌تواند فهرست مدل‌ها را به‌صورت خودکار از API سازگار کشف کند. ورود دستی Model ID فقط به‌عنوان fallback برای مدل خصوصی یا فهرست‌نشده باقی می‌ماند.
+```bash
+npx --yes tl-studio --no-browser
+```
 
-زیرساخت Account Provider در خط توسعه‌ی 0.6 شامل وضعیت معنایی Login، لغو، Refresh، Logout و Model Discovery است. OpenRouter از OAuth + PKCE مستند خودش استفاده می‌کند، Hugging Face با Public OAuth Client و PKCE متصل می‌شود و Google/Gemini نیز از Installed App OAuth، PKCE، Refresh و Revocation رسمی استفاده می‌کند. Credential هیچ‌کدام در اختیار Browser قرار نمی‌گیرد.
+### نسخهٔ Portable
 
-اتصال حساب Google به یک Desktop OAuth Client و یک Google Cloud Project با Generative Language API فعال نیاز دارد. در نسخه‌ی آلفای 0.6 این تنظیمات غیرمحرمانه مستقیماً از Provider Settings قابل ثبت و به‌صورت محلی قابل نگهداری هستند و Environment Variable فقط به‌عنوان Development override باقی می‌ماند. برای Callback ورود Google یک Listener موقت روی 127.0.0.1 و یک پورت تصادفی ساخته می‌شود و از Control Server خود TL Studio استفاده نمی‌شود. در نسخه‌ی Production می‌توان Client ID ثبت‌شده‌ی خود TL Studio را همراه برنامه ارائه کرد تا کاربر عادی فقط Project مناسب Google را تنظیم کند. اشتراک مصرف‌کننده‌ی Gemini به‌عنوان Gemini API entitlement در نظر گرفته نمی‌شود.
+نسخهٔ پایدار را از **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)** دانلود و Extract کنید:
 
-اتصال حساب ChatGPT/Codex، Claude و GitHub Copilot وقتی قرارداد رسمی فعلی با مرز Native execution پروژه سازگار نباشد، در Provider Settings به‌صورت شفاف غیرفعال نمایش داده می‌شود. این موارد Hidden fallback نیستند و تا زمان حل مرز معماری، به Runtime credential resolver ثبت نمی‌شوند.
+```text
+Windows   tl-studio.exe
+Linux     ./tl-studio
+macOS     ./tl-studio
+```
 
-اگر Model یا Protocol توسط Native Client پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد. هیچ Hidden fallback به Runtime دیگری وجود ندارد.
+برای باز کردن یک پروژهٔ مشخص:
 
-JEV هم از همان Native Agent، Tool Executor، Permission، Session و Event system استفاده می‌کند.
-
-## Local Product API
-
-Browser فقط از Semantic APIهای خود TL Studio استفاده می‌کند؛ از جمله:
-
-- /local/status
-- /local/health
-- /local/path
-- /local/agents
-- /local/providers/*
-- /local/provider-accounts*
-- /local/sessions*
-- /local/questions*
-- /local/permissions*
-- /local/events
-- /local/plugins*
-- /local/tools
-
-معماری قدیمی /runtime/* Reverse Proxy دیگر بخشی از محصول نیست.
-
-## Build از Source
-
-نیازمندی‌ها:
-
-- Go 1.23+
-- Node.js 18+ برای Build و Check رابط Browser
-
-ساخت و بررسی Browser:
-
-    npm install --ignore-scripts --no-audit --no-fund
-    npm run check:web
-    npm run build:web
-
-اجرای Testها:
-
-    go test ./...
-    go vet ./...
-
-اجرای TL Studio:
-
-    go run ./cmd/launcher --project /path/to/project
-
-ساخت Binary:
-
-    go build -o tl-studio ./cmd/launcher
-    ./tl-studio --project /path/to/project
+```bash
+tl-studio --project /path/to/project
+```
 
 در Windows:
 
-    go build -o tl-studio.exe ./cmd/launcher
-    .\tl-studio.exe --project C:\path\to\project
+```powershell
+.\tl-studio.exe --project C:\path\to\project
+```
 
-اجرای عادی همان Native execution است. Flag جداگانه‌ای برای Native-only وجود ندارد و Runtime binary دیگری هم لازم نیست.
+## قابلیت‌های اصلی
 
-## Release Packaging
+| | قابلیت | توضیح |
+| --- | --- | --- |
+| 🧠 | **Native Agent** | چرخهٔ کامل مدل → ابزار → مدل، لغو اجرا، Loop Guard، Persistence و پاسخ نهایی در اختیار TL Studio است. |
+| 🗂️ | **Workspace** | File Explorer، Monaco Editor، Tabها، Project Search، عملیات فایل و هماهنگی با تغییرات بیرونی. |
+| 💻 | **Terminal** | اجرای دستورها در محدودهٔ پروژه، تاریخچهٔ خروجی، Cancellation و پایان Process Tree در سیستم‌های پشتیبانی‌شده. |
+| 👁️ | **Live Preview** | Preview برای HTML، Markdown، تصویر، PDF، ویدیو، صدا، SVG و متن روی Origin محلی جداگانه. |
+| 🔐 | **Permissions** | Toolهای حساس می‌توانند برای Approval متوقف شوند و Allow Once، Reject یا Ruleهای Project-scoped داشته باشند. |
+| 💬 | **Interactive Questions** | Agent می‌تواند سؤال ساختاریافته بپرسد، پاسخ گزینه‌ای یا متن دلخواه بگیرد و همان Run را ادامه دهد. |
+| 🔌 | **Providers** | Clientهای مستقیم برای OpenAI-compatible، OpenAI Responses، Anthropic Messages و Google Gemini. |
+| 👤 | **Provider Accounts** | Providerهای پشتیبانی‌شده می‌توانند از Account Login استفاده کنند بدون اینکه Credential وارد Browser Code شود. |
+| 🧩 | **Plugins / MCP** | Toolهای خارجی وارد همان Tool Registry و Permission Boundary می‌شوند. |
+| 📚 | **Sessions** | ساخت، Rename، Resume، Delete، Abort، Persistence و مشاهدهٔ تغییرات هر Session. |
+| 📊 | **Usage** | Activity و Usage هر Session بخشی از مدل معنایی خود TL Studio هستند. |
+| 🏠 | **Local-first** | Cloud Backend، Database، Hosted Proxy یا Telemetry Service متعلق به TL Studio لازم نیست. |
 
-Package عادی شامل TL Studio executable، License/Noticeهای TL Studio و Pluginهای bundle‌شده‌ی خود TL Studio است. فایل kilo یا kilo.exe داخل Package وجود ندارد.
+## Providerها
 
-CI اگر یکی از این Binaryها وارد Review یا Release package شود Fail می‌شود. CI همچنین TL Studio standalone را به‌صورت عادی اجرا می‌کند، Native Product Contract و Browser smoke واقعی را تست می‌کند و Windows x64 Review ZIP می‌سازد.
+Credential دستی API و Credential مربوط به Account Login در Slotهای جداگانهٔ Credential Vault نگهداری می‌شوند. اتصال حساب می‌تواند در زمان فعال بودن اولویت داشته باشد، اما Sign out کردن حساب API Key دستی موجود را حذف نمی‌کند.
 
-## Security
+Secretها در این محل‌ها ذخیره نمی‌شوند:
 
-TL Studio به‌صورت Local-first طراحی شده است. Control UI فقط روی Loopback bind می‌شود، Cross-origin request رد می‌شود، Filesystem API مرز Project را enforce می‌کند، Preview از Control Origin جداست، Credentialها در Vault خود TL Studio می‌مانند و Toolهای حساس Permission می‌خواهند.
+```text
+providers.json
+Browser localStorage
+sessionStorage
+frontend source
+normal local API responses
+```
 
-External Provider، Repository، Prompt و MCP/Plugin process مرزهای اعتماد جداگانه‌اند.
+### Protocolهای Native مدل
 
-جزئیات بیشتر در SECURITY.md است.
+| Protocol | وضعیت |
+| --- | --- |
+| OpenAI-compatible Chat Completions | ✅ پشتیبانی می‌شود |
+| OpenAI Responses | ✅ پشتیبانی می‌شود |
+| Anthropic Messages | ✅ پشتیبانی می‌شود |
+| Google Gemini generateContent | ✅ پشتیبانی می‌شود |
 
-## Branchها
+راه‌اندازی Provider سفارشی Discovery-first است. در حالت عادی فقط API Address، API Type و API Key وارد می‌شوند و TL Studio مدل‌های قابل استفاده را به‌صورت خودکار کشف می‌کند.
 
-- main — Stable production
-- dev — Active next-version development
-- Feature branchها — کار milestone جدا از dev
+ورود دستی Model فقط به‌عنوان Fallback صریح برای مدل‌های خصوصی یا فهرست‌نشده باقی می‌ماند.
 
-جزئیات معماری در docs/ARCHITECTURE.md است.
+### Providerهای حسابی
+
+| Provider | Account Login | توضیح |
+| --- | --- | --- |
+| **OpenRouter** | ✅ فعال | OAuth + PKCE رسمی، Credential مبتنی بر حساب و Model Discovery. |
+| **Hugging Face** | ✅ فعال | Public-client OAuth + PKCE، Refresh و Model Discovery برای Inference Providers. |
+| **Google / Gemini** | ✅ فعال | Installed-app OAuth + PKCE، Refresh/Revocation، Transport بومی Gemini و پشتیبانی از Google Cloud quota project. |
+| **ChatGPT / Codex** | ⏳ Deferred | همچنان یکی از هدف‌های اصلی 0.6 است، اما سطح رسمی فعلی Transport خام مدل موردنیاز برای حفظ مرز Native Agent را ارائه نمی‌کند. |
+| **Claude account** | ⏳ Deferred | پشتیبانی Anthropic با API Key بومی است؛ Login حساب مصرف‌کننده منتظر یک قرارداد عمومی و مستند برای Third-party authorization می‌ماند. |
+| **GitHub Copilot** | ⏳ Deferred | احراز هویت رسمی وجود دارد، اما مسیر مستند Model Access همچنان به Copilot SDK/runtime وابسته است. |
+
+Providerهای Deferred عمداً در Settings دیده می‌شوند. آن‌ها مرز معماری مشخص هستند، نه قابلیت‌های فراموش‌شده.
+
+### تنظیمات Gemini در نسخهٔ Alpha
+
+در خط توسعهٔ 0.6 این مقادیر غیرمحرمانه مستقیماً از Provider Settings قابل تنظیم هستند:
+
+```text
+Google Cloud Project ID
+Desktop OAuth Client ID
+```
+
+Access Token و Refresh Token فقط داخل Credential Vault خود TL Studio باقی می‌مانند.
+
+برای Login دسکتاپ Gemini یک Listener موقت روی Loopback ساخته می‌شود:
+
+```text
+127.0.0.1:<random-port>
+```
+
+این Listener مقدار OAuth state را بررسی می‌کند، Flow مبتنی بر PKCE را کامل می‌کند و پس از موفقیت، لغو یا Expiry بسته می‌شود.
+
+## معماری
+
+TL Studio یک مرز محصول بومی و یکپارچه دارد:
+
+```mermaid
+flowchart TD
+    UI["Browser workspace"] --> API["TL Studio local API"]
+    API --> SESSION["Sessions / permissions / questions / events"]
+    SESSION --> AGENT["Native Agent"]
+    AGENT --> PROVIDER["Selected model provider"]
+    AGENT --> TOOLS["TL Studio Tool Executor"]
+
+    TOOLS --> FILES["Project files & search"]
+    TOOLS --> TERM["Terminal / processes"]
+    TOOLS --> MCP["Plugins / MCP"]
+
+    PROVIDER --> AGENT
+    TOOLS --> AGENT
+    AGENT --> SESSION
+    SESSION --> UI
+```
+
+بخش‌های زیر مستقیماً در اختیار TL Studio هستند:
+
+- Workspace و Monaco Editor
+- فایل‌ها و Project Search
+- Terminal و Process execution
+- Preview
+- Provider Registry و Model Discovery
+- Credential Vault
+- چرخهٔ Provider Account
+- Native Agent
+- Sessionها و Persistence
+- Questionها و Permissionها
+- Eventهای معنایی
+- Tool Registry و Tool Executor
+- Plugins/MCP
+
+Protocol پشتیبانی‌نشده با خطای صریح Unsupported Capability متوقف می‌شود.
+
+جزئیات کامل‌تر:
+
+[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+
+## مدل امنیتی
+
+Control Surface برنامه برای استفادهٔ محلی طراحی شده است:
+
+- Control UI فقط روی Loopback Bind می‌شود.
+- Hostهای غیرمحلی رد می‌شوند.
+- Origin مرورگر باید با Control Origin محلی یکسان باشد.
+- عملیات Filesystem مرز پروژه را enforce می‌کنند.
+- Traversal و Symlink Escape رد می‌شوند.
+- Preview از Control Origin جداست.
+- Secretهای Provider وارد Browser Code نمی‌شوند.
+- Toolهای حساس پشت Permission قرار دارند.
+
+Providerهای خارجی، Repositoryها، Promptها، MCP Serverها و Plugin Processها مرزهای اعتماد مستقل هستند.
+
+Control Port برنامه را از طریق Public Proxy در معرض اینترنت قرار ندهید.
+
+جزئیات بیشتر:
+
+[SECURITY.md](./SECURITY.md)
+
+## نسخه‌های قابل اجرا
+
+| پلتفرم | معماری |
+| --- | --- |
+| Windows | x64 |
+| Linux | x64, ARM64 |
+| macOS | Intel x64, Apple Silicon ARM64 |
+
+نسخه‌های پایدار همراه با SHA-256 از طریق **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)** منتشر می‌شوند.
+
+## Build از Source
+
+### نیازمندی‌ها
+
+```text
+Go 1.23+
+Node.js 18+
+npm
+```
+
+نصب وابستگی‌های توسعهٔ Browser:
+
+```bash
+npm install --ignore-scripts --no-audit --no-fund
+```
+
+Type-check و Build رابط Browser:
+
+```bash
+npm run check:web
+npm run build:web
+```
+
+اجرای Testها و Vet:
+
+```bash
+go test ./...
+go vet ./...
+```
+
+اجرای TL Studio:
+
+```bash
+go run ./cmd/launcher --project /path/to/project
+```
+
+ساخت Binary محلی:
+
+```bash
+go build -o tl-studio ./cmd/launcher
+```
+
+در Windows:
+
+```powershell
+go build -o tl-studio.exe ./cmd/launcher
+```
+
+اجرای عادی برنامه Native است و Flag جداگانه یا Runtime خارجی دیگری لازم ندارد.
+
+## اعتبارسنجی
+
+Validation خودکار Repository فقط Compilation را بررسی نمی‌کند و مسیرهای اصلی محصول را هم پوشش می‌دهد.
+
+بررسی‌ها، بسته به نوع تغییر، شامل این موارد هستند:
+
+- Type-check سخت‌گیرانهٔ TypeScript برای Browser
+- Build نهایی Browser
+- `go test ./...`
+- `go vet ./...`
+- Cross-compile برای پلتفرم‌های پشتیبانی‌شده
+- Native Product Contract
+- Custom Provider Contract
+- Browser Smoke
+- Agent E2E
+- Regression Testهای Provider
+- Windows x64 Review Package
+- بررسی Release و Review Package
+
+در CI از Credential واقعی استفاده نمی‌شود و Providerها با Endpointهای Mock و Contract Test بررسی می‌شوند.
+
+## شاخه‌ها و کانال انتشار
+
+| شاخه / کانال | کاربرد | نسخهٔ فعلی |
+| --- | --- | --- |
+| `main` | نسخهٔ پایدار | **v0.5.0** |
+| `dev` | توسعهٔ فعال | **v0.6.0-alpha.1** |
+| Feature Branch | تغییر متمرکز بر پایهٔ dev | کوتاه‌عمر |
+
+نسخهٔ پایدار تنها زمانی به main ارتقا پیدا می‌کند که Milestone مربوط Validation خودکار و Review عملی را پشت سر گذاشته باشد.
+
+Launcher پایدار npm از Release پایدار پیروی می‌کند و Development Buildها به‌صورت جداگانه از dev ساخته می‌شوند.
+
+## اصول پروژه
+
+1. **Local-first** — Workspace و پروژه روی سیستم خود کاربر باقی می‌مانند.
+2. **Native execution** — چرخهٔ Agent و Tool متعلق به خود TL Studio است.
+3. **مرز اعتماد شفاف** — Credentialها، Permissionها، Providerها و Toolهای خارجی مرز مشخص دارند.
+4. **مرز قابلیت شفاف** — قابلیت پشتیبانی‌نشده به‌صورت واضح Fail می‌شود و با قابلیت دیگری جایگزین نمی‌شود.
+5. **Discovery-first Provider setup** — راه‌اندازی Providerهای معمول باید تا حد ممکن ساده باشد.
+6. **Portable by default** — Binary پایدار برای Windows، Linux و macOS منتشر می‌شود.
+7. **بدون زیرساخت اختصاصی پروژه** — Backend میزبانی‌شده، Database، Telemetry Service یا Model Proxy برای استفاده از TL Studio لازم نیست.
+
+## ساختار Repository
+
+```text
+cmd/launcher/          Go application, local APIs, Agent, providers, tools
+cmd/launcher/ui/       Browser TypeScript source
+docs/                  Architecture and design documentation
+media/                 Project branding
+packaging/             Release/package support
+scripts/               Browser build and launcher tooling
+third_party/           Required third-party notices/licenses
+```
+
+اسناد مهم:
+
+- [معماری](./docs/ARCHITECTURE.md)
+- [امنیت](./SECURITY.md)
+- [README انگلیسی](./README.md)
+- [Third-party notices](./THIRD_PARTY_NOTICES.md)
 
 ## License
 
-TL Studio تحت MIT منتشر می‌شود. برای نرم‌افزارهای شخص ثالثی که همچنان همراه TL Studio توزیع می‌شوند، LICENSE و THIRD_PARTY_NOTICES.md را ببینید.
+TL Studio تحت **MIT License** منتشر می‌شود.
+
+فایل‌های مربوط:
+
+[LICENSE](./LICENSE)
+
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
+
+---
+
+<p align="center">
+  ساخته‌شده تحت هویت <strong>TunnelLab</strong>.
+</p>
