@@ -121,6 +121,29 @@ func TestProviderAccountRoutesAreProviderNeutral(t *testing.T) {
 		t.Fatalf("unexpected model list %#v", discovered.Models)
 	}
 
+
+	res, err = http.Post(server.URL+"/local/provider-accounts/example/refresh", "application/json", strings.NewReader("{}"))
+	if err != nil { t.Fatal(err) }
+	var refreshed providerAccountStatus
+	decodeProviderAccountJSON(t, res, &refreshed)
+	adapter.mu.Lock()
+	didRefresh := adapter.refreshed
+	adapter.mu.Unlock()
+	if !didRefresh {
+		t.Fatal("refresh route did not invoke the provider adapter")
+	}
+
+	res, err = http.Post(server.URL+"/local/provider-accounts/example/cancel?login=login-1", "application/json", strings.NewReader("{}"))
+	if err != nil { t.Fatal(err) }
+	var cancelled map[string]any
+	decodeProviderAccountJSON(t, res, &cancelled)
+	adapter.mu.Lock()
+	didCancel := adapter.cancelled
+	adapter.mu.Unlock()
+	if !didCancel || cancelled["cancelled"] != true {
+		t.Fatalf("cancel route did not cancel the login: adapter=%v response=%#v", didCancel, cancelled)
+	}
+
 	req, _ := http.NewRequest(http.MethodDelete, server.URL+"/local/provider-accounts/example", nil)
 	res, err = http.DefaultClient.Do(req)
 	if err != nil { t.Fatal(err) }
