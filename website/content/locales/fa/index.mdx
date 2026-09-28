@@ -52,18 +52,12 @@ TL Studio Local Core
 
 - Transport بومی Google Gemini generateContent؛
 - Slot جدا برای Credential دستی API و Credential حساب؛
-- اتصال رسمی Account-backed برای **OpenRouter**، **Hugging Face**، **Google / Gemini** و **ChatGPT / Codex**؛
-- Refresh و Revocation در Providerهای پشتیبانی‌شده؛
-- Model Discovery حسابی از همان Provider Registry؛
-- تنظیم داخل برنامه برای Google Cloud Project ID و Desktop OAuth Client ID در Gemini؛
-- Login و Model Access مبتنی بر پلن ChatGPT از مسیر رسمی OpenAI Codex و یک Provider Bridge ایزوله.
+- اتصال حساب ChatGPT/Codex از مسیر رسمی OpenAI Codex و یک Provider Bridge ایزوله؛
+- Preset مبتنی بر API Key برای **Claude / Anthropic**، **Google / Gemini**، **Hugging Face** و **OpenRouter**؛
+- Model Discovery خودکار از همان Provider Registry؛
+- جایگاه Account Login برای GitHub Copilot که Model Integration آن هنوز Deferred است.
 
-اتصال حساب این Providerها فعلاً Deferred باقی می‌ماند:
-
-- حساب مصرف‌کنندهٔ Claude؛
-- GitHub Copilot.
-
-Bridge مربوط به ChatGPT جای Native Agent اصلی TL Studio را نمی‌گیرد؛ Tool، Permission، Session، Persistence و تغییرات پروژه همچنان در اختیار خود TL Studio هستند.
+Bridge مربوط به ChatGPT جای Native Agent اصلی TL Studio را نمی‌گیرد؛ Tool، Permission، Session، Persistence و تغییرات پروژه همچنان در اختیار خود TL Studio هستند. Providerهای مبتنی بر API فقط به‌خاطر نداشتن Consumer OAuth، Unavailable نمایش داده نمی‌شوند.
 
 ## شروع سریع
 
