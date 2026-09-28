@@ -241,7 +241,7 @@ body { font-size: var(--tl-ui-base); }
 .plugin-section-head strong { font-size: 11px; }
 .plugin-section-head span { color: var(--muted); font-size: 9px; line-height: 1.45; }
 .plugin-card-bundled { background: color-mix(in srgb, var(--panel-2), var(--accent) 3%); }
-.plugin-empty { display: grid; gap: 5px; padding: 18px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); }
+.plugin-empty { display: grid; gap: 3px; padding: 11px 13px; border: 1px dashed color-mix(in srgb,var(--line),var(--muted) 18%); border-radius: 9px; background: color-mix(in srgb,var(--panel-2),transparent 42%); color: var(--muted); }
 .plugin-empty strong { color: var(--text); font-size: 12px; }
 .plugin-empty span { font-size: 10px; line-height: 1.5; }
 .plugin-card { display: grid; gap: 9px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
@@ -290,13 +290,33 @@ body { font-size: var(--tl-ui-base); }
 .plugin-form-grid label { font-size: var(--tl-ui-sm); }
 .plugin-form-grid textarea { font-size: var(--tl-code-size); line-height: 1.55; }
 .plugin-form-grid small { font-size: var(--tl-ui-xs); }
+.plugin-arguments-field {
+  gap: 7px !important;
+  padding: 10px 11px 11px;
+  border: 1px solid color-mix(in srgb,var(--accent),var(--line) 78%);
+  border-radius: 10px;
+  background: color-mix(in srgb,var(--panel-2),var(--panel) 48%);
+}
+.plugin-arguments-field > span {
+  color: var(--text);
+}
 .plugin-arguments-field textarea {
   min-height: 112px;
   padding: 10px 11px;
-  border-color: color-mix(in srgb,var(--accent),var(--line) 82%);
+  border: 1px solid color-mix(in srgb,var(--accent),var(--line) 72%);
+  background: var(--panel-3);
+  transition: border-color .14s ease, box-shadow .14s ease, background .14s ease;
+}
+.plugin-arguments-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
   background: var(--panel);
+  box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent),transparent 82%);
 }
 .plugin-arguments-field textarea::placeholder {
-  color: color-mix(in srgb,var(--muted),transparent 12%);
+  color: color-mix(in srgb,var(--muted),transparent 8%);
   opacity: 1;
+}
+.plugin-arguments-field small {
+  padding: 0 1px;
 }
