@@ -36,6 +36,10 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		"K.api.plugins.update",
 		"K.api.plugins.setEnabled",
 		"K.api.plugins.remove",
+		"K.api.plugins.saved()",
+		"K.api.plugins.attach",
+		"Saved for another project",
+		"Use in current project",
 		`transport: transportSelect.value || "stdio"`,
 	} {
 		if !strings.Contains(source, expected) {
@@ -49,11 +53,20 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 	for _, expected := range []string{
 		".plugin-arguments-field {",
 		".plugin-arguments-field textarea:focus",
+		"border: 1px solid var(--line);",
 		"background: var(--panel-3);",
 		".plugin-empty { display: grid; gap: 3px; padding: 11px 13px;",
 	} {
 		if !strings.Contains(css, expected) {
 			t.Fatalf("Plugins settings styling is missing %q", expected)
+		}
+	}
+	for _, forbidden := range []string{
+		"border: 1px solid color-mix(in srgb,var(--accent),var(--line) 78%);",
+		"box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent),transparent 82%);",
+	} {
+		if strings.Contains(css, forbidden) {
+			t.Fatalf("Arguments field must not keep the rejected double/accent border treatment: %q", forbidden)
 		}
 	}
 }
