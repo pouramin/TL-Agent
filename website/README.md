@@ -11,10 +11,10 @@ Current documented state:
 ```text
 Stable: v0.5.0
 main:   v0.5.0
-dev:    aligned with v0.5.0 immediately after promotion
+dev:    0.6.0-alpha.1 (5 commits ahead; version/readiness bookkeeping only)
 ```
 
-Do not invent a next version or unreleased feature set before `dev` actually advances.
+Document Stable behavior first. Treat current `dev` version/readiness changes separately from implemented unreleased features; do not invent capabilities that are not present in code.
 
 ## v0.5 public coverage
 
