@@ -1,6 +1,6 @@
 ---
 title: Releases
-description: Understand TL Studio v0.5 stable releases, npm launcher distribution, Preview Builds, and native package contents.
+description: Understand TL Studio v0.5 stable releases, npm launcher distribution, and native package contents.
 icon: PackageCheck
 ---
 
@@ -52,11 +52,3 @@ The release pipeline:
 - produces SHA-256 checksums.
 
 CI additionally covers Go vet, Browser JavaScript syntax, local Monaco assets, npm launcher validation, native Browser smoke, Provider contracts, Plugin staging, and regression tests.
-
-## Preview Builds
-
-Development work on `dev` can produce private GitHub Actions Preview Build artifacts.
-
-The current Preview workflow produces Windows x64 and retains artifacts for 14 days.
-
-Preview Builds do not change stable npm `latest` or the stable GitHub Release until promotion.
