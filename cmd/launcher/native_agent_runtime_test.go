@@ -276,3 +276,80 @@ func TestNativeToolExecutorRejectsTraversalAndUnknownTools(t *testing.T) {
 		t.Fatal("expected unknown tool to be rejected")
 	}
 }
+
+
+func TestNativeConversationKeepsCancellationBoundary(t *testing.T) {
+	messages := []sessionMessageView{
+		{Role: "user", Text: "Run a command that waits for 60 seconds."},
+		{Role: "assistant", Error: &sessionErrorView{Type: "cancelled", Message: "context canceled"}},
+		{Role: "user", Text: "reply with: abort test passed"},
+	}
+	conversation := nativeConversationFromMessages(messages)
+	if len(conversation) != 3 {
+		t.Fatalf("expected cancellation boundary to remain in model context, got %#v", conversation)
+	}
+	if conversation[1].Role != "assistant" || !strings.Contains(strings.ToLower(conversation[1].Text), "cancelled by the user") {
+		t.Fatalf("cancelled turn was not represented as an assistant boundary: %#v", conversation[1])
+	}
+	if strings.Contains(strings.ToLower(conversation[2].Text), "60 seconds") {
+		t.Fatalf("new user turn was contaminated by cancelled task context: %#v", conversation[2])
+	}
+	if conversation[2].Text != "reply with: abort test passed" {
+		t.Fatalf("unexpected new user turn %q", conversation[2].Text)
+	}
+}
+
+func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
+	prompt := nativeAgentSystemPrompt()
+	for _, required := range []string{
+		"non-interactive",
+		"do not use the timeout command",
+		"Do not blindly retry multiple shell variants",
+		"durationMs",
+		"Never claim that a requested wait/delay duration completed successfully",
+		"ping -n 61 127.0.0.1 > nul",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("native Agent system prompt missing %q", required)
+		}
+	}
+}
+
+
+func TestNativeToolResultMessageIncludesMeasuredDuration(t *testing.T) {
+	result := nativeToolResult{
+		ToolID:   "terminal.command",
+		CallID:   "call-duration",
+		Output:   map[string]any{"exitCode": 0},
+		Duration: 1234,
+	}
+	message := nativeToolResultMessage(result)
+	if !strings.Contains(message, `"durationMs":1234`) {
+		t.Fatalf("tool result did not expose measured duration: %s", message)
+	}
+}
+
+func TestTerminalTimeoutSchemaExplainsDeadlineNotDelay(t *testing.T) {
+	schema := nativeToolInputSchema("terminal.command")
+	props, _ := schema["properties"].(map[string]any)
+	timeout, _ := props["timeoutSeconds"].(map[string]any)
+	description, _ := timeout["description"].(string)
+	if !strings.Contains(strings.ToLower(description), "deadline") || !strings.Contains(strings.ToLower(description), "not a sleep") {
+		t.Fatalf("timeoutSeconds description is ambiguous: %q", description)
+	}
+}
+
+
+func TestNativeAgentPromptStopsAfterPermissionRejection(t *testing.T) {
+	prompt := nativeAgentSystemPrompt()
+	for _, required := range []string{
+		"rejected by the user",
+		"Do not retry it",
+		"do not probe for ways around the rejection",
+		"do not reinterpret the rejection as a capability or filesystem-access failure",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("native Agent system prompt missing %q", required)
+		}
+	}
+}

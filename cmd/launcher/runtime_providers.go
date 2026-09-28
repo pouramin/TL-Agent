@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -18,23 +17,11 @@ import (
 
 const providerRegistryVersion = 1
 
-const runtimeHostedProviderID = "kilo"
-
-var runtimeHostedPreferredModels = []string{"kilo-auto/free"}
-
-var runtimeProviderPackages = map[string]string{
+var providerProtocolPackages = map[string]string{
 	"openai-compatible":  "@ai-sdk/openai-compatible",
 	"openai-responses":   "@ai-sdk/openai",
 	"anthropic-messages": "@ai-sdk/anthropic",
 }
-
-var runtimePackageProtocols = func() map[string]string {
-	result := make(map[string]string, len(runtimeProviderPackages))
-	for protocol, packageName := range runtimeProviderPackages {
-		result[packageName] = protocol
-	}
-	return result
-}()
 
 type tlProviderModel struct {
 	ID           string `json:"id"`
@@ -69,10 +56,7 @@ type providerRegistryStore struct {
 }
 
 func newProviderRegistryStore(filePath string) *providerRegistryStore {
-	return &providerRegistryStore{
-		filePath:  filePath,
-		providers: map[string]tlProviderDefinition{},
-	}
+	return &providerRegistryStore{filePath: filePath, providers: map[string]tlProviderDefinition{}}
 }
 
 func providerRegistryPath() string {
@@ -93,78 +77,50 @@ func cloneProviderDefinition(input tlProviderDefinition) tlProviderDefinition {
 }
 
 func (s *providerRegistryStore) loadLocked() error {
-	if s.loaded {
-		return nil
-	}
+	if s.loaded { return nil }
 	s.loaded = true
 	s.providers = map[string]tlProviderDefinition{}
-
 	data, err := os.ReadFile(s.filePath)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
+	if errors.Is(err, os.ErrNotExist) { return nil }
+	if err != nil { return err }
 	s.existed = true
-
 	var stored providerRegistryFile
-	if err := json.Unmarshal(data, &stored); err != nil {
-		return fmt.Errorf("decode provider registry: %w", err)
-	}
+	if err := json.Unmarshal(data, &stored); err != nil { return fmt.Errorf("decode provider registry: %w", err) }
 	if stored.Version != 0 && stored.Version != providerRegistryVersion {
 		return fmt.Errorf("unsupported provider registry version %d", stored.Version)
 	}
 	for _, provider := range stored.Providers {
 		normalized, err := normalizeProviderDefinition(provider)
-		if err != nil {
-			continue
-		}
-		s.providers[normalized.ID] = normalized
+		if err == nil { s.providers[normalized.ID] = normalized }
 	}
 	return nil
 }
 
 func (s *providerRegistryStore) snapshot() ([]tlProviderDefinition, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.loadLocked(); err != nil {
-		return nil, false, err
-	}
+	s.mu.Lock(); defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil { return nil, false, err }
 	result := make([]tlProviderDefinition, 0, len(s.providers))
-	for _, provider := range s.providers {
-		result = append(result, cloneProviderDefinition(provider))
-	}
+	for _, provider := range s.providers { result = append(result, cloneProviderDefinition(provider)) }
 	sort.Slice(result, func(i, j int) bool {
-		left := strings.ToLower(result[i].Name + "\x00" + result[i].ID)
-		right := strings.ToLower(result[j].Name + "\x00" + result[j].ID)
-		return left < right
+		return strings.ToLower(result[i].Name+"\x00"+result[i].ID) < strings.ToLower(result[j].Name+"\x00"+result[j].ID)
 	})
 	return result, s.existed, nil
 }
 
 func (s *providerRegistryStore) get(id string) (tlProviderDefinition, bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.loadLocked(); err != nil {
-		return tlProviderDefinition{}, false, err
-	}
-	provider, ok := s.providers[id]
+	s.mu.Lock(); defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil { return tlProviderDefinition{}, false, err }
+	provider, ok := s.providers[strings.TrimSpace(id)]
 	return cloneProviderDefinition(provider), ok, nil
 }
 
 func (s *providerRegistryStore) replace(providers []tlProviderDefinition) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.loadLocked(); err != nil {
-		return err
-	}
+	s.mu.Lock(); defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil { return err }
 	next := make(map[string]tlProviderDefinition, len(providers))
 	for _, provider := range providers {
 		normalized, err := normalizeProviderDefinition(provider)
-		if err != nil {
-			return err
-		}
+		if err != nil { return err }
 		next[normalized.ID] = normalized
 	}
 	s.providers = next
@@ -174,78 +130,46 @@ func (s *providerRegistryStore) replace(providers []tlProviderDefinition) error 
 
 func (s *providerRegistryStore) put(provider tlProviderDefinition) error {
 	normalized, err := normalizeProviderDefinition(provider)
-	if err != nil {
-		return err
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.loadLocked(); err != nil {
-		return err
-	}
+	if err != nil { return err }
+	s.mu.Lock(); defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil { return err }
 	s.providers[normalized.ID] = normalized
 	s.existed = true
 	return s.persistLocked()
 }
 
 func (s *providerRegistryStore) remove(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if err := s.loadLocked(); err != nil {
-		return err
-	}
-	delete(s.providers, id)
+	s.mu.Lock(); defer s.mu.Unlock()
+	if err := s.loadLocked(); err != nil { return err }
+	delete(s.providers, strings.TrimSpace(id))
 	s.existed = true
 	return s.persistLocked()
 }
 
 func (s *providerRegistryStore) persistLocked() error {
-	if err := os.MkdirAll(filepath.Dir(s.filePath), 0o700); err != nil {
-		return err
-	}
+	if err := os.MkdirAll(filepath.Dir(s.filePath), 0o700); err != nil { return err }
 	providers := make([]tlProviderDefinition, 0, len(s.providers))
-	for _, provider := range s.providers {
-		providers = append(providers, cloneProviderDefinition(provider))
-	}
+	for _, provider := range s.providers { providers = append(providers, cloneProviderDefinition(provider)) }
 	sort.Slice(providers, func(i, j int) bool { return providers[i].ID < providers[j].ID })
 	data, err := json.MarshalIndent(providerRegistryFile{Version: providerRegistryVersion, Providers: providers}, "", "  ")
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	temp, err := os.CreateTemp(filepath.Dir(s.filePath), "providers-*.tmp")
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	tempName := temp.Name()
 	defer os.Remove(tempName)
-	if err := temp.Chmod(0o600); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if _, err := temp.Write(data); err != nil {
-		_ = temp.Close()
-		return err
-	}
-	if err := temp.Close(); err != nil {
-		return err
-	}
+	if err := temp.Chmod(0o600); err != nil { _ = temp.Close(); return err }
+	if _, err := temp.Write(data); err != nil { _ = temp.Close(); return err }
+	if err := temp.Close(); err != nil { return err }
 	if err := os.Rename(tempName, s.filePath); err != nil {
-		// Windows cannot always replace an existing file with Rename. Fall back
-		// to a direct private write rather than losing the validated registry.
-		if writeErr := os.WriteFile(s.filePath, data, 0o600); writeErr != nil {
-			return err
-		}
+		if writeErr := os.WriteFile(s.filePath, data, 0o600); writeErr != nil { return err }
 	}
 	return nil
 }
 
 func validProviderID(id string) bool {
-	if id == "" {
-		return false
-	}
+	if id == "" { return false }
 	for index, r := range id {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || index > 0 && (r == '-' || r == '_') {
-			continue
-		}
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || index > 0 && (r == '-' || r == '_') { continue }
 		return false
 	}
 	return true
@@ -256,17 +180,11 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	input.Name = strings.TrimSpace(input.Name)
 	input.Protocol = strings.TrimSpace(input.Protocol)
 	input.BaseURL = strings.TrimSpace(input.BaseURL)
-
 	if !validProviderID(input.ID) {
 		return tlProviderDefinition{}, errors.New("provider ID must use lowercase letters, numbers, dashes, or underscores")
 	}
-	if input.ID == runtimeHostedProviderID {
-		return tlProviderDefinition{}, errors.New("provider ID is reserved by the hosted model adapter")
-	}
-	if input.Name == "" {
-		return tlProviderDefinition{}, errors.New("provider display name is required")
-	}
-	if _, ok := runtimeProviderPackages[input.Protocol]; !ok {
+	if input.Name == "" { return tlProviderDefinition{}, errors.New("provider display name is required") }
+	if _, ok := providerProtocolPackages[input.Protocol]; !ok {
 		return tlProviderDefinition{}, errors.New("unsupported provider protocol")
 	}
 	parsed, err := url.Parse(input.BaseURL)
@@ -278,10 +196,7 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	if input.ManagedBy != "" && input.ManagedBy != "jev" {
 		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
 	}
-	if len(input.Models) == 0 {
-		return tlProviderDefinition{}, errors.New("provider must define at least one model")
-	}
-
+	if len(input.Models) == 0 { return tlProviderDefinition{}, errors.New("provider must define at least one model") }
 	seen := map[string]bool{}
 	models := make([]tlProviderModel, 0, len(input.Models))
 	for _, model := range input.Models {
@@ -291,18 +206,10 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 		if model.Kind != "" && model.Kind != "router" {
 			return tlProviderDefinition{}, fmt.Errorf("unsupported model kind %q", model.Kind)
 		}
-		if model.ID == "" {
-			return tlProviderDefinition{}, errors.New("model ID is required")
-		}
-		if seen[model.ID] {
-			return tlProviderDefinition{}, fmt.Errorf("duplicate model ID %q", model.ID)
-		}
-		if model.Name == "" {
-			model.Name = model.ID
-		}
-		if model.ContextLimit < 0 || model.OutputLimit < 0 {
-			return tlProviderDefinition{}, errors.New("model limits cannot be negative")
-		}
+		if model.ID == "" { return tlProviderDefinition{}, errors.New("model ID is required") }
+		if seen[model.ID] { return tlProviderDefinition{}, fmt.Errorf("duplicate model ID %q", model.ID) }
+		if model.Name == "" { model.Name = model.ID }
+		if model.ContextLimit < 0 || model.OutputLimit < 0 { return tlProviderDefinition{}, errors.New("model limits cannot be negative") }
 		seen[model.ID] = true
 		models = append(models, model)
 	}
@@ -312,353 +219,9 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 }
 
 func providerModelUsesNativeAgent(provider tlProviderDefinition, model tlProviderModel) bool {
-	if model.ToolCall {
-		return true
-	}
+	if _, ok := providerProtocolPackages[provider.Protocol]; !ok { return false }
+	if model.ToolCall { return true }
 	return model.ID == jevRouterModelID && model.Kind == "router" && isOpenRouterBaseURL(provider.BaseURL)
-}
-
-func providerNeedsRuntimeCompatibility(provider tlProviderDefinition) bool {
-	for _, model := range provider.Models {
-		if !providerModelUsesNativeAgent(provider, model) {
-			return true
-		}
-	}
-	return false
-}
-
-type runtimeProviderError struct {
-	Status int
-	Body   string
-}
-
-func (e *runtimeProviderError) Error() string {
-	if e.Body == "" {
-		return fmt.Sprintf("runtime provider request failed with status %d", e.Status)
-	}
-	return fmt.Sprintf("runtime provider request failed with status %d", e.Status)
-}
-
-type runtimeProviderManager struct {
-	state        *appState
-	backend      *runtimeBackend
-	store        *providerRegistryStore
-	credentials  providerCredentialStore
-	registryMu   sync.Mutex
-	bootstrapMu  sync.Mutex
-	bootstrapped bool
-}
-
-func newRuntimeProviderManager(state *appState, backendURL, username, password string) (*runtimeProviderManager, error) {
-	backend, err := newRuntimeBackend(
-		state,
-		backendURL,
-		runtimeCredentials{Username: username, Password: password},
-		defaultRuntimeEngine(),
-	)
-	if err != nil {
-		return nil, err
-	}
-	return newRuntimeProviderManagerWithBackend(state, backend), nil
-}
-
-func newRuntimeProviderManagerWithBackend(state *appState, backend *runtimeBackend) *runtimeProviderManager {
-	return &runtimeProviderManager{
-		state:       state,
-		backend:     backend,
-		store:       newProviderRegistryStore(providerRegistryPath()),
-		credentials: newProviderCredentialStore(),
-	}
-}
-
-func (m *runtimeProviderManager) compatibilityAvailable() bool {
-	return m != nil && m.backend != nil && m.backend.available()
-}
-
-func (m *runtimeProviderManager) requestRaw(ctx context.Context, method, route string, query url.Values, body any) (json.RawMessage, error) {
-	var reader io.Reader
-	if body != nil {
-		encoded, err := json.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		reader = bytes.NewReader(encoded)
-	}
-	req, err := m.backend.newRequest(ctx, method, route, m.state.projectPath(), query, reader)
-	if err != nil {
-		return nil, err
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	response, err := m.backend.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	data, err := io.ReadAll(io.LimitReader(response.Body, 16<<20))
-	if err != nil {
-		return nil, err
-	}
-	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, &runtimeProviderError{Status: response.StatusCode, Body: strings.TrimSpace(string(data))}
-	}
-	return json.RawMessage(data), nil
-}
-
-func unwrapRuntimePayload(raw json.RawMessage) json.RawMessage {
-	if len(raw) == 0 {
-		return raw
-	}
-	var envelope map[string]json.RawMessage
-	if json.Unmarshal(raw, &envelope) == nil {
-		if data, ok := envelope["data"]; ok && len(data) > 0 && string(data) != "null" {
-			return data
-		}
-	}
-	return raw
-}
-
-func (m *runtimeProviderManager) runtimeQuery(directory string) url.Values {
-	values := url.Values{}
-	if strings.TrimSpace(directory) == "" {
-		directory = m.state.projectPath()
-	}
-	if strings.TrimSpace(directory) != "" {
-		values.Set("directory", directory)
-	}
-	return values
-}
-
-func (m *runtimeProviderManager) fetchOverlay(ctx context.Context) (map[string]any, error) {
-	query := m.runtimeQuery("")
-	query.Set("scope", "global")
-	raw, err := m.requestRaw(ctx, http.MethodGet, "/config/overlay", query, nil)
-	if err != nil {
-		return nil, err
-	}
-	var overlay map[string]any
-	if err := json.Unmarshal(unwrapRuntimePayload(raw), &overlay); err != nil {
-		return nil, fmt.Errorf("decode runtime provider overlay: %w", err)
-	}
-	return overlay, nil
-}
-
-func effectiveProviderMap(overlay map[string]any) map[string]any {
-	effective, _ := overlay["effective"].(map[string]any)
-	current, _ := effective["provider"].(map[string]any)
-	result := make(map[string]any, len(current)+1)
-	for id, value := range current {
-		result[id] = value
-	}
-	return result
-}
-
-func effectiveDisabledProviders(overlay map[string]any) []string {
-	effective, _ := overlay["effective"].(map[string]any)
-	values, _ := effective["disabled_providers"].([]any)
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if item, ok := value.(string); ok && item != "" {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
-func withoutString(values []string, target string) []string {
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if value != target {
-			result = append(result, value)
-		}
-	}
-	return result
-}
-
-func runtimeConfigForProvider(provider tlProviderDefinition) map[string]any {
-	models := map[string]any{}
-	for _, model := range provider.Models {
-		value := map[string]any{
-			"name":      model.Name,
-			"tool_call": model.ToolCall,
-			"reasoning": model.Reasoning,
-		}
-		limits := map[string]any{}
-		if model.ContextLimit > 0 {
-			limits["context"] = model.ContextLimit
-		}
-		if model.OutputLimit > 0 {
-			limits["output"] = model.OutputLimit
-		}
-		if len(limits) > 0 {
-			value["limit"] = limits
-		}
-		models[model.ID] = value
-	}
-	return map[string]any{
-		"name": provider.Name,
-		"npm":  runtimeProviderPackages[provider.Protocol],
-		"options": map[string]any{
-			"baseURL": provider.BaseURL,
-		},
-		"models": models,
-	}
-}
-
-func (m *runtimeProviderManager) patchRuntimeProviders(ctx context.Context, providers map[string]any, disabled []string) error {
-	body := map[string]any{
-		"scope": "global",
-		"set": map[string]any{
-			"provider":           providers,
-			"disabled_providers": disabled,
-		},
-	}
-	_, err := m.requestRaw(ctx, http.MethodPatch, "/config/overlay", m.runtimeQuery(""), body)
-	return err
-}
-
-func (m *runtimeProviderManager) syncProvider(ctx context.Context, provider tlProviderDefinition) error {
-	overlay, err := m.fetchOverlay(ctx)
-	if err != nil {
-		return err
-	}
-	providers := effectiveProviderMap(overlay)
-	providers[provider.ID] = runtimeConfigForProvider(provider)
-	disabled := withoutString(effectiveDisabledProviders(overlay), provider.ID)
-	return m.patchRuntimeProviders(ctx, providers, disabled)
-}
-
-func (m *runtimeProviderManager) syncAll(ctx context.Context, providers []tlProviderDefinition) error {
-	compatibility := make([]tlProviderDefinition, 0, len(providers))
-	for _, provider := range providers {
-		if providerNeedsRuntimeCompatibility(provider) {
-			compatibility = append(compatibility, provider)
-		}
-	}
-	if len(compatibility) == 0 {
-		return nil
-	}
-	overlay, err := m.fetchOverlay(ctx)
-	if err != nil {
-		return err
-	}
-	current := effectiveProviderMap(overlay)
-	disabled := effectiveDisabledProviders(overlay)
-	for _, provider := range compatibility {
-		current[provider.ID] = runtimeConfigForProvider(provider)
-		disabled = withoutString(disabled, provider.ID)
-	}
-	if err := m.patchRuntimeProviders(ctx, current, disabled); err != nil {
-		return err
-	}
-	return m.dispose(ctx)
-}
-
-func (m *runtimeProviderManager) deleteRuntimeProvider(ctx context.Context, id string) error {
-	overlay, err := m.fetchOverlay(ctx)
-	if err != nil {
-		return err
-	}
-	providers := effectiveProviderMap(overlay)
-	providers[id] = nil
-	if err := m.patchRuntimeProviders(ctx, providers, effectiveDisabledProviders(overlay)); err != nil {
-		return err
-	}
-	_, authErr := m.requestRaw(ctx, http.MethodDelete, "/auth/"+url.PathEscape(id), url.Values{}, nil)
-	if authErr != nil {
-		var runtimeErr *runtimeProviderError
-		if !errors.As(authErr, &runtimeErr) || runtimeErr.Status != http.StatusNotFound {
-			return authErr
-		}
-	}
-	return m.dispose(ctx)
-}
-
-func (m *runtimeProviderManager) setCredential(ctx context.Context, id, key string) error {
-	if strings.TrimSpace(key) == "" {
-		return nil
-	}
-	_, err := m.requestRaw(ctx, http.MethodPut, "/auth/"+url.PathEscape(id), url.Values{}, map[string]any{
-		"type": "api",
-		"key":  key,
-	})
-	return err
-}
-
-func (m *runtimeProviderManager) dispose(ctx context.Context) error {
-	_, err := m.requestRaw(ctx, http.MethodPost, "/global/dispose", url.Values{}, nil)
-	return err
-}
-
-func intFromAny(value any) int {
-	switch number := value.(type) {
-	case float64:
-		return int(number)
-	case int:
-		return number
-	case json.Number:
-		result, _ := number.Int64()
-		return int(result)
-	default:
-		return 0
-	}
-}
-
-func importRuntimeProviders(overlay map[string]any) []tlProviderDefinition {
-	effective, _ := overlay["effective"].(map[string]any)
-	providers, _ := effective["provider"].(map[string]any)
-	result := []tlProviderDefinition{}
-	for id, rawProvider := range providers {
-		config, _ := rawProvider.(map[string]any)
-		if config == nil {
-			continue
-		}
-		packageName, _ := config["npm"].(string)
-		protocol, ok := runtimePackageProtocols[packageName]
-		if !ok {
-			continue
-		}
-		options, _ := config["options"].(map[string]any)
-		baseURL, _ := options["baseURL"].(string)
-		name, _ := config["name"].(string)
-		if name == "" {
-			name = id
-		}
-		rawModels, _ := config["models"].(map[string]any)
-		models := make([]tlProviderModel, 0, len(rawModels))
-		for modelID, rawModel := range rawModels {
-			modelConfig, _ := rawModel.(map[string]any)
-			if modelConfig == nil {
-				continue
-			}
-			modelName, _ := modelConfig["name"].(string)
-			toolCall, _ := modelConfig["tool_call"].(bool)
-			reasoning, _ := modelConfig["reasoning"].(bool)
-			limit, _ := modelConfig["limit"].(map[string]any)
-			models = append(models, tlProviderModel{
-				ID:           modelID,
-				Name:         modelName,
-				ToolCall:     toolCall,
-				Reasoning:    reasoning,
-				ContextLimit: intFromAny(limit["context"]),
-				OutputLimit:  intFromAny(limit["output"]),
-			})
-		}
-		provider, err := normalizeProviderDefinition(tlProviderDefinition{
-			ID:       id,
-			Name:     name,
-			Protocol: protocol,
-			BaseURL:  baseURL,
-			Models:   models,
-		})
-		if err == nil {
-			result = append(result, provider)
-		}
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].ID < result[j].ID })
-	return result
 }
 
 func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProviderDefinition, bool) {
@@ -667,9 +230,7 @@ func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProvi
 	changed := false
 	for index := range result {
 		provider := &result[index]
-		if provider.ManagedBy != "" || !isOpenRouterBaseURL(provider.BaseURL) || len(provider.Models) != 1 {
-			continue
-		}
+		if provider.ManagedBy != "" || !isOpenRouterBaseURL(provider.BaseURL) || len(provider.Models) != 1 { continue }
 		model := provider.Models[0]
 		if model.ID == jevRouterModelID && model.Kind == "router" {
 			provider.ManagedBy = "jev"
@@ -679,102 +240,35 @@ func migrateManagedProviderMetadata(providers []tlProviderDefinition) ([]tlProvi
 	return result, changed
 }
 
-func providerCompatibilityWarning(operation string, err error) {
-	if err == nil {
-		return
-	}
-	fmt.Fprintf(os.Stderr, "[TL Studio] provider runtime compatibility %s failed: %v\n", operation, err)
+type providerManager struct {
+	state       *appState
+	store       *providerRegistryStore
+	credentials providerCredentialStore
+	registryMu  sync.Mutex
 }
 
-func (m *runtimeProviderManager) ensureRegistryInitialized(ctx context.Context) ([]tlProviderDefinition, error) {
-	m.registryMu.Lock()
-	defer m.registryMu.Unlock()
-
-	providers, existed, err := m.store.snapshot()
-	if err != nil {
-		return nil, err
+func newProviderManager(state *appState) *providerManager {
+	return &providerManager{
+		state: state,
+		store: newProviderRegistryStore(providerRegistryPath()),
+		credentials: newProviderCredentialStore(),
 	}
-	if existed {
-		if migrated, changed := migrateManagedProviderMetadata(providers); changed {
-			if err := m.store.replace(migrated); err != nil {
-				return nil, err
-			}
-			return migrated, nil
-		}
-		return providers, nil
-	}
-
-	// Legacy migration is best-effort. A runtime problem must never make the
-	// TL Studio-owned provider registry unreadable or uneditable.
-	if !m.compatibilityAvailable() {
-		return providers, nil
-	}
-	overlay, importErr := m.fetchOverlay(ctx)
-	if importErr != nil {
-		providerCompatibilityWarning("legacy import", importErr)
-		return providers, nil
-	}
-	imported := importRuntimeProviders(overlay)
-	imported, _ = migrateManagedProviderMetadata(imported)
-	if err := m.store.replace(imported); err != nil {
-		return nil, err
-	}
-	return imported, nil
 }
 
-func (m *runtimeProviderManager) ensureBootstrapped(ctx context.Context) error {
-	m.bootstrapMu.Lock()
-	defer m.bootstrapMu.Unlock()
-	if m.bootstrapped {
-		return nil
+func (m *providerManager) ensureRegistryInitialized(_ context.Context) ([]tlProviderDefinition, error) {
+	m.registryMu.Lock(); defer m.registryMu.Unlock()
+	providers, _, err := m.store.snapshot()
+	if err != nil { return nil, err }
+	if migrated, changed := migrateManagedProviderMetadata(providers); changed {
+		if err := m.store.replace(migrated); err != nil { return nil, err }
+		return migrated, nil
 	}
+	return providers, nil
+}
 
-	providers, err := m.ensureRegistryInitialized(ctx)
-	if err != nil {
-		return err
-	}
-	if !m.compatibilityAvailable() {
-		m.bootstrapped = true
-		return nil
-	}
-
-	// Kilo/OpenCode remains a compatibility runtime, not the source of truth for
-	// user provider configuration. Keep its overlay synchronized when possible,
-	// but never brick TL Studio's provider UI/native Agent if that bridge rejects
-	// an old or newly valid TL Studio provider.
-	if err := m.syncAll(ctx, providers); err != nil {
-		providerCompatibilityWarning("provider sync", err)
-	}
-
-	restoredCredential := false
-	for _, provider := range providers {
-		if m.credentials == nil {
-			break
-		}
-		if !providerNeedsRuntimeCompatibility(provider) {
-			continue
-		}
-		key, credentialErr := m.credentials.Get(provider.ID)
-		if errors.Is(credentialErr, errCredentialNotFound) {
-			continue
-		}
-		if credentialErr != nil {
-			return credentialErr
-		}
-		if err := m.setCredential(ctx, provider.ID, key); err != nil {
-			providerCompatibilityWarning("credential sync for "+provider.ID, err)
-			continue
-		}
-		restoredCredential = true
-	}
-	if restoredCredential {
-		if err := m.dispose(ctx); err != nil {
-			providerCompatibilityWarning("runtime reload", err)
-		}
-	}
-
-	m.bootstrapped = true
-	return nil
+func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
+	_, err := m.ensureRegistryInitialized(ctx)
+	return err
 }
 
 type catalogModel struct {
@@ -796,236 +290,55 @@ type providerCatalogResponse struct {
 	Connected []string          `json:"connected"`
 	Default   map[string]string `json:"default"`
 	Failed    []json.RawMessage `json:"failed,omitempty"`
-	Hosted    struct {
-		Available       bool     `json:"available"`
-		ProviderID      string   `json:"providerID"`
-		PreferredModels []string `json:"preferredModels"`
-	} `json:"hosted"`
 }
 
-func normalizeCatalogModel(id string, raw json.RawMessage) (string, catalogModel, bool) {
-	var value map[string]any
-	if json.Unmarshal(raw, &value) != nil {
-		return "", catalogModel{}, false
-	}
-	if id == "" {
-		for _, key := range []string{"id", "modelID", "name"} {
-			if candidate, ok := value[key].(string); ok && candidate != "" {
-				id = candidate
-				break
-			}
-		}
-	}
-	if id == "" {
-		return "", catalogModel{}, false
-	}
-	model := catalogModel{Name: id}
-	if name, ok := value["name"].(string); ok && name != "" {
-		model.Name = name
-	}
-	if enabled, ok := value["enabled"].(bool); ok {
-		model.Enabled = &enabled
-	}
-	if variant, ok := value["variant"]; ok {
-		model.Variant = variant
-	}
-	return id, model, true
-}
-
-func normalizeCatalogProvider(raw json.RawMessage, managed map[string]bool) (catalogProvider, bool) {
-	var value struct {
-		ID     string          `json:"id"`
-		Name   string          `json:"name"`
-		Models json.RawMessage `json:"models"`
-	}
-	if json.Unmarshal(raw, &value) != nil || strings.TrimSpace(value.ID) == "" {
-		return catalogProvider{}, false
-	}
+func managedCatalogProvider(definition tlProviderDefinition) catalogProvider {
 	result := catalogProvider{
-		ID:     value.ID,
-		Name:   value.Name,
-		Source: "runtime",
-		Models: map[string]catalogModel{},
-	}
-	if result.Name == "" {
-		result.Name = result.ID
-	}
-	if managed[result.ID] {
-		result.Source = "custom"
-	} else if result.ID == runtimeHostedProviderID {
-		result.Source = "hosted"
-	}
-	if len(value.Models) > 0 {
-		var objectModels map[string]json.RawMessage
-		if json.Unmarshal(value.Models, &objectModels) == nil {
-			for id, rawModel := range objectModels {
-				if modelID, model, ok := normalizeCatalogModel(id, rawModel); ok {
-					result.Models[modelID] = model
-				}
-			}
-		} else {
-			var arrayModels []json.RawMessage
-			if json.Unmarshal(value.Models, &arrayModels) == nil {
-				for _, rawModel := range arrayModels {
-					if modelID, model, ok := normalizeCatalogModel("", rawModel); ok {
-						result.Models[modelID] = model
-					}
-				}
-			}
-		}
-	}
-	return result, true
-}
-
-func hostedCatalogProvider(upstream catalogProvider, preferredModels []string) catalogProvider {
-	result := catalogProvider{
-		ID:     runtimeHostedProviderID,
-		Name:   upstream.Name,
-		Source: "hosted",
-		Models: map[string]catalogModel{},
-	}
-	if result.Name == "" {
-		result.Name = "Kilo"
-	}
-	for _, modelID := range preferredModels {
-		if model, ok := upstream.Models[modelID]; ok {
-			result.Models[modelID] = model
-			continue
-		}
-		name := modelID
-		if modelID == "kilo-auto/free" {
-			name = "Auto Free"
-		}
-		result.Models[modelID] = catalogModel{Name: name}
-	}
-	return result
-}
-
-func managedCatalogProvider(definition tlProviderDefinition, upstream catalogProvider, hasUpstream bool) catalogProvider {
-	result := catalogProvider{
-		ID:     definition.ID,
-		Name:   definition.Name,
-		Source: "custom",
+		ID: definition.ID, Name: definition.Name, Source: "custom",
 		Models: map[string]catalogModel{},
 	}
 	for _, configured := range definition.Models {
-		model := catalogModel{
-			Name: configured.Name,
-			Kind: configured.Kind,
-		}
-		if model.Name == "" {
-			model.Name = configured.ID
-		}
-		if hasUpstream {
-			if runtimeModel, ok := upstream.Models[configured.ID]; ok {
-				model.Enabled = runtimeModel.Enabled
-				model.Variant = runtimeModel.Variant
-				if model.Name == configured.ID && runtimeModel.Name != "" {
-					model.Name = runtimeModel.Name
-				}
-			}
-		}
+		enabled := providerModelUsesNativeAgent(definition, configured)
+		model := catalogModel{Name: configured.Name, Kind: configured.Kind, Enabled: &enabled}
+		if model.Name == "" { model.Name = configured.ID }
 		result.Models[configured.ID] = model
 	}
 	return result
 }
 
 func appendUniqueString(values []string, value string) []string {
-	for _, existing := range values {
-		if existing == value {
-			return values
-		}
-	}
+	for _, existing := range values { if existing == value { return values } }
 	return append(values, value)
 }
 
-func (m *runtimeProviderManager) catalog(ctx context.Context, directory string) (providerCatalogResponse, error) {
-	managedDefinitions, err := m.ensureRegistryInitialized(ctx)
-	if err != nil {
-		return providerCatalogResponse{}, err
-	}
-	managed := map[string]bool{}
-	for _, provider := range managedDefinitions {
-		managed[provider.ID] = true
-	}
-	jevConfig, jevConfigErr := loadJevRouterConfig()
-	if jevConfigErr != nil {
-		return providerCatalogResponse{}, jevConfigErr
-	}
-
-	var upstream struct {
-		All       []json.RawMessage `json:"all"`
-		Connected []string          `json:"connected"`
-		Default   map[string]string `json:"default"`
-		Failed    []json.RawMessage `json:"failed"`
-	}
-	if m.compatibilityAvailable() {
-		raw, runtimeErr := m.requestRaw(ctx, http.MethodGet, "/provider", m.runtimeQuery(directory), nil)
-		if runtimeErr == nil {
-			if err := json.Unmarshal(unwrapRuntimePayload(raw), &upstream); err != nil {
-				providerCompatibilityWarning("catalog decode", err)
-			}
-		} else {
-			providerCompatibilityWarning("catalog read", runtimeErr)
-		}
-	}
-
+func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalogResponse, error) {
+	definitions, err := m.ensureRegistryInitialized(ctx)
+	if err != nil { return providerCatalogResponse{}, err }
+	jevConfig, err := loadJevRouterConfig()
+	if err != nil { return providerCatalogResponse{}, err }
 	result := providerCatalogResponse{
-		All:       []catalogProvider{},
-		Connected: append([]string{}, upstream.Connected...),
-		Default:   upstream.Default,
-		Failed:    append([]json.RawMessage{}, upstream.Failed...),
+		All: []catalogProvider{}, Connected: []string{}, Default: map[string]string{}, Failed: []json.RawMessage{},
 	}
-	if result.Default == nil {
-		result.Default = map[string]string{}
-	}
-	result.Hosted.Available = m.compatibilityAvailable()
-	result.Hosted.ProviderID = runtimeHostedProviderID
-	result.Hosted.PreferredModels = []string{}
-	if result.Hosted.Available {
-		result.Hosted.PreferredModels = append([]string(nil), runtimeHostedPreferredModels...)
-		if len(result.Hosted.PreferredModels) > 0 {
-			result.Default[runtimeHostedProviderID] = result.Hosted.PreferredModels[0]
-		}
-	}
-
-	upstreamByID := make(map[string]catalogProvider, len(upstream.All))
-	for _, rawProvider := range upstream.All {
-		if provider, ok := normalizeCatalogProvider(rawProvider, managed); ok {
-			upstreamByID[provider.ID] = provider
-		}
-	}
-
-	if result.Hosted.Available {
-		hosted := upstreamByID[runtimeHostedProviderID]
-		result.All = append(result.All, hostedCatalogProvider(hosted, result.Hosted.PreferredModels))
-	}
-	for _, definition := range managedDefinitions {
-		upstreamProvider, ok := upstreamByID[definition.ID]
-		catalogProvider := managedCatalogProvider(definition, upstreamProvider, ok)
-		if !m.compatibilityAvailable() {
-			for _, configured := range definition.Models {
-				if providerModelUsesNativeAgent(definition, configured) {
-					continue
-				}
-				if model, exists := catalogProvider.Models[configured.ID]; exists {
-					disabled := false
-					model.Enabled = &disabled
-					catalogProvider.Models[configured.ID] = model
-				}
-			}
-		}
-		if !jevConfig.Enabled {
-			if model, exists := catalogProvider.Models[jevRouterModelID]; exists && providerHasJevRouter(definition) {
+	for _, definition := range definitions {
+		provider := managedCatalogProvider(definition)
+		if !jevConfig.Enabled && providerHasJevRouter(definition) {
+			if model, ok := provider.Models[jevRouterModelID]; ok {
 				disabled := false
 				model.Enabled = &disabled
-				catalogProvider.Models[jevRouterModelID] = model
+				provider.Models[jevRouterModelID] = model
 			}
 		}
-		result.All = append(result.All, catalogProvider)
+		result.All = append(result.All, provider)
+		for _, model := range definition.Models {
+			if entry, ok := provider.Models[model.ID]; ok && entry.Enabled != nil && *entry.Enabled {
+				if _, exists := result.Default[definition.ID]; !exists { result.Default[definition.ID] = model.ID }
+			}
+		}
 		if m.credentials != nil {
 			if key, credentialErr := m.credentials.Get(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
 				result.Connected = appendUniqueString(result.Connected, definition.ID)
+			} else if credentialErr != nil && !errors.Is(credentialErr, errCredentialNotFound) {
+				return providerCatalogResponse{}, credentialErr
 			}
 		}
 	}
@@ -1044,224 +357,58 @@ type providerConfigResponse struct {
 	Providers []tlProviderDefinition `json:"providers"`
 }
 
-type hostedStatusResponse struct {
-	Available       bool     `json:"available"`
-	Authenticated   bool     `json:"authenticated"`
-	Type            string   `json:"type"`
-	OrganizationID  string   `json:"organizationId"`
-	ProviderID      string   `json:"providerID"`
-	PreferredModels []string `json:"preferredModels"`
-}
-
 func writeProviderManagerError(w http.ResponseWriter, err error) {
-	var runtimeErr *runtimeProviderError
-	if errors.As(err, &runtimeErr) {
-		writeJSON(w, http.StatusBadGateway, jsonError{Error: fmt.Sprintf("Runtime provider operation failed (%d)", runtimeErr.Status)})
-		return
+	status := http.StatusInternalServerError
+	if strings.Contains(err.Error(), "unsupported provider") || strings.Contains(err.Error(), "must ") ||
+		strings.Contains(err.Error(), "required") || strings.Contains(err.Error(), "valid http") {
+		status = http.StatusBadRequest
 	}
-	writeJSON(w, http.StatusInternalServerError, jsonError{Error: err.Error()})
+	writeJSON(w, status, jsonError{Error: err.Error()})
 }
 
-func writeUnwrappedJSON(w http.ResponseWriter, raw json.RawMessage) {
-	raw = unwrapRuntimePayload(raw)
-	if len(raw) == 0 {
-		writeJSON(w, http.StatusOK, map[string]any{})
-		return
-	}
-	var value any
-	if json.Unmarshal(raw, &value) != nil {
-		writeJSON(w, http.StatusOK, map[string]any{})
-		return
-	}
-	writeJSON(w, http.StatusOK, value)
-}
-
-func registerRuntimeProviderRoutes(mux *http.ServeMux, manager *runtimeProviderManager) {
-	mux.HandleFunc("GET /runtime/providers/catalog", func(w http.ResponseWriter, r *http.Request) {
+func registerProviderRoutes(mux *http.ServeMux, manager *providerManager) {
+	mux.HandleFunc("GET /local/providers/catalog", func(w http.ResponseWriter, r *http.Request) {
 		catalog, err := manager.catalog(r.Context(), r.URL.Query().Get("directory"))
-		if err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
+		if err != nil { writeProviderManagerError(w, err); return }
 		writeJSON(w, http.StatusOK, catalog)
 	})
-
-	mux.HandleFunc("GET /runtime/providers/config", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /local/providers/config", func(w http.ResponseWriter, r *http.Request) {
 		providers, err := manager.ensureRegistryInitialized(r.Context())
-		if err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
+		if err != nil { writeProviderManagerError(w, err); return }
 		writeJSON(w, http.StatusOK, providerConfigResponse{Providers: providers})
 	})
-
-	mux.HandleFunc("PUT /runtime/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
+	mux.HandleFunc("PUT /local/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil { writeProviderManagerError(w, err); return }
 		var input providerWriteRequest
 		if err := json.NewDecoder(io.LimitReader(r.Body, 2<<20)).Decode(&input); err != nil {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider JSON body"})
-			return
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider JSON body"}); return
 		}
 		input.Provider.ID = strings.TrimSpace(input.Provider.ID)
 		pathID := strings.TrimSpace(r.PathValue("id"))
-		if input.Provider.ID == "" {
-			input.Provider.ID = pathID
-		}
+		if input.Provider.ID == "" { input.Provider.ID = pathID }
 		if input.Provider.ID != pathID {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: "provider ID does not match request path"})
-			return
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "provider ID does not match request path"}); return
 		}
 		provider, err := normalizeProviderDefinition(input.Provider)
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
-			return
-		}
-		if err := manager.store.put(provider); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
+		if err != nil { writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()}); return }
+		if err := manager.store.put(provider); err != nil { writeProviderManagerError(w, err); return }
 		if strings.TrimSpace(input.APIKey) != "" {
-			if manager.credentials == nil {
-				writeProviderManagerError(w, errors.New("TL Studio credential store is unavailable"))
-				return
-			}
-			if err := manager.credentials.Put(provider.ID, input.APIKey); err != nil {
-				writeProviderManagerError(w, err)
-				return
-			}
-		}
-		if providerNeedsRuntimeCompatibility(provider) {
-			if err := manager.syncProvider(r.Context(), provider); err != nil {
-				providerCompatibilityWarning("save sync for "+provider.ID, err)
-			} else {
-				if manager.credentials != nil {
-					key, credentialErr := manager.credentials.Get(provider.ID)
-					if credentialErr == nil {
-						if err := manager.setCredential(r.Context(), provider.ID, key); err != nil {
-							providerCompatibilityWarning("credential sync for "+provider.ID, err)
-						}
-					} else if !errors.Is(credentialErr, errCredentialNotFound) {
-						writeProviderManagerError(w, credentialErr)
-						return
-					}
-				}
-				if err := manager.dispose(r.Context()); err != nil {
-					providerCompatibilityWarning("runtime reload after save for "+provider.ID, err)
-				}
-			}
+			if manager.credentials == nil { writeProviderManagerError(w, errors.New("TL Studio credential store is unavailable")); return }
+			if err := manager.credentials.Put(provider.ID, input.APIKey); err != nil { writeProviderManagerError(w, err); return }
 		}
 		writeJSON(w, http.StatusOK, provider)
 	})
-
-	mux.HandleFunc("DELETE /runtime/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
-		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
+	mux.HandleFunc("DELETE /local/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil { writeProviderManagerError(w, err); return }
 		id := strings.TrimSpace(r.PathValue("id"))
-		if !validProviderID(id) || id == runtimeHostedProviderID {
-			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider ID"})
-			return
-		}
-		if _, ok, err := manager.store.get(id); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		} else if !ok {
-			writeJSON(w, http.StatusNotFound, jsonError{Error: "provider is not managed by TL Studio"})
-			return
-		}
+		if !validProviderID(id) { writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider ID"}); return }
+		if _, ok, err := manager.store.get(id); err != nil { writeProviderManagerError(w, err); return
+		} else if !ok { writeJSON(w, http.StatusNotFound, jsonError{Error: "provider is not managed by TL Studio"}); return }
 		if manager.credentials != nil {
-			if err := manager.credentials.Delete(id); err != nil {
-				writeProviderManagerError(w, err)
-				return
-			}
+			if err := manager.credentials.Delete(id); err != nil { writeProviderManagerError(w, err); return }
 		}
-		if err := manager.store.remove(id); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		if err := removeProviderDiscoveryCache(id); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		if err := manager.deleteRuntimeProvider(r.Context(), id); err != nil {
-			providerCompatibilityWarning("delete cleanup for "+id, err)
-		}
+		if err := manager.store.remove(id); err != nil { writeProviderManagerError(w, err); return }
+		if err := removeProviderDiscoveryCache(id); err != nil { writeProviderManagerError(w, err); return }
 		writeJSON(w, http.StatusOK, map[string]any{"removed": id})
-	})
-
-	mux.HandleFunc("GET /runtime/hosted/status", func(w http.ResponseWriter, r *http.Request) {
-		if !manager.compatibilityAvailable() {
-			writeJSON(w, http.StatusOK, hostedStatusResponse{
-				Available:       false,
-				Authenticated:   false,
-				ProviderID:      runtimeHostedProviderID,
-				PreferredModels: []string{},
-			})
-			return
-		}
-		raw, err := manager.requestRaw(r.Context(), http.MethodGet, "/kilo/auth-status", manager.runtimeQuery(r.URL.Query().Get("directory")), nil)
-		if err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		var upstream struct {
-			Authenticated  bool   `json:"authenticated"`
-			Type           string `json:"type"`
-			OrganizationID string `json:"organizationId"`
-		}
-		if err := json.Unmarshal(unwrapRuntimePayload(raw), &upstream); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, hostedStatusResponse{
-			Available:       true,
-			Authenticated:   upstream.Authenticated,
-			Type:            upstream.Type,
-			OrganizationID:  upstream.OrganizationID,
-			ProviderID:      runtimeHostedProviderID,
-			PreferredModels: append([]string(nil), runtimeHostedPreferredModels...),
-		})
-	})
-
-	mux.HandleFunc("POST /runtime/hosted/authorize", func(w http.ResponseWriter, r *http.Request) {
-		if !manager.compatibilityAvailable() {
-			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
-			return
-		}
-		raw, err := manager.requestRaw(r.Context(), http.MethodPost, "/provider/kilo/oauth/authorize", manager.runtimeQuery(r.URL.Query().Get("directory")), map[string]any{"method": 0})
-		if err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		writeUnwrappedJSON(w, raw)
-	})
-
-	mux.HandleFunc("POST /runtime/hosted/callback", func(w http.ResponseWriter, r *http.Request) {
-		if !manager.compatibilityAvailable() {
-			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
-			return
-		}
-		raw, err := manager.requestRaw(r.Context(), http.MethodPost, "/provider/kilo/oauth/callback", manager.runtimeQuery(r.URL.Query().Get("directory")), map[string]any{"method": 0})
-		if err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		writeUnwrappedJSON(w, raw)
-	})
-
-	mux.HandleFunc("DELETE /runtime/hosted", func(w http.ResponseWriter, r *http.Request) {
-		if !manager.compatibilityAvailable() {
-			writeJSON(w, http.StatusServiceUnavailable, jsonError{Error: errRuntimeUnavailable.Error()})
-			return
-		}
-		if _, err := manager.requestRaw(r.Context(), http.MethodDelete, "/auth/kilo", url.Values{}, nil); err != nil {
-			writeProviderManagerError(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"disconnected": true})
 	})
 }

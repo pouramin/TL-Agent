@@ -217,13 +217,14 @@ import { K } from "./kernel";
     const model = K.selectedModel();
     const created = await K.api.sessionCommands.create();
     if (!created?.id) throw new Error("TL Studio did not return a session ID");
-    K.state.session = created;
-    if (agent) K.state.session.agent = agent;
-    if (model) K.state.session.model = model;
+    const session = created as TLStudioSessionView;
+    if (agent) session.agent = agent;
+    if (model) session.model = model;
+    K.state.session = session;
     K.showConversation();
     K.renderSessionHeader();
     await K.loadSessions().catch(() => {});
-    return K.state.session;
+    return session;
   };
 
   K.ensureSessionSelection = () => {

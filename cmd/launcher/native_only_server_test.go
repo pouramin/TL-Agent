@@ -45,7 +45,7 @@ func decodeNativeOnlyJSON(t *testing.T, res *http.Response, target any) {
 	}
 }
 
-func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testing.T) {
+func TestNativeServerRunsCustomProviderEndToEnd(t *testing.T) {
 	stateDir := t.TempDir()
 	project := t.TempDir()
 	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
@@ -68,13 +68,11 @@ func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testin
 	defer modelServer.Close()
 
 	state := &appState{
-		project:              project,
-		frontendURL:          "http://127.0.0.1",
-		compatRuntimeEngine:  "kilo-code",
-		compatRuntimeEnabled: false,
-		ctx:                  context.Background(),
+		project: project,
+		frontendURL: "http://127.0.0.1",
+		ctx: context.Background(),
 	}
-	handler, err := newServerWithRuntime(state, "", runtimeCredentials{}, kiloRuntimeEngine{})
+	handler, err := newServer(state)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,18 +85,11 @@ func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testin
 	}
 	var health map[string]any
 	decodeNativeOnlyJSON(t, healthRes, &health)
-	if health["healthy"] != true || health["mode"] != "native-only" || health["compatibilityAvailable"] != false {
+	if health["healthy"] != true || health["mode"] != "native" {
 		t.Fatalf("unexpected native health %#v", health)
 	}
 
-	runtimeRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/runtime/global/health", nil)
-	if runtimeRes.StatusCode != http.StatusServiceUnavailable {
-		runtimeRes.Body.Close()
-		t.Fatalf("expected unavailable compatibility proxy, got %d", runtimeRes.StatusCode)
-	}
-	runtimeRes.Body.Close()
-
-	agentsRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/local/agents", nil)
+		agentsRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/local/agents", nil)
 	var agents []map[string]any
 	decodeNativeOnlyJSON(t, agentsRes, &agents)
 	if len(agents) != 1 || agents[0]["id"] != "code" {
@@ -119,7 +110,7 @@ func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testin
 		},
 		"apiKey": "native-only-key",
 	}
-	providerRes := nativeOnlyJSONRequest(t, http.MethodPut, server.URL+"/runtime/providers/config/nativeproof", provider)
+	providerRes := nativeOnlyJSONRequest(t, http.MethodPut, server.URL+"/local/providers/config/nativeproof", provider)
 	if providerRes.StatusCode != http.StatusOK {
 		var failure any
 		decodeNativeOnlyJSON(t, providerRes, &failure)
@@ -127,20 +118,14 @@ func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testin
 	}
 	providerRes.Body.Close()
 
-	catalogRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/runtime/providers/catalog?directory="+url.QueryEscape(project), nil)
+	catalogRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/local/providers/catalog?directory="+url.QueryEscape(project), nil)
 	if catalogRes.StatusCode != http.StatusOK {
 		t.Fatalf("catalog status=%d", catalogRes.StatusCode)
 	}
 	var catalog providerCatalogResponse
 	decodeNativeOnlyJSON(t, catalogRes, &catalog)
-	if catalog.Hosted.Available || len(catalog.Hosted.PreferredModels) != 0 {
-		t.Fatalf("hosted compatibility provider must be unavailable: %#v", catalog.Hosted)
-	}
 	foundNative := false
 	for _, item := range catalog.All {
-		if item.ID == "kilo" {
-			t.Fatalf("hosted Kilo must not appear in native-only catalog: %#v", item)
-		}
 		if item.ID == "nativeproof" {
 			foundNative = true
 			model, ok := item.Models["proof-model"]
@@ -157,14 +142,14 @@ func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testin
 	var permissions []map[string]any
 	decodeNativeOnlyJSON(t, permissionsRes, &permissions)
 	if len(permissions) != 0 {
-		t.Fatalf("unexpected native-only pending permissions %#v", permissions)
+		t.Fatalf("unexpected native pending permissions %#v", permissions)
 	}
 
 	questionsRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/local/questions", nil)
 	var questions []questionRequestView
 	decodeNativeOnlyJSON(t, questionsRes, &questions)
 	if len(questions) != 0 {
-		t.Fatalf("unexpected compatibility questions %#v", questions)
+		t.Fatalf("unexpected native questions %#v", questions)
 	}
 
 	createRes := nativeOnlyJSONRequest(t, http.MethodPost, server.URL+"/local/sessions?directory="+url.QueryEscape(project), map[string]any{"title": "Native only"})
@@ -222,5 +207,5 @@ func TestNativeOnlyServerRunsCustomProviderWithoutCompatibilityRuntime(t *testin
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatal("native-only semantic run did not complete")
+	t.Fatal("native semantic run did not complete")
 }

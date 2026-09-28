@@ -8,11 +8,7 @@ interface TLStudioLocalStatus {
   platform: string;
   arch: string;
   frontendURL?: string;
-  runtime?: {
-    mode?: "hybrid" | "native-only" | string;
-    compatibilityAvailable?: boolean;
-    compatibilityEngine?: string;
-  };
+  runtime?: { mode?: "native" | string };
   [key: string]: unknown;
 }
 
@@ -255,7 +251,6 @@ interface TLStudioProviderAccount {
   available: boolean;
   connected: boolean;
   authModes: string[];
-  requiresCompatibility?: boolean;
   accountType?: string;
   organizationId?: string;
   models?: string[];
@@ -268,11 +263,10 @@ interface TLStudioProviderState {
   failed: TLStudioDynamicRecord[];
 }
 
-interface TLStudioRuntimeContract {
+interface TLStudioProductAPI {
   readonly version: string;
   health(): Promise<any>;
   path(): Promise<any>;
-  runtime: { dispose(): Promise<any> };
   agents(): Promise<any[]>;
   providerState(): Promise<TLStudioProviderState>;
   providerAccounts: {
@@ -300,6 +294,8 @@ interface TLStudioRuntimeContract {
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
     list(): Promise<TLStudioPluginView[]>;
+    saved(): Promise<TLStudioPluginView[]>;
+    attach(pluginID: string, sourceProject: string): Promise<TLStudioPluginView>;
     create(plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
     update(pluginID: string, plugin: TLStudioDynamicRecord, environment?: Record<string, string>): Promise<TLStudioPluginView>;
     remove(pluginID: string): Promise<any>;
@@ -322,10 +318,6 @@ interface TLStudioRuntimeContract {
     run(sessionID: string, input?: TLStudioSessionRunInput, options?: { directory?: string }): Promise<{ accepted: boolean; sessionID: string }>;
     abort(sessionID: string, options?: { scope?: string; directory?: string }): Promise<{ aborted: boolean; sessionID: string }>;
   };
-  legacySessions: {
-    list(options?: TLStudioDynamicRecord): Promise<any>;
-    messages(sessionID: string, options?: TLStudioDynamicRecord): Promise<any>;
-  };
   permissions: {
     list(sessionID?: string): Promise<any[]>;
     reply(sessionID: string, requestID: string, reply: "once" | "always" | "reject", message?: string): Promise<any>;
@@ -336,15 +328,6 @@ interface TLStudioRuntimeContract {
     list(sessionID?: string): Promise<TLStudioQuestionRequest[]>;
     reply(sessionID: string, requestID: string, answers: string[][]): Promise<{ resolved: boolean }>;
     reject(sessionID: string, requestID: string): Promise<{ resolved: boolean }>;
-  };
-  hosted: {
-    readonly available: boolean;
-    readonly providerID: string;
-    readonly preferredModels: readonly string[];
-    status(): Promise<{ available: boolean; authenticated: boolean; type: string; organizationId: string }>;
-    authorize(): Promise<any>;
-    callback(signal?: AbortSignal): Promise<any>;
-    disconnect(): Promise<any>;
   };
   events: {
     subscribe(options?: {
@@ -453,7 +436,7 @@ type TLStudioCallable = (...args: any[]) => any;
 interface TLStudioKernel {
   els: TLStudioElements;
   state: TLStudioState;
-  api: TLStudioRuntimeContract;
+  api: TLStudioProductAPI;
 
   request<T = any>(path: string, options?: RequestInit): Promise<T>;
   basename(path?: string): string;
@@ -465,7 +448,6 @@ interface TLStudioKernel {
   loadLocalStatus(): Promise<void>;
   checkBackend(): Promise<boolean>;
   modelValue(model?: TLStudioModelRef | TLStudioSessionModelRef): string;
-  preferredHostedModel(): { providerID: string; id: string } | undefined;
   renderAccount(): void;
   renderAgents(): void;
   renderModels(): void;
@@ -497,8 +479,6 @@ interface TLStudioKernel {
   stopEvents: TLStudioCallable;
   startEvents: TLStudioCallable;
   handleLiveEvent: TLStudioCallable;
-  handleRuntimeEvent: TLStudioCallable;
-  handleKiloEvent: TLStudioCallable;
   stopSessionPolling: TLStudioCallable;
   startSessionPolling: TLStudioCallable;
   openProviderAccounts: TLStudioCallable;
@@ -526,7 +506,6 @@ interface TLStudioKernel {
   previewWindow?: TLStudioDynamicRecord;
   terminal?: TLStudioDynamicRecord;
   workspaceFiles?: TLStudioDynamicRecord;
-  legacySessions?: TLStudioDynamicRecord;
   __statusDiagnostics?: TLStudioDynamicRecord;
   __providerRecovery?: TLStudioDynamicRecord;
   __providersUi?: TLStudioDynamicRecord;

@@ -56,11 +56,7 @@ import { K } from "./kernel";
   let loading = false;
 
   const statusText = (account: TLStudioProviderAccount) => {
-    if (!account.available) {
-      return account.requiresCompatibility
-        ? "Unavailable · optional compatibility integration required"
-        : "Unavailable";
-    }
+    if (!account.available) return "Unavailable";
     if (account.connected) {
       const details = [account.accountType, account.organizationId].filter(Boolean).join(" · ");
       return details ? `Connected · ${details}` : "Connected";
@@ -202,8 +198,6 @@ import { K } from "./kernel";
       await K.api.providerAccounts.callback(account.id, controller.signal);
       K.state.authController = null;
       K.els.authInstructions.textContent = "Signed in successfully.";
-
-      try { await K.api.runtime.dispose(); } catch {}
       await refreshProviderSurfaces();
       window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
     } catch (error) {
@@ -220,7 +214,6 @@ import { K } from "./kernel";
     K.showError("");
     try {
       await K.api.providerAccounts.disconnect(account.id);
-      try { await K.api.runtime.dispose(); } catch {}
       if (K.state.session?.model?.providerID === account.id) K.state.session.model = undefined;
       if (K.els.modelSelect) K.els.modelSelect.value = "";
       await refreshProviderSurfaces();

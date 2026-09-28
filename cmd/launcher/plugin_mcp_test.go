@@ -158,6 +158,132 @@ func TestPluginStorePersistsProjectScope(t *testing.T) {
 	}
 }
 
+func TestPluginStoreMatchesEquivalentProjectPath(t *testing.T) {
+	temp := t.TempDir()
+	realProject := filepath.Join(temp, "real-project")
+	aliasProject := filepath.Join(temp, "project-alias")
+	if err := os.MkdirAll(realProject, 0o755); err != nil { t.Fatal(err) }
+	if err := os.Symlink(realProject, aliasProject); err != nil {
+		t.Skipf("symlink unavailable on this platform: %v", err)
+	}
+
+	store := newPluginStore(filepath.Join(temp, "plugins.json"))
+	config, err := normalizePluginConfig(pluginConfig{
+		ID:"equivalent", Name:"Equivalent", Type:"mcp", Scope:"project", Transport:"stdio",
+		Command:"example-mcp", Project:realProject,
+	}, realProject)
+	if err != nil { t.Fatal(err) }
+	if err := store.upsert(config); err != nil { t.Fatal(err) }
+
+	reloaded := newPluginStore(filepath.Join(temp, "plugins.json"))
+	items, err := reloaded.list(aliasProject)
+	if err != nil { t.Fatal(err) }
+	if len(items) != 1 || items[0].ID != "equivalent" {
+		t.Fatalf("project plugin did not survive equivalent-path reopen: %#v", items)
+	}
+}
+
+func TestPluginProjectMatchKeyResolvesEquivalentAliases(t *testing.T) {
+	temp := t.TempDir()
+	realProject := filepath.Join(temp, "real-project")
+	aliasOne := filepath.Join(temp, "project-alias-one")
+	aliasTwo := filepath.Join(temp, "project-alias-two")
+	if err := os.MkdirAll(realProject, 0o755); err != nil { t.Fatal(err) }
+	if err := os.Symlink(realProject, aliasOne); err != nil {
+		t.Skipf("symlink unavailable on this platform: %v", err)
+	}
+	if err := os.Symlink(realProject, aliasTwo); err != nil {
+		t.Skipf("second symlink unavailable on this platform: %v", err)
+	}
+
+	realKey := pluginProjectMatchKey(realProject)
+	oneKey := pluginProjectMatchKey(aliasOne)
+	twoKey := pluginProjectMatchKey(aliasTwo)
+	if realKey == "" || realKey != oneKey || oneKey != twoKey {
+		t.Fatalf("equivalent project paths produced different match keys: real=%q one=%q two=%q", realKey, oneKey, twoKey)
+	}
+}
+
+func TestSavedPluginCanAttachToCurrentProjectAndKeepSecrets(t *testing.T) {
+	temp := t.TempDir()
+	projectA := filepath.Join(temp, "project-a")
+	projectB := filepath.Join(temp, "project-b")
+	if err := os.MkdirAll(projectA, 0o755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(projectB, 0o755); err != nil { t.Fatal(err) }
+
+	manager := newTestPluginManager(t, projectA, &recordingPluginAuthorizer{})
+	config := fakeMCPConfig(projectA, false)
+	env := fakeMCPEnvironment()
+	if _, err := manager.Upsert(projectA, pluginUpsertRequest{Plugin: config, Environment: &env}); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := manager.SavedElsewhere(projectB)
+	if err != nil { t.Fatal(err) }
+	if len(saved) != 1 || saved[0].ID != config.ID || saved[0].Status != "Saved" {
+		t.Fatalf("saved plugin was not surfaced for recovery: %#v", saved)
+	}
+
+	view, err := manager.AttachToProject(projectB, config.ID, saved[0].Project)
+	if err != nil { t.Fatal(err) }
+	if view.Project != normalizePluginProject(projectB) || view.Status != "Disabled" {
+		t.Fatalf("plugin did not attach to current project: %#v", view)
+	}
+
+	oldItems, err := manager.store.list(projectA)
+	if err != nil { t.Fatal(err) }
+	if len(oldItems) != 0 {
+		t.Fatalf("plugin remained attached to old project: %#v", oldItems)
+	}
+	newItems, err := manager.store.list(projectB)
+	if err != nil { t.Fatal(err) }
+	if len(newItems) != 1 || newItems[0].ID != config.ID {
+		t.Fatalf("plugin missing from new project after attach: %#v", newItems)
+	}
+	resolved, err := manager.configEnvironment(newItems[0])
+	if err != nil { t.Fatal(err) }
+	if resolved["TEST_PLUGIN_SECRET"] != "SUPER_SECRET_VALUE" {
+		t.Fatalf("plugin secret did not migrate with project attachment: %#v", resolved)
+	}
+}
+
+func TestPluginRemovalPersistsAcrossReloadAndDeletesSecrets(t *testing.T) {
+	project := t.TempDir()
+	manager := newTestPluginManager(t, project, &recordingPluginAuthorizer{})
+	config := fakeMCPConfig(project, false)
+	env := fakeMCPEnvironment()
+	if _, err := manager.Upsert(project, pluginUpsertRequest{Plugin: config, Environment: &env}); err != nil {
+		t.Fatal(err)
+	}
+	stored, found, err := manager.store.find(project, config.ID)
+	if err != nil || !found {
+		t.Fatalf("plugin was not persisted before removal: found=%v err=%v", found, err)
+	}
+	credentialID := pluginCredentialID(stored, "TEST_PLUGIN_SECRET")
+	if _, err := manager.credentials.Get(credentialID); err != nil {
+		t.Fatalf("plugin credential missing before removal: %v", err)
+	}
+
+	if err := manager.Remove(project, config.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	reloaded := newPluginStore(manager.store.filePath)
+	items, err := reloaded.list(project)
+	if err != nil { t.Fatal(err) }
+	if len(items) != 0 {
+		t.Fatalf("removed plugin reappeared after store reload: %#v", items)
+	}
+	saved, err := reloaded.listSavedElsewhere(filepath.Join(project, "other-project"))
+	if err != nil { t.Fatal(err) }
+	if len(saved) != 0 {
+		t.Fatalf("removed plugin leaked into saved-for-another-project recovery: %#v", saved)
+	}
+	if _, err := manager.credentials.Get(credentialID); !errors.Is(err, errCredentialNotFound) {
+		t.Fatalf("removed plugin credential survived deletion: %v", err)
+	}
+}
+
 func TestMCPClientInitializesDiscoversAndCallsTools(t *testing.T) {
 	project := t.TempDir()
 	config := fakeMCPConfig(project, true)

@@ -364,11 +364,11 @@ import { K } from "./kernel";
   window.addEventListener("tl-studio:project-file-changed", scheduleFileReload);
   window.addEventListener("tl-studio:editor-render", (event) => followActivePreviewEntry((event as CustomEvent<any>).detail?.path));
 
-  const baseHandleRuntimeEvent = K.handleRuntimeEvent;
-  if (typeof baseHandleRuntimeEvent === "function") {
-    K.handleRuntimeEvent = (event) => {
-      const result = baseHandleRuntimeEvent(event);
-      if (String(event?.type || "").startsWith("file.")) scheduleFileReload();
+  const baseHandleLiveEvent = K.handleLiveEvent;
+  if (typeof baseHandleLiveEvent === "function") {
+    K.handleLiveEvent = (event: TLStudioLiveEvent) => {
+      const result = baseHandleLiveEvent(event);
+      if (event?.type === "workspace.changed") scheduleFileReload();
       return result;
     };
   }
