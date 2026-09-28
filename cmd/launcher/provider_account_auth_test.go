@@ -28,6 +28,9 @@ func (a *fakeProviderAccountAdapter) Status(context.Context, string) (providerAc
 func (a *fakeProviderAccountAdapter) BeginLogin(context.Context, string) (providerAccountLogin, error) {
 	return a.login, nil
 }
+func (a *fakeProviderAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
+	return nil
+}
 func (a *fakeProviderAccountAdapter) PollLogin(context.Context, string, string) (providerAccountStatus, error) {
 	return a.pollStatus, nil
 }
