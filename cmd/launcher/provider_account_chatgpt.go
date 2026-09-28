@@ -109,6 +109,10 @@ type chatGPTAccountAdapter struct {
 
 	mu     sync.Mutex
 	logins map[string]*chatGPTLoginTransaction
+
+	bridgeMu      sync.Mutex
+	bridgeServer  *codexAppServer
+	bridgeCommand codexCommand
 }
 
 func newChatGPTAccountAdapter(state *appState, manager *providerManager) *chatGPTAccountAdapter {
@@ -120,6 +124,60 @@ func newChatGPTAccountAdapter(state *appState, manager *providerManager) *chatGP
 }
 
 func (a *chatGPTAccountAdapter) ID() string { return chatGPTAccountProviderID }
+
+func sameCodexCommand(left, right codexCommand) bool {
+	if strings.TrimSpace(left.Executable) != strings.TrimSpace(right.Executable) ||
+		strings.TrimSpace(left.Source) != strings.TrimSpace(right.Source) ||
+		len(left.PrefixArgs) != len(right.PrefixArgs) {
+		return false
+	}
+	for index := range left.PrefixArgs {
+		if left.PrefixArgs[index] != right.PrefixArgs[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *chatGPTAccountAdapter) resetBridgeServerLocked() {
+	if a == nil {
+		return
+	}
+	if a.bridgeServer != nil {
+		a.bridgeServer.Close()
+	}
+	a.bridgeServer = nil
+	a.bridgeCommand = codexCommand{}
+}
+
+func (a *chatGPTAccountAdapter) resetBridgeServer() {
+	if a == nil {
+		return
+	}
+	a.bridgeMu.Lock()
+	defer a.bridgeMu.Unlock()
+	a.resetBridgeServerLocked()
+}
+
+func (a *chatGPTAccountAdapter) bridgeServerLocked(command codexCommand) (*codexAppServer, error) {
+	if a == nil {
+		return nil, errors.New("ChatGPT account transport is unavailable")
+	}
+	if a.bridgeServer != nil {
+		if a.bridgeServer.isClosed() || !sameCodexCommand(a.bridgeCommand, command) {
+			a.resetBridgeServerLocked()
+		}
+	}
+	if a.bridgeServer == nil {
+		server, err := startCodexAppServer(command)
+		if err != nil {
+			return nil, err
+		}
+		a.bridgeServer = server
+		a.bridgeCommand = command
+	}
+	return a.bridgeServer, nil
+}
 
 func windowsNodeBackedCommand(path, source string) (codexCommand, bool) {
 	if runtime.GOOS != "windows" {
@@ -297,6 +355,7 @@ func (a *chatGPTAccountAdapter) Configure(ctx context.Context, directory string,
 	if err := saveChatGPTCodexConfig(config); err != nil {
 		return providerAccountStatus{}, err
 	}
+	a.resetBridgeServer()
 	status, err := a.Status(ctx, directory)
 	if err != nil {
 		return providerAccountStatus{}, err
@@ -308,6 +367,7 @@ func (a *chatGPTAccountAdapter) Configure(ctx context.Context, directory string,
 }
 
 func (a *chatGPTAccountAdapter) BeginLogin(ctx context.Context, _ string) (providerAccountLogin, error) {
+	a.resetBridgeServer()
 	command, err := a.resolveCommand()
 	if err != nil {
 		return providerAccountLogin{}, err
@@ -551,7 +611,16 @@ func (a *chatGPTAccountAdapter) PollLogin(ctx context.Context, directory, loginI
 		}
 		a.mu.Unlock()
 		if server != nil {
-			server.Close()
+			a.bridgeMu.Lock()
+			if a.bridgeServer == nil || a.bridgeServer.isClosed() {
+				a.bridgeServer = server
+				a.bridgeCommand = server.command
+				server = nil
+			}
+			a.bridgeMu.Unlock()
+			if server != nil {
+				server.Close()
+			}
 		}
 	}
 	if completed {
@@ -584,6 +653,7 @@ func (a *chatGPTAccountAdapter) CancelLogin(ctx context.Context, _ string, login
 }
 
 func (a *chatGPTAccountAdapter) Refresh(ctx context.Context, directory string) (providerAccountStatus, error) {
+	a.resetBridgeServer()
 	command, err := a.resolveCommand()
 	if err != nil {
 		return providerAccountStatus{}, err
@@ -640,6 +710,7 @@ func (a *chatGPTAccountAdapter) DiscoverModels(ctx context.Context, _ string) ([
 }
 
 func (a *chatGPTAccountAdapter) Disconnect(ctx context.Context, _ string) error {
+	a.resetBridgeServer()
 	command, err := a.resolveCommand()
 	if err == nil {
 		if server, startErr := startCodexAppServer(command); startErr == nil {
