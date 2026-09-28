@@ -4,7 +4,7 @@ export const site = {
   name: 'TL Studio',
   tagline: 'Build locally. Work with AI.',
   description:
-    'A fast local development workspace with an editor, project tools, terminal, preview, providers, and an AI agent built in.',
+    'A local-first browser IDE and coding-agent workspace with a native Agent, project tools, providers, Plugins/MCP, Terminal, and Preview built in.',
   repoUrl: 'https://github.com/pouramin/TL-Studio',
   releasesUrl: 'https://github.com/pouramin/TL-Studio/releases',
   issuesUrl: 'https://github.com/pouramin/TL-Studio/issues',

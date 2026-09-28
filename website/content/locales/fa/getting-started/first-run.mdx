@@ -1,24 +1,26 @@
 ---
 title: اولین اجرا
-description: اجرای TL Studio، بازکردن Project Local و شناخت مسیرهای اجرای Stable v0.3.
+description: اجرای TL Studio v0.5، بازکردن Project و آشنایی با Native Workspace.
 icon: Play
 ---
 
 ## اجرای TL Studio
 
-نسخه Portable مناسب سیستم را اجرا کنید یا داخل Folder پروژه این دستور را بزنید:
+نسخه Portable را اجرا کنید یا داخل Folder پروژه این دستور را بزنید:
 
 ```bash
 npx --yes tl-studio
 ```
 
-TL Studio سطح کنترل Local خودش را روی Loopback اجرا می‌کند و Workspace را در Browser باز می‌کند.
+TL Studio یک Local Server روی Loopback بالا می‌آورد و Browser Workspace را باز می‌کند. Coding Runtime Process جداگانه‌ای برای Discovery، Configure یا Start وجود ندارد.
 
 ## انتخاب Project
 
-روش معمول گرافیکی است. با Folder Picker سیستم‌عامل، Directory پروژه را انتخاب کنید. اگر دستور بالا را داخل Folder پروژه اجرا کرده باشید، همان Directory به‌صورت خودکار انتخاب می‌شود.
+روش معمول گرافیکی است و از Folder Picker سیستم‌عامل استفاده می‌کند.
 
-برای مشخص‌کردن Project از CLI:
+اگر دستور `npx --yes tl-studio` را داخل Folder پروژه اجرا کرده باشید، همان Directory به‌صورت خودکار انتخاب می‌شود.
+
+برای Preselect کردن Project:
 
 ```bash
 tl-studio --project /path/to/project
@@ -30,25 +32,38 @@ tl-studio --project /path/to/project
 tl-studio.exe --project "C:\Users\you\Projects\my-project"
 ```
 
-## آشنایی سریع با Workspace
+## آشنایی با Workspace
 
-بعد از بازکردن Project:
+Workspace نسخه v0.5 با محوریت Editor طراحی شده است:
 
-1. از بخش **Files** و Monaco Workspace برای Browse و Edit استفاده کنید؛
-2. برای Project-wide Search از **Search** یا `Ctrl/Cmd+Shift+F` استفاده کنید؛
-3. Commandهای Project را از **Terminal** اجرا کنید؛
-4. File قابل Preview یا Project دارای Dev Server پشتیبانی‌شده را در **Preview** باز کنید؛
-5. Agent، Provider/Model و Attachmentها را از Composer انتخاب کنید؛
-6. هنگام Run، بخش **Changes** و Live Agent Activity را بررسی کنید.
+1. از Activity Rail بین **Explorer**، **Search**، **Sessions**، **Changes** و **Settings** جابه‌جا شوید؛
+2. Fileها را در Monaco Editor باز و Edit کنید؛
+3. Agent Panel را در حالت Collapsed، Compact یا Focused استفاده کنید؛
+4. Commandهای Project را در Terminal قابل Resize پایین Workspace اجرا کنید؛
+5. برای File یا Project پشتیبانی‌شده Live Preview را باز کنید؛
+6. Status Bar، Local Status، Changes، Agent State، Model انتخاب‌شده، Cursor و Terminal را نشان می‌دهد.
 
-## انتخاب مسیر Agent Execution
+برای Command Palette از `Ctrl/Cmd+K` و برای Project Search از `Ctrl/Cmd+Shift+F` استفاده کنید.
 
-اگر Custom Provider و Model پشتیبانی‌شده داخل Provider Registry و Credential Vault خود TL Studio قابل Resolve باشد، Task می‌تواند با Native Agent Loop و Core Tool Executor خود TL Studio اجرا شود.
+## تنظیم Provider
 
-Modelهای Hosted و Capabilityهایی که هنوز Native نشده‌اند از Compatibility Engine همراه برنامه و پشت Adapter خود TL Studio عبور می‌کنند.
+وارد **Settings → Providers** شوید.
 
-Browser در هر دو حالت فقط با Contractهای Semantic خود TL Studio کار می‌کند و مستقیم به Compatibility Engine وصل نمی‌شود.
+Provider را می‌توانید دستی بسازید یا با **Test / Discover Models** Connection را بررسی و Model Catalog را دریافت کنید. Modelهای موردنظر را انتخاب و Provider را Save کنید.
 
-## Lifecycle محلی
+Provider Definition و Credential جدا ذخیره می‌شوند و API Key داخل Credential Vault خود TL Studio می‌رود، نه Browser Storage.
 
-Local Control Server و Compatibility Process همراه برنامه فقط روی Loopback اجرا می‌شوند. با بستن TL Studio، Child Process همراه هم متوقف می‌شود. Requestهای Native مربوط به Custom Provider مستقیماً از TL Studio به Endpoint همان Provider می‌روند.
+## اجرای Agent
+
+Model را انتخاب کنید و Prompt بفرستید.
+
+```text
+Browser
+→ TL Studio Session
+→ Native Agent
+→ Selected Provider
+→ Tool Executor when needed
+→ Session Persistence + Local Events
+```
+
+Tool نیازمند Approval در Permission UI خود TL Studio Pause می‌شود. Agent همچنین می‌تواند Interactive Question Native بپرسد و بعد از پاسخ شما ادامه دهد.

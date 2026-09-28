@@ -1,6 +1,6 @@
 ---
 title: نصب
-description: نصب نسخه Stable v0.3 با npm یا Release قابل‌حمل.
+description: نصب Stable v0.5 با npm یا Portable Release.
 icon: Download
 ---
 
@@ -12,7 +12,7 @@ icon: Download
 npx --yes tl-studio
 ```
 
-پکیج npm یک Launcher سبک است که به Release پایدار متناظر TL Studio متصل می‌شود. سیستم‌عامل و Architecture را تشخیص می‌دهد، Archive رسمی را دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را با Folder فعلی به‌عنوان Project اجرا می‌کند.
+پکیج npm یک Launcher سبک است که به GitHub Release پایدار متناظر Pin می‌شود. سیستم‌عامل و Architecture را تشخیص می‌دهد، Archive رسمی را دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را با Folder فعلی به‌عنوان Project اجرا می‌کند.
 
 برای جلوگیری از بازشدن خودکار Browser:
 
@@ -22,7 +22,7 @@ npx --yes tl-studio --no-browser
 
 ## نسخه Portable
 
-Archive مناسب سیستم را از GitHub Releases بگیرید، Extract کنید و اجرا کنید:
+Archive مناسب را از GitHub Releases بگیرید، Extract کنید و اجرا کنید:
 
 ```text
 Windows:  tl-studio.exe
@@ -30,32 +30,33 @@ Linux:    ./tl-studio
 macOS:    ./tl-studio
 ```
 
-Release قابل‌حمل شامل Compatibility Engine تست‌شده، Assetهای Monaco، Licenseهای TL Studio و Third-party Noticeهای لازم است.
+Build پایدار برای Windows x64، Linux x64/ARM64 و macOS Intel x64/Apple Silicon ARM64 منتشر می‌شود.
 
-## Buildهای پشتیبانی‌شده
+## داخل Package چیست؟
 
-- Windows x64
-- Linux x64
-- Linux ARM64
-- macOS Intel x64
-- macOS Apple Silicon ARM64
+Release عادی v0.5 شامل Executable خود TL Studio، License/Noticeهای لازم و هر Bundled Plugin نسخه‌ثابتی است که برای همان Build Configure شده باشد.
+
+Catalog مربوط به Bundled Plugin در v0.5.0 خالی است؛ بنابراین این Release به‌صورت پیش‌فرض Third-party Plugin همراه ندارد.
+
+Runtime Binary محلی جداگانه‌ای هم برای نصب یا انتخاب وجود ندارد.
 
 ## بررسی فایل دانلودی
 
-هر Release پایدار فایل زیر را هم منتشر می‌کند:
+هر Release فایل زیر را منتشر می‌کند:
 
 ```text
 SHA256SUMS.txt
 ```
 
-در صورت نیاز می‌توانید Hash فایل دانلودی را با مقدار منتشرشده مقایسه کنید.
+برای Verify کردن Package می‌توانید Hash Archive را با مقدار منتشرشده مقایسه کنید.
 
-## Buildهای Development
+## Cache مربوط به npm Launcher
 
-خط خصوصی بعدی روی `dev` با این نسخه باز شده است:
+Release دانلودشده جدا از Cache عادی npm نگه‌داری می‌شود:
 
 ```text
-v0.4.0-alpha.1
+Windows:     %LOCALAPPDATA%\TL-Studio\cache
+Linux/macOS: ${XDG_CACHE_HOME:-~/.cache}/tl-studio
 ```
 
-Alphaهای Development روی npm یا GitHub Prerelease عمومی منتشر نمی‌شوند. وقتی پیاده‌سازی فاز بعدی شروع شود، Preview Buildهای GitHub Actions همچنان مسیر تست خصوصی خواهند بود.
+Launcher یک‌دستوری TL Studio را به‌عنوان System Service یا System Package نصب نمی‌کند.
