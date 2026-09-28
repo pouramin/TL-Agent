@@ -31,8 +31,9 @@ type tlProviderModel struct {
 	Name         string `json:"name"`
 	Kind         string `json:"kind,omitempty"`
 	ToolCall     bool   `json:"toolCall"`
-	Reasoning    bool   `json:"reasoning"`
-	ContextLimit int    `json:"contextLimit,omitempty"`
+	Reasoning       bool   `json:"reasoning"`
+	ReasoningEffort string `json:"reasoningEffort,omitempty"`
+	ContextLimit    int    `json:"contextLimit,omitempty"`
 	OutputLimit  int    `json:"outputLimit,omitempty"`
 }
 
@@ -208,8 +209,16 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 		model.ID = strings.TrimSpace(model.ID)
 		model.Name = strings.TrimSpace(model.Name)
 		model.Kind = strings.ToLower(strings.TrimSpace(model.Kind))
+		model.ReasoningEffort = strings.ToLower(strings.TrimSpace(model.ReasoningEffort))
 		if model.Kind != "" && model.Kind != "router" {
 			return tlProviderDefinition{}, fmt.Errorf("unsupported model kind %q", model.Kind)
+		}
+		if model.ReasoningEffort != "" {
+			switch model.ReasoningEffort {
+			case "none", "minimal", "low", "medium", "high", "xhigh", "max":
+			default:
+				return tlProviderDefinition{}, fmt.Errorf("unsupported model reasoning effort %q", model.ReasoningEffort)
+			}
 		}
 		if model.ID == "" { return tlProviderDefinition{}, errors.New("model ID is required") }
 		if seen[model.ID] { return tlProviderDefinition{}, fmt.Errorf("duplicate model ID %q", model.ID) }
