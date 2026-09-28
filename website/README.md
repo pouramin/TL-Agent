@@ -2,42 +2,46 @@
 
 This directory contains the public documentation and product site for **TL Studio**. It is isolated from the Go application and from internal engineering/design notes under `../docs/`.
 
-## Source of truth
+## Sources of truth
 
-The stable `main` branch is the sole source of truth for this public documentation site. Reconcile the site with `main`, `VERSION`, the root READMEs, `docs/ARCHITECTURE.md`, and relevant stable implementation files.
+Released behavior comes from stable `main`.
+
+Development-preview documentation may also track `dev`, but it must be labeled clearly and must never be presented as part of the stable release before promotion.
 
 Current documented state:
 
 ```text
-Stable: v0.5.0
-main:   v0.5.0
+Stable:      v0.5.0
+Development: v0.6.0-alpha.1
 ```
 
-Document only behavior present in stable `main`; do not publish unreleased branch state.
+Reconcile public content with the root READMEs, `VERSION`, `docs/ARCHITECTURE.md`, and the relevant implementation branch.
 
-## v0.5 public coverage
+## Public coverage
 
-The public site covers:
+The site covers:
 
-- one-process fully native TL Studio architecture;
-- Editor-centered workbench and locally bundled Monaco;
+- TL Studio's local-first standalone product architecture;
+- Editor-centered workspace and locally bundled Monaco;
 - Project files, Search, Terminal, Changes, Command Palette, and Preview;
 - native Sessions, Questions, Permissions, Events, and Agent execution;
-- model connection registry, discovery, discovery cache, and credential vault;
+- model connection registry, discovery, catalog cache, and credential vault;
 - Native Tool Registry/Executor;
-- Plugins/MCP with current stdio transport and Project/Global scope;
-- generic account-connection foundation without claiming unavailable integrations;
+- Plugins/MCP with Project/Global scope;
+- stable v0.5 model connections;
+- the explicitly labeled v0.6 Provider Account preview for OpenRouter, Hugging Face, and Google/Gemini;
+- deferred account boundaries for ChatGPT/Codex, Claude, and GitHub Copilot;
 - local security/trust boundaries;
-- stable npm launcher and portable release model.
+- stable npm launcher, portable releases, and development Preview Builds.
 
-The public site should describe the current product and implementation. Historical architecture belongs in release history, not current user-facing documentation.
+Historical implementation details do not belong in current product-facing documentation.
 
 ## Languages
 
 - English: `/` and `/docs/...`
 - فارسی: `/fa/` and `/fa/docs/...` with RTL layout
 
-The language switcher is in the top navigation beside social/appearance controls. Persian uses Vazirmatn and established technical terms where natural.
+The language switcher is in the top navigation beside social and sponsor controls. Persian uses Vazirmatn and keeps commands, paths, and technical tokens left-to-right where needed.
 
 ## Stack
 
