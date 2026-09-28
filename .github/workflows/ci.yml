@@ -79,6 +79,22 @@ jobs:
           CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o /tmp/tl-studio-darwin-x64 ./cmd/launcher
           CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o /tmp/tl-studio-darwin-arm64 ./cmd/launcher
 
+  windows-codex-app-server:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Initialize official Codex app-server through TL Studio
+        shell: pwsh
+        env:
+          TL_STUDIO_REAL_CODEX_SMOKE: '1'
+        run: go test ./cmd/launcher -run TestRealCodexAppServerInitializeSmoke -count=1 -v
+
   native-product-contract:
     runs-on: ubuntu-latest
     steps:
