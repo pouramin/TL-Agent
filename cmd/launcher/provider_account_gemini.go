@@ -328,10 +328,6 @@ func (a *googleGeminiAccountAdapter) cancelLogin(loginID string) {
 	}
 }
 
-func (a *googleGeminiAccountAdapter) CancelLogin(context.Context, string, string) error {
-	return nil
-}
-
 func (a *googleGeminiAccountAdapter) exchangeAuthorizationCode(ctx context.Context, transaction *googleGeminiLoginTransaction, code string) (providerAccountStoredCredential, error) {
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
