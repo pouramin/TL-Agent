@@ -106,7 +106,7 @@ func newHuggingFaceAccountAdapter(state *appState, manager *providerManager) *hu
 		authorizeURL: "https://huggingface.co/oauth/authorize",
 		tokenURL: "https://huggingface.co/oauth/token",
 		userInfoURL: "https://huggingface.co/oauth/userinfo",
-		inferenceBaseURL: a.inferenceBaseURL,
+		inferenceBaseURL: huggingFaceInferenceBaseURL,
 		logins: map[string]*huggingFaceLoginTransaction{},
 	}
 }
