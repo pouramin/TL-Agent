@@ -158,6 +158,31 @@ func TestPluginStorePersistsProjectScope(t *testing.T) {
 	}
 }
 
+func TestPluginStoreMatchesEquivalentProjectPath(t *testing.T) {
+	temp := t.TempDir()
+	realProject := filepath.Join(temp, "real-project")
+	aliasProject := filepath.Join(temp, "project-alias")
+	if err := os.MkdirAll(realProject, 0o755); err != nil { t.Fatal(err) }
+	if err := os.Symlink(realProject, aliasProject); err != nil {
+		t.Skipf("symlink unavailable on this platform: %v", err)
+	}
+
+	store := newPluginStore(filepath.Join(temp, "plugins.json"))
+	config, err := normalizePluginConfig(pluginConfig{
+		ID:"equivalent", Name:"Equivalent", Type:"mcp", Scope:"project", Transport:"stdio",
+		Command:"example-mcp", Project:realProject,
+	}, realProject)
+	if err != nil { t.Fatal(err) }
+	if err := store.upsert(config); err != nil { t.Fatal(err) }
+
+	reloaded := newPluginStore(filepath.Join(temp, "plugins.json"))
+	items, err := reloaded.list(aliasProject)
+	if err != nil { t.Fatal(err) }
+	if len(items) != 1 || items[0].ID != "equivalent" {
+		t.Fatalf("project plugin did not survive equivalent-path reopen: %#v", items)
+	}
+}
+
 func TestMCPClientInitializesDiscoversAndCallsTools(t *testing.T) {
 	project := t.TempDir()
 	config := fakeMCPConfig(project, true)
