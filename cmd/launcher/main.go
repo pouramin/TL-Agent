@@ -132,7 +132,33 @@ func main() {
 
 func newServer(state *appState) (http.Handler, error) {
 	providerManager := newProviderManager(state)
-	providerAccounts := newProviderAccountService()
+	providerAccounts := newProviderAccountService(
+		&unavailableProviderAccountAdapter{
+			id: "chatgpt",
+			name: "ChatGPT / Codex",
+			description: "Connect a ChatGPT account for Codex-backed model access.",
+			reason: "TL Studio will not reuse another application's OAuth client or undocumented ChatGPT backend. A documented public third-party Codex authorization contract is required before this connection can be enabled.",
+		},
+		&unavailableProviderAccountAdapter{
+			id: "claude",
+			name: "Claude",
+			description: "Claude account connection is kept separate from Anthropic API configuration.",
+			reason: "Anthropic documents account OAuth for its own clients, but TL Studio has not found a public third-party consumer-account OAuth client contract. Anthropic API-key configuration remains supported.",
+		},
+		newHuggingFaceAccountAdapter(state, providerManager),
+		&unavailableProviderAccountAdapter{
+			id: "gemini",
+			name: "Google / Gemini",
+			description: "Google account authentication for Gemini API access.",
+			reason: "Gemini account OAuth support is planned after TL Studio's registered Google OAuth client configuration is wired to the generic account adapter.",
+		},
+		&unavailableProviderAccountAdapter{
+			id: "github-copilot",
+			name: "GitHub Copilot",
+			description: "Use a GitHub account and eligible Copilot subscription.",
+			reason: "GitHub account OAuth is supported, but the current Copilot SDK integration still introduces an external runtime boundary that TL Studio is not reintroducing into the Native Agent.",
+		},
+	)
 	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
 	permissionEngine := newPermissionEngine(state)
