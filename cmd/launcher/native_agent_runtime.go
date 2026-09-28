@@ -20,7 +20,7 @@ const (
 )
 
 type nativeModelResolver interface {
-	resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error)
+	resolveNativeModel(ctx context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error)
 }
 
 type nativeRunHandle struct {
@@ -67,7 +67,7 @@ func (r *nativeAgentRuntime) supports(input sessionRunInput) bool {
 	if providerID == "" || modelID == "" {
 		return false
 	}
-	_, _, _, err := r.resolver.resolveNativeModel(providerID, modelID)
+	_, _, _, err := r.resolver.resolveNativeModel(context.Background(), providerID, modelID)
 	return err == nil
 }
 
@@ -241,7 +241,7 @@ func nativeToolResultMessage(result nativeToolResult) string {
 }
 
 func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID string, input sessionRunInput) error {
-	provider, model, apiKey, err := r.resolver.resolveNativeModel(input.Model.ProviderID, input.Model.ID)
+	provider, model, apiKey, err := r.resolver.resolveNativeModel(ctx, input.Model.ProviderID, input.Model.ID)
 	if err != nil {
 		return err
 	}
