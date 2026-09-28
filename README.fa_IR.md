@@ -22,7 +22,7 @@ TL Studio یک IDE مرورگری و Workspace محلی برای Coding Agent ا
 - **Native Permissions** — Pending Request، Allow Once، Reject، Ruleهای Project-scoped و Enforcement در اختیار TL Studio است.
 - **Native Events** — مسیر /local/events منبع اصلی Semantic SSE است.
 - **Native Providers** — Provider Registry، Catalog، Discovery و Credential Vault متعلق به TL Studio است و Model Call مستقیماً به Provider انتخاب‌شده ارسال می‌شود.
-- **Provider Accounts** — مسیر /local/provider-accounts یک Domain عمومی برای Integrationهای Account-based آینده باقی مانده است.
+- **Provider Accounts** — مسیر /local/provider-accounts ورودهای مستند حساب، وضعیت Semantic، PKCE، Refresh/Logout و Model Discovery را مدیریت می‌کند و Tokenها را به Browser نمی‌دهد.
 - **Native Tools** — Files، Search، Terminal/Process، Workspace reconciliation و ابزارهای Plugin/MCP از TL Studio Tool Executor عبور می‌کنند.
 
 در محصول دیگر Kilo binary، Kilo subprocess، Local Kilo server، Reverse Proxy، Session Adapter، Permission fallback، Question Adapter، Event stream، Provider sync، Model fallback یا Kilo داخل Release package وجود ندارد.
@@ -50,8 +50,13 @@ TL Studio در حال حاضر Direct Model Client برای این Protocolها 
 - OpenAI-compatible Chat Completions
 - OpenAI Responses
 - Anthropic Messages
+- Google Gemini GenerateContent
 
-Provider definition در Local State خود TL Studio ذخیره می‌شود. API Key جداگانه داخل Credential Vault نگهداری می‌شود و وارد providers.json یا Browser storage نمی‌شود.
+Provider definition در Local State خود TL Studio ذخیره می‌شود. API Key و Account Credential جداگانه داخل Credential Vault نگهداری می‌شوند و وارد providers.json یا Browser storage نمی‌شوند. Native Agent برای انتخاب Provider/Model لازم نیست بداند Credential از API Key آمده یا Account Login.
+
+در خط توسعه‌ی 0.6، Hugging Face و Google / Gemini دارای Adapter واقعی Account Auth هستند. Hugging Face به Client ID عمومی ثبت‌شده نیاز دارد. Gemini به Google Desktop OAuth Client و یک Google Cloud Project با Gemini API فعال نیاز دارد؛ اشتراک مصرفی Gemini به‌عنوان API Billing Entitlement در نظر گرفته نمی‌شود.
+
+پشتیبانی حساب ChatGPT / Codex همچنان یکی از هدف‌های الزامی 0.6 است، اما TL Studio از OAuth Client برنامه‌ی دیگر یا Backend مستندنشدۀ ChatGPT کپی نمی‌کند. Claude از مسیر رسمی API پشتیبانی می‌شود و Account Login آن تا زمانی که Anthropic قرارداد مناسب برای Third-party Client ارائه نکند فعال نمی‌شود. OAuth حساب GitHub Copilot مستند است، اما Runtime فعلی Copilot SDK زیر Native Agent وارد TL Studio نمی‌شود.
 
 اگر Model یا Protocol توسط Native Client پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد. هیچ Hidden fallback به Runtime دیگری وجود ندارد.
 
