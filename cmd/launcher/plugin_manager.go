@@ -253,9 +253,10 @@ func (s *pluginStore) loadLocked() error {
 	}
 	for _, plugin := range stored.Plugins {
 		normalized, err := normalizePluginConfig(plugin, plugin.Project)
-		if err == nil {
-			s.plugins = append(s.plugins, normalized)
+		if err != nil {
+			return fmt.Errorf("decode saved plugin %q: %w", plugin.ID, err)
 		}
+		s.plugins = append(s.plugins, normalized)
 	}
 	return nil
 }
@@ -304,7 +305,18 @@ func pluginMatchesProject(config pluginConfig, project string) bool {
 	if config.Scope == "global" {
 		return true
 	}
-	return normalizePluginProject(config.Project) == normalizePluginProject(project)
+	stored := normalizePluginProject(config.Project)
+	active := normalizePluginProject(project)
+	if stored == active {
+		return true
+	}
+	// A project may be reopened through a junction, symlink, or another
+	// equivalent absolute path across review builds. Keep project-scoped plugin
+	// persistence tied to the actual directory rather than the spelling of the
+	// path while still preventing leakage into unrelated projects.
+	storedInfo, storedErr := os.Stat(config.Project)
+	activeInfo, activeErr := os.Stat(project)
+	return storedErr == nil && activeErr == nil && os.SameFile(storedInfo, activeInfo)
 }
 
 func pluginKey(config pluginConfig) string {
