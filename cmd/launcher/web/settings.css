@@ -291,32 +291,22 @@ body { font-size: var(--tl-ui-base); }
 .plugin-form-grid textarea { font-size: var(--tl-code-size); line-height: 1.55; }
 .plugin-form-grid small { font-size: var(--tl-ui-xs); }
 .plugin-arguments-field {
-  gap: 7px !important;
-  padding: 10px 11px 11px;
-  border: 1px solid color-mix(in srgb,var(--accent),var(--line) 78%);
-  border-radius: 10px;
-  background: color-mix(in srgb,var(--panel-2),var(--panel) 48%);
-}
-.plugin-arguments-field > span {
-  color: var(--text);
+  gap: 5px !important;
 }
 .plugin-arguments-field textarea {
   min-height: 112px;
   padding: 10px 11px;
-  border: 1px solid color-mix(in srgb,var(--accent),var(--line) 72%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: var(--panel-3);
-  transition: border-color .14s ease, box-shadow .14s ease, background .14s ease;
+  transition: border-color .14s ease, background .14s ease;
 }
 .plugin-arguments-field textarea:focus {
   outline: none;
-  border-color: var(--accent);
-  background: var(--panel);
-  box-shadow: 0 0 0 2px color-mix(in srgb,var(--accent),transparent 82%);
+  border-color: color-mix(in srgb,var(--text),var(--line) 82%);
+  background: var(--panel-2);
 }
 .plugin-arguments-field textarea::placeholder {
   color: color-mix(in srgb,var(--muted),transparent 8%);
   opacity: 1;
-}
-.plugin-arguments-field small {
-  padding: 0 1px;
 }
