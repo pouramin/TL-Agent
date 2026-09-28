@@ -6,7 +6,6 @@ icon: Network
 
 Stable v0.5 is a **single TL Studio local application** with embedded Browser assets and a fully native coding-agent core.
 
-There is no secondary local coding runtime below the product.
 
 ```text
 Browser Workspace
@@ -45,7 +44,7 @@ Normal startup:
 4. binds the control server to loopback;
 5. opens the Browser unless `--no-browser` is set.
 
-There is no second local coding-runtime server to start and no reverse proxy between the Browser and an underlying Agent service.
+The Browser communicates directly with TL Studio-owned local product domains.
 
 ## Local product domains
 
@@ -109,7 +108,7 @@ Unsupported Provider protocols or capabilities fail explicitly.
 
 TL Studio owns Session creation, selection, rename/delete, run/abort, status, Messages, activity, usage metadata, Changes, and persistence.
 
-There is no live Session adapter translating another engine's Session model.
+Session state is represented directly by TL Studio's semantic Session model.
 
 ## Native Questions and Permissions
 
