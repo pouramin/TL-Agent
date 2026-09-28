@@ -83,7 +83,7 @@ func TestJevRouterRegistersAndResolvesThroughExistingProviderRegistry(t *testing
 		t.Fatal(err)
 	}
 	manager := &providerManager{store: store, credentials: credentials}
-	provider, model, key, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
+	provider, model, key, err := manager.resolveNativeModel(context.Background(), "openrouter", jevRouterModelID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestOpenRouterJevRouterResolvesWithoutCatalogToolFlag(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager := &providerManager{store: store, credentials: credentials}
-	_, model, key, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
+	_, model, key, err := manager.resolveNativeModel(context.Background(), "openrouter", jevRouterModelID)
 	if err != nil {
 		t.Fatalf("Jev Router must stay on TL Studio's native Agent path even when catalog tool metadata is absent: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestDisabledJevRouterCannotResolveForNativeExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	manager := &providerManager{store: store, credentials: credentials}
-	_, _, _, err := manager.resolveNativeModel("openrouter", jevRouterModelID)
+	_, _, _, err := manager.resolveNativeModel(context.Background(), "openrouter", jevRouterModelID)
 	if err == nil || !strings.Contains(err.Error(), "JEV is disabled") {
 		t.Fatalf("disabled JEV must not resolve for native execution, got %v", err)
 	}
