@@ -148,6 +148,7 @@ func startCodexAppServer(command codexCommand) (*codexAppServer, error) {
 			"title": "TL Studio",
 			"version": strings.TrimSpace(version),
 		},
+		"capabilities": nil,
 	}, &initialized); err != nil {
 		server.Close()
 		return nil, fmt.Errorf("initialize official Codex app-server: %w", err)
