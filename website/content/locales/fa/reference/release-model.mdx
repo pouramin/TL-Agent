@@ -1,28 +1,37 @@
 ---
 title: Release
-description: Stable Release، npm Launcher و Package Content در TL Studio v0.5.
+description: آشنایی با Stable Release، Development Preview، npm Launcher و Package Validation در TL Studio.
 icon: PackageCheck
 ---
 
-نسخه Stable فعلی:
+کانال‌های فعلی انتشار:
 
-```text
-v0.5.0
-```
+~~~text
+Stable:      v0.5.0
+Development: v0.6.0-alpha.1
+~~~
 
-## Stable Production
+## نسخهٔ پایدار
 
-Branch `main` خط Stable Production است.
+شاخهٔ main خط Stable Production است.
 
-اجرای سریع:
+اجرای سریع نسخهٔ پایدار:
 
-```bash
+~~~bash
 npx --yes tl-studio
-```
+~~~
 
-پکیج npm یک Launcher سبک و Pin‌شده به GitHub Release متناظر است. Archive درست را برای Platform دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را داخل Project انتخاب‌شده/فعلی اجرا می‌کند.
+پکیج npm یک Launcher سبک و Pin‌شده به GitHub Release متناظر است. Archive درست را برای Platform دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را داخل Project انتخاب‌شده یا فعلی اجرا می‌کند.
 
-Stable npm Workflow فقط Version غیرPrerelease را از `main` روی Dist-tag به نام `latest` Publish می‌کند.
+Workflow پایدار npm فقط Version غیرPrerelease را از main روی Dist-tag به نام latest منتشر می‌کند.
+
+## Development Preview
+
+شاخهٔ dev خط توسعهٔ نسخهٔ بعدی است.
+
+Preview Build جدا از Stable Release ساخته می‌شود و برای Validation قبل از Promotion استفاده می‌شود. این Buildها npm پایدار یا GitHub Release پایدار را تغییر نمی‌دهند.
+
+خط فعلی v0.6.0-alpha.1 شامل توسعهٔ Account Providerها و Transport بومی Gemini است.
 
 ## Portable Build
 
@@ -34,21 +43,22 @@ Stable Release برای این Platformها ساخته می‌شود:
 - macOS Intel x64؛
 - macOS Apple Silicon ARM64.
 
-Package شامل Executable خود TL Studio، License/Noticeها و Bundled Plugin نسخه‌ثابت Configure‌شده برای همان Release است.
-
-
-Bundled Plugin Manifest فعلی خالی است و Third-party Bundled Plugin داخل v0.5.0 توزیع نمی‌شود.
+Package شامل Executable خود TL Studio، License/Noticeها و هر Bundled Plugin نسخه‌ثابتی است که برای همان Release تنظیم شده باشد.
 
 ## Release Validation
 
-Release Pipeline:
+Validation مربوط به Release و Preview، بسته به نوع Build، شامل این موارد است:
 
-- Browser Asset را Install/Build می‌کند؛
-- Browser TypeScript را Type-check می‌کند؛
-- Go Test اجرا می‌کند؛
-- Launcher مربوط به Platformها را Build می‌کند؛
-- Bundled Plugin نسخه‌ثابت را Stage می‌کند؛
-- Native Product Contract را روی Executable ساخته‌شده اجرا می‌کند؛
-- SHA-256 Checksum تولید می‌کند.
+- Type-check مربوط به Browser TypeScript؛
+- Build نهایی Browser؛
+- Go Test و Vet؛
+- Cross-build برای Platformهای پشتیبانی‌شده؛
+- Native Product Contract؛
+- Custom Provider Contract؛
+- Browser Smoke؛
+- Agent/runtime E2E؛
+- Regression Testهای Provider؛
+- Windows Review Package؛
+- SHA-256 Checksum برای Stable Release.
 
-CI همچنین Go Vet، Browser JavaScript Syntax، Local Monaco Asset، npm Launcher، Native Browser Smoke، Provider Contract، Plugin Staging و Regression Testها را پوشش می‌دهد.
+در CI از Credential واقعی User استفاده نمی‌شود.
