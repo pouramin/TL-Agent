@@ -47,6 +47,20 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		}
 	}
 
+	editorIndex := strings.Index(index, `id="pluginEditor"`)
+	listIndex := strings.Index(index, `id="pluginList"`)
+	if editorIndex < 0 || listIndex < 0 || editorIndex > listIndex {
+		t.Fatal("plugin editor must render before the plugin list so Add/Configure never opens below a long list")
+	}
+	for _, expected := range []string{
+		`editor.scrollIntoView({ behavior: "smooth", block: "start" })`,
+		`nameInput.focus({ preventScroll: true })`,
+	} {
+		if !strings.Contains(source, expected) {
+			t.Fatalf("plugin editor focus behavior is missing %q", expected)
+		}
+	}
+
 	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
 	if err != nil { t.Fatal(err) }
 	css := string(cssData)
@@ -58,6 +72,7 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		".plugin-form-grid input::placeholder,",
 		"color: #606975;",
 		"border-color: #485260;",
+		".plugin-editor { margin: 0 0 16px; padding: 14px;",
 		".plugin-empty { display: grid; gap: 3px; padding: 11px 13px;",
 	} {
 		if !strings.Contains(css, expected) {
