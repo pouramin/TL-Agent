@@ -61,11 +61,14 @@ Providerهای فعال:
 
 - OpenRouter؛
 - Hugging Face؛
-- Google / Gemini.
+- Google / Gemini؛
+- ChatGPT / Codex.
 
 برای Gemini فعلاً قبل از Sign-in باید Google Cloud Project ID و Desktop OAuth Client ID غیرمحرمانه تنظیم شوند.
 
-Entryهای Deferred مثل ChatGPT/Codex، Claude و GitHub Copilot دیده می‌شوند اما غیرفعال هستند.
+برای ChatGPT از Login رسمی OpenAI Codex استفاده می‌شود. TL Studio ابتدا codex روی PATH را پیدا می‌کند، در صورت نیاز می‌تواند از npx @openai/codex استفاده کند و امکان تنظیم مسیر مستقیم Codex Executable هم در Provider Settings وجود دارد.
+
+Entryهای Deferred مربوط به Claude و GitHub Copilot دیده می‌شوند اما غیرفعال هستند.
 
 ## اجرای Agent
 
