@@ -1,6 +1,6 @@
 ---
 title: مدل Security
-description: Network، Filesystem، Provider، Plugin/MCP، Credential، Permission، Session و Preview Boundary در TL Studio v0.5.
+description: Network، Filesystem، Model Connection، Plugin/MCP، Credential، Permission، Session و Preview Boundary در TL Studio v0.5.
 icon: ShieldCheck
 ---
 
@@ -48,11 +48,11 @@ Credential Backend:
 
 ## Provider Discovery Boundary
 
-Remote Model Discovery، Provider را یک External Trust Boundary در نظر می‌گیرد.
+Remote Model Discovery، Endpoint تنظیم‌شده را یک Trust Boundary جدا در نظر می‌گیرد.
 
 TL Studio، HTTP(S) Base URL را Validate می‌کند، Embedded Credential داخل URL را Reject می‌کند، Cross-origin Redirect را Block می‌کند، Redirect Depth و Request/Response را محدود می‌کند و Authentication Failure را پشت Stale Cache پنهان نمی‌کند.
 
-Provider Request همچنان Data را به External Endpoint تنظیم‌شده می‌فرستد؛ فقط Endpoint قابل‌اعتماد Configure کنید.
+Model Request همچنان Data را به Endpoint تنظیم‌شده می‌فرستد؛ فقط Endpoint قابل‌اعتماد Configure کنید.
 
 ## Plugin/MCP Trust Boundary
 
@@ -82,16 +82,8 @@ Project Web Content داخل Preview روی Privileged Control Origin مربوط
 
 Static/File Preview روی Loopback Origin جداست، Node Preview فقط Local URL را می‌پذیرد و File Server فقط Read است.
 
-## JEV و OpenRouter
-
-JEV/OpenRouter اختیاری است و از OpenRouter Credential خود User استفاده می‌کند.
-
-Jev Router قبل از Active شدن Account/Key State را بررسی می‌کند.
-
-Decision Engine پولی و جداگانه به‌صورت پیش‌فرض Off است و Enable صریح می‌خواهد؛ در v0.5 به‌صورت خودکار Agent Routing یا Permission Policy را کنترل نمی‌کند.
-
 ## بدون Telemetry یا Model Proxy متعلق به Product
 
 TL Studio به Telemetry Backend، Model Proxy، Remote Workspace Service یا Database متعلق به پروژه نیاز ندارد.
 
-Network Access از Provider صریح User، Integration اختیاری، Package/Release Distribution و رفتار Plugin Configure‌شده ایجاد می‌شود.
+Network Access از Model Endpoint صریح User، Package/Release Distribution و رفتار Plugin Configure‌شده ایجاد می‌شود.
