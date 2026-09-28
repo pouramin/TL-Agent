@@ -7,9 +7,6 @@ import { K } from "./kernel";
   K.__providerAccountsUiInstalled = true;
 
   const clean = (value: any) => String(value ?? "").trim();
-  const parseDeviceCode = (input: any) => clean(input).match(/code:\s*([A-Z0-9-]+)/i)?.[1]?.toUpperCase()
-    || clean(input).match(/\b[A-Z0-9]{4,}(?:-[A-Z0-9]{3,})+\b/i)?.[0]?.toUpperCase()
-    || "";
 
   const settingsDialog = document.getElementById("settingsDialog") as HTMLDialogElement | null;
   const panel = settingsDialog?.querySelector<HTMLElement>('[data-settings-panel="providers"]');
@@ -21,12 +18,12 @@ import { K } from "./kernel";
   section.innerHTML = `
     <div class="provider-subsection-head">
       <div>
-        <strong>Account providers</strong>
-        <span>Sign in with a provider account when an official supported integration is available.</span>
+        <strong>Account connections</strong>
+        <span>Connect supported provider accounts. Subscription access and API billing are shown separately when they differ.</span>
       </div>
     </div>
     <div id="providerAccountList" class="provider-account-list"></div>
-    <div class="provider-section-divider"><span>API providers</span></div>
+    <div class="provider-section-divider"><span>API configuration</span></div>
   `;
   providerList.before(section);
 
@@ -44,6 +41,7 @@ import { K } from "./kernel";
     .provider-account-title strong{font-size:11px}
     .provider-account-badge{display:inline-flex;align-items:center;height:18px;padding:0 6px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:8px}
     .provider-account-meta{margin-top:4px;color:var(--muted);font-size:9px;line-height:1.45}
+    .provider-account-reason{margin-top:3px;color:var(--muted);font-size:8px;line-height:1.45}
     .provider-account-actions{display:flex;gap:6px;align-items:center}
     .provider-account-unavailable{opacity:.72}
     .provider-section-divider{display:flex;align-items:center;gap:10px;margin:3px 0 1px;color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
@@ -54,14 +52,27 @@ import { K } from "./kernel";
 
   const accountList = document.getElementById("providerAccountList")!;
   let loading = false;
+  let activeProviderID = "";
+
+  const stateLabel = (account: TLStudioProviderAccount) => {
+    switch (account.state) {
+      case "connecting": return "Connecting";
+      case "connected": return "Connected";
+      case "expired": return "Expired";
+      case "needs_reauthentication": return "Needs reauthentication";
+      case "error": return "Error";
+      default: return account.available ? "Not connected" : "Unavailable";
+    }
+  };
 
   const statusText = (account: TLStudioProviderAccount) => {
-    if (!account.available) return "Unavailable";
-    if (account.connected) {
-      const details = [account.accountType, account.organizationId].filter(Boolean).join(" · ");
-      return details ? `Connected · ${details}` : "Connected";
-    }
-    return "Not connected";
+    const details = [
+      stateLabel(account),
+      account.accountLabel,
+      account.accountType,
+      account.entitlement,
+    ].filter(Boolean);
+    return details.join(" · ");
   };
 
   const syncConnectedProviders = () => {
@@ -114,16 +125,29 @@ import { K } from "./kernel";
       meta.textContent = [statusText(account), description].filter(Boolean).join(" · ");
       copy.append(title, meta);
 
+      if (account.unsupportedReason) {
+        const reason = document.createElement("div");
+        reason.className = "provider-account-reason";
+        reason.textContent = account.unsupportedReason;
+        copy.appendChild(reason);
+      }
+
       const actions = document.createElement("div");
       actions.className = "provider-account-actions";
       if (account.connected) {
+        const reconnect = document.createElement("button");
+        reconnect.type = "button";
+        reconnect.className = "ghost small";
+        reconnect.textContent = "Reconnect";
+        reconnect.addEventListener("click", () => { void connectAccount(account); });
+
         const disconnect = document.createElement("button");
         disconnect.type = "button";
         disconnect.className = "ghost small provider-delete";
         disconnect.dataset.providerAccountAction = "disconnect";
         disconnect.textContent = "Sign out";
         disconnect.addEventListener("click", () => { void disconnectAccount(account); });
-        actions.appendChild(disconnect);
+        actions.append(reconnect, disconnect);
       } else {
         const connect = document.createElement("button");
         connect.type = "button";
@@ -131,7 +155,7 @@ import { K } from "./kernel";
         connect.dataset.providerAccountAction = "connect";
         connect.textContent = `Sign in with ${account.name || account.id}`;
         connect.disabled = !account.available;
-        if (!account.available) connect.title = "This account integration needs its optional compatibility adapter.";
+        if (!account.available) connect.title = account.unsupportedReason || "This account integration is not available.";
         connect.addEventListener("click", () => { void connectAccount(account); });
         actions.appendChild(connect);
       }
@@ -172,9 +196,12 @@ import { K } from "./kernel";
     if (!account.available) return;
     K.showError("");
     K.state.authController?.abort();
+
     const controller = new AbortController();
     K.state.authController = controller;
     K.state.authURL = "";
+    K.state.authLoginID = "";
+    activeProviderID = account.id;
 
     const title = K.els.authDialog.querySelector("h2");
     if (title) title.textContent = `Sign in with ${account.name || account.id}`;
@@ -185,18 +212,24 @@ import { K } from "./kernel";
     K.els.authDialog.showModal();
 
     try {
-      const info = await K.api.providerAccounts.authorize(account.id) || {};
-      K.state.authURL = clean(info.url);
+      const info = await K.api.providerAccounts.authorize(account.id);
+      K.state.authLoginID = clean(info.loginId);
+      K.state.authURL = clean(info.authorizationUrl || info.verificationUrl);
       K.els.authInstructions.textContent = clean(info.instructions) || "Authorization is ready. Open the sign-in page to continue.";
-      const code = parseDeviceCode(info.instructions);
-      if (code) {
-        K.els.authCode.textContent = code;
-        K.els.authCodeWrap.classList.remove("hidden");
-      }
       K.els.authOpen.disabled = !K.state.authURL;
 
-      await K.api.providerAccounts.callback(account.id, controller.signal);
+      if (info.userCode) {
+        K.els.authCode.textContent = clean(info.userCode);
+        K.els.authCodeWrap.classList.remove("hidden");
+      }
+      if (K.state.authURL && info.flow === "authorization_code_pkce") {
+        window.open(K.state.authURL, "_blank", "noopener,noreferrer");
+      }
+
+      await K.api.providerAccounts.complete(account.id, K.state.authLoginID, controller.signal);
       K.state.authController = null;
+      K.state.authLoginID = "";
+      activeProviderID = "";
       K.els.authInstructions.textContent = "Signed in successfully.";
       await refreshProviderSurfaces();
       window.setTimeout(() => { if (K.els.authDialog.open) K.els.authDialog.close(); }, 650);
@@ -205,6 +238,18 @@ import { K } from "./kernel";
         K.els.authInstructions.textContent = `Sign-in failed: ${error instanceof Error ? error.message : String(error)}`;
       }
       try { await load(); } catch {}
+    }
+  };
+
+  const cancelActiveLogin = async () => {
+    const providerID = activeProviderID;
+    const loginID = K.state.authLoginID;
+    K.state.authController?.abort();
+    K.state.authController = null;
+    K.state.authLoginID = "";
+    activeProviderID = "";
+    if (providerID && loginID) {
+      try { await K.api.providerAccounts.cancel(providerID, loginID); } catch {}
     }
   };
 
@@ -226,13 +271,10 @@ import { K } from "./kernel";
   const open = async () => {
     if (typeof K.activateSettingsSection === "function") K.activateSettingsSection("providers");
     if (!settingsDialog.open) settingsDialog.showModal();
-    await Promise.allSettled([
-      K.__providersUi?.reload?.(),
-      load(),
-    ]);
+    await Promise.allSettled([K.__providersUi?.reload?.(), load()]);
   };
 
-  K.__providerAccountsUi = { load, render, open, connectAccount, disconnectAccount };
+  K.__providerAccountsUi = { load, render, open, connectAccount, disconnectAccount, cancelActiveLogin };
   K.openProviderAccounts = open;
 
   const previousRenderAccount = K.renderAccount;
