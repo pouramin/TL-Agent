@@ -75,24 +75,24 @@ Credential دستی API و Credential حساب در Slotهای جداگانه ن
 
 Secretها وارد Browser Storage یا Provider JSON عادی نمی‌شوند.
 
-## Providerهای حسابی — Development Preview نسخهٔ 0.6
+## روش اتصال Providerها — Development Preview نسخهٔ 0.6
 
-| Provider | وضعیت | Integration |
+| Provider | روش پیش‌فرض | Integration |
 | --- | --- | --- |
-| **OpenRouter** | ✅ فعال | OAuth + PKCE رسمی، Credential حساب و Model Discovery |
-| **Hugging Face** | ✅ فعال | Public-client OAuth + PKCE، Refresh و Inference Providers Discovery |
-| **Google / Gemini** | ✅ فعال | Installed-app OAuth + PKCE، Refresh/Revocation و Transport بومی Gemini |
-| **ChatGPT / Codex** | ✅ فعال | Login رسمی Codex، Model Discovery مبتنی بر پلن ChatGPT و Provider Bridge ایزوله |
-| **Claude account** | ⏳ Deferred | منتظر قرارداد عمومی و مستند برای Third-party Consumer Account Authorization |
-| **GitHub Copilot** | ⏳ Deferred | مسیر رسمی فعلی Model Access همچنان به Copilot SDK/runtime وابسته است |
+| **ChatGPT / Codex** | ✅ Account sign-in | Login رسمی Codex، Model Discovery مبتنی بر پلن ChatGPT و Provider Bridge ایزوله |
+| **GitHub Copilot** | ⏳ Account sign-in | جایگاه اتصال حساب آماده است اما مسیر Model هنوز Deferred است |
+| **Claude / Anthropic** | ✅ API key | Preset مربوط به Anthropic Messages API |
+| **Google / Gemini** | ✅ API key | Preset رسمی Gemini API سازگار با OpenAI |
+| **Hugging Face** | ✅ API token | Preset مربوط به Inference Providers سازگار با OpenAI |
+| **OpenRouter** | ✅ API key | Preset مربوط به OpenRouter سازگار با OpenAI |
+
+کارت‌های مبتنی بر API، Provider Editor فعلی را با Endpoint و Protocol آماده باز می‌کنند و فقط به‌خاطر نداشتن Consumer OAuth غیرفعال نمی‌شوند.
 
 احراز هویت ChatGPT در اختیار Client رسمی OpenAI Codex و داخل `CODEX_HOME` ایزولهٔ مخصوص TL Studio باقی می‌ماند. TL Studio هیچ OAuth Token خام، Browser Cookie، Private Session Token یا Backend Credential مستندنشدهٔ ChatGPT را نمی‌خواند یا کپی نمی‌کند.
 
 برای Model Turnهای مبتنی بر پلن ChatGPT، برنامه Codex CLI رسمی را در Working Directory موقت و خالی، بدون User/Project Codex Config، با Sandbox فقط‌خواندنی، Approval Policy برابر `never` و Web Search غیرفعال اجرا می‌کند. خروجی ساختاریافته به متن Assistant یا TL Studio Tool Call تبدیل می‌شود و اجرای Tool و Permission همچنان داخل TL Studio انجام می‌شود.
 
 اگر `codex` روی PATH موجود نباشد، نسخهٔ Alpha می‌تواند از `npx @openai/codex` استفاده کند یا مسیر Codex Executable به‌صورت دستی در Provider Settings تنظیم شود.
-
-Providerهای Deferred عمداً در Settings دیده می‌شوند و به‌عنوان Runtime Credential Source ثبت نمی‌شوند.
 
 ## تنظیم Gemini
 

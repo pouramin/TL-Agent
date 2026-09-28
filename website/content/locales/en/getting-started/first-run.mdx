@@ -55,20 +55,21 @@ Provider definitions and credentials are stored separately.
 
 ## Development account sign-in
 
-In the v0.6 development line, the same Providers page also exposes account-backed integrations.
+In the v0.6 development line, the compact Provider cards choose the right connection mode automatically.
 
-Available:
+Account sign-in:
+- ChatGPT / Codex;
+- GitHub Copilot (model integration still deferred).
 
-- OpenRouter;
-- Hugging Face;
+API credential setup:
+- Claude / Anthropic;
 - Google / Gemini;
-- ChatGPT / Codex.
+- Hugging Face;
+- OpenRouter.
 
-Gemini currently requires non-secret Google Cloud Project ID and Desktop OAuth Client ID setup before sign-in.
+Clicking an API-based card opens the existing Provider editor with its endpoint/protocol preset and automatic model discovery.
 
 ChatGPT uses OpenAI's official Codex login. TL Studio auto-detects codex on PATH, can use npx @openai/codex, or accepts an explicit Codex executable path in Provider Settings.
-
-Deferred entries for Claude and GitHub Copilot remain visible but disabled.
 
 ## Run the Agent
 
