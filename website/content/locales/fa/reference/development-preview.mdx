@@ -1,60 +1,34 @@
 ---
-title: خط Development
-description: وضعیت dev بعد از Stable v0.3.0 و Boundary فاز 3.
+title: کانال Development
+description: وضعیت فعلی main/dev و مدل نگه‌داری Development خصوصی در TL Studio.
 icon: FlaskConical
 ---
 
-نسخه Production فعلی:
+نسخه Stable فعلی:
 
 ```text
-v0.3.0
+v0.5.0
 ```
 
-Branch خصوصی Development برای نسخه بعدی با این Version باز شده است:
+در زمان این Documentation Refresh، Branchهای `main` و `dev` روی همان Commit Validate‌شده مربوط به Release v0.5.0 قرار دارند.
 
-```text
-v0.4.0-alpha.1
-```
+بنابراین **فعلاً Feature Set مربوط به نسخه بعدی وجود ندارد که مستند شود.**
 
-## وضعیت فعلی
+## Branch Discipline
 
-**پیاده‌سازی فاز 3 هنوز شروع نشده است.**
+- `main` فقط Stable Production است؛
+- `dev` خط Integration برای Development Cycle بعدی است؛
+- Feature/Fix Branch از `dev` شروع می‌شود؛
+- Experimental Work تا Stable Promotion آگاهانه وارد `main` نمی‌شود.
 
-این Branch فقط خط Alpha خصوصی بعدی را مشخص می‌کند؛ فاز 2 قبلاً Validate و وارد Stable v0.3.0 شده است. در حال حاضر Feature مخصوص v0.4 وجود ندارد که به‌عنوان قابلیت پیاده‌سازی‌شده مستند شود.
+## Development Build خصوصی
 
-## چیزهایی که فاز 2 کامل کرد
+وقتی `dev` دوباره جلو برود، Build آزمایشی از **Preview Build** در GitHub Actions استفاده می‌کند و Stable npm `latest` را تغییر نمی‌دهد.
 
-Baseline پایدار v0.3 حالا مالک این بخش‌هاست:
+Workflow فعلی Review ZIP مربوط به Windows x64 می‌سازد و Artifact را 14 روز نگه می‌دارد.
 
-- Browser IDE و Workspace Local؛
-- Monaco Editor؛
-- File Management، Project Search، Terminal و Preview؛
-- Provider/Model Registry و Credential Vault؛
-- Tool Registry و Core Tool Executor در Native Path؛
-- Permission Policy در Scope Project؛
-- Session Read/Command/Persistence و Execution Ownership؛
-- Question و Live Eventهای Semantic؛
-- Direct Model Execution برای Custom Providerهای پشتیبانی‌شده؛
-- Native Model/Tool/Model Agent Loop؛
-- Cancellation و Loop Guard.
+## Rule مربوط به Documentation
 
-## وابستگی Compatibility باقی‌مانده
+Public Site اول Stable Behavior را مستند می‌کند.
 
-Engine شخص ثالث همراه برنامه هنوز برای Hosted Authentication/Model، Legacy Provider Resolve‌نشده، Runtime-only Capability و رفتار Compatibility تحت Regression Test لازم است.
-
-بنابراین هنوز درست نیست بگوییم Compatibility Engine کاملاً قابل حذف شده است.
-
-## جهت فاز 3
-
-مرحله معماری بعدی باید مشخص کند کدام Capabilityهای Compatibility-only وارد Native TL Studio شوند و آیا یا چه زمانی Startup بتواند Engine شخص ثالث را Optional کند، به‌جای اینکه همیشه Bundle/Start شود.
-
-این‌ها Goal فاز بعدی هستند، نه Feature پیاده‌سازی‌شده.
-
-## توزیع Preview
-
-Development خصوصی باقی می‌ماند:
-
-- Alpha روی npm Publish نمی‌شود؛
-- GitHub Prerelease عمومی ندارد؛
-- تست از Preview Build Artifactهای GitHub Actions انجام می‌شود؛
-- مسیر Stable با `latest` و GitHub Release تا Promotion تغییر نمی‌کند.
+بخش Development آینده فقط وقتی اضافه می‌شود که Behavior واقعی و Unreleased داخل Repository وجود داشته باشد. Version یا Capability آینده نباید از قبل ساخته شود.

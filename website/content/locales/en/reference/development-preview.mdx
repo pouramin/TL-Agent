@@ -1,56 +1,34 @@
 ---
-title: Development line
-description: Current dev status after stable v0.3.0 and the next Phase 3 boundary.
+title: Development channel
+description: Understand the current main/dev state and how TL Studio keeps unreleased work private.
 icon: FlaskConical
 ---
 
-Stable production is **v0.3.0**.
-
-The private development branch has been reopened as:
+Current stable production:
 
 ```text
-v0.4.0-alpha.1
+v0.5.0
 ```
 
-## Current status
+At the time of this documentation refresh, `main` and `dev` point to the same validated v0.5.0 release commit.
 
-**Phase 3 implementation has not started yet.**
+There is therefore **no active next-version feature set to document yet**.
 
-The branch currently marks the next private alpha line after Phase 2 was validated and promoted to v0.3.0. There is no v0.4-only feature set to document as implemented today.
+## Branch discipline
 
-## What Phase 2 completed
+- `main` is stable production;
+- `dev` is the integration line for the next development cycle;
+- feature/fix branches start from `dev`;
+- experimental work does not enter `main` until deliberate stable promotion.
 
-The stable v0.3 baseline now owns:
+## Private development builds
 
-- Browser IDE and local Workspace;
-- Monaco Editor;
-- file management, Project Search, Terminal, and Preview;
-- Provider/Model registry and credential vault;
-- Tool Registry and native core Tool Executor;
-- Project-scoped Permission policy;
-- semantic Session reads, commands, persistence, and execution ownership;
-- semantic Questions and live events;
-- direct model execution for supported custom Providers;
-- the native model/tool/model Agent loop;
-- cancellation and loop guards.
+When `dev` advances again, experimental builds use GitHub Actions **Preview Build** artifacts rather than the stable npm `latest` channel.
 
-## Remaining compatibility dependency
+The current Preview workflow produces a Windows x64 review ZIP and retains it for 14 days.
 
-A bundled third-party engine is still required for hosted authentication/models, unresolved legacy Provider configurations, runtime-only capabilities, and compatibility behavior covered by existing regression tests.
+## Documentation rule
 
-It is **not** accurate to claim that the compatibility engine is fully removable yet.
+The public site documents stable behavior first.
 
-## Phase 3 direction
-
-The next architecture phase is to decide which remaining compatibility-only capabilities should become TL Studio-native and whether/when launcher startup can make the third-party engine optional instead of always bundled/started.
-
-Those are next-phase goals, not implemented features.
-
-## Preview distribution
-
-Development work stays private:
-
-- no npm alpha publishing;
-- no public GitHub prerelease;
-- GitHub Actions Preview Build artifacts for testing;
-- stable `latest` and stable GitHub Releases remain unchanged until promotion.
+A future development section should appear only after the repository contains real unreleased behavior. Version numbers and planned capabilities must not be invented in advance.

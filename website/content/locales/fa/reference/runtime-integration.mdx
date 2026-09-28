@@ -1,86 +1,85 @@
 ---
-title: Runtime Integration
-description: مرجع Maintainer برای Native Execution در TL Studio v0.3 و Compatibility Engine Boundary باقی‌مانده.
+title: Local Product API
+description: مرجع Maintainer برای Contract بین Browser و Local Core در TL Studio v0.5 بعد از حذف Compatibility Runtime.
 icon: Cable
 ---
 
-نسخه Stable فعلی **Kilo Code 7.6.2** را به‌عنوان Compatibility Engine شخص ثالث و تست‌شده Bundle می‌کند. این Engine هویت عمومی محصول نیست و برای Custom Providerهای پشتیبانی‌شده دیگر مالک اجباری Agent Loop یا Core Coding Tool Execution نیست.
+در TL Studio v0.5، Browser-to-runtime Reverse Proxy وجود ندارد. Browser مستقیم با TL Studio Local Product API کار می‌کند.
 
-## دو Execution Path
+Boundary قدیمی `/runtime/*` دیگر بخشی از معماری فعلی نیست.
 
-در Stable v0.3 مدل اجرا Hybrid است.
+## Route Familyهای اصلی
 
-### Native Path
-
-Custom Provider/Model پشتیبانی‌شده می‌تواند از این مسیر اجرا شود:
+Product Domainهای Browser:
 
 ```text
-TL Studio Session Command
-→ Native Agent Runtime
-→ Direct Model Client
-→ TL Studio Tool Executor
-→ Semantic Persistence / Events
+/local/status
+/local/health
+/local/path
+/local/agents
+/local/project
+/local/pick-directory
+
+/local/providers/*
+/local/provider-accounts*
+/local/jev-router
+/local/decision-engine
+
+/local/sessions*
+/local/questions*
+/local/permissions*
+/local/events
+
+/local/plugins*
+/local/tools
+
+/local/search
+/local/process*
+/local/preview*
 ```
 
-در این مسیر، Compatibility Engine برای Agent Loop یا Core Tool Execution Native استفاده نمی‌شود.
+Feature Moduleهای Browser باید از Typed Browser API Layer و Contractهای خود TL Studio استفاده کنند، نه Backend Behavior پراکنده.
 
-### Compatibility Path
+## Session
 
-Hosted Authentication/Model، Legacy Provider Resolve‌نشده و Runtime-only Capability از Compatibility Adapter عبور می‌کنند.
+`/local/sessions*`، Native Session Read/Mutation شامل Create، Update، Delete، Run، Abort، Message، Status، Usage و Changes را ارائه می‌دهد.
 
-## Runtime Engine Boundary
+## Question و Permission
 
-Launcher یک Boundary عمومی به نام `runtimeEngine` دارد.
+`/local/questions*` وضعیت Native Interactive Question را ارائه می‌دهد.
 
-این مسئولیت‌های Implementation-specific داخل Compatibility Adapter باقی می‌مانند:
+`/local/permissions*` شامل Pending Permission و Remembered Project-scoped Rule است.
 
-- Binary Discovery؛
-- Child-process Startup؛
-- Private Credential؛
-- Project Request Scoping؛
-- Private Request Decoration؛
-- Session/Question Compatibility Translation؛
-- Runtime Event Projection.
+هیچ‌کدام به Request Shape مربوط به Engine دیگری وابسته نیستند.
 
-کد عمومی Product نباید Route Name خصوصی یا Protocol Quirk مخصوص Engine را وارد لایه Browser/Product کند.
+## Event
 
-## Contractهای Browser
+`/local/events` همان Semantic SSE برای Browser Responsiveness است.
 
-Browser برای Session، Question، Permission، Tool، Event، File، Search، Process و Preview از Contractهای Semantic/Local خود TL Studio استفاده می‌کند.
+Source آن Local Event Bus خود TL Studio است.
 
-Routeهای `/runtime/*` فقط برای Capability عمومی Compatibility که هنوز لازم است باقی می‌مانند.
+## Provider
 
-Browser هیچ‌وقت Backend Password مربوط به Compatibility Engine را دریافت نمی‌کند.
+`/local/providers/config` مربوط به Native Provider Registry است.
 
-## Provider Synchronization
+`/local/providers/discover`، Remote Model Discovery محدود و کنترل‌شده را انجام می‌دهد.
 
-Provider Definition و Credential متعلق به TL Studio هستند.
+`/local/provider-accounts*` Adapter Domain برای Official Account-backed Integration آینده است و در v0.5.0 هیچ Account Adapter ثبت نشده است.
 
-در Native Execution، Direct Model Client از داده خود TL Studio استفاده می‌کند.
+## Tool و Plugin
 
-در Compatibility Execution، Launcher فقط هنگام نیاز Provider Definition را Translate و Credential را برای Engine فعال Sync می‌کند.
+`/local/tools`، Tool Registry فعلی را برمی‌گرداند و اگر MCP Plugin فعال باشد Dynamic Tool Descriptor را هم شامل می‌شود.
 
-## Advanced Override
+`/local/plugins*`، Saved Plugin، Enable صریح، Test، Project Attachment و Integration Action را مدیریت می‌کند.
 
-Maintainer می‌تواند Runtime Binary سازگار را مشخص کند:
+## JEV Surface
 
-```bash
-tl-studio --runtime-bin /path/to/runtime
-```
+`/local/jev-router` وضعیت Jev Router اختیاری را کنترل می‌کند.
 
-User معمولی Release به این Option نیاز ندارد، چون Compatibility Engine تست‌شده داخل Package قرار دارد.
+`/local/decision-engine` مربوط به Decision API اختیاری و جداگانه است.
 
-## Compatibility Testing
+## Rule برای Maintainer
 
-قبل از تغییر Engine همراه یا Adapter باید Regression Coverage این موارد را بررسی کند:
+Product Behavior جدید در Browser باید به‌عنوان Local Domain متعلق به TL Studio مدل شود.
 
-- Project Routing؛
-- Hosted Auth/Model؛
-- Session Compatibility؛
-- Permission و Question؛
-- Semantic Live-event Projection؛
-- Provider Configuration/Credential؛
-- Compatibility Tool Execution؛
-- Prompt و Write واقعی روی File.
-
-Testهای Native Agent جداگانه ثابت می‌کنند که Coding با Custom Provider پشتیبانی‌شده می‌تواند از Direct Model + Tool Executor خود TL Studio کامل شود.
+Generic Reverse Proxy به Coding Runtime محلی دیگر نسازید و Engine-specific Protocol Shape را دوباره وارد Browser Feature Module نکنید.

@@ -1,12 +1,12 @@
 ---
 title: TL Studio CLI
-description: Optionهای CLI برای اجرای عادی، Scripted و Compatibility Test.
+description: Optionهای Command Line فعلی در TL Studio v0.5.
 icon: Terminal
 ---
 
-برای استفاده معمول کافی است TL Studio را اجرا کنید و Project را با Folder Picker انتخاب کنید.
+برای استفاده معمول می‌توانید TL Studio را داخل Project اجرا کنید و ادامه کار را از Workspace گرافیکی انجام دهید.
 
-## `--project`
+## انتخاب Project
 
 ```bash
 tl-studio --project /path/to/project
@@ -18,26 +18,30 @@ tl-studio --project /path/to/project
 tl-studio.exe --project "C:\path\to\project"
 ```
 
-Project Path به‌صورت Positional Argument هم پذیرفته می‌شود.
+Positional Project Path هم پذیرفته می‌شود:
 
-## `--no-browser`
+```bash
+tl-studio /path/to/project
+```
 
-اجرای TL Studio بدون بازکردن خودکار Browser:
+## بازنشدن خودکار Browser
 
 ```bash
 tl-studio --no-browser
 ```
 
-## `--listen`
+Local Server همچنان Start می‌شود و آدرس `Local:` در Terminal چاپ می‌شود.
 
-مقدار پیش‌فرض `127.0.0.1` است و TL Studio عمداً Non-loopback Address را قبول نمی‌کند.
-
-## `--runtime-bin`
-
-Override پیشرفته برای Compatibility/Test:
+## Listen Address
 
 ```bash
-tl-studio --runtime-bin /path/to/runtime
+tl-studio --listen 127.0.0.1
 ```
 
-User معمولی Release به این Option نیاز ندارد، چون Agent Engine سازگار همراه TL Studio Bundle شده است. Generic بودن Flag باعث می‌شود Product Boundary به اسم یک Vendor در CLI گره نخورد.
+مقدار پیش‌فرض `127.0.0.1` است.
+
+TL Studio عمداً Non-loopback Listen Address را Reject می‌کند.
+
+## Flagهای Legacy حذف‌شده
+
+در v0.5 نه Runtime Binary Selection وجود دارد و نه Native-only Switch. خود Product حالا Native است و Launch Optionهای مربوط به دوره Compatibility دیگر بخشی از CLI فعلی نیستند.

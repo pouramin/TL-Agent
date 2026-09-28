@@ -1,86 +1,85 @@
 ---
-title: Runtime integration
-description: Maintainer reference for TL Studio v0.3 native execution and the remaining compatibility-engine boundary.
+title: Local product API
+description: Maintainer reference for TL Studio's v0.5 Browser-to-local-core contracts after removal of the compatibility runtime.
 icon: Cable
 ---
 
-The current stable distribution bundles **Kilo Code 7.6.2** as the tested third-party compatibility engine. It is not the public product identity and it is no longer the mandatory owner of the Agent loop or core coding Tool execution for supported TL Studio-managed custom Providers.
+TL Studio v0.5 has no Browser-to-runtime reverse proxy. The Browser talks to the TL Studio local product API.
 
-## Two execution paths
+The old `/runtime/*` boundary is gone from the current architecture.
 
-Stable v0.3 has a hybrid execution model.
+## Core route families
 
-### Native path
-
-A supported custom Provider/Model can run through:
+The Browser-facing product domains include:
 
 ```text
-TL Studio Session command
-→ native Agent runtime
-→ direct model client
-→ TL Studio Tool Executor
-→ semantic persistence/events
+/local/status
+/local/health
+/local/path
+/local/agents
+/local/project
+/local/pick-directory
+
+/local/providers/*
+/local/provider-accounts*
+/local/jev-router
+/local/decision-engine
+
+/local/sessions*
+/local/questions*
+/local/permissions*
+/local/events
+
+/local/plugins*
+/local/tools
+
+/local/search
+/local/process*
+/local/preview*
 ```
 
-The compatibility engine is not asked to perform the Agent loop or native core Tool execution on this path.
+Feature modules should call these TL Studio contracts through the typed Browser API layer rather than constructing ad-hoc backend behavior.
 
-### Compatibility path
+## Sessions
 
-Hosted authentication/models, unresolved legacy Providers, and runtime-only capabilities are translated through the bundled engine adapter.
+`/local/sessions*` owns native Session reads and mutations, including create, update, delete, run, abort, Messages, status, usage, and Changes.
 
-## Runtime engine boundary
+## Questions and Permissions
 
-The launcher owns a generic `runtimeEngine` boundary.
+`/local/questions*` exposes native interactive Question state.
 
-Implementation-specific responsibilities stay in the compatibility adapter:
+`/local/permissions*` exposes pending Permission requests and remembered Project-scoped rules.
 
-- binary discovery;
-- child-process startup;
-- private credentials;
-- Project request scoping;
-- private request decoration;
-- Session/Question compatibility translation;
-- runtime event projection.
+Neither Browser domain depends on another engine's request shape.
 
-Generic product code should not contain private engine route names or protocol quirks.
+## Events
 
-## Browser-facing contracts
+`/local/events` is the semantic SSE stream for Browser responsiveness.
 
-The Browser uses TL Studio semantic/local contracts for Sessions, Questions, Permissions, Tools, Events, Files, Search, Process, and Preview.
+The source is TL Studio's local Event Bus.
 
-`/runtime/*` remains only where a generic compatibility capability is still needed.
+## Providers
 
-Browser code never receives the compatibility-engine backend password.
+`/local/providers/config` is the native Provider registry surface.
 
-## Provider synchronization
+`/local/providers/discover` performs bounded remote Model discovery.
 
-TL Studio owns Provider definitions and credentials.
+`/local/provider-accounts*` is an adapter domain for future official account-backed Provider integrations. v0.5.0 currently has no registered account adapter.
 
-For native execution, the model client uses TL Studio-owned data directly.
+## Tools and Plugins
 
-For compatibility execution, the launcher translates Provider definitions and synchronizes credentials into the active engine only when necessary.
+`/local/tools` returns the current TL Studio Tool Registry, including dynamic MCP Tool descriptors when enabled Plugins are available for the Project.
 
-## Advanced override
+`/local/plugins*` manages saved Plugin definitions, explicit enablement, testing, Project attachment, and product-aware integration actions.
 
-Maintainers can point TL Studio at a compatible runtime binary:
+## JEV surfaces
 
-```bash
-tl-studio --runtime-bin /path/to/runtime
-```
+`/local/jev-router` controls the optional Jev Router state.
 
-Normal release users do not need this option because the tested compatibility engine is bundled.
+`/local/decision-engine` controls the separate optional Decision API configuration/evaluation surface.
 
-## Compatibility testing
+## Maintainer rule
 
-Before changing the bundled engine or adapter, regression coverage must verify:
+New Browser product behavior should be modeled as a TL Studio-owned local domain.
 
-- Project routing;
-- hosted auth/model behavior;
-- Session compatibility;
-- Permissions and Questions;
-- semantic live-event projection;
-- Provider configuration/credentials;
-- compatibility Tool execution;
-- a real prompt/write-file flow.
-
-Native Agent tests separately prove that supported custom-provider coding can complete through TL Studio's direct model + Tool Executor path.
+Do not recreate a generic reverse proxy to another local coding runtime and do not reintroduce engine-specific protocol shapes into Browser feature modules.

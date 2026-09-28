@@ -1,12 +1,12 @@
 ---
 title: TL Studio CLI
-description: Reference TL Studio command-line options for normal, scripted, and compatibility launches.
+description: Reference the v0.5 TL Studio command-line options.
 icon: Terminal
 ---
 
-Most users can run TL Studio and choose a project from the graphical Folder Picker.
+Most users can launch TL Studio from a Project directory and then use the graphical workspace.
 
-## `--project`
+## Project selection
 
 ```bash
 tl-studio --project /path/to/project
@@ -18,26 +18,30 @@ Windows:
 tl-studio.exe --project "C:\path\to\project"
 ```
 
-A positional project path is also accepted.
+A positional Project path is also accepted:
 
-## `--no-browser`
+```bash
+tl-studio /path/to/project
+```
 
-Start TL Studio without automatically opening the default browser:
+## Do not open the Browser
 
 ```bash
 tl-studio --no-browser
 ```
 
-## `--listen`
+TL Studio still starts the local server and prints its `Local:` URL.
 
-The default is `127.0.0.1`. TL Studio intentionally rejects non-loopback listen addresses.
-
-## `--runtime-bin`
-
-Advanced compatibility/testing override:
+## Listen address
 
 ```bash
-tl-studio --runtime-bin /path/to/runtime
+tl-studio --listen 127.0.0.1
 ```
 
-Normal release users do not need this option because the compatible Agent engine is bundled with TL Studio. The generic flag exists so the product boundary is not tied to a vendor-named CLI option.
+The default is `127.0.0.1`.
+
+TL Studio intentionally rejects non-loopback listen addresses.
+
+## Removed legacy flags
+
+v0.5 has no runtime-binary selection and no native-only switch. The product is already native, so those old compatibility-era launch options are not part of the current CLI.
