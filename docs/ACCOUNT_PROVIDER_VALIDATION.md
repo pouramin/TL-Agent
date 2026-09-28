@@ -100,6 +100,31 @@ A production build should eventually ship TL Studio's own registered Desktop OAu
 
 ChatGPT account support uses OpenAI's official Codex login and model surfaces.
 
+### Manual Windows status — 2026-09-29
+
+Core runtime validation passed on the current 0.6 development preview after PR #155.
+
+Verified with a real ChatGPT-plan account on Windows:
+
+- browser authorization completed successfully;
+- account state returned to TL Studio as Connected;
+- ChatGPT-plan models were discovered and selectable;
+- the selected model ID was routed correctly and reported correctly by the bridge;
+- simple warm responses completed in roughly 3–5 seconds after the persistent Codex app-server optimization;
+- project-file read completed through TL Studio Tools;
+- multi-file read and project Search completed through TL Studio Tools;
+- a write operation triggered TL Studio Permission handling and modified only the requested content;
+- a read → write → read continuation completed correctly through the TL Studio model → Tool → model loop;
+- Terminal execution completed through the TL Studio Tool path.
+
+The full ChatGPT/Codex Windows checklist is now closed.
+
+Additional validation completed:
+
+- after fully closing and reopening TL Studio, the ChatGPT account remained connected and the discovered models were still usable;
+- after signing out, fully closing, and reopening TL Studio, the ChatGPT account remained signed out and required a fresh sign-in before use.
+
+
 Prerequisite:
 
 - either `codex` from the official OpenAI Codex CLI is available on PATH;
@@ -122,9 +147,9 @@ Validation:
 12. Run a prompt that requires a TL Studio project-file Tool call.
 13. Approve/reject the TL Studio Permission prompt as appropriate and confirm Tool execution happens through TL Studio rather than Codex modifying the project directly.
 14. Confirm the continuation after the Tool result completes normally.
-15. Restart TL Studio and confirm the ChatGPT account remains usable through the isolated Codex auth store.
-16. Refresh/discover models again and confirm the model catalog still resolves.
-17. Sign out and confirm the account-managed ChatGPT provider disappears from the TL Studio model selector.
+15. ✅ Restart TL Studio and confirm the ChatGPT account remains usable through the isolated Codex auth store.
+16. ✅ Refresh/discover models again and confirm the model catalog still resolves.
+17. ✅ Sign out and confirm the account-managed ChatGPT provider disappears from the TL Studio model selector and remains signed out after restart.
 
 Expected security/product boundary:
 
@@ -165,9 +190,9 @@ Before stable promotion, record:
 - Hugging Face real sign-in result;
 - Google / Gemini real sign-in result;
 - model discovery result for each connected account provider;
-- ChatGPT real account login and plan-backed model result;
-- at least one Native Agent model/tool/model round trip for each provider intended to be declared usable;
-- sign-out/restart behavior;
+- ChatGPT real account login and plan-backed model result — passed on Windows on 2026-09-29;
+- at least one Native Agent model/tool/model round trip for each provider intended to be declared usable — ChatGPT passed on Windows on 2026-09-29;
+- sign-out/restart behavior — ChatGPT passed on Windows on 2026-09-29;
 - any provider-specific limitation that must be documented.
 
 If a real provider rejects a documented flow, keep the integration on dev and record the exact provider error before changing architecture or authentication behavior.

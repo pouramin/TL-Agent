@@ -1,6 +1,6 @@
 # TL Studio work continuity
 
-Last updated: 2026-09-28
+Last updated: 2026-09-29
 
 ## Source of truth
 
@@ -24,7 +24,9 @@ The fully native runtime milestone is complete and released as stable v0.5.0. Th
 
 Current validation state:
 
-Real Windows provider-account validation is in progress on current dev.
+ChatGPT/Codex full Windows validation passed with a real ChatGPT-plan account. Login, model discovery/selection, selected-model identity, project read/search/write, Permission handling, multi-step Tool continuation, Terminal execution, restart persistence, explicit sign-out cleanup, and warm-turn latency were validated. Warm responses are currently about 3–5 seconds with the persistent Codex app-server. After restart the connected account remained usable; after sign-out and restart it remained signed out and required a fresh sign-in.
+
+Real validation for the remaining provider connection modes is still in progress on current dev.
 
 Current open development PR:
 
@@ -32,6 +34,15 @@ None.
 
 Completed 0.6 account-provider / validation UX PRs:
 
+#155 — Keep the ChatGPT Codex app-server warm between turns
+#154 — Reduce ChatGPT turn latency
+#153 — Report the selected ChatGPT model identity correctly
+#152 — Fix ChatGPT Codex model bridge structured output
+#151 — Fix Codex app-server launch on Windows
+#149 — Document provider connection modes
+#148 — Make API-based provider cards configurable
+#147 — Fix the official Codex initialize contract
+#146 — Add the real ChatGPT account validation gate
 #143 — Enable ChatGPT account login through official Codex
 
 #130 — Compact provider account settings into logo cards
@@ -142,9 +153,9 @@ PR #148 changes the compact Provider cards to reflect connection type rather tha
 
 ChatGPT/Codex account support is merged on dev through PR #143. It uses OpenAI's documented Codex surface. Login uses `codex app-server` with the official `account/login/start` ChatGPT browser flow, `account/read`, `account/logout`, and `model/list`. TL Studio uses an isolated `CODEX_HOME`, never imports browser cookies/session tokens, never copies a private OAuth client, and never calls undocumented ChatGPT backend endpoints.
 
-For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-chatgpt`. Each model turn launches the official Codex CLI in ephemeral read-only bridge mode with user/project Codex config and rules ignored, approval policy set to never, web search disabled, and an empty temporary working directory. The bridge receives the TL Studio conversation and TL Studio Tool schemas and must return structured assistant text or TL Studio Tool calls. TL Studio remains authoritative for the outer model → tool → model loop, Tool execution, permissions, project mutations, Session persistence, and semantic events.
+For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-chatgpt`. TL Studio keeps one official Codex app-server warm and reuses it across turns instead of starting a new Codex process for every prompt. Each TL Studio model turn creates an ephemeral structured Codex thread with read-only sandboxing, approval policy `never`, web search disabled, and Codex built-in shell/web/plugin/multi-agent/tool paths disabled. The bridge receives the TL Studio conversation and TL Studio Tool schemas and must return structured assistant text or TL Studio Tool calls. TL Studio remains authoritative for the outer model → tool → model loop, Tool execution, permissions, project mutations, Session persistence, and semantic events.
 
-The ChatGPT adapter auto-detects an installed `codex` executable. When unavailable it can use `npx @openai/codex`; Provider Settings also exposes a non-secret Codex executable override. Tests use a fake Codex executable and no real credentials.
+The ChatGPT adapter auto-detects an installed `codex` executable. When unavailable it can use `npx @openai/codex`; Provider Settings also exposes a non-secret Codex executable override. Windows npm shims are resolved through Node so the official Codex app-server starts reliably. Tests include a fake Codex executable plus a real Windows Codex app-server/CLI contract smoke with no real credentials.
 
 PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. After PR #143 only Claude and GitHub Copilot remain deferred. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
 
@@ -178,7 +189,9 @@ Required evidence before review:
 - Native Permission tests
 - real Browser smoke
 - ChatGPT official-Codex account lifecycle with fake Codex fixture
+- ChatGPT persistent app-server reuse regression test
 - ChatGPT structured model/tool bridge regression test
+- real official Codex app-server/CLI contract smoke on Windows
 - SHA256 for the Windows review package
 
 ## Manual Windows validation
@@ -209,11 +222,13 @@ Manual review should verify:
 
 ## Current manual validation gate
 
-Automated validation is green through PR #143, including fake-Codex account lifecycle and model/tool bridge coverage. Real account validation remains a release gate.
+Automated validation is green through PR #155, including fake-Codex account lifecycle, persistent app-server reuse, model/tool bridge coverage, and real official Codex startup/CLI contract checks on Windows.
+
+Real ChatGPT/Codex validation passed in full on Windows on 2026-09-29. Verified behavior includes browser login, account connection, model discovery/selection, model identity, project read/search/write, TL Studio Permission handling, model → Tool → model continuation, Terminal execution, roughly 3–5 second warm-turn latency, restart persistence, and explicit sign-out persistence.
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
-A Windows x64 review package is produced by CI and should be used for real API-key configuration tests for OpenRouter, Hugging Face, and Google/Gemini, plus real ChatGPT/Codex account sign-in. ChatGPT validation must include a real ChatGPT-plan login, model discovery, a plain response, and at least one TL Studio Tool round-trip. Do not promote dev to stable main until the intended real account integrations have passed this checklist or their remaining limitations have been explicitly accepted and documented.
+A Windows x64 review package is produced by CI and should be used for the remaining real provider checks. The ChatGPT/Codex Windows checklist is complete; validate the intended API-key provider setup paths before promoting dev to stable main. Do not promote dev to main until the intended provider integrations have passed their remaining checklist items or their limitations have been explicitly accepted and documented.
 
 ## Resume protocol
 
