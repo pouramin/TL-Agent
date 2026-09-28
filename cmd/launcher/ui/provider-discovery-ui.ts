@@ -305,9 +305,10 @@ import { K } from "./kernel";
       const discovered = Array.isArray(result?.models) ? result.models : [];
       const existingModels = Array.isArray(existing?.models) ? existing.models : [];
       catalog = mergeCatalog(discovered, existingModels);
-      selectedIDs = new Set(existingModels.map((model: TLStudioDynamicRecord) => clean(model?.id)).filter(Boolean));
+      selectedIDs = existingModels.length
+        ? new Set(existingModels.map((model: TLStudioDynamicRecord) => clean(model?.id)).filter(Boolean))
+        : new Set(catalog.map((model) => clean(model?.id)).filter(Boolean));
       if (preferredModelID && catalog.some((model) => model.id === preferredModelID)) selectedIDs.add(preferredModelID);
-      if (!existingModels.length && catalog.length === 1) selectedIDs.add(catalog[0].id);
       searchInput.value = "";
       lastConnectionKey = key;
       catalogElement.classList.remove("hidden");
@@ -335,6 +336,7 @@ import { K } from "./kernel";
     }
   };
 
+  providersUI.discoverySelection.discover = () => discover();
   providersUI.discoverySelection.discoverModel = (modelID: string) => discover(clean(modelID));
   discoverButton.addEventListener("click", () => { void discover(); });
   searchInput.addEventListener("input", render);
