@@ -1,6 +1,7 @@
 package main
 
-import (\n\t"encoding/json"
+import (
+	"encoding/json"
 	"context"
 	"net/http"
 	"net/http/httptest"
