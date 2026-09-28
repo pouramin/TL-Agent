@@ -186,13 +186,14 @@ func TestCustomProviderSetupStaysSimpleAndAutoDiscoversModels(t *testing.T) {
 func TestProviderAccountBrowserUsesSemanticLoginLifecycle(t *testing.T) {
 	source := readBrowserSource(t, "provider-account-ui.ts")
 	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
+	attention := readBrowserSource(t, "attention.ts")
 	for _, required := range []string{
 		`beginLogin(account.id)`,
 		`pollLogin(account.id, login.loginId`,
 		`cancelLogin(providerID, loginID)`,
 		`needs_reauthentication`,
 	} {
-		if !strings.Contains(source+runtimeAPI, required) {
+		if !strings.Contains(source+runtimeAPI+attention, required) {
 			t.Fatalf("provider account semantic lifecycle missing %q", required)
 		}
 	}
