@@ -49,7 +49,6 @@ go vet ./...
 ## Native Architecture Rule
 
 - Browser Behavior جدید باید از Product Domainهای `/local/*` خود TL Studio استفاده کند.
-- Reverse-proxy Dependency به Coding Runtime محلی دیگر دوباره ایجاد نشود.
 - Provider Definition، Model Discovery، Credential و Direct Model Execution متعلق به TL Studio هستند.
 - Session، Question، Permission و Semantic Event متعلق به TL Studio هستند.
 - Built-in Tool باید Project Filesystem/Search/Process/Permission Infrastructure موجود را Reuse کند.
@@ -57,7 +56,7 @@ go vet ./...
 - Secret داخل JSON Config معمولی یا Browser Storage نرود.
 - Monaco فقط Editor Engine است، نه Filesystem Authority.
 - Project Code در Preview روی Loopback Origin جدا از Privileged Control Server بماند.
-- Editor/Runtime Asset از CDN Load نشود.
+- Editor Asset از CDN Load نشود.
 
 ## Rule مربوط به Plugin/MCP
 
@@ -79,11 +78,11 @@ OAuth Flow مستندنشده یا Private Account Protocol نباید Reverse-e
 
 `main` خط Stable Production و `dev` خط Integration بعدی است.
 
-بلافاصله بعد از Promotion، هر دو روی v0.5.0 Align هستند.
+`main` روی Stable v0.5.0 است. `dev` در حال حاضر `0.6.0-alpha.1` است و Commitهای فعلی آن Version/Release-readiness bookkeeping هستند، نه Feature Set جدید User-facing.
 
 Stable npm Publish از `main` انجام می‌شود و Development تا Promotion از Preview Artifact استفاده می‌کند.
 
-Release/CI Gate معماری Native را Enforce می‌کند و Reference/Binary مربوط به Sidecar منسوخ را در Production Packaging رد می‌کند.
+Release/CI Gate معماری فعلی TL Studio را Enforce و Production Packaging را Validate می‌کند.
 
 ## Documentation Rule
 
