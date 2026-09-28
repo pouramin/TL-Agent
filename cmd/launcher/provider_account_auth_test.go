@@ -231,3 +231,49 @@ func TestProviderAccountBrowserContractHasNoSecretFields(t *testing.T) {
 		}
 	}
 }
+
+
+func TestProviderAccountSetupBrowserContract(t *testing.T) {
+	ui := readBrowserSource(t, "provider-account-ui.ts")
+	api := readBrowserSource(t, "runtime-api.ts")
+	types := readBrowserSource(t, "global.d.ts")
+
+	for _, required := range []string{
+		"providerAccountSetupDialog",
+		"data-provider-setup-field",
+		"account.setup?.configurable",
+		"configureAccount",
+		"These fields contain non-secret provider setup only.",
+	} {
+		if !strings.Contains(ui, required) {
+			t.Fatalf("Provider Account setup UI missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		"/setup",
+		"configureSetup",
+	} {
+		if !strings.Contains(api, required) {
+			t.Fatalf("Provider Account runtime API missing setup contract %q", required)
+		}
+	}
+	for _, required := range []string{
+		"TLStudioProviderAccountSetupSummary",
+		"TLStudioProviderAccountSetupField",
+		"TLStudioProviderAccountSetup",
+	} {
+		if !strings.Contains(types, required) {
+			t.Fatalf("Provider Account Browser types missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"clientSecret",
+		"accessToken",
+		"refreshToken",
+		"codeVerifier",
+	} {
+		if strings.Contains(ui+"\n"+api+"\n"+types, forbidden) {
+			t.Fatalf("Provider Account setup Browser contract must not expose %q", forbidden)
+		}
+	}
+}
