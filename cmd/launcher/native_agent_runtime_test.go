@@ -338,3 +338,18 @@ func TestTerminalTimeoutSchemaExplainsDeadlineNotDelay(t *testing.T) {
 		t.Fatalf("timeoutSeconds description is ambiguous: %q", description)
 	}
 }
+
+
+func TestNativeAgentPromptStopsAfterPermissionRejection(t *testing.T) {
+	prompt := nativeAgentSystemPrompt()
+	for _, required := range []string{
+		"rejected by the user",
+		"Do not retry it",
+		"do not probe for ways around the rejection",
+		"do not reinterpret the rejection as a capability or filesystem-access failure",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("native Agent system prompt missing %q", required)
+		}
+	}
+}
