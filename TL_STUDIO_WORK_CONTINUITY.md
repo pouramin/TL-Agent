@@ -24,14 +24,15 @@ The fully native runtime milestone is complete and released as stable v0.5.0. Th
 
 Current validation branch:
 
-feature/custom-provider-discovery-flow
+feature/account-provider-setup
 
 Current draft PR:
 
-#126 — Keep custom provider setup discovery-first
+#127 — Add in-app setup for account providers
 
 Completed 0.6 account-provider PRs:
 
+#126 — Keep custom provider setup discovery-first
 #125 — Expose deferred account-provider boundaries
 #124 — Google Gemini account provider for 0.6
 #123 — Hugging Face account provider for 0.6
@@ -125,9 +126,9 @@ OpenRouter is the first concrete 0.6 account adapter. It uses the documented Ope
 
 Hugging Face is merged on dev through PR #123. It uses TL Studio's public CIMD identity at https://pouramin.dev/.well-known/oauth-cimd, Authorization Code + PKCE, loopback callbacks, account-vault access/refresh token persistence, automatic refresh in the Provider Account adapter, and the official OpenAI-compatible Inference Providers router. The provider-specific credential lifecycle remains behind ProviderAccountAdapter; the Native Agent receives only the resolved runtime credential.
 
-Google/Gemini is merged on dev through PR #124. The implementation uses the official installed-app OAuth flow with PKCE, refresh and revocation, a Google Cloud quota project, native Gemini generateContent transport, model discovery, and preservation of Gemini thought signatures across tool-call continuation. No client secret is embedded. Production activation still requires a registered TL Studio Google Desktop OAuth client ID; during development the client ID and initial project ID can be supplied through TL_STUDIO_GOOGLE_CLIENT_ID and TL_STUDIO_GOOGLE_PROJECT_ID. The project ID persists in the account-managed provider definition after connection.
+Google/Gemini is merged on dev through PR #124. The implementation uses the official installed-app OAuth flow with PKCE, refresh and revocation, a Google Cloud quota project, native Gemini generateContent transport, model discovery, and preservation of Gemini thought signatures across tool-call continuation. No client secret is embedded. PR #127 adds a generic non-secret Provider Account setup surface so the 0.6 alpha can persist the Desktop OAuth Client ID and Google Cloud Project ID from Provider Settings; TL_STUDIO_GOOGLE_CLIENT_ID and TL_STUDIO_GOOGLE_PROJECT_ID remain development overrides. OAuth access/refresh tokens still live only in the credential vault.
 
-Custom Provider setup is being simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. The current validation branch fixes edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
+Custom Provider setup is simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. PR #126 fixed edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
 
 ChatGPT/Codex account support remains a required 0.6 product goal. Current official OpenAI Codex app-server documentation exposes ChatGPT account login, device-code login, model listing, and Codex thread/turn execution, but no documented raw model transport suitable for preserving TL Studio's Native Agent loop was identified. The OpenAI internal chatgptAuthTokens route is explicitly internal-only and must not be used. TL Studio must not copy OpenCode's private Codex OAuth client or undocumented ChatGPT backend endpoints.
 
