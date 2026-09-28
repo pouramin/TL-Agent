@@ -47,6 +47,9 @@ func (a *fakeProviderAccountAdapter) Refresh(context.Context, string) (providerA
 	a.refreshed = true
 	return a.pollStatus, nil
 }
+func (a *fakeProviderAccountAdapter) ResolveCredential(context.Context, string) (string, error) {
+	return "fake-account-credential", nil
+}
 func (a *fakeProviderAccountAdapter) DiscoverModels(context.Context, string) ([]string, error) {
 	return append([]string(nil), a.models...), nil
 }
