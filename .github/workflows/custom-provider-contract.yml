@@ -57,3 +57,12 @@ jobs:
           done
           test -n "$LOCAL_URL"
           python3 scripts/check-provider-config.py "$LOCAL_URL"
+
+
+  # Compatibility status alias for the current main-branch protection rule.
+  runtime-custom-provider-contract:
+    needs: native-custom-provider-contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm native custom-provider contract
+        run: echo "native-custom-provider-contract passed"
