@@ -11,7 +11,6 @@ import (
 
 func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T) {
 	adapters := []providerAccountAdapter{
-		newChatGPTAccountBoundaryAdapter(),
 		newClaudeAccountBoundaryAdapter(),
 		newGitHubCopilotAccountBoundaryAdapter(),
 	}
@@ -21,11 +20,11 @@ func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 3 {
-		t.Fatalf("expected 3 deferred provider accounts, got %#v", items)
+	if len(items) != 2 {
+		t.Fatalf("expected 2 deferred provider accounts, got %#v", items)
 	}
 
-	wantIDs := []string{"chatgpt", "claude", "github-copilot"}
+	wantIDs := []string{"claude", "github-copilot"}
 	for index, want := range wantIDs {
 		status := items[index]
 		if status.ID != want {
@@ -45,7 +44,6 @@ func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T)
 
 func TestDeferredProviderAccountAdaptersCannotYieldRuntimeCredentials(t *testing.T) {
 	for _, adapter := range []providerAccountAdapter{
-		newChatGPTAccountBoundaryAdapter(),
 		newClaudeAccountBoundaryAdapter(),
 		newGitHubCopilotAccountBoundaryAdapter(),
 	} {
@@ -60,7 +58,6 @@ func TestDeferredProviderAccountAdaptersCannotYieldRuntimeCredentials(t *testing
 
 func TestDeferredProviderAccountStatusHasNoSecretFields(t *testing.T) {
 	service := newProviderAccountService(
-		newChatGPTAccountBoundaryAdapter(),
 		newClaudeAccountBoundaryAdapter(),
 		newGitHubCopilotAccountBoundaryAdapter(),
 	)
@@ -90,28 +87,29 @@ func TestDeferredProviderAccountStatusHasNoSecretFields(t *testing.T) {
 	}
 }
 
-func TestDeferredProvidersStayOutOfRuntimeCredentialRegistry(t *testing.T) {
+func TestOnlyUnresolvedProviderBoundariesStayOutOfRuntimeCredentialRegistry(t *testing.T) {
 	mainSource, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	text := string(mainSource)
 	for _, required := range []string{
-		"newChatGPTAccountBoundaryAdapter()",
+		"chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)",
+		"providerManager.registerAccountAdapter(chatGPTAccount)",
 		"newClaudeAccountBoundaryAdapter()",
 		"newGitHubCopilotAccountBoundaryAdapter()",
 	} {
 		if !strings.Contains(text, required) {
-			t.Fatalf("main.go must expose deferred provider boundary %q", required)
+			t.Fatalf("main.go must expose provider account boundary %q", required)
 		}
 	}
 	for _, forbidden := range []string{
-		"providerManager.registerAccountAdapter(newChatGPTAccountBoundaryAdapter()",
+		"newChatGPTAccountBoundaryAdapter()",
 		"providerManager.registerAccountAdapter(newClaudeAccountBoundaryAdapter()",
 		"providerManager.registerAccountAdapter(newGitHubCopilotAccountBoundaryAdapter()",
 	} {
 		if strings.Contains(text, forbidden) {
-			t.Fatalf("deferred provider must not enter runtime credential resolution: %q", forbidden)
+			t.Fatalf("unexpected deferred/runtime provider wiring %q", forbidden)
 		}
 	}
 }

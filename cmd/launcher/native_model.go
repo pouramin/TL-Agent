@@ -60,10 +60,15 @@ type nativeModelClient interface {
 
 type nativeHTTPModelClient struct {
 	httpClient *http.Client
+	chatGPT    *chatGPTAccountAdapter
 }
 
-func newNativeModelClient() nativeModelClient {
-	return &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
+func newNativeModelClient(chatGPT ...*chatGPTAccountAdapter) nativeModelClient {
+	client := &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
+	if len(chatGPT) > 0 {
+		client.chatGPT = chatGPT[0]
+	}
+	return client
 }
 
 func (m *providerManager) resolveNativeModel(ctx context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
@@ -151,6 +156,11 @@ func (c *nativeHTTPModelClient) Complete(ctx context.Context, request nativeMode
 		return c.completeAnthropic(ctx, request, onTextDelta)
 	case "gemini-generate-content":
 		return c.completeGemini(ctx, request, onTextDelta)
+	case codexChatGPTProviderProtocol:
+		if c.chatGPT == nil {
+			return nativeModelResponse{}, errors.New("ChatGPT account transport is unavailable")
+		}
+		return c.chatGPT.completeModelTurn(ctx, request, onTextDelta)
 	default:
 		return nativeModelResponse{}, fmt.Errorf("unsupported native provider protocol %q", request.Provider.Protocol)
 	}

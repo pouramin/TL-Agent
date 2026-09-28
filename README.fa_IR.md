@@ -226,8 +226,8 @@ normal local API responses
     </tr>
     <tr>
       <td align="right"><strong><span dir="ltr">ChatGPT</span> / <span dir="ltr">Codex</span></strong></td>
-      <td align="right">⏳ <span dir="ltr">Deferred</span></td>
-      <td align="right">همچنان یکی از هدف‌های اصلی 0.6 است، اما سطح رسمی فعلی <span dir="ltr">Transport</span> خام مدل موردنیاز برای حفظ مرز <span dir="ltr">Native Agent</span> را ارائه نمی‌کند.</td>
+      <td align="right">✅ فعال</td>
+      <td align="right"><span dir="ltr">Login</span> رسمی <span dir="ltr">Codex</span>، <span dir="ltr">Model Discovery</span> مبتنی بر پلن <span dir="ltr">ChatGPT</span> و یک <span dir="ltr">Bridge</span> ایزوله که چرخهٔ بیرونی <span dir="ltr">Native Agent</span> و <span dir="ltr">Tool Executor</span> را در اختیار <span dir="ltr">TL Studio</span> نگه می‌دارد.</td>
     </tr>
     <tr>
       <td align="right"><strong><span dir="ltr">Claude account</span></strong></td>
@@ -241,6 +241,12 @@ normal local API responses
     </tr>
   </tbody>
 </table>
+
+<p dir="rtl" align="right">اتصال <span dir="ltr">ChatGPT</span> فقط از Surface رسمی <span dir="ltr">OpenAI Codex CLI/App Server</span> استفاده می‌کند. <span dir="ltr">TL Studio</span> هیچ <span dir="ltr">Cookie</span>، <span dir="ltr">Browser Session</span>، <span dir="ltr">Private OAuth Client</span> یا <span dir="ltr">Backend Token</span> مستندنشده را کپی نمی‌کند. احراز هویت <span dir="ltr">Codex</span> داخل <code dir="ltr">CODEX_HOME</code> ایزولهٔ خود <span dir="ltr">TL Studio</span> باقی می‌ماند و <span dir="ltr">Browser</span> فقط وضعیت معنایی حساب را می‌بیند.</p>
+
+<p dir="rtl" align="right">برای Turnهای مدل مبتنی بر پلن <span dir="ltr">ChatGPT</span>، برنامه <span dir="ltr">Codex CLI</span> رسمی را به‌صورت <span dir="ltr">Ephemeral</span>، <span dir="ltr">Read-only</span> و بدون <span dir="ltr">User/Project Codex Config</span> اجرا می‌کند. خروجی ساختاریافته دوباره به متن مدل یا <span dir="ltr">TL Studio Tool Call</span> تبدیل می‌شود؛ بنابراین <span dir="ltr">Permission</span>، اجرای Tool، <span dir="ltr">Session Persistence</span> و چرخهٔ بیرونی مدل → ابزار → مدل همچنان متعلق به خود <span dir="ltr">TL Studio</span> هستند.</p>
+
+<p dir="rtl" align="right">اگر فرمان <span dir="ltr">codex</span> روی <span dir="ltr">PATH</span> موجود نباشد، برنامه می‌تواند از <span dir="ltr">npx @openai/codex</span> استفاده کند. در <span dir="ltr">Provider Settings</span> نیز می‌توان مسیر مستقیم Executable را تنظیم کرد.</p>
 
 <p dir="rtl" align="right"><span dir="ltr">Provider</span>های <span dir="ltr">Deferred</span> عمداً در <span dir="ltr">Settings</span> دیده می‌شوند. آن‌ها مرز معماری مشخص هستند، نه قابلیت‌های فراموش‌شده.</p>
 
@@ -508,6 +514,8 @@ third_party/           Required third-party notices/licenses
 
 <p dir="rtl" align="right"><a href="./THIRD_PARTY_NOTICES.md"><span dir="ltr">THIRD_PARTY_NOTICES.md</span></a></p>
 
-<p dir="rtl" align="right">---</p>
+---
 
-<p dir="rtl" align="right"><<span dir="ltr">p align</span>="<span dir="ltr">center</span>"> ساخته‌شده تحت هویت <<span dir="ltr">strong</span>><span dir="ltr">TunnelLab</span></<span dir="ltr">strong</span>>. </<span dir="ltr">p</span>></p>
+<p align="center" dir="rtl">
+  ساخته‌شده تحت هویت <strong><span dir="ltr">TunnelLab</span></strong>.
+</p>
