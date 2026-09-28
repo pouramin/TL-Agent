@@ -193,7 +193,7 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
 	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
-	if input.ManagedBy != "" && input.ManagedBy != "jev" {
+	if input.ManagedBy != "" && input.ManagedBy != "jev" && input.ManagedBy != "account" {
 		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
 	}
 	if len(input.Models) == 0 { return tlProviderDefinition{}, errors.New("provider must define at least one model") }
@@ -271,6 +271,41 @@ func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	return err
 }
 
+func (m *providerManager) runtimeCredential(providerID string) (string, error) {
+	if m == nil || m.credentials == nil {
+		return "", errors.New("TL Studio credential store is unavailable")
+	}
+	providerID = strings.TrimSpace(providerID)
+	if providerID == "" {
+		return "", errCredentialNotFound
+	}
+
+	if key, err := m.credentials.Get(providerID); err == nil {
+		if strings.TrimSpace(key) != "" {
+			return strings.TrimSpace(key), nil
+		}
+	} else if !errors.Is(err, errCredentialNotFound) {
+		return "", err
+	}
+
+	raw, err := m.credentials.Get(providerAccountCredentialID(providerID))
+	if err != nil {
+		return "", err
+	}
+	var account providerAccountStoredCredential
+	if err := json.Unmarshal([]byte(raw), &account); err != nil {
+		return "", errors.New("invalid provider account credential")
+	}
+	account.AccessToken = strings.TrimSpace(account.AccessToken)
+	if account.AccessToken == "" {
+		return "", errCredentialNotFound
+	}
+	if accountCredentialExpired(account, 0) {
+		return "", errors.New("provider account credential expired; refresh or reconnect the account")
+	}
+	return account.AccessToken, nil
+}
+
 type catalogModel struct {
 	Name    string `json:"name"`
 	Kind    string `json:"kind,omitempty"`
@@ -334,12 +369,11 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 				if _, exists := result.Default[definition.ID]; !exists { result.Default[definition.ID] = model.ID }
 			}
 		}
-		if m.credentials != nil {
-			if key, credentialErr := m.credentials.Get(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
-				result.Connected = appendUniqueString(result.Connected, definition.ID)
-			} else if credentialErr != nil && !errors.Is(credentialErr, errCredentialNotFound) {
-				return providerCatalogResponse{}, credentialErr
-			}
+		if _, credentialErr := m.runtimeCredential(definition.ID); credentialErr == nil {
+			result.Connected = appendUniqueString(result.Connected, definition.ID)
+		} else if !errors.Is(credentialErr, errCredentialNotFound) &&
+			!strings.Contains(credentialErr.Error(), "credential expired") {
+			return providerCatalogResponse{}, credentialErr
 		}
 	}
 	sort.Slice(result.All, func(i, j int) bool {
