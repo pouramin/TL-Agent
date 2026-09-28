@@ -306,13 +306,19 @@ func (a *openRouterAccountAdapter) PollLogin(ctx context.Context, directory, log
 	return status, nil
 }
 
-func (a *openRouterAccountAdapter) CancelLogin(context.Context, string, string) error {
+func (a *openRouterAccountAdapter) CancelLogin(_ context.Context, _ string, loginID string) error {
+	loginID = strings.TrimSpace(loginID)
+	if loginID == "" {
+		return nil
+	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	for loginID, txn := range a.logins {
-		delete(a.byState, txn.State)
-		delete(a.logins, loginID)
+	txn := a.logins[loginID]
+	if txn == nil {
+		return nil
 	}
+	delete(a.byState, txn.State)
+	delete(a.logins, loginID)
 	return nil
 }
 
