@@ -396,3 +396,25 @@ func TestRealCodexExecCLIContractSmoke(t *testing.T) {
 		t.Fatalf("official Codex exec help did not expose expected output-schema flag: %s", output.String())
 	}
 }
+
+
+func TestCodexBridgePromptCarriesSelectedModelIdentity(t *testing.T) {
+	prompt, err := codexBridgePrompt(nativeModelRequest{
+		Model: tlProviderModel{ID: "gpt-5.6-luna", Name: "GPT-5.6 Luna"},
+		Messages: []nativeConversationMessage{{Role: "user", Text: "which model are you?"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		`"selectedModel"`,
+		`"id": "gpt-5.6-luna"`,
+		`"name": "GPT-5.6 Luna"`,
+		`"provider": "chatgpt"`,
+		"report selectedModel.id exactly",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("bridge prompt missing selected-model identity contract %q: %s", required, prompt)
+		}
+	}
+}
