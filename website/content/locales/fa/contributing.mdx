@@ -1,87 +1,77 @@
 ---
 title: مشارکت در پروژه
-description: مشارکت در معماری کاملاً Native نسخه v0.5 با حفظ Local Security و Product Boundary.
+description: مشارکت در TL Studio با حفظ Local Security، Product Boundary و تفکیک Stable از Development Preview.
 icon: GitPullRequest
 ---
 
-## Source Layout
+## ساختار Source
 
-Go Launcher و Native Local Product Domainها زیر این مسیر هستند:
+Go Launcher و Local Product Domainها زیر این مسیر هستند:
 
-```text
+~~~text
 cmd/launcher/
-```
+~~~
 
-Browser Source با Strict TypeScript:
+Browser Source با Strict TypeScript در این مسیر است:
 
-```text
+~~~text
 cmd/launcher/ui/
-```
+~~~
 
-Generated Browser JavaScript:
+Generated Browser JavaScript در این مسیر ساخته می‌شود:
 
-```text
+~~~text
 cmd/launcher/web/
-```
+~~~
 
-Generated JavaScript را Source اصلی تغییر Product در نظر نگیرید.
+Public Fumadocs Documentation در این مسیر قرار دارد:
 
-Public Fumadocs Documentation:
-
-```text
+~~~text
 website/
-```
+~~~
 
 ## Local Check
 
 قبل از Product Change:
 
-```bash
+~~~bash
 npm install --ignore-scripts --no-audit --no-fund
 npm run check:web
 npm run build:web
 go test ./...
 go vet ./...
-```
+~~~
 
-برای تغییر Model Connection، Session، Question، Permission، Tool، Plugin/MCP، Browser یا Release، Contract/Regression Test مربوط را هم اجرا کنید.
+برای تغییر Model Connection، Session، Question، Permission، Tool، Plugin/MCP، Browser، Provider Account یا Release، Contract/Regression Test مربوط را هم اجرا کنید.
 
-## Native Architecture Rule
+## Ruleهای معماری
 
-- Browser Behavior جدید باید از Product Domainهای `/local/*` خود TL Studio استفاده کند.
-- Model Connection Definition، Model Discovery، Credential و Direct Model Execution متعلق به TL Studio هستند.
+- Browser Behavior جدید باید از Product Domainهای /local/* خود TL Studio استفاده کند.
+- Model Connection Definition، Discovery، Credential، Account Adapter و Direct Model Execution متعلق به TL Studio هستند.
 - Session، Question، Permission و Semantic Event متعلق به TL Studio هستند.
 - Built-in Tool باید Project Filesystem/Search/Process/Permission Infrastructure موجود را Reuse کند.
 - Plugin/MCP Tool باید از Tool Registry و Permission Path خود TL Studio عبور کند.
 - Secret داخل JSON Config معمولی یا Browser Storage نرود.
 - Monaco فقط Editor Engine است، نه Filesystem Authority.
-- Project Code در Preview روی Loopback Origin جدا از Privileged Control Server بماند.
+- Project Code در Preview روی Loopback Origin جدا باقی بماند.
 - Editor Asset از CDN Load نشود.
 
-## Rule مربوط به Plugin/MCP
+## Rule مربوط به Provider Account
 
-Contract فعلی MCP روی stdio است.
+Provider Account Integration فقط باید از روش عمومی و مستند Third-party استفاده کند.
 
-Save کردن Plugin نباید Arbitrary Local Code را Start کند. Enable باید Explicit و Confirm‌شده باقی بماند.
+OAuth و API Credential Material در سمت Go و Credential Vault باقی می‌مانند.
 
-Project/Global Scope، Working Directory Confinement، Credential Reference، Tool Discovery و Process Cleanup باید Trust Boundary فعلی را حفظ کنند.
+Credential دستی API و Credential حساب از هم جدا هستند.
 
-Bundled Plugin باید Version-pinned و در Release Manifest تعریف شده باشد و Executable مخفیانه وارد Package نشود.
+Account Integration نباید Native Agent یا Tool Execution Model خود TL Studio را جایگزین کند.
 
-## Rule مربوط به Account Connection
+## Rule مربوط به Release و Documentation
 
-Generic Account Adapter Domain بخشی از Product Boundary خود TL Studio است. Public Documentation فقط Behavior موجود در Stable `main` را توضیح می‌دهد.
+رفتار موجود در main را می‌توان به‌عنوان Stable مستند کرد.
 
-## Release Rule
+رفتار dev فقط با برچسب روشن Development Preview قابل انتشار در مستندات است.
 
-Branch `main` تنها Source of Truth برای Public Stable Documentation است. Stable npm Publish و Release Packaging از Source معتبر Stable ساخته می‌شوند.
+Capability منتشرنشده نباید بخشی از مسیر Stable npm یا GitHub Release معرفی شود.
 
-Release/CI Gate معماری فعلی TL Studio را Enforce و Production Packaging را Validate می‌کند.
-
-## Documentation Rule
-
-Stable Source روی Branch `main` تنها Source of Truth برای Documentation عمومی است.
-
-Public Language روی **TL Studio** متمرکز بماند و فقط Behavior موجود در Stable Source مستند شود.
-
-Architecture Wording منسوخ فقط به‌خاطر History حفظ نشود.
+Wording تاریخی پیاده‌سازی در Documentation فعلی Product نگه‌داری نمی‌شود.

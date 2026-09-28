@@ -1,61 +1,82 @@
 ---
 title: Models and agents
-description: Choose models and run the fully native TL Studio Agent in v0.5.
+description: Choose models and run the TL Studio Native Agent across stable and development provider paths.
 icon: Bot
 ---
 
-Stable v0.5 uses one core execution mode: the **TL Studio Native Agent**.
+TL Studio uses one core execution model: the **TL Studio Native Agent**.
 
-A Model must be executable through TL Studio's native protocol adapters and supported capabilities.
+A selected Model must be executable through a protocol adapter implemented by TL Studio.
 
 ## Native model protocols
 
-TL Studio implements its supported model protocol adapters inside the product. The selected model endpoint receives requests directly from TL Studio.
+Stable v0.5 supports:
+
+- OpenAI-compatible Chat Completions;
+- OpenAI Responses;
+- Anthropic Messages.
+
+Development v0.6 additionally includes native Google Gemini generateContent transport.
 
 ## Model catalog
 
-Provider definitions and configured Models live in TL Studio's local Provider registry.
+Provider definitions and configured Models live in TL Studio's local Provider Registry.
 
-The Provider UI can also discover a remote model catalog, normalize useful metadata, and let you choose which Models to save.
+The Provider UI can discover a remote model catalog, normalize useful metadata, and let you choose which Models to save.
 
 Metadata can include:
 
 - context limit;
 - output limit;
-- Tool Calling capability;
-- Reasoning capability;
-- Vision capability;
+- Tool Calling;
+- Reasoning;
+- Vision;
 - Router kind.
 
-When a Provider does not publish Tool capability metadata, the UI lets you decide whether unknown capability should be treated as supporting Tool Calling when saving the Model.
+Unknown capability metadata remains explicit in the UI rather than being silently assumed.
+
+## Credentials
+
+Manual API credentials and account-backed credentials are separate.
+
+In the 0.6 development line, the runtime resolves a connected account credential first when an account adapter is active. A manual API key remains stored separately and can still be used after account sign-out.
+
+Credential material never enters the Agent transcript.
 
 ## Agent execution
 
 For a selected supported Model:
 
-```text
+~~~text
 Session prompt
 → Native Agent
-→ Provider model response
+→ selected Provider
+→ Model response
 → Tool calls when requested
 → TL Studio Tool Executor
 → Tool results back to Provider
 → final response
-```
+~~~
 
 The Agent includes cancellation plus guards for maximum iterations, Tool rounds, Tools per round, and repeated identical Tool calls.
 
 ## Native interaction
 
-The Agent can call the built-in `interaction.question` Tool to pause and ask the user for structured input.
+The Agent can call the built-in interaction.question Tool to pause and ask the user for structured input.
 
 Questions can include choices, multiple selection, custom text, and defaults.
 
 ## Tool sources
 
-The Agent can receive Tool definitions from two sources:
+The Agent can receive Tool definitions from:
 
 1. built-in native TL Studio Tools;
 2. enabled compatible MCP Plugins for the active Project.
 
 Both enter the same Agent-facing Tool model and Permission system.
+
+## Development account paths
+
+The 0.6 development line can resolve Models through connected OpenRouter, Hugging Face, and Google/Gemini accounts.
+
+Account authentication changes credential acquisition only. Sessions, Agent behavior, Tool execution, Permission handling, and persistence remain the same TL Studio-native path.

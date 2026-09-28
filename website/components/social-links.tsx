@@ -1,3 +1,5 @@
+import { site } from '@/lib/site';
+
 function TelegramIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5 fill-current">
@@ -10,6 +12,21 @@ function YouTubeIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="size-5 fill-current">
       <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.8ZM9.6 15.6V8.4L15.8 12l-6.2 3.6Z" />
+    </svg>
+  );
+}
+
+function SponsorIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="size-5 fill-none stroke-current"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
     </svg>
   );
 }
@@ -39,6 +56,16 @@ export function SocialLinks() {
         className={socialLinkClass}
       >
         <YouTubeIcon />
+      </a>
+      <a
+        href={site.sponsorUrl}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Sponsor"
+        title="Sponsor"
+        className={`${socialLinkClass} hover:text-rose-500`}
+      >
+        <SponsorIcon />
       </a>
     </div>
   );

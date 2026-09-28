@@ -1,22 +1,28 @@
 ---
 title: Model و Agent
-description: انتخاب Model و اجرای TL Studio Native Agent در v0.5.
+description: انتخاب Model و اجرای Native Agent در مسیرهای Stable و Development.
 icon: Bot
 ---
 
-در Stable v0.5 فقط یک Core Execution Mode داریم: **TL Studio Native Agent**.
+در TL Studio فقط یک مدل اصلی اجرا وجود دارد: **TL Studio Native Agent**.
 
-Model انتخاب‌شده باید از Native Protocol Adapter و Capabilityهای پشتیبانی‌شده توسط TL Studio قابل اجرا باشد.
+Model انتخاب‌شده باید از طریق Protocol Adapter پیاده‌سازی‌شده در خود TL Studio قابل اجرا باشد.
 
-## Native Model Protocolها
+## Protocolهای Native مدل
 
-TL Studio، Protocol Adapterهای Model را داخل خود Product پیاده‌سازی می‌کند. Model Request مستقیم از TL Studio به Endpoint تنظیم‌شده می‌رود.
+نسخهٔ پایدار v0.5 این Protocolها را پشتیبانی می‌کند:
+
+- OpenAI-compatible Chat Completions؛
+- OpenAI Responses؛
+- Anthropic Messages.
+
+در Development v0.6، Transport بومی Google Gemini generateContent هم اضافه شده است.
 
 ## Model Catalog
 
-Provider Definition و Modelهای Configure‌شده داخل Local Provider Registry خود TL Studio هستند.
+Provider Definition و Modelهای تنظیم‌شده داخل Local Provider Registry خود TL Studio هستند.
 
-Provider UI همچنین می‌تواند Remote Model Catalog را Discover کند، Metadata مفید را Normalize کند و اجازه دهد فقط Modelهای موردنظر Save شوند.
+Provider UI می‌تواند Remote Model Catalog را Discover کند، Metadata مفید را Normalize کند و اجازه دهد فقط Modelهای موردنظر ذخیره شوند.
 
 Metadata می‌تواند شامل این موارد باشد:
 
@@ -27,35 +33,50 @@ Metadata می‌تواند شامل این موارد باشد:
 - Vision؛
 - Router Kind.
 
-اگر Provider Metadata مربوط به Tool Calling را منتشر نکند، UI اجازه می‌دهد هنگام Save مشخص کنید Capability ناشناخته به‌صورت Tool-capable در نظر گرفته شود یا نه.
+Capability ناشناخته در UI به‌صورت صریح باقی می‌ماند و بدون اطلاع کاربر فرض نمی‌شود.
 
-## Agent Execution
+## Credentialها
+
+Credential دستی API و Credential حساب از هم جدا هستند.
+
+در خط توسعهٔ 0.6، وقتی Account Adapter فعال و متصل باشد، Runtime ابتدا Credential حساب را Resolve می‌کند. API Key دستی جداگانه باقی می‌ماند و بعد از Sign out حساب همچنان قابل استفاده است.
+
+Credential وارد Transcript مربوط به Agent نمی‌شود.
+
+## اجرای Agent
 
 برای Model پشتیبانی‌شده:
 
-```text
+~~~text
 Session Prompt
 → Native Agent
-→ Provider Model Response
+→ Selected Provider
+→ Model Response
 → Tool Calls when requested
 → TL Studio Tool Executor
 → Tool Results back to Provider
 → Final Response
-```
+~~~
 
 Agent از Cancellation و Guard برای Maximum Iteration، Tool Round، تعداد Tool در هر Round و تکرار Tool Call یکسان استفاده می‌کند.
 
-## Native Interaction
+## تعامل بومی
 
-Agent می‌تواند Tool داخلی `interaction.question` را Call کند تا Pause شود و Structured Input از User بگیرد.
+Agent می‌تواند Tool داخلی interaction.question را Call کند تا Pause شود و Structured Input از User بگیرد.
 
 Question می‌تواند Choice، Multiple Selection، Custom Text و Default داشته باشد.
 
-## Tool Sourceها
+## منبع Toolها
 
-Agent Tool Definition را از دو منبع می‌گیرد:
+Agent، Tool Definition را از این منابع می‌گیرد:
 
-1. Built-in Native Toolهای TL Studio؛
+1. Toolهای داخلی و بومی TL Studio؛
 2. MCP Pluginهای فعال و سازگار برای Project.
 
 هر دو وارد همان Tool Model و Permission System می‌شوند.
+
+## مسیرهای حسابی در Development
+
+در خط توسعهٔ 0.6، Model می‌تواند از حساب متصل OpenRouter، Hugging Face یا Google/Gemini Resolve شود.
+
+Account Login فقط روش دریافت Credential را تغییر می‌دهد؛ Session، Agent، Tool Execution، Permission و Persistence همچنان از همان مسیر بومی TL Studio استفاده می‌کنند.

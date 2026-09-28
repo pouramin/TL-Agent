@@ -1,22 +1,41 @@
 ---
 title: اتصال مدل‌ها
-description: تنظیم اتصال Model، Model Discovery و Credential Vault محلی در TL Studio.
+description: تنظیم Provider مستقیم، Model Discovery و اتصال حساب‌های پشتیبانی‌شده در TL Studio.
 icon: Cable
 ---
 
-در v0.5، Provider Definition، Model Discovery، Model Catalog مربوط به Product و Provider Credential متعلق به خود TL Studio هستند.
+تعریف Provider، Model Discovery، Model Catalog و Credentialهای Provider در اختیار خود TL Studio هستند.
 
-## Native Protocol Adapterها
+رفتار Stable و Development Preview در ادامه جدا از هم مشخص شده است.
 
-TL Studio، Protocol Adapterهای پشتیبانی‌شده را داخل خود Product پیاده‌سازی می‌کند. Connection را با Protocol Family موجود در Stable Build، Base URL، Credential و یک یا چند Model Configure می‌کنید.
+## Protocolهای Native مدل
 
-## Discover Models
+| Protocol | Stable v0.5 | Development v0.6 |
+| --- | --- | --- |
+| OpenAI-compatible Chat Completions | ✅ | ✅ |
+| OpenAI Responses | ✅ | ✅ |
+| Anthropic Messages | ✅ | ✅ |
+| Google Gemini generateContent | — | ✅ |
 
-اگر Provider دارای Model-list API باشد، قبل از Save از **Test / Discover Models** استفاده کنید.
+Model Request مستقیماً از TL Studio به Endpoint تنظیم‌شدهٔ Provider می‌رود.
 
-TL Studio، Base URL را Validate می‌کند، Discovery Request می‌فرستد، Modelها را Normalize می‌کند و Catalog قابل Search نشان می‌دهد.
+## راه‌اندازی Provider سفارشی
 
-Metadata قابل Normalize شامل:
+در نسخهٔ 0.6 راه‌اندازی Provider سفارشی Discovery-first باقی مانده است. در حالت عادی فقط این موارد وارد می‌شوند:
+
+- API Address؛
+- API Type از نوع OpenAI-compatible یا Anthropic-compatible؛
+- API Key.
+
+بعد از آن TL Studio تلاش می‌کند مدل‌ها را به‌صورت خودکار Discover کند. ورود دستی Model ID فقط Fallback صریح برای مدل خصوصی یا فهرست‌نشده است.
+
+Providerهای قدیمی از نوع OpenAI Responses همچنان قابل ویرایش باقی می‌مانند.
+
+## Model Discovery
+
+اگر Provider دارای Model-list API باشد، TL Studio آدرس را Validate می‌کند، Discovery Request می‌فرستد، Modelها را Normalize می‌کند و Catalog قابل Search می‌سازد.
+
+Metadata قابل استفاده می‌تواند شامل این موارد باشد:
 
 - Model ID و Name؛
 - Context/Output Limit؛
@@ -25,62 +44,67 @@ Metadata قابل Normalize شامل:
 - Vision؛
 - Router Kind.
 
-می‌توانید Visible Modelها را Select کنید، Selection را Clear کنید، Catalog را Search کنید یا برای Private/Unlisted Model از Manual Entry استفاده کنید.
-
-## Security مربوط به Discovery
+## امنیت Discovery
 
 Provider Discovery:
 
 - فقط HTTP(S) Base URL معتبر و بدون Embedded Credential را قبول می‌کند؛
-- Request Timeout برابر 15 ثانیه دارد؛
-- Response Catalog را به 8 MiB محدود می‌کند؛
-- حداکثر 5000 Model Normalize می‌کند؛
-- Cross-origin Redirect را Block می‌کند؛
-- Redirect Chain محدود دارد.
+- Timeout محدود دارد؛
+- اندازهٔ Response Catalog را محدود می‌کند؛
+- تعداد Modelهای Normalize‌شده را محدود می‌کند؛
+- Redirect ناامن بین Originها را Block می‌کند؛
+- در Endpointهای صفحه‌بندی‌شده از Page Count محدود استفاده می‌کند.
 
-برای Endpointهای سازگار با Discovery صفحه‌بندی‌شده، TL Studio تعداد Page را محدود می‌کند.
-
-## Cache Fallback
-
-Catalog موفق می‌تواند در این فایل Local Cache شود:
-
-```text
-model-catalog-cache.json
-```
-
-اگر Discovery زنده بعداً به دلیل غیرAuthentication Fail شود، TL Studio می‌تواند Catalog Cache‌شده‌ی Matching را به‌عنوان Stale Data برگرداند.
-
-Authentication/Authorization Failure با Cache قدیمی پنهان نمی‌شود.
-
-## Authenticated Discovery
-
-اگر Endpoint تنظیم‌شده برای Model Discovery به Authentication نیاز داشته باشد، TL Studio از Credential ذخیره‌شده استفاده می‌کند و Authentication Failure را به‌صورت صریح برمی‌گرداند؛ این Failure با Fallback مخفی نمی‌شود.
+Authentication Failure به‌صورت صریح باقی می‌ماند و با Cache قدیمی پنهان نمی‌شود.
 
 ## Provider Registry
 
-Definitionهای ذخیره‌شده داخل فایل Versioned زیر هستند:
+Definitionهای ذخیره‌شده داخل این فایل هستند:
 
-```text
+~~~text
 providers.json
-```
+~~~
 
-Registry، Provider ID/Name، Protocol، Base URL، Model Definition، Capability Flag و Limit اختیاری را نگه می‌دارد.
-
-API Key داخل آن قرار نمی‌گیرد.
+Registry فقط Metadata و Model Definition را نگه می‌دارد و API Key یا OAuth Token داخل آن قرار نمی‌گیرد.
 
 ## Credential Vault
 
-API Key داخل Credential Vault خود TL Studio ذخیره می‌شود:
+Credential دستی API و Credential حساب در Slotهای جداگانه نگهداری می‌شوند.
 
-- Windows با DPAPI؛
-- macOS با Keychain در صورت دسترسی؛
-- Linux با Secret Service از طریق `secret-tool` در صورت وجود؛
-- در غیر این صورت Encrypted Private-file Fallback.
+اتصال حساب می‌تواند در زمان فعال بودن اولویت داشته باشد، اما Sign out کردن حساب API Key دستی موجود را حذف نمی‌کند.
 
-Provider Call مستقیم از Credential متعلق به TL Studio استفاده می‌کند.
+Secretها وارد Browser Storage یا Provider JSON عادی نمی‌شوند.
 
-## Provider Account Foundation
+## Providerهای حسابی — Development Preview نسخهٔ 0.6
 
-یک Domain عمومی با Routeهای `/local/provider-accounts*` برای Integrationهای رسمی Account-backed آینده وجود دارد.
+| Provider | وضعیت | Integration |
+| --- | --- | --- |
+| **OpenRouter** | ✅ فعال | OAuth + PKCE رسمی، Credential حساب و Model Discovery |
+| **Hugging Face** | ✅ فعال | Public-client OAuth + PKCE، Refresh و Inference Providers Discovery |
+| **Google / Gemini** | ✅ فعال | Installed-app OAuth + PKCE، Refresh/Revocation و Transport بومی Gemini |
+| **ChatGPT / Codex** | ⏳ Deferred | سطح رسمی فعلی Model Access با مرز Native Model Loop پروژه سازگار نیست |
+| **Claude account** | ⏳ Deferred | منتظر قرارداد عمومی و مستند برای Third-party Consumer Account Authorization |
+| **GitHub Copilot** | ⏳ Deferred | مسیر رسمی فعلی Model Access همچنان به Copilot SDK/runtime وابسته است |
 
-**در Build فعلی v0.5.0 هیچ Account Adapter ثبت نشده است.** بنابراین Providers UI هم اعلام می‌کند که Account-based Provider Integration در این Build موجود نیست.
+Providerهای Deferred عمداً در Settings دیده می‌شوند و به‌عنوان Runtime Credential Source ثبت نمی‌شوند.
+
+## تنظیم Gemini
+
+در Alpha فعلی، Account Login مربوط به Gemini به دو مقدار غیرمحرمانه نیاز دارد:
+
+~~~text
+Google Cloud Project ID
+Desktop OAuth Client ID
+~~~
+
+این مقادیر از Provider Settings قابل تنظیم هستند.
+
+Access Token و Refresh Token فقط داخل Credential Vault خود TL Studio باقی می‌مانند.
+
+برای هر Sign-in یک Listener موقت روی این آدرس ساخته می‌شود:
+
+~~~text
+127.0.0.1:<random-port>
+~~~
+
+Listener مقدار OAuth state را بررسی می‌کند، Flow مبتنی بر PKCE را کامل می‌کند و پس از موفقیت، لغو یا Expiry بسته می‌شود.

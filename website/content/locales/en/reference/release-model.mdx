@@ -1,28 +1,37 @@
 ---
 title: Releases
-description: Understand TL Studio v0.5 stable releases, npm launcher distribution, and native package contents.
+description: Understand stable TL Studio releases, development previews, npm distribution, and package validation.
 icon: PackageCheck
 ---
 
-Current stable release:
+Current release channels:
 
-```text
-v0.5.0
-```
+~~~text
+Stable:      v0.5.0
+Development: v0.6.0-alpha.1
+~~~
 
 ## Stable production
 
-`main` is the stable production branch.
+The main branch is the stable production line.
 
 Stable quick launch:
 
-```bash
+~~~bash
 npx --yes tl-studio
-```
+~~~
 
 The npm package is a lightweight launcher pinned to the matching stable GitHub Release. It downloads the correct platform archive, verifies SHA-256, caches it locally, and runs TL Studio in the selected/current Project.
 
-The stable npm workflow publishes only non-prerelease versions from `main` to the `latest` dist-tag.
+The stable npm workflow publishes only non-prerelease versions from main to the latest dist-tag.
+
+## Development previews
+
+The dev branch carries the next-version development line.
+
+Preview Builds are produced separately from stable releases and are intended for validation before promotion. They do not change the stable npm launcher or the stable GitHub Release.
+
+The current v0.6.0-alpha.1 line includes work such as account-backed Provider integrations and native Gemini transport.
 
 ## Portable builds
 
@@ -36,19 +45,20 @@ Stable Release builds are produced for:
 
 A package contains the TL Studio executable, licenses/notices, and any version-pinned bundled Plugins configured for that release.
 
-
-The current bundled Plugin manifest is empty, so no third-party bundled Plugin ships in v0.5.0.
-
 ## Release validation
 
-The release pipeline:
+Release and preview validation covers, as applicable:
 
-- installs/builds Browser assets;
-- type-checks Browser TypeScript;
-- runs Go tests;
-- cross-builds platform launchers;
-- stages version-pinned bundled Plugins;
-- runs a native Product Contract against the built TL Studio executable;
-- produces SHA-256 checksums.
+- Browser TypeScript type-check;
+- Browser production build;
+- Go tests and vet;
+- supported platform cross-builds;
+- Native Product Contract;
+- Custom Provider Contract;
+- Browser smoke testing;
+- Agent/runtime E2E;
+- provider-specific regression tests;
+- Windows review packaging;
+- SHA-256 checksums for stable release artifacts.
 
-CI additionally covers Go vet, Browser JavaScript syntax, local Monaco assets, npm launcher validation, native Browser smoke, Provider contracts, Plugin staging, and regression tests.
+Real user credentials are not used in CI.

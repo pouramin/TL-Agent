@@ -1,6 +1,6 @@
 ---
 title: Security model
-description: Understand TL Studio v0.5 local network, filesystem, model connection, Plugin/MCP, credential, Permission, Session, and Preview boundaries.
+description: Understand TL Studio local network, filesystem, Provider, Provider Account, Plugin/MCP, credential, Permission, Session, and Preview boundaries.
 icon: ShieldCheck
 ---
 
@@ -10,10 +10,9 @@ TL Studio is designed as a local application, not a remotely exposed coding serv
 
 The Browser-facing TL Studio server binds to loopback.
 
-Non-loopback `--listen` values are rejected.
+Non-loopback listen values are rejected.
 
 Requests with an Origin are checked against the local control origin and the UI is served with a restrictive Content Security Policy.
-
 
 ## Project filesystem boundary
 
@@ -25,32 +24,40 @@ Editor saves use SHA-256 revision checks so newer disk content cannot be silentl
 
 ## Native Permission boundary
 
-Native read-only Tools without write/execute/network capability can run without a human prompt.
+Read-only Tools without write/execute/network capability can run without a human prompt.
 
 Write/edit and command execution pass through TL Studio's Permission Engine.
 
 Sensitive execute/network actions are not persisted as reusable approvals. Unknown native Tools cannot be authorized.
 
-Project-scoped remembered rules live in `permissions.json`.
+Project-scoped remembered rules live in permissions.json.
 
 ## Credential vault
 
-Provider API keys and Plugin secret environment values are separated from normal configuration.
+Provider API keys, account-backed credentials, and Plugin secret environment values are separated from normal configuration.
 
 The credential backend uses:
 
 - Windows DPAPI;
 - macOS Keychain when available;
-- Linux Secret Service through `secret-tool` when available;
+- Linux Secret Service through secret-tool when available;
 - encrypted private-file fallback otherwise.
 
-Normal `providers.json` and `plugins.json` store definitions/references rather than raw secret values.
+Normal Provider and Plugin JSON stores definitions/references rather than raw secret values.
+
+### Account credentials
+
+Development v0.6 keeps manual API and account credentials in separate vault slots.
+
+OAuth codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets do not enter Browser state.
+
+Signing out from an account does not delete an existing manual API key.
 
 ## Provider discovery boundary
 
-Remote Model discovery treats the configured model endpoint as a separate trust boundary.
+Remote Model discovery treats the configured endpoint as a separate trust boundary.
 
-TL Studio validates HTTP(S) Base URLs, rejects embedded URL credentials, blocks cross-origin redirects, limits redirect depth, applies request/response bounds, and does not hide authentication failures behind stale cache.
+TL Studio validates HTTP(S) Base URLs, rejects embedded URL credentials, bounds redirects and response size, and does not hide authentication failures behind stale cache.
 
 Model requests send data to the configured endpoint; configure only endpoints you trust.
 
@@ -62,17 +69,13 @@ Saving a Plugin never starts the command. Enabling requires a separate explicit 
 
 Plugin secret environment values come from the TL Studio credential vault.
 
-Project-scoped working directories are resolved inside the Project boundary.
-
 Discovered MCP Tool calls still pass through TL Studio's Permission authorizer before execution.
 
-A Plugin executable itself is third-party code running with the current OS user's privileges. Only configure commands you trust.
+Only configure Plugin commands you trust.
 
 ## Session persistence
 
 Semantic Session snapshots are stored locally in private application state and can contain Prompt text, assistant output, Tool activity, usage data, and Project Changes.
-
-Inline `data:` attachment payloads are stripped before persisted Session snapshots are written.
 
 Treat the TL Studio state directory as sensitive user data.
 
@@ -80,10 +83,10 @@ Treat the TL Studio state directory as sensitive user data.
 
 Previewed Project web content does not run on TL Studio's privileged control origin.
 
-Static/file Preview uses a separate loopback origin; Node Preview accepts local URLs only; the file server is read-only.
+Static/file Preview uses a separate loopback origin; supported dev-server Preview accepts local URLs only.
 
-## No product-owned telemetry/model proxy
+## No product-owned telemetry or model proxy
 
-TL Studio does not require a product-owned telemetry backend, Model proxy, remote workspace service, or database.
+TL Studio does not require a product-owned telemetry backend, model proxy, remote workspace service, or database.
 
-Network access comes from explicitly configured model endpoints, package/release distribution, and configured Plugin behavior.
+Network access comes from explicitly configured model endpoints, package/release distribution, and configured MCP/Plugin behavior.

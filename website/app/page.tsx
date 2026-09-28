@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import { HomeLayout } from 'fumadocs-ui/layouts/home';
-import { ArrowRight, Box, Download, FolderCode, Plug, SquareTerminal } from 'lucide-react';
+import { ArrowRight, Box, Download, FolderCode, Plug, SquareTerminal, UserRound } from 'lucide-react';
 import { baseOptions } from '@/lib/layout.shared';
 import { site } from '@/lib/site';
 
 const features = [
   {
     title: 'One local application',
-    description: 'TL Studio keeps the workspace, local core, Agent, sessions, tools, providers, and Plugin/MCP lifecycle inside one local product boundary.',
+    description: 'TL Studio keeps the workspace, Agent, sessions, tools, providers, credentials, Plugins/MCP, Terminal, and Preview inside one local product boundary.',
     icon: Box,
   },
   {
@@ -17,13 +17,13 @@ const features = [
   },
   {
     title: 'Native Agent + tools',
-    description: 'TL Studio owns the model/tool/model loop, sessions, questions, permissions, events, and the core coding Tool Executor.',
+    description: 'TL Studio owns the model/tool/model loop, sessions, questions, permissions, semantic events, and the core coding Tool Executor.',
     icon: FolderCode,
   },
   {
-    title: 'Providers and Plugins/MCP',
-    description: 'Discover provider models, keep credentials in the local vault, and expose compatible stdio MCP tools to the same native Agent.',
-    icon: Plug,
+    title: 'Providers + account connections',
+    description: 'Use direct model protocols, discovery-first custom providers, or supported account-backed connections while credentials stay in the local vault.',
+    icon: UserRound,
   },
 ];
 
@@ -32,9 +32,9 @@ const capabilities = [
   'Native Agent',
   'Native Sessions',
   'Tool Executor',
-  'Plugins / MCP',
   'Provider Discovery',
-  'Native model connections',
+  'Account Providers',
+  'Plugins / MCP',
   'Live Preview',
   'Credential Vault',
 ];
@@ -49,7 +49,7 @@ export default function HomePage() {
             <img src={site.logoUrl} alt="TL Studio" />
           </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
-            Stable v0.5.0 · Fully native core · Local-first
+            Stable v0.5.0 · Development v0.6.0-alpha.1 · Local-first
           </div>
           <h1 className="max-w-5xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
             Build software yourself, with AI, or both.
@@ -65,6 +65,7 @@ export default function HomePage() {
               <Download className="size-4" /> Download v0.5.0
             </a>
           </div>
+
           <div className="mt-6 flex max-w-5xl flex-wrap justify-center gap-2">
             {capabilities.map((item) => (
               <span key={item} className="tl-capability-chip rounded-full px-3 py-1 text-sm text-fd-muted-foreground">
@@ -74,7 +75,7 @@ export default function HomePage() {
           </div>
 
           <div className="mt-16 w-full max-w-5xl rounded-2xl border bg-fd-card/80 p-5 text-left shadow-sm md:p-8">
-            <div className="mb-5 text-sm font-medium text-fd-muted-foreground">TL Studio v0.5 execution path</div>
+            <div className="mb-5 text-sm font-medium text-fd-muted-foreground">TL Studio execution path</div>
             <div className="grid gap-3 md:grid-cols-4">
               {['Browser workspace', 'TL Studio local core', 'Native Agent + Tool Executor', 'Providers + MCP tools'].map((label, index) => (
                 <div key={label} className="relative">
@@ -98,10 +99,10 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/20">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground">Stable milestone · v0.5.0</p>
-            <h2 className="mt-2 text-3xl font-semibold">TL Studio now runs natively end to end.</h2>
+            <p className="text-sm font-medium text-fd-muted-foreground">Stable release · v0.5.0</p>
+            <h2 className="mt-2 text-3xl font-semibold">A fully native local coding workspace.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Normal startup is one TL Studio process plus embedded Browser assets. Sessions, provider calls, interactive questions, permissions, semantic events, native tools, and Plugin/MCP execution all live behind TL Studio-owned local contracts. Unsupported model capabilities return an explicit error at the TL Studio product boundary.
+              Stable TL Studio owns the workspace, sessions, direct provider calls, questions, permissions, semantic events, native tools, and Plugin/MCP execution. Unsupported capabilities return an explicit error at the TL Studio product boundary.
             </p>
             <Link href="/docs/reference/architecture" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore the architecture <ArrowRight className="size-4" />
@@ -110,11 +111,24 @@ export default function HomePage() {
         </section>
 
         <section className="border-t bg-fd-card/35">
+          <div className="mx-auto max-w-6xl px-6 py-14">
+            <p className="text-sm font-medium text-fd-muted-foreground">Development preview · v0.6.0-alpha.1</p>
+            <h2 className="mt-2 text-3xl font-semibold">Account-backed model connections are landing in 0.6.</h2>
+            <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
+              The development line adds official account flows for OpenRouter, Hugging Face, and Google/Gemini, including model discovery and vault-backed credentials. ChatGPT/Codex, Claude account login, and GitHub Copilot remain explicit deferred boundaries until their documented third-party contracts fit TL Studio&apos;s native execution model.
+            </p>
+            <Link href="/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
+              Explore model connections <ArrowRight className="size-4" />
+            </Link>
+          </div>
+        </section>
+
+        <section className="border-t bg-fd-card/20">
           <div className="mx-auto max-w-6xl px-6 py-16">
             <p className="text-sm font-medium text-fd-muted-foreground">Local trust boundary</p>
-            <h2 className="mt-2 text-3xl font-semibold">Your Project stays local; external connections are explicit.</h2>
+            <h2 className="mt-2 text-3xl font-semibold">Your project stays local; external connections are explicit.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Project files, sessions, permissions, credentials, and workspace state are managed locally. Network access happens through the external Providers, optional integrations, package distribution, and MCP servers that you explicitly configure.
+              Project files, sessions, permissions, credentials, and workspace state are managed locally. Network access happens through the providers, package distribution, and MCP servers that you explicitly configure.
             </p>
           </div>
         </section>

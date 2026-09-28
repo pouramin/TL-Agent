@@ -4,28 +4,36 @@
 
 TL Studio is a local-first application implemented as one mandatory Go process plus embedded Browser assets.
 
-The Go launcher owns the workspace, filesystem, Search, process/Terminal execution, Preview, provider registry, credential vault, direct model clients, Native Agent, sessions, questions, permissions, events, Tool Registry, Tool Executor, Plugins/MCP, and generic Provider Account adapters.
+The Go launcher owns the workspace, filesystem, Search, process/Terminal execution, Preview, Provider Registry, credential vault, direct model clients, Native Agent, sessions, questions, permissions, events, Tool Registry, Tool Executor, Plugins/MCP, and Provider Account adapters.
 
-There is no local compatibility runtime below TL Studio. Normal startup initializes TL Studio services, starts the loopback local server, and opens the Browser UI.
-
-## Startup
-
-Startup does not discover a Kilo binary, allocate a compatibility-runtime port, create sidecar credentials, start a second Agent process, create a reverse proxy, or silently fall back to another execution engine.
-
-Native execution is the only core execution mode.
+Normal startup initializes TL Studio services, starts the loopback local server, and opens the Browser UI.
 
 ## Browser boundary
 
-The Browser uses TL Studio-owned semantic APIs on the same local control origin. Core paths include /local/status, /local/health, /local/providers, /local/provider-accounts, /local/sessions, /local/questions, /local/permissions, /local/events, /local/plugins, and /local/tools.
+The Browser uses TL Studio-owned semantic APIs on the same local control origin.
 
-The Browser has no implementation-runtime route dependency and there is no generic /runtime/* reverse proxy.
+Core paths include:
 
-Browser source is TypeScript under cmd/launcher/ui. browser.ts is the ordered entry point and esbuild creates the embedded Browser bundle. Generated JavaScript is not tracked. Monaco is bundled locally.
+~~~text
+/local/status
+/local/health
+/local/providers
+/local/provider-accounts
+/local/sessions
+/local/questions
+/local/permissions
+/local/events
+/local/plugins
+/local/tools
+~~~
+
+Browser source is TypeScript under cmd/launcher/ui. browser.ts is the ordered entry point and esbuild creates the embedded Browser bundle. Monaco is bundled locally.
 
 ## Native Agent
 
 The execution path is:
 
+~~~text
 Browser
 → local Session run
 → TL Studio Session domain
@@ -35,74 +43,100 @@ Browser
 → TL Studio Tool Executor when requested
 → Provider continuation
 → semantic transcript and final answer
+~~~
 
-The runtime resolves only providers and models that TL Studio can execute directly. Unsupported protocols or capabilities produce explicit errors instead of being routed to another engine.
+TL Studio executes only protocols and capabilities it implements directly. Unsupported capability is returned explicitly.
 
 ## Sessions
 
 All active sessions are TL Studio sessions. The Session domain owns IDs, create/rename/delete, run/abort, status, messages, activity and usage, file changes, and persistence.
 
-Old live sidecar-only alpha state is intentionally not kept alive through a permanent compatibility dependency.
-
 ## Interactive questions
 
 Interactive questions are native Agent semantics:
 
+~~~text
 Native Agent
 → interaction.question
 → Question Manager
 → /local/questions
 → Browser
 → reply or reject
-→ Question Manager
 → Agent resumes
+~~~
 
-Questions are scoped by session. Multiple choice, multiple selection, custom text, rejection, and context cancellation are supported. Pending/resolved changes emit semantic attention.changed events.
+Questions are scoped by session and support choices, multiple selection, custom text, rejection, and context cancellation.
 
 ## Permissions
 
-The Permission Engine is authoritative for native tool execution. It owns pending requests, allow-once and reject decisions, project-scoped remembered allow rules, sensitive-action restrictions, policy matching, enforcement, and semantic attention events.
-
-The Browser uses only /local/permissions*.
+The Permission Engine is authoritative for native Tool execution. It owns pending requests, allow-once and reject decisions, project-scoped remembered allow rules, sensitive-action restrictions, policy matching, and enforcement.
 
 ## Events
 
-The local Event Bus is the single semantic event source:
+The local Event Bus is the semantic event source:
 
+~~~text
 Native Agent / Tool / Session / Question / Permission / Workspace
 → TL Studio Event Bus
 → /local/events
 → Browser
+~~~
 
-The SSE stream is a responsiveness signal. Persisted semantic session data remains transcript authority.
+Persisted semantic Session data remains transcript authority.
 
 ## Providers and credentials
 
-The provider registry is authoritative. Provider configuration and credentials are never mirrored into another local runtime.
+The Provider Registry is authoritative for Provider configuration and Model catalogs.
 
-Supported direct model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
+Supported direct model protocols on the current development line include:
 
-Credentials are stored separately in the TL Studio credential vault. They do not appear in providers.json or Browser storage.
+- OpenAI-compatible Chat Completions;
+- OpenAI Responses;
+- Anthropic Messages;
+- Google Gemini generateContent.
 
-Unsupported models remain explicit unsupported capabilities; there is no fallback engine. JEV/OpenRouter uses the same native provider and Agent boundaries.
-
-An external service such as Kilo Gateway may be configured only as a normal documented HTTPS/API-key provider, exactly like any other external API. No local Kilo binary or private OAuth protocol is involved.
+Credentials are stored separately in the TL Studio credential vault. Manual API credentials and account-backed credentials use separate vault slots.
 
 ## Provider Account domain
 
-ProviderAccountAdapter and /local/provider-accounts* remain generic abstractions for future account-backed integrations that expose a documented third-party authorization contract.
+ProviderAccountAdapter and /local/provider-accounts define the generic account-backed integration boundary.
 
-A build with no supported account adapters returns an empty account-provider list. Private or undocumented provider OAuth flows are not reverse-engineered.
+The lifecycle covers:
+
+- status;
+- begin/complete login;
+- polling where required;
+- cancellation;
+- refresh;
+- credential resolution;
+- model discovery;
+- disconnect.
+
+An optional setup contract exposes only non-secret configuration fields.
+
+Browser code receives semantic account state and safe login instructions. OAuth authorization codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets stay on the Go side.
+
+Current 0.6 development adapters:
+
+- OpenRouter — official OAuth + PKCE and account-backed Model discovery;
+- Hugging Face — public-client OAuth + PKCE, refresh lifecycle, Inference Providers discovery;
+- Google / Gemini — installed-app OAuth + PKCE, refresh/revocation, native Gemini transport.
+
+Gemini sign-in uses a temporary HTTP listener bound only to 127.0.0.1 on a random port. The callback validates OAuth state and shuts down after completion, cancellation, or expiry.
+
+ChatGPT/Codex, Claude account login, and GitHub Copilot remain explicit deferred account boundaries while their documented third-party contracts do not fit the current native execution model.
+
+Private or undocumented Provider auth flows are not reverse-engineered.
 
 ## Tools and Plugins/MCP
 
 The Native Tool Executor resolves TL Studio Tool Registry descriptors and enforces project boundaries and permissions before execution.
 
-Core tools cover workspace files, Search, and process execution. Plugins/MCP can contribute tools through the same Agent-facing execution model.
+Core Tools cover workspace files, Search, process execution, and interactive questions. Plugins/MCP can contribute Tools through the same Agent-facing execution model.
 
 ## Terminal and Preview
 
-Processes are project-scoped. Command stop terminates process trees where supported. The current Terminal foundation is a command runner rather than a full PTY.
+Processes are project-scoped. Command stop terminates process trees where supported.
 
 Preview is isolated from the TL Studio control origin and accepts loopback Preview URLs only.
 
@@ -110,13 +144,13 @@ Preview is isolated from the TL Studio control origin and accepts loopback Previ
 
 The control UI binds to loopback. Non-loopback Host values are rejected and Browser Origin must match the local control origin.
 
-Filesystem APIs are project-boundary checked. Traversal and symlink escapes are rejected. External providers, repositories, prompts, and MCP/plugin processes are untrusted inputs.
+Filesystem APIs are project-boundary checked. Traversal and symlink escapes are rejected. External Providers, repositories, prompts, and MCP/plugin processes are separate trust boundaries.
 
 ## Release architecture
 
-A normal package contains tl-studio or tl-studio.exe, TL Studio licenses/notices, and bundled TL Studio plugins where configured. It does not contain a coding-runtime sidecar.
+A normal package contains tl-studio or tl-studio.exe, TL Studio licenses/notices, and bundled TL Studio plugins where configured.
 
-CI fails if kilo or kilo.exe appears in a review or release package.
+Stable builds are published from main. Development Preview Builds are produced separately from dev.
 
 ## Regression proof
 
@@ -125,12 +159,12 @@ CI is expected to prove:
 1. Browser strict TypeScript/build succeeds.
 2. Go tests and vet succeed.
 3. Supported platform cross-compiles succeed.
-4. Standalone TL Studio starts normally with no sidecar.
+4. Standalone TL Studio starts normally.
 5. Native Session lifecycle works.
-6. Fake Provider → Native Agent → native tool → filesystem → Provider continuation → final answer works.
+6. Provider → Native Agent → Tool → filesystem → Provider continuation → final answer works.
 7. Native Agent question → pending question → answer → resumed Agent works.
 8. Native permissions and remembered rules work.
 9. Real Browser smoke succeeds.
-10. Provider registry, credentials, and catalog work without another runtime.
-11. Windows review and release packages contain no Kilo executable.
-12. Production Browser source and workflows contain no compatibility-runtime path.
+10. Provider Registry, credentials, and model catalog work.
+11. Account-provider flows are covered through mocked contract tests without real user credentials.
+12. Review and release packaging succeeds.

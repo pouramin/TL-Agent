@@ -1,13 +1,14 @@
 ---
 title: معماری
-description: معماری کاملاً Native و Local در TL Studio v0.5، شامل Product Domain، Agent، Provider و Plugins/MCP.
+description: معماری Local در TL Studio شامل Native Agent، Provider Account، Tool و Plugins/MCP.
 icon: Network
 ---
 
-Stable v0.5 یک **Local Application واحد از TL Studio** است که Browser Asset و Coding-agent Core کاملاً Native دارد.
+TL Studio یک **Application محلی واحد** با Browser Assetهای Embedded و Coding-Agent Core بومی است.
 
+نسخهٔ عمومی فعلی v0.5.0 است. خط توسعهٔ v0.6.0-alpha.1 مرز Provider را با Account Integration گسترش می‌دهد، بدون اینکه معماری Agent تغییر کند.
 
-```text
+~~~text
 Browser Workspace
         │ Same Local Control Origin
         ▼
@@ -18,6 +19,7 @@ TL Studio Go Launcher / Local Core
   ├─ Preview Manager
   ├─ Provider Registry + Model Discovery
   ├─ Credential Vault
+  ├─ Provider Account Adapters
   ├─ Session Domain + Persistence
   ├─ Question Manager
   ├─ Permission Engine
@@ -31,25 +33,25 @@ TL Studio Go Launcher / Local Core
 
 Previewed Project Content
         └────────► Separate Loopback Origin
-```
+~~~
 
-## Startup Model
+## مدل Startup
 
-Startup عادی:
+در Startup عادی:
 
 1. Project انتخاب‌شده Resolve می‌شود؛
-2. TL Studio Application State ساخته می‌شود؛
-3. Native Product Serviceها Initialize می‌شوند؛
+2. Application State مربوط به TL Studio ساخته می‌شود؛
+3. Product Serviceها Initialize می‌شوند؛
 4. Control Server فقط روی Loopback Bind می‌شود؛
-5. اگر `--no-browser` نداده باشید Browser باز می‌شود.
+5. مگر اینکه حالت no-browser انتخاب شده باشد، Browser باز می‌شود.
 
 Browser مستقیماً با Local Product Domainهای متعلق به TL Studio ارتباط دارد.
 
-## Local Product Domainها
+## مرز Browser
 
-Surfaceهای مهم Browser:
+Surfaceهای مهم Browser شامل این مسیرها هستند:
 
-```text
+~~~text
 /local/status
 /local/health
 /local/project
@@ -64,29 +66,15 @@ Surfaceهای مهم Browser:
 /local/search
 /local/process*
 /local/preview*
-```
+~~~
 
-## Browser Application
-
-Browser Source در این مسیر است:
-
-```text
-cmd/launcher/ui/
-```
-
-Source با Strict TypeScript و ES-module Import واقعی نوشته شده است.
-
-فایل `browser.ts` Module Graph را مشخص می‌کند و esbuild خروجی JavaScript Embedded را تولید می‌کند.
-
-Generated Fileهای `cmd/launcher/web/*.js` Source محسوب نمی‌شوند و Track نمی‌شوند.
-
-Monaco و Workerهای آن هم Local Bundle هستند و از CDN Load نمی‌شوند.
+Browser Source با Strict TypeScript در cmd/launcher/ui قرار دارد و با esbuild Bundle می‌شود. Monaco و Workerهای آن هم Local Bundle هستند.
 
 ## Native Agent
 
-Agent Path کاملاً متعلق به TL Studio است:
+مسیر Agent متعلق به خود TL Studio است:
 
-```text
+~~~text
 Browser Session Run
 → Session Domain
 → Native Agent
@@ -99,63 +87,70 @@ Browser Session Run
 → Provider Continuation
 → Final Response
 → Session Persistence + Event Bus
-```
+~~~
 
 Provider Protocol یا Capability پشتیبانی‌نشده Error صریح می‌دهد.
 
-## Native Session
+## Session، Question، Permission و Event
 
-Create، Select، Rename/Delete، Run/Abort، Status، Message، Activity، Usage Metadata، Changes و Persistence همگی در Session Domain خود TL Studio هستند.
+ساخت و انتخاب Session، Rename/Delete، Run/Abort، Status، Message، Activity، Usage Metadata، Changes و Persistence همگی در اختیار TL Studio هستند.
 
-Session State مستقیماً با Semantic Session Model خود TL Studio نمایش داده می‌شود.
+Tool مربوط به interaction.question، Agent را Pause می‌کند و یک Question در Scope همان Session ثبت می‌کند.
 
-## Native Question و Permission
+Permission Request و Ruleهای Project-scoped هم در Permission Engine نگهداری می‌شوند.
 
-Tool به نام `interaction.question`، Native Agent را Pause می‌کند و Question را در Question Manager خود TL Studio و در Scope همان Session ثبت می‌کند.
+هر دو Domain از Local Event Bus، Event معنایی تولید می‌کنند.
 
-Permission Request و Remembered Allow Ruleهای Project-scoped هم متعلق به Permission Engine خود TL Studio هستند.
+## Provider و Credential
 
-هر دو Domain از Local Event Bus، Semantic Attention Event تولید می‌کنند.
+Provider Registry مالک Provider Definition، Modelهای Configure‌شده، Model Discovery، Catalog Cache و Direct Model Execution است.
 
-## Provider
+Credentialها جداگانه در Credential Vault نگهداری می‌شوند و وارد providers.json یا Browser Storage نمی‌شوند.
 
-TL Studio مالک این موارد است:
+### Provider Account Domain
 
-- Provider Definition؛
-- Modelهای Configure‌شده؛
-- Authenticated Model Discovery؛
-- Discovery Cache؛
-- Credential؛
-- Direct Native Model Call.
+در Development v0.6، Provider Account Adapter برای این سرویس‌ها پیاده‌سازی شده است:
 
-Direct Model Execution از Native Protocol Adapterهایی استفاده می‌کند که داخل TL Studio پیاده‌سازی و نگه‌داری می‌شوند.
+- OpenRouter؛
+- Hugging Face؛
+- Google / Gemini.
 
-Generic Provider Account Adapter برای Integration رسمی آینده وجود دارد، اما Build فعلی v0.5.0 هیچ Account Adapter ثبت نمی‌کند.
+Lifecycle عمومی شامل Status، شروع/تکمیل Login، Polling در صورت نیاز، Cancellation، Refresh، Credential Resolution، Model Discovery و Disconnect است.
+
+Credential دستی API و Credential حساب در Slotهای جداگانه نگهداری می‌شوند.
+
+Browser فقط Account State معنایی و Login Instruction امن را دریافت می‌کند. OAuth Code، PKCE Verifier، Access Token، Refresh Token، API Key، Cookie و Client Secret در سمت Go باقی می‌مانند.
+
+### Loopback دسکتاپ Gemini
+
+هر Sign-in مربوط به Gemini یک HTTP Listener موقت فقط روی این آدرس می‌سازد:
+
+~~~text
+127.0.0.1:<random-port>
+~~~
+
+Callback مقدار OAuth state را Validate می‌کند و بعد از Completion، Cancellation یا Expiry بسته می‌شود.
 
 ## Tool و Plugins/MCP
 
-Built-in Native Toolهای قابل اجرا فعلاً File Read/List/Write/Edit، Content Search، Terminal Command و Interactive Question هستند.
+Toolهای داخلی شامل فایل‌های پروژه، Search، Terminal Command و Interactive Question هستند.
 
-MCP Plugin فعال از نوع stdio می‌تواند Dynamic Tool اضافه کند. این Tool هم قبل از Execution وارد همان Tool Registry و Permission System می‌شود.
-
-Plugin Store، Plugin Credential، Scope پروژه/Global، Process Lifecycle، Tool Discovery و Invocation متعلق به TL Studio هستند.
-
-Release System توانایی Stage کردن Bundled Plugin نسخه‌ثابت را دارد، ولی Catalog نسخه v0.5.0 خالی است.
+MCP Plugin فعال از نوع stdio می‌تواند Dynamic Tool اضافه کند. Plugin Tool قبل از اجرا وارد همان Tool Registry و Permission System می‌شود.
 
 ## Preview Isolation
 
 Preview یک Local Trust Boundary جداست.
 
-Static/File Content روی Loopback Origin جدا از Control Server اجرا می‌شود و Node Dev Server Preview فقط Loopback URL را می‌پذیرد.
+Static/File Content روی Loopback Origin جدا از Control Server سرو می‌شود و Dev Server Preview فقط Loopback URL را می‌پذیرد.
 
 ## State و Storage
 
-Product State در Local Application State خود TL Studio نگه‌داری می‌شود؛ مثل Model Connection، Credential، Session، Permission Rule، Plugin Config/Secret، Model Catalog Cache و Preferenceهای Local.
+Product State در Local Application State خود TL Studio نگهداری می‌شود؛ از جمله Provider Definition، Credential، Session، Permission Rule، Plugin Config/Secret، Model Catalog Cache، Provider Account Setup و Preferenceها.
 
-Secret از JSON Config معمولی جداست و Credential Vault استفاده می‌کند.
+Secretها از JSON Config معمولی جدا می‌مانند.
 
 ## قانون Zero-infrastructure
 
-TL Studio برای کارکرد Product به VPS، Application Backend، Database، Telemetry Collector، Model Proxy یا Hosted Workspace متعلق به پروژه نیاز ندارد.
+TL Studio برای استفادهٔ معمول به Application Backend، Database، Telemetry Collector، Model Proxy یا Hosted Workspace متعلق به پروژه نیاز ندارد.
 
-Network Traffic فقط از Configuration صریح User مثل Model Endpoint یا رفتار Plugin ایجاد می‌شود.
+Network Traffic از Configuration صریح User مثل Model Provider یا MCP Process ایجاد می‌شود.
