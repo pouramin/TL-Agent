@@ -128,6 +128,7 @@ import { K } from "./kernel";
     return { key: "other", label: "Other" };
   };
   const permissionGroupOrder = ["files", "terminal", "plugins", "other"];
+  let openPermissionGroup = "";
   const renderPermissionRules = async () => {
     if (!permissionRules || !K.api?.permissions?.rules) return;
     permissionRules.textContent = "Loading…";
@@ -153,18 +154,31 @@ import { K } from "./kernel";
       for (const key of permissionGroupOrder) {
         const entry = groups.get(key);
         if (!entry?.rules.length) continue;
-        const group = document.createElement("section");
+
+        const group = document.createElement("details");
         group.className = "permission-rule-group";
-        const head = document.createElement("div");
+        group.dataset.permissionGroup = key;
+        group.open = openPermissionGroup === key;
+
+        const head = document.createElement("summary");
         head.className = "permission-rule-group-head";
+        const labelWrap = document.createElement("span");
+        labelWrap.className = "permission-rule-group-label";
+        const chevron = document.createElement("span");
+        chevron.className = "permission-rule-chevron";
+        chevron.setAttribute("aria-hidden", "true");
+        chevron.textContent = "›";
         const label = document.createElement("strong");
         label.textContent = entry.label;
+        labelWrap.append(chevron, label);
+
         const count = document.createElement("span");
         count.className = "permission-rule-count";
         count.textContent = String(entry.rules.length);
-        head.append(label, count);
-        group.appendChild(head);
+        head.append(labelWrap, count);
 
+        const body = document.createElement("div");
+        body.className = "permission-rule-group-body";
         for (const rule of entry.rules) {
           const row = document.createElement("div");
           const copy = document.createElement("div");
@@ -182,8 +196,20 @@ import { K } from "./kernel";
           remove.dataset.ruleId = rule.id || "";
           copy.append(title, meta);
           row.append(copy, remove);
-          group.appendChild(row);
+          body.appendChild(row);
         }
+
+        group.append(head, body);
+        group.addEventListener("toggle", () => {
+          if (group.open) {
+            openPermissionGroup = key;
+            for (const other of permissionRules.querySelectorAll<HTMLDetailsElement>("details.permission-rule-group")) {
+              if (other !== group) other.open = false;
+            }
+          } else if (openPermissionGroup === key) {
+            openPermissionGroup = "";
+          }
+        });
         permissionRules.appendChild(group);
       }
     } catch (error) {
