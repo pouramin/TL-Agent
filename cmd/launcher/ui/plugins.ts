@@ -96,7 +96,10 @@ import { K } from "./kernel";
     envInput.value = (plugin?.environment || []).map((item) => `${item.name}=`).join("\n");
     setStatus(plugin?.environment?.length ? "Secret environment values are preserved unless you replace or remove their variable names." : "");
     editor.classList.remove("hidden");
-    nameInput.focus();
+    requestAnimationFrame(() => {
+      editor.scrollIntoView({ behavior: "smooth", block: "start" });
+      nameInput.focus({ preventScroll: true });
+    });
   };
 
   const statusClass = (value: string) => "plugin-status-" + String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
