@@ -65,7 +65,7 @@ func newNativeModelClient() nativeModelClient {
 	return &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
 }
 
-func (m *providerManager) resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+func (m *providerManager) resolveNativeModel(ctx context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
 	providerID = strings.TrimSpace(providerID)
 	modelID = strings.TrimSpace(modelID)
 	if providerID == "" || modelID == "" {
@@ -105,7 +105,7 @@ func (m *providerManager) resolveNativeModel(providerID, modelID string) (tlProv
 	if m.credentials == nil {
 		return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("TL Studio credential store is unavailable")
 	}
-	key, err := m.effectiveCredential(providerID)
+	key, err := m.effectiveCredential(ctx, providerID, "")
 	if err != nil {
 		if errors.Is(err, errCredentialNotFound) {
 			return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("provider %q has no TL Studio-owned credential", providerID)
