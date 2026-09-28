@@ -33,7 +33,7 @@
 
 The Browser workspace and Go backend work as one product. TL Studio owns the Agent loop, sessions, tools, permissions, provider configuration, credentials, terminal processes, project files, Preview, Plugins/MCP, and semantic events.
 
-There is no hidden coding-agent runtime underneath TL Studio and no compatibility engine required for normal execution.
+TL Studio executes coding sessions through its own Native Agent and Tool Executor.
 
 Your project stays on your machine, and model traffic goes directly to the provider you configure.
 
@@ -114,7 +114,7 @@ Provider definitions are owned by TL Studio. API keys are stored separately in t
 
 Custom provider setup is discovery-first: configure the endpoint, protocol, and credential, then TL Studio discovers available models from compatible model-list APIs.
 
-Unsupported models or protocols fail explicitly. TL Studio does not route them through a hidden fallback engine.
+Unsupported models or protocols return an explicit unsupported-capability error.
 
 ### Provider accounts
 
@@ -163,22 +163,6 @@ TL Studio owns:
 - Plugins/MCP.
 
 For implementation details, see **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)**.
-
-## No compatibility runtime
-
-The previous compatibility-runtime architecture is no longer part of the stable product.
-
-TL Studio v0.5.0 does **not** require or ship:
-
-- a Kilo binary;
-- a Kilo subprocess;
-- a local Kilo server;
-- a reverse proxy to another Agent engine;
-- Kilo session, question, or permission adapters;
-- provider synchronization into another runtime;
-- a hidden model fallback.
-
-An external service such as Kilo Gateway can still be configured as an ordinary documented HTTPS/API-key provider. That does not introduce a local runtime dependency.
 
 ## Local product API
 
@@ -294,7 +278,7 @@ Repository checks include, as applicable:
 - Browser smoke testing;
 - Agent/runtime E2E;
 - Windows x64 review packaging;
-- assertions that review and release packages contain no Kilo runtime.
+- review and release package validation.
 
 Provider integration tests use mocked endpoints rather than real user credentials.
 
@@ -315,7 +299,7 @@ Stable releases are promoted only after automated validation and hands-on review
 1. **Local-first** — source code and workspace state stay on the user's machine.
 2. **Native execution** — TL Studio owns the Agent and tool loop.
 3. **Explicit trust boundaries** — credentials, providers, permissions, repositories, and external tools remain clearly separated.
-4. **No hidden fallback runtime** — unsupported capabilities fail explicitly.
+4. **Explicit capability boundaries** — unsupported capabilities fail clearly instead of being silently substituted.
 5. **Portable distribution** — stable builds are published for Windows, Linux, and macOS.
 6. **Zero project-owned infrastructure** — TL Studio does not require a hosted application backend, database, telemetry service, or model proxy.
 
