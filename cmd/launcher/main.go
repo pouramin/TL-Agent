@@ -132,8 +132,10 @@ func main() {
 
 func newServer(state *appState) (http.Handler, error) {
 	providerManager := newProviderManager(state)
+	openRouterAccount := newOpenRouterAccountAdapter(state, providerManager)
+	providerManager.registerAccountAdapter(openRouterAccount)
 	providerAccounts := newProviderAccountService(
-		newOpenRouterAccountAdapter(state, providerManager),
+		openRouterAccount,
 	)
 	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
