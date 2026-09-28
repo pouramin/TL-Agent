@@ -1,131 +1,337 @@
-# TL Studio
+[English](./README.md) · [فارسی](./README.fa_IR.md)
 
 <p align="center">
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-TL Studio is a local-first browser IDE and coding-agent workspace. The product is one TL Studio application: workspace, editor, Search, Terminal, Preview, sessions, permissions, questions, providers, Plugins/MCP, and the Native Agent all run behind TL Studio-owned local contracts.
+<p align="center">
+  <strong>A local-first coding workspace with a native AI agent.</strong>
+</p>
 
-Current stable release: **0.5.0**
+<p align="center">
+  Edit, search, run, preview, chat, use tools, and connect models — all from one TL Studio workspace on your own machine.
+</p>
 
-The validated native-runtime milestone is the stable v0.5.0 release line.
+<p align="center">
+  <a href="https://www.npmjs.com/package/tl-studio"><img src="https://img.shields.io/npm/v/tl-studio?label=npm&color=CB3837" alt="npm version"></a>
+  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/v/release/pouramin/TL-Studio?sort=semver&label=release" alt="Latest release"></a>
+  <a href="https://github.com/pouramin/TL-Studio/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/pouramin/TL-Studio/ci.yml?branch=main&label=CI" alt="CI"></a>
+  <a href="https://github.com/pouramin/TL-Studio/releases"><img src="https://img.shields.io/github/downloads/pouramin/TL-Studio/total?label=downloads" alt="Downloads"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+</p>
 
-## Native architecture
+<p align="center">
+  <img src="https://img.shields.io/badge/stable-v0.5.0-16a34a" alt="Stable v0.5.0">
+  <img src="https://img.shields.io/badge/dev-v0.6.0--alpha.1-f59e0b" alt="Development v0.6.0-alpha.1">
+</p>
 
-TL Studio now runs normally without a compatibility sidecar.
+---
 
-- **Native Agent** — TL Studio owns the model/tool/model loop, cancellation, loop guards, semantic persistence, and live events.
-- **Native sessions** — create, rename, delete, run, abort, status, messages, changes, and persistence are TL Studio-owned.
-- **Native interactive questions** — an Agent can pause on interaction.question, expose a semantic pending question, receive multiple-choice or custom-text answers, and resume.
-- **Native permissions** — pending approvals, one-time decisions, project-scoped remembered rules, rejection, and enforcement are owned by TL Studio.
-- **Native events** — /local/events is the authoritative semantic SSE stream.
-- **Native providers** — provider definitions, model catalogs, discovery, and credentials are owned by TL Studio. Model calls go directly from TL Studio to configured providers.
-- **Provider accounts** — /local/provider-accounts remains a generic adapter domain for future documented account integrations.
-- **Native tools** — files, Search, Terminal/process execution, workspace reconciliation, and Plugin/MCP tools run through the TL Studio Tool Executor.
+## What is TL Studio?
 
-There is no Kilo binary requirement, subprocess, local Kilo server, reverse proxy, session adapter, permission fallback, question adapter, event stream, provider synchronization, model fallback, or release payload.
+**TL Studio** is a standalone local development environment built around a native coding agent.
 
-Kilo may still be configured by a user as an ordinary external API provider when using a documented public HTTPS/API-key endpoint. That relationship is the same as any other external provider and does not introduce a local runtime dependency.
+It combines a browser-based workspace with a Go backend that owns the Agent loop, sessions, tools, permissions, providers, credentials, terminal processes, project files, Preview, Plugins/MCP, and semantic events.
 
-## Workspace
+TL Studio executes coding sessions through its own Native Agent and Tool Executor.
 
-The Browser workspace includes:
+Your project stays on your machine. Model traffic goes directly to the provider you configure.
 
-- file Explorer with create, rename, delete, save, refresh, and optimistic concurrency protection;
-- Monaco editor bundled locally, with no CDN dependency;
-- project Search;
-- project-scoped Terminal/process execution with stop support;
-- Live Preview on a separate loopback origin;
-- Agent conversation, sessions, usage/activity metadata, changes, permissions, and interactive questions;
-- Provider settings and credential vault;
-- Plugins/MCP with project/global configuration and discovered tools;
-- JEV/OpenRouter integration through the native provider path.
+## Quick start
+
+### Run with npm
+
+If Node.js and npm are installed, open a terminal inside your project directory and run:
+
+```bash
+npx --yes tl-studio
+```
+
+The npm package is a lightweight launcher for the matching **stable** TL Studio release. It downloads the official binary for your platform, verifies its SHA-256 checksum, caches it locally, and starts TL Studio with the current directory selected.
+
+To start without opening the browser automatically:
+
+```bash
+npx --yes tl-studio --no-browser
+```
+
+### Portable release
+
+Download the latest stable archive from **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)**, extract it, and run:
+
+```text
+Windows   tl-studio.exe
+Linux     ./tl-studio
+macOS     ./tl-studio
+```
+
+You can also open a project explicitly:
+
+```bash
+tl-studio --project /path/to/project
+```
+
+On Windows:
+
+```powershell
+.\tl-studio.exe --project C:\path\to\project
+```
+
+## Highlights
+
+| | Capability | What it means |
+| --- | --- | --- |
+| 🧠 | **Native Agent** | TL Studio owns the complete model → tool → model loop, cancellation, loop guards, persistence, and final response. |
+| 🗂️ | **Workspace** | File explorer, Monaco editor, tabs, project search, file operations, and external-change reconciliation. |
+| 💻 | **Terminal** | Project-scoped command execution with output history, cancellation, and process-tree termination where supported. |
+| 👁️ | **Live Preview** | Preview HTML, Markdown, images, PDF, video, audio, SVG, and text through an isolated loopback origin. |
+| 🔐 | **Permissions** | Sensitive tool actions can pause for approval, allow-once decisions, rejection, and project-scoped remembered rules. |
+| 💬 | **Interactive questions** | The Agent can pause, ask structured questions, accept choices or custom text, and continue the same run. |
+| 🔌 | **Providers** | Direct native clients for OpenAI-compatible, OpenAI Responses, Anthropic Messages, and Google Gemini. |
+| 👤 | **Provider accounts** | Supported providers can use account-backed authentication without exposing credentials to Browser code. |
+| 🧩 | **Plugins / MCP** | External tools join the same TL Studio Tool Registry and permission boundary. |
+| 📚 | **Sessions** | Create, rename, resume, delete, abort, persist, and inspect Agent sessions and file changes. |
+| 📊 | **Usage** | Session activity and usage metadata stay part of TL Studio's semantic session model. |
+| 🏠 | **Local-first** | No TL Studio cloud backend, database, hosted proxy, or telemetry service is required. |
 
 ## Provider support
 
-TL Studio currently has direct model clients for OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
+TL Studio keeps **manual API credentials** and **account credentials** in separate credential-vault slots. Connecting an account can take precedence while it is active, but signing out does not delete an existing manual API key.
 
-Provider definitions live in TL Studio local state. API keys are stored separately in the TL Studio credential vault and are never written to providers.json or Browser storage.
+Secrets are not stored in `providers.json`, Browser local storage, session storage, frontend source, or normal local API responses.
 
-A model or protocol that the native client cannot execute returns an explicit unsupported-capability error. It is never routed through a hidden compatibility runtime.
+### Native model protocols
 
-JEV remains an optional product-managed router on top of the normal OpenRouter-compatible provider path. It uses the same Native Agent, Tool Executor, permissions, sessions, and event system.
+| Protocol | Status |
+| --- | --- |
+| OpenAI-compatible Chat Completions | ✅ Supported |
+| OpenAI Responses | ✅ Supported |
+| Anthropic Messages | ✅ Supported |
+| Google Gemini `generateContent` | ✅ Supported |
 
-## Local product API
+Custom providers use a discovery-first setup: normally you provide an API address, API type, and API key, and TL Studio discovers available models automatically. Manual model entry remains an explicit fallback for private or unlisted models.
 
-The Browser talks only to TL Studio local semantic endpoints, including:
+### Account providers
 
-- /local/status
-- /local/health
-- /local/path
-- /local/agents
-- /local/providers/*
-- /local/provider-accounts*
-- /local/sessions*
-- /local/questions*
-- /local/permissions*
-- /local/events
-- /local/plugins*
-- /local/tools
+| Provider | Account login | Notes |
+| --- | --- | --- |
+| **OpenRouter** | ✅ Available | Official OAuth + PKCE, account-backed credential flow, model discovery. |
+| **Hugging Face** | ✅ Available | Public-client OAuth + PKCE, refresh support, Inference Providers model discovery. |
+| **Google / Gemini** | ✅ Available | Installed-app OAuth + PKCE, refresh/revocation, native Gemini transport, Google Cloud quota project support. |
+| **ChatGPT / Codex** | ⏳ Deferred | Remains a required 0.6 goal; the currently documented third-party surface does not expose the raw model transport TL Studio needs to preserve its Native Agent boundary. |
+| **Claude account** | ⏳ Deferred | Anthropic API-key support is native; consumer-account login waits for a documented public third-party authorization contract. |
+| **GitHub Copilot** | ⏳ Deferred | Official account authentication exists, but the documented model path remains coupled to the Copilot SDK/runtime. |
 
-The historical /runtime/* reverse-proxy architecture is not part of the product anymore.
+Deferred providers are visible in Settings on purpose. They are architecture boundaries, not hidden fallbacks.
+
+### Gemini alpha setup
+
+The current 0.6 development line lets users configure these **non-secret** values directly in Provider Settings:
+
+- Google Cloud Project ID
+- Desktop OAuth Client ID
+
+OAuth access and refresh tokens stay only in the TL Studio credential vault.
+
+Gemini desktop login uses a temporary listener bound to:
+
+```text
+127.0.0.1:<random-port>
+```
+
+The listener validates OAuth state, completes the PKCE flow, and shuts down after success, cancellation, or expiry.
+
+## Architecture
+
+TL Studio is one native product boundary.
+
+```mermaid
+flowchart TD
+    UI["Browser workspace"] --> API["TL Studio local API"]
+    API --> SESSION["Sessions / permissions / questions / events"]
+    SESSION --> AGENT["Native Agent"]
+    AGENT --> PROVIDER["Selected model provider"]
+    AGENT --> TOOLS["TL Studio Tool Executor"]
+
+    TOOLS --> FILES["Project files & search"]
+    TOOLS --> TERM["Terminal / processes"]
+    TOOLS --> MCP["Plugins / MCP"]
+
+    PROVIDER --> AGENT
+    TOOLS --> AGENT
+    AGENT --> SESSION
+    SESSION --> UI
+```
+
+TL Studio owns:
+
+- workspace and Monaco editor;
+- files and project Search;
+- Terminal/process execution;
+- Preview;
+- provider registry and model discovery;
+- credential vault;
+- Provider Account lifecycle;
+- Native Agent execution;
+- sessions and persistence;
+- questions and permissions;
+- semantic live events;
+- Tool Registry and Tool Executor;
+- Plugins/MCP.
+
+Unsupported model protocols return an explicit unsupported-capability error.
+
+For the deeper design, see **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)**.
+
+## Security model
+
+The local control surface is designed to stay local:
+
+- the control UI binds to loopback;
+- non-loopback Host values are rejected;
+- Browser Origin must match the local control origin;
+- filesystem operations enforce project boundaries;
+- traversal and symlink escapes are rejected;
+- Preview is isolated from the control origin;
+- provider secrets remain outside Browser code;
+- sensitive tools remain permission-gated.
+
+External model providers, repositories, prompts, MCP servers, and plugin processes are separate trust boundaries.
+
+Do not expose the TL Studio control port through a public proxy.
+
+See **[SECURITY.md](./SECURITY.md)** for the security model and reporting guidance.
+
+## Supported builds
+
+| Platform | Architecture |
+| --- | --- |
+| Windows | x64 |
+| Linux | x64, ARM64 |
+| macOS | Intel x64, Apple Silicon ARM64 |
+
+Stable releases are published through **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)** with SHA-256 checksums.
 
 ## Build from source
 
-Requirements:
+### Requirements
 
 - Go 1.23+
-- Node.js 18+ for Browser development/build tooling
+- Node.js 18+
+- npm
 
-Build and check Browser assets:
+Install Browser development dependencies:
 
-    npm install --ignore-scripts --no-audit --no-fund
-    npm run check:web
-    npm run build:web
+```bash
+npm install --ignore-scripts --no-audit --no-fund
+```
 
-Run tests:
+Type-check and build the Browser:
 
-    go test ./...
-    go vet ./...
+```bash
+npm run check:web
+npm run build:web
+```
+
+Run backend tests and vet:
+
+```bash
+go test ./...
+go vet ./...
+```
 
 Run TL Studio:
 
-    go run ./cmd/launcher --project /path/to/project
+```bash
+go run ./cmd/launcher --project /path/to/project
+```
 
-Or build the executable:
+Build a local executable:
 
-    go build -o tl-studio ./cmd/launcher
-    ./tl-studio --project /path/to/project
+```bash
+go build -o tl-studio ./cmd/launcher
+```
 
 Windows:
 
-    go build -o tl-studio.exe ./cmd/launcher
-    .\tl-studio.exe --project C:\path\to\project
+```powershell
+go build -o tl-studio.exe ./cmd/launcher
+```
 
-Normal execution is native. There is no special native-only flag and no runtime binary to install or select.
+Normal execution is already native. There is no special native-mode flag and no external coding-runtime binary to install.
 
-## Release packaging
+## Validation
 
-Normal release packages contain the TL Studio executable, TL Studio licenses/notices, and bundled TL Studio plugins where configured. They do not contain kilo or kilo.exe.
+The repository's automated validation covers the product rather than only compiling individual packages.
 
-CI has hard package assertions that fail if either binary appears in a review or release package. PR validation also starts the standalone TL Studio executable normally, exercises native product contracts, runs a real Browser smoke test, and produces a Windows x64 review ZIP.
+Current gates include, as applicable:
 
-## Security
+- Browser strict TypeScript type-check;
+- Browser production build;
+- `go test ./...`;
+- `go vet ./...`;
+- supported launcher cross-compiles;
+- Native Product Contract;
+- Custom Provider Contract;
+- Browser smoke testing;
+- Agent/runtime E2E;
+- provider-specific regression tests;
+- Windows x64 review packaging;
+- review and release package validation.
 
-TL Studio is local-first. The control UI binds to loopback only, cross-origin Browser requests are rejected, project filesystem APIs enforce project boundaries, Preview is isolated from the control origin, credentials stay in the TL Studio credential vault, and sensitive tool execution remains permission-gated.
+Real credentials are not used in CI; provider integrations are exercised through mocked endpoints and contract tests.
 
-Configured external model providers and MCP servers are separate trust boundaries. Review provider endpoints, prompts, repositories, plugin commands, and requested permissions before allowing sensitive actions.
+## Release channels
 
-See SECURITY.md.
+| Branch / channel | Purpose | Current version |
+| --- | --- | --- |
+| `main` | Stable production | **v0.5.0** |
+| `dev` | Active development | **v0.6.0-alpha.1** |
+| Feature branches | Focused work based on current `dev` | Short-lived |
 
-## Repository branches
+Stable releases are promoted to `main` only after the milestone has passed automated validation and hands-on review.
 
-- main — stable production
-- dev — active next-version development
-- feature branches — isolated milestone work based on dev
+The stable npm launcher follows stable releases. Development builds are produced separately from `dev`.
 
-Architecture details are in docs/ARCHITECTURE.md.
+## Project principles
+
+TL Studio is intentionally built around a few hard boundaries:
+
+1. **Local-first** — the workspace and project stay on the user's machine.
+2. **Native execution** — TL Studio owns the Agent and tool loop.
+3. **Explicit trust** — credentials, permissions, providers, and external tools have clear boundaries.
+4. **Explicit capability boundaries** — unsupported capabilities fail clearly instead of being silently substituted.
+5. **Discovery-first provider setup** — common provider configuration should be simple.
+6. **Portable by default** — stable binaries are distributed for Windows, Linux, and macOS.
+7. **Zero project-owned infrastructure** — TL Studio does not require a hosted application backend, database, telemetry service, or model proxy.
+
+## Repository map
+
+```text
+cmd/launcher/          Go application, local APIs, Agent, providers, tools
+cmd/launcher/ui/       Browser TypeScript source
+docs/                  Architecture and design documentation
+media/                 Project branding
+packaging/             Release/package support
+scripts/               Browser build and launcher tooling
+third_party/           Required third-party notices/licenses
+```
+
+Important documents:
+
+- **[Architecture](./docs/ARCHITECTURE.md)**
+- **[Security](./SECURITY.md)**
+- **[Persian README](./README.fa_IR.md)**
+- **[Third-party notices](./THIRD_PARTY_NOTICES.md)**
 
 ## License
 
-TL Studio is MIT licensed. See LICENSE and THIRD_PARTY_NOTICES.md for software that is still distributed with TL Studio.
+TL Studio is released under the **MIT License**.
+
+See **[LICENSE](./LICENSE)** and **[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)**.
+
+---
+
+<p align="center">
+  Built under the <strong>TunnelLab</strong> identity.
+</p>
