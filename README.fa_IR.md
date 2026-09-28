@@ -1,14 +1,14 @@
-[English](./README.md) · [فارسی](./README.fa_IR.md)
+<p align="center" dir="ltr"><a href="./README.md">English</a> · <a href="./README.fa_IR.md">فارسی</a></p>
 
 <p align="center">
   <img src="./media/tl-studio-logo.svg" width="360" alt="TL Studio">
 </p>
 
-<p align="center">
+<p align="center" dir="rtl">
   <strong>یک محیط کدنویسی محلی با Agent هوش مصنوعی بومی.</strong>
 </p>
 
-<p align="center">
+<p align="center" dir="rtl">
   ویرایش کد، جست‌وجوی پروژه، اجرای دستورها، پیش‌نمایش، استفاده از ابزارها و کار با مدل‌های هوش مصنوعی؛ همه در یک محیط محلی.
 </p>
 
@@ -27,37 +27,37 @@
 
 ---
 
-## TL Studio چیست؟
+<h2 dir="rtl" align="right"><bdi dir="ltr">TL Studio</bdi> چیست؟</h2>
 
-**TL Studio** یک محیط توسعهٔ محلی و مستقل است که حول یک Agent کدنویسی بومی ساخته شده است.
+<p dir="rtl" align="right"><strong><bdi dir="ltr">TL Studio</bdi></strong> یک محیط توسعهٔ محلی و مستقل است که حول یک <bdi dir="ltr">Agent</bdi> کدنویسی بومی ساخته شده است.</p>
 
-محیط مرورگری و Backend نوشته‌شده با Go به‌عنوان یک محصول واحد کار می‌کنند. چرخهٔ Agent، Sessionها، ابزارها، Permissionها، تنظیمات Provider، Credentialها، Processهای Terminal، فایل‌های پروژه، Preview، Plugin/MCP و Eventهای معنایی همگی در اختیار خود TL Studio هستند.
+<p dir="rtl" align="right">محیط مرورگری و <bdi dir="ltr">Backend</bdi> نوشته‌شده با <bdi dir="ltr">Go</bdi> به‌عنوان یک محصول واحد کار می‌کنند. چرخهٔ <bdi dir="ltr">Agent</bdi>، <bdi dir="ltr">Session</bdi>ها، ابزارها، <bdi dir="ltr">Permission</bdi>ها، تنظیمات <bdi dir="ltr">Provider</bdi>، <bdi dir="ltr">Credential</bdi>ها، <bdi dir="ltr">Process</bdi>های <bdi dir="ltr">Terminal</bdi>، فایل‌های پروژه، <bdi dir="ltr">Preview</bdi>، <bdi dir="ltr">Plugin/MCP</bdi> و <bdi dir="ltr">Event</bdi>های معنایی همگی در اختیار خود <bdi dir="ltr">TL Studio</bdi> هستند.</p>
 
-Sessionهای کدنویسی از طریق Native Agent و Tool Executor خود TL Studio اجرا می‌شوند.
+<p dir="rtl" align="right"><bdi dir="ltr">Session</bdi>های کدنویسی از طریق <bdi dir="ltr">Native Agent</bdi> و <bdi dir="ltr">Tool Executor</bdi> خود <bdi dir="ltr">TL Studio</bdi> اجرا می‌شوند.</p>
 
-پروژه روی سیستم خود کاربر باقی می‌ماند و ترافیک مدل مستقیماً به Provider انتخاب‌شده ارسال می‌شود.
+<p dir="rtl" align="right">پروژه روی سیستم خود کاربر باقی می‌ماند و ترافیک مدل مستقیماً به <bdi dir="ltr">Provider</bdi> انتخاب‌شده ارسال می‌شود.</p>
 
-## شروع سریع
+<h2 dir="rtl" align="right">شروع سریع</h2>
 
-### اجرا با npm
+<h3 dir="rtl" align="right">اجرا با <bdi dir="ltr">npm</bdi></h3>
 
-اگر Node.js و npm نصب هستند، داخل پوشهٔ پروژه این دستور را اجرا کنید:
+<p dir="rtl" align="right">اگر <bdi dir="ltr">Node.js</bdi> و <bdi dir="ltr">npm</bdi> نصب هستند، داخل پوشهٔ پروژه این دستور را اجرا کنید:</p>
 
 ```bash
 npx --yes tl-studio
 ```
 
-پکیج npm یک Launcher سبک برای نسخهٔ پایدار متناظر در GitHub Releases است. سیستم‌عامل و معماری را تشخیص می‌دهد، آرشیو رسمی TL Studio را دانلود می‌کند، SHA-256 آن را بررسی می‌کند، فایل را در Cache محلی نگه می‌دارد و پوشهٔ فعلی را به‌عنوان پروژه باز می‌کند.
+<p dir="rtl" align="right">پکیج <bdi dir="ltr">npm</bdi> یک <bdi dir="ltr">Launcher</bdi> سبک برای نسخهٔ پایدار متناظر در <bdi dir="ltr">GitHub Releases</bdi> است. سیستم‌عامل و معماری را تشخیص می‌دهد، آرشیو رسمی <bdi dir="ltr">TL Studio</bdi> را دانلود می‌کند، <bdi dir="ltr">SHA-256</bdi> آن را بررسی می‌کند، فایل را در <bdi dir="ltr">Cache</bdi> محلی نگه می‌دارد و پوشهٔ فعلی را به‌عنوان پروژه باز می‌کند.</p>
 
-برای اجرا بدون باز شدن خودکار Browser:
+<p dir="rtl" align="right">برای اجرا بدون باز شدن خودکار <bdi dir="ltr">Browser:</bdi></p>
 
 ```bash
 npx --yes tl-studio --no-browser
 ```
 
-### نسخهٔ Portable
+<h3 dir="rtl" align="right">نسخهٔ <bdi dir="ltr">Portable</bdi></h3>
 
-آخرین نسخهٔ پایدار را از **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)** دانلود و Extract کنید:
+<p dir="rtl" align="right">آخرین نسخهٔ پایدار را از <strong>undefined</strong> دانلود و <bdi dir="ltr">Extract</bdi> کنید:</p>
 
 ```text
 Windows   tl-studio.exe
@@ -65,46 +65,120 @@ Linux     ./tl-studio
 macOS     ./tl-studio
 ```
 
-برای باز کردن یک پروژهٔ مشخص:
+<p dir="rtl" align="right">برای باز کردن یک پروژهٔ مشخص:</p>
 
 ```bash
 tl-studio --project /path/to/project
 ```
 
-در Windows:
+<p dir="rtl" align="right">در <bdi dir="ltr">Windows:</bdi></p>
 
 ```powershell
 .\tl-studio.exe --project C:\path\to\project
 ```
 
-## قابلیت‌های اصلی
+<h2 dir="rtl" align="right">قابلیت‌های اصلی</h2>
 
-| | قابلیت | توضیح |
-| --- | --- | --- |
-| 🧠 | **Native Agent** | چرخهٔ کامل مدل → ابزار → مدل، لغو اجرا، Loop Guard، Persistence و پاسخ نهایی در اختیار TL Studio است. |
-| 🗂️ | **Workspace** | File Explorer، Monaco Editor، Tabها، ساخت/تغییرنام/حذف/ذخیره و هماهنگی با تغییرات بیرونی فایل‌ها. |
-| 🔎 | **Project Search** | جست‌وجوی سراسری در پروژه با فیلترهای Include/Exclude و باز کردن مستقیم نتیجه. |
-| 💻 | **Terminal** | اجرای دستورها در محدودهٔ پروژه، تاریخچهٔ خروجی، Stop و پایان Process Tree در سیستم‌های پشتیبانی‌شده. |
-| 👁️ | **Live Preview** | پیش‌نمایش HTML، Markdown، تصویر، PDF، SVG، ویدیو، صدا و متن روی Origin محلی جداگانه. |
-| 💬 | **Sessions** | ساخت، Resume، Rename، Delete، Abort، Persistence و مشاهدهٔ تغییرات هر Session. |
-| ❓ | **Interactive Questions** | Agent می‌تواند متوقف شود، سؤال ساختاریافته بپرسد، پاسخ گزینه‌ای یا متن دلخواه بگیرد و همان اجرا را ادامه دهد. |
-| 🔐 | **Permissions** | عملیات حساس می‌توانند نیازمند تأیید، Allow Once، Reject یا Ruleهای Project-scoped باشند. |
-| 🔌 | **Providers** | Clientهای مستقیم مدل، Provider سفارشی و Model Discovery. |
-| 🔑 | **Credential Vault** | API Keyها خارج از Browser Storage و فایل تعریف Provider نگهداری می‌شوند. |
-| 🧩 | **Plugins / MCP** | ابزارهای خارجی وارد همان Tool Registry، مسیر Agent و مرز Permission می‌شوند. |
-| 🏠 | **Local-first** | Backend ابری TL Studio، Database برنامه، Model Proxy یا Telemetry Service لازم نیست. |
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right"></th>
+      <th align="right">قابلیت</th>
+      <th align="right">توضیح</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right">🧠</td>
+      <td align="right"><strong><bdi dir="ltr">Native Agent</bdi></strong></td>
+      <td align="right">چرخهٔ کامل مدل → ابزار → مدل، لغو اجرا، <bdi dir="ltr">Loop Guard</bdi>، <bdi dir="ltr">Persistence</bdi> و پاسخ نهایی در اختیار <bdi dir="ltr">TL Studio</bdi> است.</td>
+    </tr>
+    <tr>
+      <td align="right">🗂️</td>
+      <td align="right"><strong><bdi dir="ltr">Workspace</bdi></strong></td>
+      <td align="right"><bdi dir="ltr">File Explorer</bdi>، <bdi dir="ltr">Monaco Editor</bdi>، <bdi dir="ltr">Tab</bdi>ها، ساخت/تغییرنام/حذف/ذخیره و هماهنگی با تغییرات بیرونی فایل‌ها.</td>
+    </tr>
+    <tr>
+      <td align="right">🔎</td>
+      <td align="right"><strong><bdi dir="ltr">Project Search</bdi></strong></td>
+      <td align="right">جست‌وجوی سراسری در پروژه با فیلترهای <bdi dir="ltr">Include/Exclude</bdi> و باز کردن مستقیم نتیجه.</td>
+    </tr>
+    <tr>
+      <td align="right">💻</td>
+      <td align="right"><strong><bdi dir="ltr">Terminal</bdi></strong></td>
+      <td align="right">اجرای دستورها در محدودهٔ پروژه، تاریخچهٔ خروجی، <bdi dir="ltr">Stop</bdi> و پایان <bdi dir="ltr">Process Tree</bdi> در سیستم‌های پشتیبانی‌شده.</td>
+    </tr>
+    <tr>
+      <td align="right">👁️</td>
+      <td align="right"><strong><bdi dir="ltr">Live Preview</bdi></strong></td>
+      <td align="right">پیش‌نمایش <bdi dir="ltr">HTML</bdi>، <bdi dir="ltr">Markdown</bdi>، تصویر، <bdi dir="ltr">PDF</bdi>، <bdi dir="ltr">SVG</bdi>، ویدیو، صدا و متن روی <bdi dir="ltr">Origin</bdi> محلی جداگانه.</td>
+    </tr>
+    <tr>
+      <td align="right">💬</td>
+      <td align="right"><strong><bdi dir="ltr">Sessions</bdi></strong></td>
+      <td align="right">ساخت، <bdi dir="ltr">Resume</bdi>، <bdi dir="ltr">Rename</bdi>، <bdi dir="ltr">Delete</bdi>، <bdi dir="ltr">Abort</bdi>، <bdi dir="ltr">Persistence</bdi> و مشاهدهٔ تغییرات هر <bdi dir="ltr">Session.</bdi></td>
+    </tr>
+    <tr>
+      <td align="right">❓</td>
+      <td align="right"><strong><bdi dir="ltr">Interactive Questions</bdi></strong></td>
+      <td align="right"><bdi dir="ltr">Agent</bdi> می‌تواند متوقف شود، سؤال ساختاریافته بپرسد، پاسخ گزینه‌ای یا متن دلخواه بگیرد و همان اجرا را ادامه دهد.</td>
+    </tr>
+    <tr>
+      <td align="right">🔐</td>
+      <td align="right"><strong><bdi dir="ltr">Permissions</bdi></strong></td>
+      <td align="right">عملیات حساس می‌توانند نیازمند تأیید، <bdi dir="ltr">Allow Once</bdi>، <bdi dir="ltr">Reject</bdi> یا <bdi dir="ltr">Rule</bdi>های <bdi dir="ltr">Project-scoped</bdi> باشند.</td>
+    </tr>
+    <tr>
+      <td align="right">🔌</td>
+      <td align="right"><strong><bdi dir="ltr">Providers</bdi></strong></td>
+      <td align="right"><bdi dir="ltr">Client</bdi>های مستقیم مدل، <bdi dir="ltr">Provider</bdi> سفارشی و <bdi dir="ltr">Model Discovery.</bdi></td>
+    </tr>
+    <tr>
+      <td align="right">🔑</td>
+      <td align="right"><strong><bdi dir="ltr">Credential Vault</bdi></strong></td>
+      <td align="right"><bdi dir="ltr">API Key</bdi>ها خارج از <bdi dir="ltr">Browser Storage</bdi> و فایل تعریف <bdi dir="ltr">Provider</bdi> نگهداری می‌شوند.</td>
+    </tr>
+    <tr>
+      <td align="right">🧩</td>
+      <td align="right"><strong><bdi dir="ltr">Plugins</bdi> / <bdi dir="ltr">MCP</bdi></strong></td>
+      <td align="right">ابزارهای خارجی وارد همان <bdi dir="ltr">Tool Registry</bdi>، مسیر <bdi dir="ltr">Agent</bdi> و مرز <bdi dir="ltr">Permission</bdi> می‌شوند.</td>
+    </tr>
+    <tr>
+      <td align="right">🏠</td>
+      <td align="right"><strong><bdi dir="ltr">Local-first</bdi></strong></td>
+      <td align="right"><bdi dir="ltr">Backend</bdi> ابری <bdi dir="ltr">TL Studio</bdi>، <bdi dir="ltr">Database</bdi> برنامه، <bdi dir="ltr">Model Proxy</bdi> یا <bdi dir="ltr">Telemetry Service</bdi> لازم نیست.</td>
+    </tr>
+  </tbody>
+</table>
 
-## پشتیبانی Native از Providerها
+<h2 dir="rtl" align="right">پشتیبانی <bdi dir="ltr">Native</bdi> از <bdi dir="ltr">Provider</bdi>ها</h2>
 
-نسخهٔ پایدار **v0.5.0** برای Protocolهای زیر Client مستقیم دارد:
+<p dir="rtl" align="right">نسخهٔ پایدار <strong><bdi dir="ltr">v0.5.0</bdi></strong> برای <bdi dir="ltr">Protocol</bdi>های زیر <bdi dir="ltr">Client</bdi> مستقیم دارد:</p>
 
-| Protocol | وضعیت |
-| --- | --- |
-| OpenAI-compatible Chat Completions | ✅ پشتیبانی می‌شود |
-| OpenAI Responses | ✅ پشتیبانی می‌شود |
-| Anthropic Messages | ✅ پشتیبانی می‌شود |
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right"><bdi dir="ltr">Protocol</bdi></th>
+      <th align="right">وضعیت</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right"><bdi dir="ltr">OpenAI-compatible Chat Completions</bdi></td>
+      <td align="right">✅ پشتیبانی می‌شود</td>
+    </tr>
+    <tr>
+      <td align="right"><bdi dir="ltr">OpenAI Responses</bdi></td>
+      <td align="right">✅ پشتیبانی می‌شود</td>
+    </tr>
+    <tr>
+      <td align="right"><bdi dir="ltr">Anthropic Messages</bdi></td>
+      <td align="right">✅ پشتیبانی می‌شود</td>
+    </tr>
+  </tbody>
+</table>
 
-تعریف Providerها در اختیار TL Studio است. API Keyها به‌صورت جداگانه در Credential Vault نگهداری می‌شوند و در این محل‌ها نوشته نمی‌شوند:
+<p dir="rtl" align="right">تعریف <bdi dir="ltr">Provider</bdi>ها در اختیار <bdi dir="ltr">TL Studio</bdi> است. <bdi dir="ltr">API Key</bdi>ها به‌صورت جداگانه در <bdi dir="ltr">Credential Vault</bdi> نگهداری می‌شوند و در این محل‌ها نوشته نمی‌شوند:</p>
 
 ```text
 providers.json
@@ -114,23 +188,23 @@ frontend source
 normal local API responses
 ```
 
-راه‌اندازی Provider سفارشی به‌صورت Discovery-first طراحی شده است: Endpoint، Protocol و Credential را تنظیم می‌کنید و TL Studio فهرست مدل‌ها را از API سازگار کشف می‌کند.
+<p dir="rtl" align="right">راه‌اندازی <bdi dir="ltr">Provider</bdi> سفارشی به‌صورت <bdi dir="ltr">Discovery-first</bdi> طراحی شده است: <bdi dir="ltr">Endpoint</bdi>، <bdi dir="ltr">Protocol</bdi> و <bdi dir="ltr">Credential</bdi> را تنظیم می‌کنید و <bdi dir="ltr">TL Studio</bdi> فهرست مدل‌ها را از <bdi dir="ltr">API</bdi> سازگار کشف می‌کند.</p>
 
-مدل یا Protocol پشتیبانی‌نشده با خطای صریح Unsupported Capability متوقف می‌شود.
+<p dir="rtl" align="right">مدل یا <bdi dir="ltr">Protocol</bdi> پشتیبانی‌نشده با خطای صریح <bdi dir="ltr">Unsupported Capability</bdi> متوقف می‌شود.</p>
 
-### Provider Account
+<h3 dir="rtl" align="right"><bdi dir="ltr">Provider Account</bdi></h3>
 
-نسخهٔ پایدار **v0.5.0** زیرساخت عمومی Provider Account را به‌عنوان مرز توسعهٔ آینده در اختیار دارد، اما Login با حساب‌های مصرف‌کننده در Runtime پایدار فعال نیست.
+<p dir="rtl" align="right">نسخهٔ پایدار <strong><bdi dir="ltr">v0.5.0</bdi></strong> زیرساخت عمومی <bdi dir="ltr">Provider Account</bdi> را به‌عنوان مرز توسعهٔ آینده در اختیار دارد، اما <bdi dir="ltr">Login</bdi> با حساب‌های مصرف‌کننده در <bdi dir="ltr">Runtime</bdi> پایدار فعال نیست.</p>
 
-Flowهای OAuth خصوصی یا مستندنشده Reverse Engineer نمی‌شوند.
+<p dir="rtl" align="right"><bdi dir="ltr">Flow</bdi>های <bdi dir="ltr">OAuth</bdi> خصوصی یا مستندنشده <bdi dir="ltr">Reverse Engineer</bdi> نمی‌شوند.</p>
 
-پیاده‌سازی‌های جدید Account Provider روی شاخهٔ توسعه انجام می‌شوند و تنها پس از آماده شدن milestone بعدی وارد نسخهٔ پایدار خواهند شد.
+<p dir="rtl" align="right">پیاده‌سازی‌های جدید <bdi dir="ltr">Account Provider</bdi> روی شاخهٔ توسعه انجام می‌شوند و تنها پس از آماده شدن <bdi dir="ltr">milestone</bdi> بعدی وارد نسخهٔ پایدار خواهند شد.</p>
 
-[مشاهدهٔ شاخهٔ dev](https://github.com/pouramin/TL-Studio/tree/dev)
+<p dir="rtl" align="right"><a href="https://github.com/pouramin/TL-Studio/tree/dev">مشاهدهٔ شاخهٔ <bdi dir="ltr">dev</bdi></a></p>
 
-## معماری
+<h2 dir="rtl" align="right">معماری</h2>
 
-TL Studio یک مرز محصول بومی و یکپارچه دارد:
+<p dir="rtl" align="right"><bdi dir="ltr">TL Studio</bdi> یک مرز محصول بومی و یکپارچه دارد:</p>
 
 ```mermaid
 flowchart TD
@@ -151,28 +225,30 @@ flowchart TD
     STATE --> UI
 ```
 
-بخش‌های زیر مستقیماً در اختیار TL Studio هستند:
+<p dir="rtl" align="right">بخش‌های زیر مستقیماً در اختیار <bdi dir="ltr">TL Studio</bdi> هستند:</p>
 
-- Workspace و Monaco Editor
-- فایل‌های پروژه و Search
-- Terminal و Process execution
-- Preview
-- Provider Registry و Model Discovery
-- Credential Vault
-- Native Agent
-- Sessionها و Persistence
-- Questionها و Permissionها
-- Eventهای معنایی
-- Tool Registry و Tool Executor
-- Plugins/MCP
+<ul dir="rtl">
+  <li><bdi dir="ltr">Workspace</bdi> و <bdi dir="ltr">Monaco Editor</bdi></li>
+  <li>فایل‌های پروژه و <bdi dir="ltr">Search</bdi></li>
+  <li><bdi dir="ltr">Terminal</bdi> و <bdi dir="ltr">Process execution</bdi></li>
+  <li><bdi dir="ltr">Preview</bdi></li>
+  <li><bdi dir="ltr">Provider Registry</bdi> و <bdi dir="ltr">Model Discovery</bdi></li>
+  <li><bdi dir="ltr">Credential Vault</bdi></li>
+  <li><bdi dir="ltr">Native Agent</bdi></li>
+  <li><bdi dir="ltr">Session</bdi>ها و <bdi dir="ltr">Persistence</bdi></li>
+  <li><bdi dir="ltr">Question</bdi>ها و <bdi dir="ltr">Permission</bdi>ها</li>
+  <li><bdi dir="ltr">Event</bdi>های معنایی</li>
+  <li><bdi dir="ltr">Tool Registry</bdi> و <bdi dir="ltr">Tool Executor</bdi></li>
+  <li><bdi dir="ltr">Plugins/MCP</bdi></li>
+</ul>
 
-جزئیات کامل‌تر در این فایل قرار دارد:
+<p dir="rtl" align="right">جزئیات کامل‌تر در این فایل قرار دارد:</p>
 
-[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+<p dir="rtl" align="right"><a href="./docs/ARCHITECTURE.md"><bdi dir="ltr">docs/ARCHITECTURE.md</bdi></a></p>
 
-## API محلی محصول
+<h2 dir="rtl" align="right"><bdi dir="ltr">API</bdi> محلی محصول</h2>
 
-Browser فقط با APIهای معنایی خود TL Studio ارتباط دارد، از جمله:
+<p dir="rtl" align="right"><bdi dir="ltr">Browser</bdi> فقط با <bdi dir="ltr">API</bdi>های معنایی خود <bdi dir="ltr">TL Studio</bdi> ارتباط دارد، از جمله:</p>
 
 ```text
 /local/status
@@ -189,40 +265,59 @@ Browser فقط با APIهای معنایی خود TL Studio ارتباط دار�
 /local/tools
 ```
 
-## امنیت
+<h2 dir="rtl" align="right">امنیت</h2>
 
-Control Surface برنامه برای استفادهٔ محلی طراحی شده است:
+<p dir="rtl" align="right"><bdi dir="ltr">Control Surface</bdi> برنامه برای استفادهٔ محلی طراحی شده است:</p>
 
-- Control UI فقط روی Loopback Bind می‌شود.
-- Hostهای غیرمحلی رد می‌شوند.
-- Origin مرورگر باید با Control Origin محلی یکسان باشد.
-- عملیات Filesystem مرز پروژه را enforce می‌کنند.
-- Traversal و Symlink Escape رد می‌شوند.
-- Preview از Control Origin جداست.
-- Credentialهای Provider وارد Browser Code نمی‌شوند.
-- Toolهای حساس پشت Permission قرار دارند.
+<ul dir="rtl">
+  <li><bdi dir="ltr">Control UI</bdi> فقط روی <bdi dir="ltr">Loopback Bind</bdi> می‌شود.</li>
+  <li><bdi dir="ltr">Host</bdi>های غیرمحلی رد می‌شوند.</li>
+  <li><bdi dir="ltr">Origin</bdi> مرورگر باید با <bdi dir="ltr">Control Origin</bdi> محلی یکسان باشد.</li>
+  <li>عملیات <bdi dir="ltr">Filesystem</bdi> مرز پروژه را <bdi dir="ltr">enforce</bdi> می‌کنند.</li>
+  <li><bdi dir="ltr">Traversal</bdi> و <bdi dir="ltr">Symlink Escape</bdi> رد می‌شوند.</li>
+  <li><bdi dir="ltr">Preview</bdi> از <bdi dir="ltr">Control Origin</bdi> جداست.</li>
+  <li><bdi dir="ltr">Credential</bdi>های <bdi dir="ltr">Provider</bdi> وارد <bdi dir="ltr">Browser Code</bdi> نمی‌شوند.</li>
+  <li><bdi dir="ltr">Tool</bdi>های حساس پشت <bdi dir="ltr">Permission</bdi> قرار دارند.</li>
+</ul>
 
-Providerهای خارجی، Repositoryها، Promptها، MCP Serverها و Plugin Processها مرزهای اعتماد مستقل هستند.
+<p dir="rtl" align="right"><bdi dir="ltr">Provider</bdi>های خارجی، <bdi dir="ltr">Repository</bdi>ها، <bdi dir="ltr">Prompt</bdi>ها، <bdi dir="ltr">MCP Server</bdi>ها و <bdi dir="ltr">Plugin Process</bdi>ها مرزهای اعتماد مستقل هستند.</p>
 
-Control Port برنامه را از طریق Public Proxy در معرض اینترنت قرار ندهید.
+<p dir="rtl" align="right"><bdi dir="ltr">Control Port</bdi> برنامه را از طریق <bdi dir="ltr">Public Proxy</bdi> در معرض اینترنت قرار ندهید.</p>
 
-جزئیات بیشتر:
+<p dir="rtl" align="right">جزئیات بیشتر:</p>
 
-[SECURITY.md](./SECURITY.md)
+<p dir="rtl" align="right"><a href="./SECURITY.md"><bdi dir="ltr">SECURITY.md</bdi></a></p>
 
-## نسخه‌های قابل اجرا
+<h2 dir="rtl" align="right">نسخه‌های قابل اجرا</h2>
 
-| پلتفرم | معماری |
-| --- | --- |
-| Windows | x64 |
-| Linux | x64, ARM64 |
-| macOS | Intel x64, Apple Silicon ARM64 |
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">پلتفرم</th>
+      <th align="right">معماری</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right"><bdi dir="ltr">Windows</bdi></td>
+      <td align="right"><bdi dir="ltr">x64</bdi></td>
+    </tr>
+    <tr>
+      <td align="right"><bdi dir="ltr">Linux</bdi></td>
+      <td align="right"><bdi dir="ltr">x64</bdi>, <bdi dir="ltr">ARM64</bdi></td>
+    </tr>
+    <tr>
+      <td align="right"><bdi dir="ltr">macOS</bdi></td>
+      <td align="right"><bdi dir="ltr">Intel x64</bdi>, <bdi dir="ltr">Apple Silicon ARM64</bdi></td>
+    </tr>
+  </tbody>
+</table>
 
-نسخه‌های پایدار همراه با SHA-256 از طریق **[GitHub Releases](https://github.com/pouramin/TL-Studio/releases)** منتشر می‌شوند.
+<p dir="rtl" align="right">نسخه‌های پایدار همراه با <bdi dir="ltr">SHA-256</bdi> از طریق <strong>undefined</strong> منتشر می‌شوند.</p>
 
-## Build از Source
+<h2 dir="rtl" align="right"><bdi dir="ltr">Build</bdi> از <bdi dir="ltr">Source</bdi></h2>
 
-### نیازمندی‌ها
+<h3 dir="rtl" align="right">نیازمندی‌ها</h3>
 
 ```text
 Go 1.23+
@@ -230,92 +325,113 @@ Node.js 18+
 npm
 ```
 
-نصب وابستگی‌های Build رابط Browser:
+<p dir="rtl" align="right">نصب وابستگی‌های <bdi dir="ltr">Build</bdi> رابط <bdi dir="ltr">Browser:</bdi></p>
 
 ```bash
 npm install --ignore-scripts --no-audit --no-fund
 ```
 
-Type-check و Build رابط Browser:
+<p dir="rtl" align="right"><bdi dir="ltr">Type-check</bdi> و <bdi dir="ltr">Build</bdi> رابط <bdi dir="ltr">Browser:</bdi></p>
 
 ```bash
 npm run check:web
 npm run build:web
 ```
 
-اجرای Testها و Vet:
+<p dir="rtl" align="right">اجرای <bdi dir="ltr">Test</bdi>ها و <bdi dir="ltr">Vet:</bdi></p>
 
 ```bash
 go test ./...
 go vet ./...
 ```
 
-اجرای TL Studio:
+<p dir="rtl" align="right">اجرای <bdi dir="ltr">TL Studio:</bdi></p>
 
 ```bash
 go run ./cmd/launcher --project /path/to/project
 ```
 
-ساخت Binary محلی:
+<p dir="rtl" align="right">ساخت <bdi dir="ltr">Binary</bdi> محلی:</p>
 
 ```bash
 go build -o tl-studio ./cmd/launcher
 ```
 
-در Windows:
+<p dir="rtl" align="right">در <bdi dir="ltr">Windows:</bdi></p>
 
 ```powershell
 go build -o tl-studio.exe ./cmd/launcher
 ```
 
-اجرای عادی برنامه همان Native Execution است و Runtime خارجی دیگری لازم نیست.
+<p dir="rtl" align="right">اجرای عادی برنامه همان <bdi dir="ltr">Native Execution</bdi> است و <bdi dir="ltr">Runtime</bdi> خارجی دیگری لازم نیست.</p>
 
-## اعتبارسنجی
+<h2 dir="rtl" align="right">اعتبارسنجی</h2>
 
-نسخهٔ پایدار TL Studio به‌عنوان یک محصول کامل تست می‌شود، نه فقط مجموعه‌ای از Packageها.
+<p dir="rtl" align="right">نسخهٔ پایدار <bdi dir="ltr">TL Studio</bdi> به‌عنوان یک محصول کامل تست می‌شود، نه فقط مجموعه‌ای از <bdi dir="ltr">Package</bdi>ها.</p>
 
-بررسی‌های Repository، بسته به نوع تغییر، شامل این موارد هستند:
+<p dir="rtl" align="right">بررسی‌های <bdi dir="ltr">Repository</bdi>، بسته به نوع تغییر، شامل این موارد هستند:</p>
 
-- Type-check سخت‌گیرانهٔ TypeScript برای Browser
-- Build نهایی Browser
-- `go test ./...`
-- `go vet ./...`
-- Cross-compile برای پلتفرم‌های پشتیبانی‌شده
-- Native Product Contract
-- Custom Provider Contract
-- Browser Smoke
-- Agent E2E
-- Windows x64 Review Package
-- بررسی Release و Review Package
+<ul dir="rtl">
+  <li><bdi dir="ltr">Type-check</bdi> سخت‌گیرانهٔ <bdi dir="ltr">TypeScript</bdi> برای <bdi dir="ltr">Browser</bdi></li>
+  <li><bdi dir="ltr">Build</bdi> نهایی <bdi dir="ltr">Browser</bdi></li>
+  <li><code dir="ltr">go test ./...</code></li>
+  <li><code dir="ltr">go vet ./...</code></li>
+  <li><bdi dir="ltr">Cross-compile</bdi> برای پلتفرم‌های پشتیبانی‌شده</li>
+  <li><bdi dir="ltr">Native Product Contract</bdi></li>
+  <li><bdi dir="ltr">Custom Provider Contract</bdi></li>
+  <li><bdi dir="ltr">Browser Smoke</bdi></li>
+  <li><bdi dir="ltr">Agent E2E</bdi></li>
+  <li><bdi dir="ltr">Windows x64 Review Package</bdi></li>
+  <li>بررسی <bdi dir="ltr">Release</bdi> و <bdi dir="ltr">Review Package</bdi></li>
+</ul>
 
-در تست Providerها از Credential واقعی کاربران استفاده نمی‌شود و Endpointهای Mock جایگزین می‌شوند.
+<p dir="rtl" align="right">در تست <bdi dir="ltr">Provider</bdi>ها از <bdi dir="ltr">Credential</bdi> واقعی کاربران استفاده نمی‌شود و <bdi dir="ltr">Endpoint</bdi>های <bdi dir="ltr">Mock</bdi> جایگزین می‌شوند.</p>
 
-## شاخه‌ها و کانال انتشار
+<h2 dir="rtl" align="right">شاخه‌ها و کانال انتشار</h2>
 
-| شاخه | کاربرد |
-| --- | --- |
-| `main` | نسخهٔ پایدار |
-| `dev` | توسعهٔ نسخهٔ بعدی |
-| Feature Branch | تغییرات متمرکز برای یک قابلیت یا Milestone |
+<table dir="rtl">
+  <thead>
+    <tr>
+      <th align="right">شاخه</th>
+      <th align="right">کاربرد</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="right"><code dir="ltr">main</code></td>
+      <td align="right">نسخهٔ پایدار</td>
+    </tr>
+    <tr>
+      <td align="right"><code dir="ltr">dev</code></td>
+      <td align="right">توسعهٔ نسخهٔ بعدی</td>
+    </tr>
+    <tr>
+      <td align="right"><bdi dir="ltr">Feature Branch</bdi></td>
+      <td align="right">تغییرات متمرکز برای یک قابلیت یا <bdi dir="ltr">Milestone</bdi></td>
+    </tr>
+  </tbody>
+</table>
 
-نسخهٔ پایدار فعلی:
+<p dir="rtl" align="right">نسخهٔ پایدار فعلی:</p>
 
 ```text
 v0.5.0
 ```
 
-نسخهٔ پایدار فقط پس از عبور از Validation خودکار و Review دستی منتشر می‌شود. تغییرات شاخهٔ dev تا زمان Promotion رسمی، نسخهٔ npm پایدار یا GitHub Release پایدار را تغییر نمی‌دهند.
+<p dir="rtl" align="right">نسخهٔ پایدار فقط پس از عبور از <bdi dir="ltr">Validation</bdi> خودکار و <bdi dir="ltr">Review</bdi> دستی منتشر می‌شود. تغییرات شاخهٔ <bdi dir="ltr">dev</bdi> تا زمان <bdi dir="ltr">Promotion</bdi> رسمی، نسخهٔ <bdi dir="ltr">npm</bdi> پایدار یا <bdi dir="ltr">GitHub Release</bdi> پایدار را تغییر نمی‌دهند.</p>
 
-## اصول پروژه
+<h2 dir="rtl" align="right">اصول پروژه</h2>
 
-1. **Local-first** — Source Code و Workspace روی سیستم کاربر باقی می‌مانند.
-2. **Native execution** — چرخهٔ Agent و Tool متعلق به خود TL Studio است.
-3. **مرز اعتماد شفاف** — Credentialها، Providerها، Permissionها، Repositoryها و Toolهای خارجی مرز مشخص دارند.
-4. **مرز قابلیت شفاف** — قابلیت پشتیبانی‌نشده به‌صورت واضح Fail می‌شود و با چیز دیگری جایگزین نمی‌شود.
-5. **توزیع Portable** — Build پایدار برای Windows، Linux و macOS منتشر می‌شود.
-6. **بدون زیرساخت اختصاصی پروژه** — Backend میزبانی‌شده، Database، Telemetry Service یا Model Proxy برای استفاده از TL Studio لازم نیست.
+<ol dir="rtl">
+  <li><strong><bdi dir="ltr">Local-first</bdi></strong> — <bdi dir="ltr">Source Code</bdi> و <bdi dir="ltr">Workspace</bdi> روی سیستم کاربر باقی می‌مانند.</li>
+  <li><strong><bdi dir="ltr">Native execution</bdi></strong> — چرخهٔ <bdi dir="ltr">Agent</bdi> و <bdi dir="ltr">Tool</bdi> متعلق به خود <bdi dir="ltr">TL Studio</bdi> است.</li>
+  <li><strong>مرز اعتماد شفاف</strong> — <bdi dir="ltr">Credential</bdi>ها، <bdi dir="ltr">Provider</bdi>ها، <bdi dir="ltr">Permission</bdi>ها، <bdi dir="ltr">Repository</bdi>ها و <bdi dir="ltr">Tool</bdi>های خارجی مرز مشخص دارند.</li>
+  <li><strong>مرز قابلیت شفاف</strong> — قابلیت پشتیبانی‌نشده به‌صورت واضح <bdi dir="ltr">Fail</bdi> می‌شود و با چیز دیگری جایگزین نمی‌شود.</li>
+  <li><strong>توزیع <bdi dir="ltr">Portable</bdi></strong> — <bdi dir="ltr">Build</bdi> پایدار برای <bdi dir="ltr">Windows</bdi>، <bdi dir="ltr">Linux</bdi> و <bdi dir="ltr">macOS</bdi> منتشر می‌شود.</li>
+  <li><strong>بدون زیرساخت اختصاصی پروژه</strong> — <bdi dir="ltr">Backend</bdi> میزبانی‌شده، <bdi dir="ltr">Database</bdi>، <bdi dir="ltr">Telemetry Service</bdi> یا <bdi dir="ltr">Model Proxy</bdi> برای استفاده از <bdi dir="ltr">TL Studio</bdi> لازم نیست.</li>
+</ol>
 
-## ساختار Repository
+<h2 dir="rtl" align="right">ساختار <bdi dir="ltr">Repository</bdi></h2>
 
 ```text
 cmd/launcher/          Go application, local APIs, Agent, providers, tools
@@ -327,26 +443,26 @@ scripts/               Browser build and launcher tooling
 third_party/           Required third-party notices/licenses
 ```
 
-اسناد مهم:
+<p dir="rtl" align="right">اسناد مهم:</p>
 
-- [معماری](./docs/ARCHITECTURE.md)
-- [امنیت](./SECURITY.md)
-- [README انگلیسی](./README.md)
-- [Third-party notices](./THIRD_PARTY_NOTICES.md)
-- [شاخهٔ توسعه](https://github.com/pouramin/TL-Studio/tree/dev)
+<ul dir="rtl">
+  <li><a href="./docs/ARCHITECTURE.md">معماری</a></li>
+  <li><a href="./SECURITY.md">امنیت</a></li>
+  <li><a href="./README.md"><bdi dir="ltr">README</bdi> انگلیسی</a></li>
+  <li><a href="./THIRD_PARTY_NOTICES.md"><bdi dir="ltr">Third-party notices</bdi></a></li>
+  <li><a href="https://github.com/pouramin/TL-Studio/tree/dev">شاخهٔ توسعه</a></li>
+</ul>
 
-## License
+<h2 dir="rtl" align="right"><bdi dir="ltr">License</bdi></h2>
 
-TL Studio تحت **MIT License** منتشر می‌شود.
+<p dir="rtl" align="right"><bdi dir="ltr">TL Studio</bdi> تحت <strong><bdi dir="ltr">MIT License</bdi></strong> منتشر می‌شود.</p>
 
-فایل‌های مربوط:
+<p dir="rtl" align="right">فایل‌های مربوط:</p>
 
-[LICENSE](./LICENSE)
+<p dir="rtl" align="right"><a href="./LICENSE"><bdi dir="ltr">LICENSE</bdi></a></p>
 
-[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)
+<p dir="rtl" align="right"><a href="./THIRD_PARTY_NOTICES.md"><bdi dir="ltr">THIRD_PARTY_NOTICES.md</bdi></a></p>
 
 ---
 
-<p align="center">
-  ساخته‌شده تحت هویت <strong>TunnelLab</strong>.
-</p>
+<p dir="rtl" align="right"><<bdi dir="ltr">p align</bdi>="<bdi dir="ltr">center</bdi>"> ساخته‌شده تحت هویت <<bdi dir="ltr">strong</bdi>><bdi dir="ltr">TunnelLab</bdi></<bdi dir="ltr">strong</bdi>>. </<bdi dir="ltr">p</bdi>></p>
