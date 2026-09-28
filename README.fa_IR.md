@@ -6,9 +6,9 @@
 
 TL Studio یک IDE مرورگری و Workspace محلی برای Coding Agent است. Workspace، Editor، Search، Terminal، Preview، Sessionها، Permissionها، Questionها، Providerها، Plugin/MCP و Native Agent همگی پشت قراردادهای محلی خود TL Studio اجرا می‌شوند.
 
-خط توسعه‌ی فعلی: **0.5.0-alpha.3**
+نسخه‌ی پایدار فعلی: **0.5.0**
 
-شاخه‌ی main تا زمان Review و Merge این milestone روی خط Stable نسخه‌ی v0.4.0 باقی می‌ماند.
+این milestone پس از Review و تست دستی به‌عنوان نسخه‌ی پایدار v0.5.0 منتشر می‌شود.
 
 ## معماری Native
 
