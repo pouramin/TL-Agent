@@ -6,27 +6,25 @@ Last updated: 2026-09-28
 
 The actual repository state on dev is the source of truth. Before substantial work, inspect current dev and reconcile this file with README.md, README.fa_IR.md, docs/ARCHITECTURE.md, VERSION, open PRs, and CI.
 
-Stable main must remain isolated from alpha development.
+Stable main contains only validated stable releases. Ongoing development continues on dev.
 
 ## Current milestone
 
-Development version:
+Release version:
 
-0.5.0-alpha.3
+0.5.0
 
-Feature branch:
+Release status:
 
-feature/full-kilo-removal
+The fully native runtime milestone has completed automated CI and hands-on Windows validation. The current task is promotion of this validated development line to stable main as v0.5.0.
 
-Draft PR:
+Completed milestone PR:
 
 #115 — Remove the Kilo runtime dependency completely
 
-Milestone goal:
+Stable promotion rule:
 
-TL Studio has no runtime dependency on Kilo.
-
-Do not merge PR #115 until all CI is green, the final Windows x64 review package exists, and the package is manually validated.
+Promote dev to main only after release checks are green. Stable main must not carry alpha or beta version labels.
 
 ## Architecture state
 
@@ -173,10 +171,8 @@ Older commits and PRs used Kilo as a bundled or optional compatibility runtime. 
 
 ## Resume protocol
 
-1. Inspect current dev and PR #115.
-2. Reconcile repository state against this checkpoint; repository wins.
-3. Check CI and the Windows review artifact.
-4. Continue the existing implementation instead of redesigning from scratch.
-5. Keep main untouched.
-6. Do not merge until manual Windows validation is complete.
-7. When this milestone is complete, update this checkpoint to the final squashed commit and artifact details.
+1. Inspect current dev and main; repository state is the source of truth.
+2. Reconcile this checkpoint with README.md, README.fa_IR.md, docs/ARCHITECTURE.md, VERSION, open PRs, and CI.
+3. Keep product development on dev.
+4. Promote dev to main only for a validated stable release.
+5. After a stable promotion, align dev with the new main baseline before beginning the next milestone.
