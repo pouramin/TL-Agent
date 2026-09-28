@@ -306,7 +306,7 @@ func (m *providerManager) accountCredentialSource(providerID string) providerAcc
 	return source
 }
 
-func (m *providerManager) runtimeCredential(ctx context.Context, providerID string) (string, error) {
+func (m *providerManager) runtimeCredentialWithContext(ctx context.Context, providerID string) (string, error) {
 	if m == nil || m.credentials == nil {
 		return "", errors.New("TL Studio credential store is unavailable")
 	}
@@ -343,6 +343,10 @@ func (m *providerManager) runtimeCredential(ctx context.Context, providerID stri
 		return "", errors.New("provider account credential expired; refresh or reconnect the account")
 	}
 	return account.AccessToken, nil
+}
+
+func (m *providerManager) runtimeCredential(providerID string) (string, error) {
+	return m.runtimeCredentialWithContext(context.Background(), providerID)
 }
 
 type catalogModel struct {
@@ -408,7 +412,7 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 				if _, exists := result.Default[definition.ID]; !exists { result.Default[definition.ID] = model.ID }
 			}
 		}
-		if _, credentialErr := m.runtimeCredential(ctx, definition.ID); credentialErr == nil {
+		if _, credentialErr := m.runtimeCredentialWithContext(ctx, definition.ID); credentialErr == nil {
 			result.Connected = appendUniqueString(result.Connected, definition.ID)
 		} else if !errors.Is(credentialErr, errCredentialNotFound) &&
 			!strings.Contains(credentialErr.Error(), "credential expired") {
