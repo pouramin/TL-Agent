@@ -49,6 +49,7 @@ import { K } from "./kernel";
     const size = ["small", "default", "large"].includes(value) ? value : "default";
     document.documentElement.dataset.fontSize = size;
     if (ui.fontSizeSelect) ui.fontSizeSelect.value = size;
+    window.dispatchEvent(new CustomEvent("tl-studio:font-size", { detail: { size } }));
   };
 
   applyAppearance(readSetting(THEME_KEY, "system"));
