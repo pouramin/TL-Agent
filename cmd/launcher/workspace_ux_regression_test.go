@@ -26,8 +26,26 @@ func TestWorkspaceUXEnhancementsContract(t *testing.T) {
 	}
 
 	settings := readBrowserSource(t, "settings-enhancements.ts")
-	for _, required := range []string{"Editor color theme", "UI Font", "Code Font", "Terminal Font", "resetPreviewWindow", "tl-studio.editor-theme", "permission-rule-group", "permission-rule-group-body", "openPermissionGroup", "Plugins & MCP"} {
-		if !strings.Contains(settings, required) { t.Fatalf("settings-enhancements.ts missing %q", required) }
+	for _, required := range []string{
+		"Editor color theme", "UI Font", "Code Font", "Terminal Font", "resetPreviewWindow", "tl-studio.editor-theme",
+		`document.createElement("details")`, `document.createElement("summary")`, "permission-rule-group-body",
+		`let openPermissionGroup = ""`, `group.open = openPermissionGroup === key`,
+		`group.addEventListener("toggle"`, `if (other !== group) other.open = false`, "Plugins & MCP",
+	} {
+		if !strings.Contains(settings, required) { t.Fatalf("settings-enhancements.ts missing accordion contract %q", required) }
+	}
+
+	settingsCSS, err := webFS.ReadFile("web/settings.css")
+	if err != nil { t.Fatalf("read settings.css: %v", err) }
+	settingsCSSSource := string(settingsCSS)
+	for _, required := range []string{
+		".permission-rule-group-head::marker",
+		".permission-rule-group-head::-webkit-details-marker",
+		".permission-rule-group[open] .permission-rule-chevron",
+		"transform: rotate(90deg)",
+		".permission-rule-group:not([open]) > .permission-rule-group-body",
+	} {
+		if !strings.Contains(settingsCSSSource, required) { t.Fatalf("settings.css missing accordion contract %q", required) }
 	}
 
 	product := readBrowserSource(t, "product-ui.ts")
