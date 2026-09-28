@@ -183,6 +183,27 @@ func TestCustomProviderSetupStaysSimpleAndAutoDiscoversModels(t *testing.T) {
 	}
 }
 
+
+func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`class="provider-account-grid"`,
+		`provider-account-card`,
+		`provider-account-logo`,
+		`providerAccountLogo`,
+		`provider-account-setup-button`,
+		`connect.textContent = account.available ? "Sign in" : "Unavailable"`,
+		`grid-template-columns:repeat(3,minmax(0,1fr))`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("compact provider account card grid missing %q", required)
+		}
+	}
+	if strings.Contains(source, `meta.textContent = [statusText(account), description, billing]`) {
+		t.Fatal("provider account cards must not render full provider descriptions inline")
+	}
+}
+
 func TestProviderAccountBrowserUsesSemanticLoginLifecycle(t *testing.T) {
 	source := readBrowserSource(t, "provider-account-ui.ts")
 	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
