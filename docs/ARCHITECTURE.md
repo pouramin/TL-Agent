@@ -80,7 +80,7 @@ The SSE stream is a responsiveness signal. Persisted semantic session data remai
 
 The provider registry is authoritative. Provider configuration and credentials are never mirrored into another local runtime.
 
-Supported direct model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages.
+Supported direct model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and native Google Gemini GenerateContent.
 
 Credentials are stored separately in the TL Studio credential vault. They do not appear in providers.json or Browser storage.
 
@@ -90,9 +90,21 @@ An external service such as Kilo Gateway may be configured only as a normal docu
 
 ## Provider Account domain
 
-ProviderAccountAdapter and /local/provider-accounts* remain generic abstractions for future account-backed integrations that expose a documented third-party authorization contract.
+ProviderAccountAdapter and /local/provider-accounts* are the generic account-authentication boundary. The lifecycle is provider-neutral: status, begin login, complete/poll login, callback handling, cancellation, refresh, logout, and model discovery.
 
-A build with no supported account adapters returns an empty account-provider list. Private or undocumented provider OAuth flows are not reverse-engineered.
+The Browser receives semantic state only: disconnected, connecting, connected, expired, needs reauthentication, or error. OAuth authorization codes, PKCE verifiers, access tokens, refresh tokens, cookies, and client secrets never cross the Browser boundary.
+
+Account credentials use a separate credential-vault namespace from ordinary provider API keys. The Native Agent still resolves an ordinary provider/model pair; the provider layer resolves either an explicit API key or an account credential and may refresh an expiring account token before the model call. Explicit user-configured API keys retain precedence.
+
+Current account adapters:
+
+- Hugging Face uses its documented public OAuth flow with PKCE and the inference-api scope. The adapter is enabled when a registered public application client ID is supplied through TL_STUDIO_HUGGINGFACE_CLIENT_ID. No client secret is embedded.
+- Google / Gemini uses Google's documented installed-app OAuth flow with PKCE, refresh tokens, loopback callback, token revocation, model discovery, and the native Gemini GenerateContent transport. It is enabled when TL_STUDIO_GOOGLE_CLIENT_ID and TL_STUDIO_GOOGLE_PROJECT_ID are configured. Gemini API quota/billing belongs to that Google Cloud project; a consumer Gemini subscription is not treated as API entitlement.
+- ChatGPT / Codex remains an explicit unavailable capability until OpenAI publishes a third-party Codex authorization/model-access contract suitable for an independent local client. TL Studio does not copy another application's OAuth client or undocumented ChatGPT backend.
+- Claude account login remains unavailable for the same product-boundary reason. Anthropic API configuration through the documented API remains supported.
+- GitHub Copilot account authentication is documented for third-party apps, but the current SDK requires a Copilot runtime boundary. TL Studio does not reintroduce a second coding runtime beneath the Native Agent.
+
+Private or undocumented provider OAuth flows are not reverse-engineered.
 
 ## Tools and Plugins/MCP
 
@@ -132,5 +144,6 @@ CI is expected to prove:
 8. Native permissions and remembered rules work.
 9. Real Browser smoke succeeds.
 10. Provider registry, credentials, and catalog work without another runtime.
-11. Windows review and release packages contain no Kilo executable.
-12. Production Browser source and workflows contain no compatibility-runtime path.
+11. Provider Account lifecycle, PKCE/state validation, refresh, logout, model discovery, persistence, and no-secret-leak boundaries are covered with mocked endpoints.
+12. Windows review and release packages contain no Kilo executable.
+13. Production Browser source and workflows contain no compatibility-runtime path.
