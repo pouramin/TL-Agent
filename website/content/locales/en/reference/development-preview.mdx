@@ -10,9 +10,13 @@ Current stable production:
 v0.5.0
 ```
 
-At the time of this documentation refresh, `main` and `dev` point to the same validated v0.5.0 release commit.
+Current development version:
 
-There is therefore **no active next-version feature set to document yet**.
+```text
+0.6.0-alpha.1
+```
+
+`dev` is currently **5 commits ahead of `main`**. Those commits update version/readiness metadata only; the implemented user-facing product behavior is still the same validated feature set shipped in v0.5.0.
 
 ## Branch discipline
 
@@ -23,7 +27,7 @@ There is therefore **no active next-version feature set to document yet**.
 
 ## Private development builds
 
-When `dev` advances again, experimental builds use GitHub Actions **Preview Build** artifacts rather than the stable npm `latest` channel.
+Development builds use GitHub Actions **Preview Build** artifacts rather than the stable npm `latest` channel.
 
 The current Preview workflow produces a Windows x64 review ZIP and retains it for 14 days.
 
@@ -31,4 +35,4 @@ The current Preview workflow produces a Windows x64 review ZIP and retains it fo
 
 The public site documents stable behavior first.
 
-A future development section should appear only after the repository contains real unreleased behavior. Version numbers and planned capabilities must not be invented in advance.
+Development documentation must distinguish implemented unreleased behavior from version/readiness bookkeeping. Planned capabilities are not documented as shipped features.
