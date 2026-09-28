@@ -1,20 +1,14 @@
 ---
-title: Custom providers
-description: Configure native Providers, discover model catalogs, and keep credentials in TL Studio's local vault.
+title: Model connections
+description: Configure native model connections, discover model catalogs, and keep credentials in TL Studio's local vault.
 icon: Cable
 ---
 
 TL Studio v0.5 owns Provider definitions, model discovery, the Model catalog presented to the product, and Provider credentials.
 
-## Supported native protocols
+## Native protocol adapters
 
-Current protocols:
-
-- **OpenAI Compatible**;
-- **OpenAI Responses**;
-- **Anthropic Messages**.
-
-The Provider form is vendor-agnostic: configure a Base URL, API key, and one or more Models.
+TL Studio implements its supported model protocol adapters inside the product. Configure a connection with the protocol family exposed by the stable build, a Base URL, credential, and one or more Models.
 
 ## Discover Models
 
@@ -44,7 +38,7 @@ Provider discovery:
 - blocks cross-origin redirects;
 - allows at most a small bounded redirect chain.
 
-For Anthropic-compatible discovery, TL Studio supports paginated Model listing with a bounded page count.
+For compatible paginated discovery endpoints, TL Studio uses a bounded page count.
 
 ## Cached catalog fallback
 
@@ -58,11 +52,9 @@ If later live discovery fails for a non-authentication reason, TL Studio can ret
 
 Authentication/authorization failures do **not** silently fall back to cache.
 
-## OpenRouter behavior
+## Authenticated discovery
 
-OpenRouter discovery uses its authenticated user-model catalog instead of the public generic catalog. An API key is therefore required for discovery and invalid credentials are detected.
-
-This also lets the catalog reflect the user's current OpenRouter availability/preferences.
+When a configured model endpoint requires authentication for catalog discovery, TL Studio uses the saved credential and treats authentication failures as explicit failures rather than silently falling back.
 
 ## Provider registry
 
