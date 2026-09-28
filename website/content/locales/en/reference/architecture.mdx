@@ -24,7 +24,6 @@ TL Studio Go Launcher / Local Core
   ├─ Semantic Event Bus
   ├─ Tool Registry + Tool Executor
   ├─ Plugin Manager + MCP clients
-  ├─ JEV / Decision integrations
   └─ Native Agent + direct Model clients
         │
         ├─ configured Provider endpoints
@@ -129,7 +128,7 @@ TL Studio owns:
 - credentials;
 - direct native model calls.
 
-Current direct protocols are OpenAI-compatible Chat Completions, OpenAI Responses, and Anthropic Messages compatible.
+Direct model execution uses native protocol adapters implemented and owned by TL Studio.
 
 The generic Provider Account adapter domain exists for future official account integrations, but v0.5.0 registers no account adapter.
 
@@ -151,7 +150,7 @@ Static/file content is served on a different loopback origin from the TL Studio 
 
 ## State and storage
 
-TL Studio keeps product state under its local application state directory, including Provider definitions, credentials, Sessions, Permission rules, Plugin configuration/secrets, model-catalog cache, JEV state, and other local preferences.
+TL Studio keeps product state under its local application state directory, including model connection definitions, credentials, Sessions, Permission rules, Plugin configuration/secrets, model-catalog cache, and other local preferences.
 
 Secrets are separated from normal JSON configuration and use the credential vault.
 
@@ -159,4 +158,4 @@ Secrets are separated from normal JSON configuration and use the credential vaul
 
 TL Studio does not require a project-owned VPS, application backend, database, telemetry collector, Model proxy, or hosted workspace.
 
-External network traffic is driven by explicit user configuration such as Provider endpoints, JEV/OpenRouter, or Plugin behavior.
+Network traffic is driven only by explicit user configuration such as model endpoints or Plugin behavior.
