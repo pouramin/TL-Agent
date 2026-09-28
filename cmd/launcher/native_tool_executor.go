@@ -148,7 +148,12 @@ func nativeToolInputSchema(id string) map[string]any {
 			"type": "object",
 			"properties": map[string]any{
 				"command":        stringProperty("Shell command to run in the selected project."),
-				"timeoutSeconds": map[string]any{"type": "integer", "minimum": 1, "maximum": int(nativeToolMaxTimeout / time.Second)},
+				"timeoutSeconds": map[string]any{
+					"type": "integer",
+					"minimum": 1,
+					"maximum": int(nativeToolMaxTimeout / time.Second),
+					"description": "Maximum allowed runtime before TL Studio cancels the command. This is a deadline, not a sleep or delay duration.",
+				},
 			},
 			"required": []string{"command"},
 			"additionalProperties": false,
