@@ -151,8 +151,13 @@ assert(structure.agentOptions > 0, "agent selector did not initialize");
 
 await waitFor('document.querySelectorAll(".file-row").length > 0', "Explorer did not load real project entries");
 await waitFor('document.querySelector(".file-row.file-file") !== null', "Explorer did not render a real project file");
-await evaluate('document.querySelector(".file-row.file-file").click()');
-await waitFor('document.getElementById("fileEditorTitle")?.textContent !== "No file open"', "real file did not open in Editor");
+await waitFor(`(() => {
+  if (document.getElementById("fileEditorTitle")?.textContent !== "No file open") return true;
+  const file = document.querySelector(".file-row.file-file");
+  if (!file) return false;
+  file.click();
+  return false;
+})()`, "real file did not open in Editor", 120);
 await waitFor('document.getElementById("fileEditorSurface") && !document.getElementById("fileEditorSurface").classList.contains("hidden")', "Editor surface did not activate");
 
 await evaluate('document.querySelector(\'[data-workspace-view="search"]\')?.click()');
