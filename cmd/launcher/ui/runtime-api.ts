@@ -73,6 +73,11 @@ import { K } from "./kernel";
         return Array.isArray(payload) ? payload : [];
       },
       status: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() })),
+      setup: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/setup`, { directory: projectDirectory() })),
+      configureSetup: (providerID: string, values: Record<string, string>) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/setup`, { directory: projectDirectory() }), {
+        method: "PUT",
+        ...body({ values }),
+      }),
       beginLogin: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login`, { directory: projectDirectory() }), { method: "POST" }),
       pollLogin: (providerID: string, loginID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login/${enc(loginID)}`, { directory: projectDirectory() }), { signal }),
       cancelLogin: (providerID: string, loginID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login/${enc(loginID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
