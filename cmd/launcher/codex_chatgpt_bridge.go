@@ -381,12 +381,19 @@ type codexAccountReadResponse struct {
 	Account *codexAccountInfo `json:"account"`
 }
 
+type codexReasoningEffortOption struct {
+	ReasoningEffort string `json:"reasoningEffort"`
+	Description     string `json:"description,omitempty"`
+}
+
 type codexModelListItem struct {
-	ID          string `json:"id"`
-	Model       string `json:"model"`
-	DisplayName string `json:"displayName"`
-	Hidden      bool   `json:"hidden"`
-	IsDefault   bool   `json:"isDefault"`
+	ID                        string                       `json:"id"`
+	Model                     string                       `json:"model"`
+	DisplayName               string                       `json:"displayName"`
+	Hidden                    bool                         `json:"hidden"`
+	IsDefault                 bool                         `json:"isDefault"`
+	SupportedReasoningEfforts []codexReasoningEffortOption `json:"supportedReasoningEfforts"`
+	DefaultReasoningEffort    string                       `json:"defaultReasoningEffort"`
 }
 
 type codexModelListResponse struct {
@@ -523,13 +530,6 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 	if err != nil {
 		return nativeModelResponse{}, err
 	}
-	account, err := codexReadAccount(ctx, command, false)
-	if err != nil {
-		return nativeModelResponse{}, err
-	}
-	if account == nil || account.Type != "chatgpt" {
-		return nativeModelResponse{}, errors.New("ChatGPT account is not signed in")
-	}
 	prompt, err := codexBridgePrompt(request)
 	if err != nil {
 		return nativeModelResponse{}, err
@@ -555,13 +555,18 @@ func (a *chatGPTAccountAdapter) completeModelTurn(ctx context.Context, request n
 		"--sandbox", "read-only",
 		"-c", `approval_policy="never"`,
 		"-c", `web_search="disabled"`,
+	}
+	if effort := strings.TrimSpace(request.Model.ReasoningEffort); effort != "" {
+		args = append(args, "-c", fmt.Sprintf("model_reasoning_effort=%q", effort))
+	}
+	args = append(args,
 		"--color", "never",
 		"--model", strings.TrimSpace(request.Model.ID),
 		"-C", tempDir,
 		"--output-schema", schemaPath,
 		"--output-last-message", outputPath,
 		"-",
-	}
+	)
 	cmd := codexProcess(ctx, command, args...)
 	if err := prepareCodexCommand(cmd); err != nil {
 		return nativeModelResponse{}, err
