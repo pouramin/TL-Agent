@@ -91,8 +91,8 @@ import { K } from "./kernel";
 
   const customProviderEntries = (config: any) => Array.isArray(config?.providers)
     ? config.providers
-      .filter((provider: any) =>
-        !clean(provider?.managedBy) && !BRANDED_API_PROVIDER_IDS.has(clean(provider?.id)))
+      .filter((provider: any) => !clean(provider?.managedBy))
+      .filter((provider: any) => !BRANDED_API_PROVIDER_IDS.has(clean(provider?.id)))
       .sort((a: any, b: any) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
     : [];
 
