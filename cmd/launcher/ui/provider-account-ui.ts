@@ -74,7 +74,6 @@ import { K } from "./kernel";
     .provider-account-state{display:flex;min-height:14px;align-items:center;gap:5px;color:var(--muted);font-size:8px;line-height:1.2}
     .provider-account-state .provider-status-dot{width:6px;height:6px}
     .provider-account-card-actions{display:flex;width:100%;margin-top:auto;align-items:center;justify-content:center;gap:5px}
-    .provider-account-card-actions .primary,.provider-account-card-actions .ghost{min-height:28px;padding:0 9px;font-size:8px}
     .provider-account-signin{min-width:74px}
     .provider-account-setup-button{position:absolute;top:8px;right:8px;width:25px;height:25px;padding:0;border-radius:8px;font-size:12px;line-height:1}
     .provider-account-details{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px}

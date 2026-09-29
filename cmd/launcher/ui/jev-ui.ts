@@ -40,7 +40,7 @@ import { K } from "./kernel";
     .jev-config-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--line-soft)}
     .jev-config-head h3{margin:0;font-size:var(--tl-ui-lg)}.jev-config-head p{margin:4px 0 0;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
     .jev-config-body{display:grid;gap:12px;padding:16px 18px 18px}.jev-config-section{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
-    .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:var(--tl-ui-sm)}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
+    .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-row>button{flex:none}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:var(--tl-ui-sm)}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
     .jev-key-field{display:grid;gap:5px}.jev-key-field span{color:var(--muted);font-size:var(--tl-ui-xs)}.jev-key-field input{width:100%;height:34px}.jev-api-key{-webkit-text-security:disc}
     .jev-config-status{min-height:12px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}.jev-config-status.ok{color:color-mix(in srgb,var(--accent),var(--text) 35%)}.jev-config-status.error{color:var(--danger)}
     .jev-config-row select{min-width:190px;height:32px}.jev-config-actions{display:flex;justify-content:flex-end;gap:8px}

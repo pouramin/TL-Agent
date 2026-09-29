@@ -45,17 +45,17 @@ html[data-font-size="large"] {
 .message-text { font-size: var(--tl-message-size) !important; }
 textarea { font-size: var(--tl-compose-size) !important; }
 .session-item strong { font-size: var(--tl-session-size) !important; }
-select,.ghost.small,.sidebar-settings-button,.session-quick-delete { font-size: var(--tl-control-size); }
+select,.primary.small,.ghost.small,.sidebar-settings-button,.session-quick-delete { font-size: var(--tl-control-size); }
 .activity-body pre,.markdown-code,.file-code { font-size: var(--tl-code-size) !important; }
 
 .session-row { position: relative; display: grid; grid-template-columns: minmax(0,1fr) 28px; align-items: center; gap: 2px; margin: 2px 0; border-radius: 9px; }
 .session-row .session-item { margin: 0; padding-right: 5px; }
-.session-quick-delete { width: 26px; height: 30px; border: 0; border-radius: 7px; background: transparent; color: var(--muted-2); cursor: pointer; opacity: .3; font-size: 18px; line-height: 1; }
+.session-quick-delete { width: 28px; height: 28px; border: 0; border-radius: var(--tl-button-radius-small); background: transparent; color: var(--muted-2); cursor: pointer; opacity: .3; font-size: 18px; line-height: 1; }
 .session-row:hover .session-quick-delete,.session-quick-delete:focus-visible { opacity: 1; }
 .session-quick-delete:hover { color: var(--danger); background: color-mix(in srgb, var(--danger), transparent 90%); }
 
 .sidebar-footer { height: 46px; padding: 0 10px; justify-content: flex-start; }
-.sidebar-settings-button { width: 100%; min-height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; text-align: left; }
+.sidebar-settings-button { width: 100%; min-height: var(--tl-button-height); display: flex; align-items: center; gap: 8px; padding: 0 var(--tl-button-padding-x); border: 1px solid transparent; border-radius: var(--tl-button-radius); background: transparent; color: var(--muted); cursor: pointer; text-align: left; }
 .sidebar-settings-button:hover { background: var(--panel-2); border-color: var(--line-soft); color: var(--text); }
 .sidebar-settings-icon { font-size: 14px; line-height: 1; }
 
@@ -224,11 +224,12 @@ body { font-size: var(--tl-ui-base); }
 .settings-copy strong { font-size: var(--tl-ui-md); }
 .settings-primary-action {
   flex: none;
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 8px;
-  font-size: var(--tl-ui-md);
-  font-weight: 750;
+  height: var(--tl-button-height);
+  min-height: var(--tl-button-height);
+  padding: 0 var(--tl-button-padding-x);
+  border-radius: var(--tl-button-radius);
+  font-size: var(--tl-control-size);
+  font-weight: 700;
 }
 
 /* Plugins */
