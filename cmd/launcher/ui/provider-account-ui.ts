@@ -145,6 +145,24 @@ import { K } from "./kernel";
     }
   };
 
+  const disconnectAPIProviderPreset = async (account: TLStudioProviderAccount, preset: TLStudioDynamicRecord) => {
+    const providerID = clean(preset?.providerID);
+    if (!providerID || !apiProviderConnected(preset)) return;
+    if (!window.confirm(`Disconnect ${account.name || providerID}? The stored API credential and discovered models for this connection will be removed.`)) return;
+    K.showError("");
+    try {
+      await K.api.providers.disconnectAPI(providerID);
+      if (K.state.session?.model?.providerID === providerID) K.state.session.model = undefined;
+      if (K.els.modelSelect) K.els.modelSelect.value = "";
+      K.state.connectedProviders.delete(providerID);
+      await refreshProviderSurfaces();
+      window.dispatchEvent(new CustomEvent("tlstudio:providers-changed"));
+    } catch (error) {
+      K.showError(error instanceof Error ? error.message : String(error));
+      try { await refreshProviderSurfaces(); } catch {}
+    }
+  };
+
   const setupForm = document.getElementById("providerAccountSetupForm") as HTMLFormElement;
   const setupTitle = document.getElementById("providerAccountSetupTitle") as HTMLElement;
   const setupDescription = document.getElementById("providerAccountSetupDescription") as HTMLElement;
@@ -329,12 +347,23 @@ import { K } from "./kernel";
       if (isAPIProvider) {
         const configure = document.createElement("button");
         configure.type = "button";
-        configure.className = "primary small provider-account-signin";
+        configure.className = connected ? "ghost small" : "primary small provider-account-signin";
         configure.dataset.providerAccountAction = "configure-api";
         configure.textContent = "Configure";
         configure.title = `Configure ${account.name || account.id} with an API credential`;
         configure.addEventListener("click", () => { void openAPIProviderPreset(apiPreset); });
         actions.appendChild(configure);
+
+        if (connected) {
+          const disconnect = document.createElement("button");
+          disconnect.type = "button";
+          disconnect.className = "ghost small provider-delete";
+          disconnect.dataset.providerAccountAction = "disconnect-api";
+          disconnect.textContent = "Disconnect";
+          disconnect.title = `Disconnect ${account.name || account.id} API credential`;
+          disconnect.addEventListener("click", () => { void disconnectAPIProviderPreset(account, apiPreset); });
+          actions.appendChild(disconnect);
+        }
       } else if (account.connected) {
         const reconnect = document.createElement("button");
         reconnect.type = "button";
@@ -519,7 +548,7 @@ import { K } from "./kernel";
     ]);
   };
 
-  K.__providerAccountsUi = { load, render, open, connectAccount, configureAccount, disconnectAccount };
+  K.__providerAccountsUi = { load, render, open, connectAccount, configureAccount, disconnectAccount, disconnectAPIProviderPreset };
   K.openProviderAccounts = open;
 
   const previousRenderAccount = K.renderAccount;

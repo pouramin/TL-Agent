@@ -324,6 +324,7 @@ interface TLStudioProductAPI {
     config(): Promise<{ providers: TLStudioDynamicRecord[] }>;
     upsert(providerID: string, input?: TLStudioDynamicRecord): Promise<any>;
     remove(providerID: string): Promise<any>;
+    disconnectAPI(providerID: string): Promise<any>;
     discover(input?: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
   };
   jevRouter: {
