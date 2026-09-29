@@ -469,6 +469,23 @@ func registerProviderRoutes(mux *http.ServeMux, manager *providerManager) {
 		}
 		writeJSON(w, http.StatusOK, provider)
 	})
+	mux.HandleFunc("DELETE /local/providers/config/{id}/api-connection", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil { writeProviderManagerError(w, err); return }
+		id := strings.TrimSpace(r.PathValue("id"))
+		if !validProviderID(id) { writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider ID"}); return }
+		provider, found, err := manager.store.get(id)
+		if err != nil { writeProviderManagerError(w, err); return }
+		if manager.credentials != nil {
+			if err := deleteProviderCredentialSlot(manager.credentials, id, providerCredentialSlotAPI); err != nil { writeProviderManagerError(w, err); return }
+		}
+		removedProvider := false
+		if found && provider.ManagedBy != "account" && provider.ManagedBy != "jev" {
+			if err := manager.store.remove(id); err != nil { writeProviderManagerError(w, err); return }
+			if err := removeProviderDiscoveryCache(id); err != nil { writeProviderManagerError(w, err); return }
+			removedProvider = true
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"disconnected": id, "providerRemoved": removedProvider})
+	})
 	mux.HandleFunc("DELETE /local/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil { writeProviderManagerError(w, err); return }
 		id := strings.TrimSpace(r.PathValue("id"))
