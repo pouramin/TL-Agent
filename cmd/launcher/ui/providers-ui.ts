@@ -9,6 +9,7 @@ import { K } from "./kernel";
 
   const PROTOCOLS = new Set(["openai-compatible", "openai-responses", "anthropic-messages"]);
   const PROVIDER_ID = /^[a-z0-9][a-z0-9-_]*$/;
+  const BRANDED_API_PROVIDER_IDS = new Set(["claude", "gemini", "huggingface", "openrouter"]);
 
   const clean = (value: any) => String(value ?? "").trim();
   const positiveInt = (value: any) => {
@@ -90,9 +91,14 @@ import { K } from "./kernel";
 
   const customProviderEntries = (config: any) => Array.isArray(config?.providers)
     ? config.providers
-      .filter((provider: any) => !clean(provider?.managedBy))
+      .filter((provider: any) =>
+        !clean(provider?.managedBy) && !BRANDED_API_PROVIDER_IDS.has(clean(provider?.id)))
       .sort((a: any, b: any) => String(a?.name || a?.id || "").localeCompare(String(b?.name || b?.id || "")))
     : [];
+
+  const providerConfigEntryByID = (config: any, providerID: any) =>
+    (Array.isArray(config?.providers) ? config.providers : [])
+      .find((provider: any) => clean(provider?.id) === clean(providerID));
 
   const withoutProvider = (config: any, providerID: any) => ({
     ...(config && typeof config === "object" ? config : {}),
@@ -106,6 +112,8 @@ import { K } from "./kernel";
     validateDraft,
     buildProviderDefinition,
     customProviderEntries,
+    providerConfigEntryByID,
+    brandedAPIProviderIDs: BRANDED_API_PROVIDER_IDS,
     withoutProvider,
   };
 
@@ -413,7 +421,7 @@ import { K } from "./kernel";
     notice("");
     providerConfig = await K.api.providers.config();
     const providerID = clean(preset.providerID);
-    const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === providerID);
+    const existing = providerConfigEntryByID(providerConfig, providerID);
     if (existing) {
       editEntry(existing);
     } else {
@@ -455,7 +463,7 @@ import { K } from "./kernel";
         return;
       }
       const id = clean(value.providerID);
-      const existing = customProviderEntries(providerConfig).find((provider: any) => provider.id === (editingID || id)) || {};
+      const existing = providerConfigEntryByID(providerConfig, editingID || id) || {};
       const provider = buildProviderDefinition(value, existing);
       await K.api.providers.upsert(id, {
         provider,
