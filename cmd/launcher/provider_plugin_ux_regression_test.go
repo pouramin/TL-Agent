@@ -333,3 +333,43 @@ func TestBrandedAPIProvidersStayOnCardsInsteadOfCustomList(t *testing.T) {
 		t.Fatal("runtime API must expose the API-only disconnect route")
 	}
 }
+
+
+func TestActionButtonsShareOneVisualGeometryContract(t *testing.T) {
+	styles := readBrowserSource(t, "../web/styles.css")
+	settings := readBrowserSource(t, "../web/settings.css")
+	polish := readBrowserSource(t, "../web/polish.css")
+	status := readBrowserSource(t, "../web/status-ui.css")
+	files := readBrowserSource(t, "../web/files.css")
+	jev := readBrowserSource(t, "jev-ui.ts")
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+
+	for _, required := range []string{
+		`--tl-button-height: 34px`,
+		`--tl-button-height-small: 28px`,
+		`--tl-button-radius: 8px`,
+		`--tl-button-radius-small: 7px`,
+		`height:var(--tl-button-height)`,
+		`height:var(--tl-button-height-small)`,
+		`white-space:nowrap`,
+	} {
+		if !strings.Contains(styles+polish, required) {
+			t.Fatalf("shared button geometry contract missing %q", required)
+		}
+	}
+	if !strings.Contains(settings, `height: var(--tl-button-height);`) {
+		t.Fatal("settings primary actions must use the shared action-button height")
+	}
+	if !strings.Contains(status, `height: var(--tl-button-height-small);`) {
+		t.Fatal("recovery actions must use the shared small-button height")
+	}
+	if strings.Contains(files, `.file-editor-actions .primary.small { min-height: 27px; }`) {
+		t.Fatal("file editor must not override the shared small-button height")
+	}
+	if !strings.Contains(jev, `.jev-config-row>button{flex:none}`) {
+		t.Fatal("JEV row actions must not shrink and wrap inside the settings dialog")
+	}
+	if strings.Contains(accounts, `.provider-account-card-actions .primary,.provider-account-card-actions .ghost{min-height:28px`) {
+		t.Fatal("provider account card actions must inherit the shared small-button geometry")
+	}
+}
