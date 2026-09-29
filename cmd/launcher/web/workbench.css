@@ -225,7 +225,7 @@ html, body {
   height: 28px;
   padding: 0 8px !important;
   border: 1px solid var(--tl-border) !important;
-  border-radius: 5px !important;
+  border-radius: var(--tl-button-radius-small) !important;
   background: transparent !important;
   color: var(--tl-text-secondary) !important;
   font-size: 9px !important;
@@ -282,7 +282,7 @@ html, body {
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--tl-button-radius-small);
   background: transparent;
   color: var(--tl-text-muted);
   font-size: 15px;
