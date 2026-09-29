@@ -303,3 +303,33 @@ func TestProviderCardsRouteAPIBasedServicesToPresetConfiguration(t *testing.T) {
 		t.Fatal("account login lifecycle must remain intact for account-based providers")
 	}
 }
+
+
+func TestBrandedAPIProvidersStayOnCardsInsteadOfCustomList(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	providers := readBrowserSource(t, "providers-ui.ts")
+	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
+
+	for _, required := range []string{
+		`BRANDED_API_PROVIDER_IDS = new Set(["claude", "gemini", "huggingface", "openrouter"])`,
+		`!BRANDED_API_PROVIDER_IDS.has(clean(provider?.id))`,
+		`providerConfigEntryByID(providerConfig, providerID)`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("branded API provider list contract missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`disconnectAPIProviderPreset`,
+		`disconnect.dataset.providerAccountAction = "disconnect-api"`,
+		`disconnect.textContent = "Disconnect"`,
+		`K.api.providers.disconnectAPI(providerID)`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("branded API provider card disconnect contract missing %q", required)
+		}
+	}
+	if !strings.Contains(runtimeAPI, `/api-connection`) {
+		t.Fatal("runtime API must expose the API-only disconnect route")
+	}
+}
