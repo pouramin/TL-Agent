@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+	"strings"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -75,4 +76,23 @@ func TestClaudeWebExtensionBridgeStartsDisconnectedUntilPaired(t *testing.T) {
 	probe, err := bridge.Probe(context.Background())
 	if err != nil { t.Fatal(err) }
 	if probe.Connected { t.Fatalf("unexpected connected probe: %#v", probe) }
+}
+
+
+func TestClaudeWebExtensionClosesOnlyPairTabAndUsesInactiveCompletionTabs(t *testing.T) {
+	source := readRepoText(t, "integrations/claude-web-extension/background.js")
+	for _, required := range []string{
+		"pairTabId: Number.isInteger(pairTabId) ? pairTabId : null",
+		"sender?.tab?.id",
+		"const pairTabId = pair.pairTabId",
+		"await chrome.tabs.remove(pairTabId)",
+		"chrome.tabs.create({ url: \"https://claude.ai/new\", active: false })",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web invisible browser transport contract missing %q", required)
+		}
+	}
+	if strings.Contains(source, "chrome.tabs.remove(tab.id)") && !strings.Contains(source, "finally") {
+		t.Fatal("completion tab cleanup contract changed unexpectedly")
+	}
 }
