@@ -154,6 +154,16 @@ func (b *claudeWebExtensionBridge) send(ctx context.Context, command claudeWebEx
 	}
 }
 
+func (b *claudeWebExtensionBridge) pair(token string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if token == "" || token != b.token {
+		return false
+	}
+	b.paired = true
+	return true
+}
+
 func (b *claudeWebExtensionBridge) poll(token string) (*claudeWebExtensionCommand, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -192,6 +202,36 @@ func claudeWebExtensionCORS(w http.ResponseWriter, r *http.Request) bool {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Vary", "Origin")
 	return true
+}
+
+func registerClaudeWebUIRelayRoutes(mux *http.ServeMux, bridge *claudeWebExtensionBridge) {
+	mux.HandleFunc("POST /local/claude-web-ui/pair", func(w http.ResponseWriter, r *http.Request) {
+		if !bridge.pair(strings.TrimSpace(r.URL.Query().Get("token"))) {
+			writeJSON(w, http.StatusUnauthorized, jsonError{Error: "invalid Claude Web bridge token"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"paired": true})
+	})
+	mux.HandleFunc("GET /local/claude-web-ui/poll", func(w http.ResponseWriter, r *http.Request) {
+		command, ok := bridge.poll(strings.TrimSpace(r.URL.Query().Get("token")))
+		if !ok {
+			writeJSON(w, http.StatusUnauthorized, jsonError{Error: "invalid Claude Web bridge token"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"command": command})
+	})
+	mux.HandleFunc("POST /local/claude-web-ui/result", func(w http.ResponseWriter, r *http.Request) {
+		var result claudeWebExtensionResult
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20)).Decode(&result); err != nil {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid Claude Web bridge result"})
+			return
+		}
+		if !bridge.accept(strings.TrimSpace(r.URL.Query().Get("token")), result) {
+			writeJSON(w, http.StatusUnauthorized, jsonError{Error: "invalid Claude Web bridge token"})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"accepted": true})
+	})
 }
 
 func registerClaudeWebExtensionRoutes(mux *http.ServeMux, bridge *claudeWebExtensionBridge) {
