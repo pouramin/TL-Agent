@@ -711,5 +711,6 @@ import { K } from "./kernel";
   };
 
   window.addEventListener("tlstudio:providers-changed", () => { void load(); });
+  render();
   void load().catch(() => {});
 })();
