@@ -378,7 +378,14 @@ func (a *claudeAccountAdapter) syncProvider(payload claudeAuthStatusPayload) ([]
 
 func (a *claudeAccountAdapter) Status(ctx context.Context, _ string) (providerAccountStatus, error) {
 	status := a.baseStatus()
-	if !status.Available {
+	if !status.Available || a.manager == nil || a.manager.store == nil {
+		return status, nil
+	}
+	provider, found, err := a.manager.store.get(claudeAccountRuntimeProviderID)
+	if err != nil {
+		return providerAccountStatus{}, err
+	}
+	if !found || provider.ManagedBy != "account" || provider.Protocol != claudeAccountProviderProtocol {
 		return status, nil
 	}
 	command, err := a.resolveCommand()
@@ -490,7 +497,6 @@ func (a *claudeAccountAdapter) BeginLogin(context.Context, string) (providerAcco
 	}
 	cmd.Stdout = output
 	cmd.Stderr = output
-	cmd.Stdin = strings.NewReader("\n")
 	transaction := &claudeLoginTransaction{
 		LoginID: loginID,
 		Command: cmd,
