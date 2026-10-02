@@ -128,6 +128,28 @@ func encodePowerShell(script string) string {
 	return base64.StdEncoding.EncodeToString(bytes)
 }
 
+func cleanClaudeWebPowerShellError(raw string) string {
+	text := strings.TrimSpace(raw)
+	if text == "" {
+		return ""
+	}
+	if strings.Contains(text, "#< CLIXML") || strings.Contains(text, "<Objs Version=") {
+		return "Windows PowerShell failed while starting the native Chrome bridge"
+	}
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if len(line) > 320 {
+			line = line[:320] + "…"
+		}
+		return line
+	}
+	return "Windows PowerShell failed while starting the native Chrome bridge"
+}
+
 func runClaudeWebPowerShell(ctx context.Context, script string, env map[string]string) (string, error) {
 	cmd := exec.CommandContext(
 		ctx,
@@ -143,11 +165,16 @@ func runClaudeWebPowerShell(ctx context.Context, script string, env map[string]s
 	for key, value := range env {
 		cmd.Env = append(cmd.Env, key+"="+value)
 	}
-	output, err := cmd.CombinedOutput()
+	output, err := cmd.Output()
 	text := strings.TrimSpace(string(output))
 	if err != nil {
-		if text != "" {
-			return "", fmt.Errorf("Claude Web Chrome bridge: %s", text)
+		detail := ""
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			detail = cleanClaudeWebPowerShellError(string(exitErr.Stderr))
+		}
+		if detail != "" {
+			return "", fmt.Errorf("Claude Web Chrome bridge: %s", detail)
 		}
 		return "", fmt.Errorf("Claude Web Chrome bridge: %w", err)
 	}
@@ -155,6 +182,8 @@ func runClaudeWebPowerShell(ctx context.Context, script string, env map[string]s
 }
 
 const claudeWebWindowScript = `
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type @"
@@ -178,9 +207,9 @@ function Get-ChromeWindows {
   )
   foreach ($window in $windows) {
     try {
-      $pid = $window.Current.ProcessId
-      if ($pid -le 0) { continue }
-      $process = Get-Process -Id $pid -ErrorAction Stop
+      $processId = $window.Current.ProcessId
+      if ($processId -le 0) { continue }
+      $process = Get-Process -Id $processId -ErrorAction Stop
       if ($process.ProcessName -notin @("chrome", "chrome_proxy")) { continue }
       $items += $window
     } catch {}
