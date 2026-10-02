@@ -375,39 +375,28 @@ func TestActionButtonsShareOneVisualGeometryContract(t *testing.T) {
 }
 
 
-func TestClaudeProviderCardSupportsAccountAndAPIIndependently(t *testing.T) {
+func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 	source := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
 		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "claude-web", "github-copilot"])`,
-		`claude: "claude-account"`,
-		`const isHybridProvider = isAPIProvider && isAccountProvider`,
-		`accountConnected && apiConnected`,
-		`"Account + API connected"`,
-		`accountAction.textContent = accountConnected ? "Sign out" : "Sign in"`,
-		`configure.textContent = "API"`,
-		`disconnectAPI.textContent = "Disconnect API"`,
-	} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("Claude hybrid provider card contract missing %q", required)
-		}
-	}
-	if !strings.Contains(source, `flex-wrap:wrap`) {
-		t.Fatal("hybrid provider actions must wrap without overflowing the compact card")
-	}
-}
-
-
-func TestClaudeWebProviderCardUsesIndependentBrowserAccountRuntime(t *testing.T) {
-	source := readBrowserSource(t, "provider-account-ui.ts")
-	for _, required := range []string{
 		`"claude-web": "claude-web-account"`,
-		`providerCardOrder = ["chatgpt", "claude", "claude-web"`,
-		`account.id === "claude-web"`,
-		`data-provider="claude-web"`,
+		`providerCardOrder = ["chatgpt", "claude", "gemini"`,
+		`const claudeWebAccount = isClaudeProvider ? accountByID.get("claude-web") : undefined`,
+		`webAction.textContent = claudeWebConnected ? "Web: Sign out" : "Web (Free/Pro)"`,
+		`codeAction.textContent = accountConnected ? "Code: Sign out" : "Code (Pro/Max)"`,
+		`else void connectAccount(claudeWebAccount)`,
+		`else void connectAccount(account)`,
+		`configure.textContent = "API"`,
 		`const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id`,
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("Claude Web provider card contract missing %q", required)
+			t.Fatalf("Claude combined provider card contract missing %q", required)
 		}
+	}
+	if strings.Contains(source, `providerCardOrder = ["chatgpt", "claude", "claude-web"`) {
+		t.Fatal("Claude Web must not render as a second ambiguous standalone card")
+	}
+	if !strings.Contains(source, `flex-wrap:wrap`) {
+		t.Fatal("Claude provider actions must wrap without overflowing the compact card")
 	}
 }
