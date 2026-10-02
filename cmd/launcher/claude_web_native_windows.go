@@ -241,10 +241,14 @@ foreach ($window in (Get-ChromeWindows)) {
 $args = @(
   "--profile-directory=" + $env:TL_CLAUDE_PROFILE,
   "--new-window",
-  "--app=https://claude.ai/new",
   "--no-first-run",
-  "--no-default-browser-check"
+  "--no-default-browser-check",
+  "--disable-features=PwaNavigationCapturing"
 )
+if (-not $visible) {
+  $args += "--start-minimized"
+}
+$args += "https://claude.ai/new"
 Start-Process -FilePath $env:TL_CLAUDE_CHROME -ArgumentList $args | Out-Null
 
 $deadline = [DateTime]::UtcNow.AddSeconds(20)
@@ -333,17 +337,9 @@ Write-Output '{"connected":false,"status":401,"error":"Claude is not signed in o
 `
 
 const claudeWebCompleteScript = `
+$ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class TLStudioClaudeInput {
-  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-}
-"@
 
 $handle = [IntPtr]([Int64]::Parse($env:TL_CLAUDE_HWND))
 $window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
@@ -378,6 +374,19 @@ function Get-DocumentText {
   return ""
 }
 
+function Count-Marker([string]$text, [string]$marker) {
+  if ([string]::IsNullOrEmpty($text) -or [string]::IsNullOrEmpty($marker)) { return 0 }
+  $count = 0
+  $index = 0
+  while ($true) {
+    $index = $text.IndexOf($marker, $index, [System.StringComparison]::Ordinal)
+    if ($index -lt 0) { break }
+    $count++
+    $index += $marker.Length
+  }
+  return $count
+}
+
 function Find-Composer {
   $edits = $window.FindAll(
     [System.Windows.Automation.TreeScope]::Descendants,
@@ -396,37 +405,38 @@ function Find-Composer {
   return $fallback
 }
 
-$composer = Find-Composer
-if ($null -eq $composer) { throw "Claude message composer was not found." }
+function Set-ComposerText($composer, [string]$text) {
+  $valuePattern = $null
+  if ($composer.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
+    try {
+      if (-not $valuePattern.Current.IsReadOnly) {
+        $valuePattern.SetValue($text)
+        return $true
+      }
+    } catch {}
+  }
 
-$setDirectly = $false
-$valuePattern = $null
-if ($composer.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
-  try {
-    if (-not $valuePattern.Current.IsReadOnly) {
-      $valuePattern.SetValue($wrapped)
-      $setDirectly = $true
-    }
-  } catch {}
+  $legacyPattern = $null
+  if ($composer.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$legacyPattern)) {
+    try {
+      $legacyPattern.SetValue($text)
+      return $true
+    } catch {}
+  }
+  return $false
 }
 
-if (-not $setDirectly) {
-  $oldClipboard = $null
-  try { $oldClipboard = [System.Windows.Forms.Clipboard]::GetText() } catch {}
-  [void][TLStudioClaudeInput]::ShowWindow($handle, 9)
-  [void][TLStudioClaudeInput]::SetForegroundWindow($handle)
-  $composer.SetFocus()
-  Start-Sleep -Milliseconds 120
-  [System.Windows.Forms.Clipboard]::SetText($wrapped)
-  [System.Windows.Forms.SendKeys]::SendWait("^a")
-  [System.Windows.Forms.SendKeys]::SendWait("^v")
-  Start-Sleep -Milliseconds 80
-  if ($null -ne $oldClipboard) {
-    try { [System.Windows.Forms.Clipboard]::SetText($oldClipboard) } catch {}
-  }
+$composer = Find-Composer
+if ($null -eq $composer) { throw "Claude message composer was not found." }
+if (-not (Set-ComposerText $composer $wrapped)) {
+  throw "Claude message composer does not expose a background-edit automation pattern. TL Studio will not bring Chrome to the foreground as a fallback."
 }
 
 Start-Sleep -Milliseconds 120
+$baselineText = Get-DocumentText
+$baselineBeginCount = Count-Marker $baselineText $beginMarker
+$baselineEndCount = Count-Marker $baselineText $endMarker
+
 $sendButton = $null
 $buttons = $window.FindAll(
   [System.Windows.Automation.TreeScope]::Descendants,
@@ -439,36 +449,54 @@ foreach ($button in $buttons) {
   $name = [string]$button.Current.Name
   if ($name -match "^(Send|Send message|Send Message)$") {
     $sendButton = $button
+    break
   }
 }
-if ($null -ne $sendButton) {
-  $invoke = $null
-  if ($sendButton.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
-    $invoke.Invoke()
-  } else {
-    $composer.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-  }
-} else {
-  $composer.SetFocus()
-  [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+if ($null -eq $sendButton) {
+  throw "Claude send button was not found for background automation."
 }
+$invoke = $null
+if (-not $sendButton.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
+  throw "Claude send button does not expose a background invoke pattern."
+}
+$invoke.Invoke()
 
 $deadline = [DateTime]::UtcNow.AddSeconds(180)
 while ([DateTime]::UtcNow -lt $deadline) {
   Start-Sleep -Milliseconds 180
   $text = Get-DocumentText
-  $begin = $text.LastIndexOf($beginMarker)
-  if ($begin -lt 0) { continue }
-  $start = $begin + $beginMarker.Length
-  $end = $text.IndexOf($endMarker, $start)
-  if ($end -lt 0) { continue }
-  $result = $text.Substring($start, $end - $start).Trim()
-  [void][TLStudioClaudeInput]::ShowWindow($handle, 6)
+  $beginCount = Count-Marker $text $beginMarker
+  $endCount = Count-Marker $text $endMarker
+  if ($beginCount -le $baselineBeginCount -or $endCount -le $baselineEndCount) { continue }
+
+  $begin = $text.LastIndexOf($beginMarker, [System.StringComparison]::Ordinal)
+  $end = $text.LastIndexOf($endMarker, [System.StringComparison]::Ordinal)
+  if ($begin -lt 0 -or $end -le $begin) { continue }
+
+  $contentStart = $begin + $beginMarker.Length
+  $result = $text.Substring($contentStart, $end - $contentStart).Trim()
   Write-Output $result
   exit 0
 }
 throw "Timed out waiting for Claude to finish the TL Studio response."
+`
+
+const claudeWebVisibilityScript = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class TLStudioClaudeVisibility {
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+"@
+$handle = [IntPtr]([Int64]::Parse($env:TL_CLAUDE_HWND))
+if ($env:TL_CLAUDE_VISIBLE -eq "1") {
+  [void][TLStudioClaudeVisibility]::ShowWindow($handle, 9)
+  [void][TLStudioClaudeVisibility]::SetForegroundWindow($handle)
+} else {
+  [void][TLStudioClaudeVisibility]::ShowWindow($handle, 6)
+}
 `
 
 const claudeWebCloseScript = `
@@ -488,6 +516,12 @@ func (t *claudeWebNativeTransport) ensureWindow(ctx context.Context, visible boo
 	if t.hwnd != 0 {
 		hwnd := t.hwnd
 		t.mu.Unlock()
+		if err := t.setWindowVisibility(ctx, hwnd, visible); err != nil {
+			t.mu.Lock()
+			t.hwnd = 0
+			t.mu.Unlock()
+			return 0, err
+		}
 		return hwnd, nil
 	}
 	t.mu.Unlock()
@@ -522,9 +556,33 @@ func (t *claudeWebNativeTransport) ensureWindow(ctx context.Context, visible boo
 	return uintptr(value), nil
 }
 
-func (t *claudeWebNativeTransport) OpenLogin(ctx context.Context) error {
-	_, err := t.ensureWindow(ctx, true)
+func (t *claudeWebNativeTransport) setWindowVisibility(ctx context.Context, hwnd uintptr, visible bool) error {
+	visCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	_, err := runClaudeWebPowerShell(visCtx, claudeWebVisibilityScript, map[string]string{
+		"TL_CLAUDE_HWND":    strconv.FormatUint(uint64(hwnd), 10),
+		"TL_CLAUDE_VISIBLE": map[bool]string{true: "1", false: "0"}[visible],
+	})
 	return err
+}
+
+func (t *claudeWebNativeTransport) OpenLogin(ctx context.Context) error {
+	hwnd, err := t.ensureWindow(ctx, false)
+	if err != nil {
+		return err
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	defer cancel()
+	output, probeErr := runClaudeWebPowerShell(probeCtx, claudeWebProbeScript, map[string]string{
+		"TL_CLAUDE_HWND": strconv.FormatUint(uint64(hwnd), 10),
+	})
+	if probeErr == nil {
+		var probe claudeWebProbe
+		if json.Unmarshal([]byte(strings.TrimSpace(output)), &probe) == nil && probe.Connected {
+			return nil
+		}
+	}
+	return t.setWindowVisibility(ctx, hwnd, true)
 }
 
 func (t *claudeWebNativeTransport) Probe(ctx context.Context) (claudeWebProbe, error) {
@@ -546,6 +604,9 @@ func (t *claudeWebNativeTransport) Probe(ctx context.Context) (claudeWebProbe, e
 	var probe claudeWebProbe
 	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &probe); err != nil {
 		return claudeWebProbe{}, fmt.Errorf("decode Claude Web Chrome probe: %w", err)
+	}
+	if probe.Connected {
+		_ = t.setWindowVisibility(ctx, hwnd, false)
 	}
 	return probe, nil
 }
