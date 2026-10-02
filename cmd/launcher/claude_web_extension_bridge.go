@@ -104,6 +104,15 @@ func (b *claudeWebExtensionBridge) PairingOrigin() string {
 	return b.frontendURL()
 }
 
+func (b *claudeWebExtensionBridge) Paired() bool {
+	if b == nil {
+		return false
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return strings.TrimSpace(b.token) != "" && b.paired
+}
+
 func (b *claudeWebExtensionBridge) Probe(ctx context.Context) (claudeWebProbe, error) {
 	b.mu.Lock(); paired := b.paired; b.mu.Unlock()
 	if !paired { return claudeWebProbe{}, nil }
