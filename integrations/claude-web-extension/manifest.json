@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "TL Studio Claude Web Bridge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Connects TL Studio to the signed-in Claude Web session in your normal Chrome profile.",
-  "permissions": ["storage", "cookies", "declarativeNetRequestWithHostAccess"],
+  "permissions": ["storage", "cookies", "declarativeNetRequestWithHostAccess", "tabs", "scripting"],
   "host_permissions": [
     "https://claude.ai/*",
     "http://127.0.0.1/*",
