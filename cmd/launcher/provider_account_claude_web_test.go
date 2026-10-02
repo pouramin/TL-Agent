@@ -239,7 +239,7 @@ func TestClaudeWebLoginRouteNeverFallsThroughToClaudeCode(t *testing.T) {
 }
 
 
-func TestClaudeWebPersistedConnectionRequiresLiveChromeProbe(t *testing.T) {
+func TestClaudeWebPersistedConnectionListsImmediatelyAndRefreshValidatesChrome(t *testing.T) {
 	transport := &fakeClaudeWebTransport{probe: claudeWebProbe{Connected: false, Status: 401, Error: "not signed in"}}
 	manager, adapter := newClaudeWebTestManager(t, transport)
 	if err := saveClaudeWebConfig(claudeWebConfig{
@@ -254,16 +254,28 @@ func TestClaudeWebPersistedConnectionRequiresLiveChromeProbe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if status.Connected || status.State != providerAccountNeedsReauthentication {
-		t.Fatalf("stale Claude Web connection must require a live Chrome session: %#v", status)
+	if !status.Connected || status.State != providerAccountConnected {
+		t.Fatalf("persisted Claude Web account should render immediately: %#v", status)
 	}
 	if status.OrganizationID != "org_test" || status.AccountLabel != "Personal" {
-		t.Fatalf("persisted account identity should survive Chrome reconnect: %#v", status)
+		t.Fatalf("persisted account identity changed: %#v", status)
+	}
+	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || !found {
+		t.Fatalf("persisted Claude Web runtime provider should remain selectable before live validation: found=%v err=%v", found, err)
+	}
+
+	status, err = adapter.Refresh(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Connected || status.State != providerAccountNeedsReauthentication {
+		t.Fatalf("Refresh must expose a dead Chrome session: %#v", status)
 	}
 	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || found {
-		t.Fatalf("stale Claude Web runtime provider must not remain selectable without a live Chrome session: found=%v err=%v", found, err)
+		t.Fatalf("failed live validation must remove the stale runtime provider: found=%v err=%v", found, err)
 	}
 }
+
 
 func TestClaudeWebModelIdentityMatchesRequestedWebModel(t *testing.T) {
 	models := claudeWebModels()
