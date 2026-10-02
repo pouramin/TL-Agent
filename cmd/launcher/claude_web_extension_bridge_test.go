@@ -104,47 +104,36 @@ func TestClaudeWebExtensionUsesTablessBackgroundTransport(t *testing.T) {
 }
 
 
-func TestClaudeWebExtensionRepairsPairingInAlreadyOpenTLStudioTabs(t *testing.T) {
+func TestClaudeWebExtensionUsesExternallyConnectableDirectPairing(t *testing.T) {
 	manifest := readRepoText(t, "integrations/claude-web-extension/manifest.json")
 	background := readRepoText(t, "integrations/claude-web-extension/background.js")
-	content := readRepoText(t, "integrations/claude-web-extension/content.js")
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 
 	for _, required := range []string{
-		`"tabs"`,
-		`"scripting"`,
-		`"version": "0.3.0"`,
+		`"version": "0.4.0"`,
+		`"key":`,
+		`"externally_connectable"`,
+		`"http://127.0.0.1/*"`,
+		`"http://localhost/*"`,
 	} {
 		if !strings.Contains(manifest, required) {
-			t.Fatalf("Claude Web manifest pairing repair missing %q", required)
+			t.Fatalf("Claude Web externally-connectable manifest missing %q", required)
 		}
 	}
+	if strings.Contains(manifest, `"content_scripts"`) || strings.Contains(manifest, `"scripting"`) {
+		t.Fatal("Claude Web direct pairing must not require injected content scripts")
+	}
 	for _, required := range []string{
-		`injectIntoOpenTLStudioTabs`,
-		`chrome.tabs.query`,
-		`chrome.scripting.executeScript`,
-		`files: ["content.js"]`,
+		`chrome.runtime.onMessageExternal.addListener`,
+		`tlstudio-ping`,
+		`tlstudio-pair-direct`,
+		`validExternalSender`,
 	} {
 		if !strings.Contains(background, required) {
-			t.Fatalf("Claude Web background pairing repair missing %q", required)
+			t.Fatalf("Claude Web external pairing background missing %q", required)
 		}
 	}
-	for _, required := range []string{
-		`tlstudio-claude-web-pair-result`,
-		`chrome.runtime.sendMessage`,
-	} {
-		if !strings.Contains(content, required) {
-			t.Fatalf("Claude Web content pairing acknowledgement missing %q", required)
-		}
-	}
-	for _, required := range []string{
-		`claudeWebBridgeAck`,
-		`tlstudio-claude-web-pair-result`,
-		`Date.now() - claudeWebPairStartedAt > 12000`,
-		`Claude Web extension did not respond`,
-	} {
-		if !strings.Contains(accounts, required) {
-			t.Fatalf("Claude Web UI pairing retry contract missing %q", required)
-		}
+	if !strings.Contains(accounts, `CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla"`) {
+		t.Fatal("TL Studio must target the fixed Claude Web extension ID")
 	}
 }
