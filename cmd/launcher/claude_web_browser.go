@@ -26,6 +26,8 @@ import (
 
 const claudeWebURL = "https://claude.ai/"
 
+var errClaudeWebPageNotReady = errors.New("Claude Web page is not ready yet")
+
 type claudeWebProbe struct {
 	Connected        bool   `json:"connected"`
 	Status           int    `json:"status,omitempty"`
@@ -157,6 +159,12 @@ func (t *claudeWebBrowserTransport) Probe(ctx context.Context) (claudeWebProbe, 
   }
 })()`)
 	if err != nil {
+		if isClaudeWebTransientBrowserError(err) {
+			// OAuth/SSO navigation destroys the page execution context for a
+			// moment. That is normal while the user is signing in, so keep the
+			// account login in "connecting" state instead of failing the flow.
+			return claudeWebProbe{Connected: false}, nil
+		}
 		return claudeWebProbe{}, err
 	}
 	var probe claudeWebProbe
@@ -441,45 +449,89 @@ func (t *claudeWebBrowserTransport) evaluateWithTimeout(ctx context.Context, exp
 	if err != nil {
 		return "", err
 	}
-	pageWS, err := claudeWebPageWebSocket(ctx, port)
-	if err != nil {
-		return "", err
-	}
 	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	raw, err := cdpCall(callCtx, pageWS, "Runtime.evaluate", map[string]any{
-		"expression":    expression,
-		"awaitPromise":  true,
-		"returnByValue": true,
-	})
-	if err != nil {
-		return "", err
-	}
-	var evaluated struct {
-		Result struct {
-			Type        string          `json:"type"`
-			Value       json.RawMessage `json:"value"`
-			Description string          `json:"description,omitempty"`
-		} `json:"result"`
-		ExceptionDetails json.RawMessage `json:"exceptionDetails,omitempty"`
-	}
-	if err := json.Unmarshal(raw, &evaluated); err != nil {
-		return "", fmt.Errorf("decode DevTools evaluation result: %w", err)
-	}
-	if len(evaluated.ExceptionDetails) > 0 && string(evaluated.ExceptionDetails) != "null" {
-		return "", fmt.Errorf("Claude Web browser evaluation failed: %s", string(evaluated.ExceptionDetails))
-	}
-	if evaluated.Result.Type != "string" {
-		if evaluated.Result.Description != "" {
-			return "", errors.New(evaluated.Result.Description)
+
+	retryUntil := time.Now().Add(2 * time.Second)
+	for {
+		pageWS, err := claudeWebPageWebSocket(callCtx, port)
+		if err != nil {
+			return "", err
 		}
-		return "", fmt.Errorf("Claude Web browser returned DevTools type %q", evaluated.Result.Type)
+		raw, err := cdpCall(callCtx, pageWS, "Runtime.evaluate", map[string]any{
+			"expression":    expression,
+			"awaitPromise":  true,
+			"returnByValue": true,
+		})
+		if err != nil {
+			if isClaudeWebTransientBrowserError(err) && time.Now().Before(retryUntil) {
+				select {
+				case <-callCtx.Done():
+					return "", callCtx.Err()
+				case <-time.After(120 * time.Millisecond):
+				}
+				continue
+			}
+			return "", err
+		}
+		var evaluated struct {
+			Result struct {
+				Type        string          `json:"type"`
+				Value       json.RawMessage `json:"value"`
+				Description string          `json:"description,omitempty"`
+			} `json:"result"`
+			ExceptionDetails json.RawMessage `json:"exceptionDetails,omitempty"`
+		}
+		if err := json.Unmarshal(raw, &evaluated); err != nil {
+			return "", fmt.Errorf("decode DevTools evaluation result: %w", err)
+		}
+		if len(evaluated.ExceptionDetails) > 0 && string(evaluated.ExceptionDetails) != "null" {
+			err := fmt.Errorf("Claude Web browser evaluation failed: %s", string(evaluated.ExceptionDetails))
+			if isClaudeWebTransientBrowserError(err) && time.Now().Before(retryUntil) {
+				select {
+				case <-callCtx.Done():
+					return "", callCtx.Err()
+				case <-time.After(120 * time.Millisecond):
+				}
+				continue
+			}
+			return "", err
+		}
+		if evaluated.Result.Type != "string" {
+			if evaluated.Result.Description != "" {
+				return "", errors.New(evaluated.Result.Description)
+			}
+			return "", fmt.Errorf("Claude Web browser returned DevTools type %q", evaluated.Result.Type)
+		}
+		var value string
+		if err := json.Unmarshal(evaluated.Result.Value, &value); err != nil {
+			return "", fmt.Errorf("decode Claude Web browser value: %w", err)
+		}
+		return value, nil
 	}
-	var value string
-	if err := json.Unmarshal(evaluated.Result.Value, &value); err != nil {
-		return "", fmt.Errorf("decode Claude Web browser value: %w", err)
+}
+
+func isClaudeWebTransientBrowserError(err error) bool {
+	if err == nil {
+		return false
 	}
-	return value, nil
+	if errors.Is(err, errClaudeWebPageNotReady) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	for _, fragment := range []string{
+		"cannot find default execution context",
+		"execution context was destroyed",
+		"cannot find context with specified id",
+		"inspected target navigated or closed",
+		"target closed",
+		"websocket closed before returning a response",
+	} {
+		if strings.Contains(message, fragment) {
+			return true
+		}
+	}
+	return false
 }
 
 func claudeWebPageWebSocket(ctx context.Context, port int) (string, error) {
@@ -513,23 +565,21 @@ func claudeWebPageWebSocket(ctx context.Context, port int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fallbackPageWS := ""
+	pageTargets := 0
 	for _, target := range targets {
 		if target.Type != "page" || target.WebSocketDebuggerURL == "" {
 			continue
 		}
+		pageTargets++
 		if strings.HasPrefix(target.URL, "https://claude.ai") {
 			return target.WebSocketDebuggerURL, nil
 		}
-		if fallbackPageWS == "" {
-			// During Google/SSO authentication the dedicated Claude tab can
-			// temporarily navigate away from claude.ai. Keep polling that same
-			// page instead of spawning extra Claude tabs while login is in flight.
-			fallbackPageWS = target.WebSocketDebuggerURL
-		}
 	}
-	if fallbackPageWS != "" {
-		return fallbackPageWS, nil
+	if pageTargets > 0 {
+		// During Google/SSO authentication the Claude tab can temporarily be
+		// on an external origin or between documents. Never execute our probe
+		// in that foreign page; simply wait until the tab returns to claude.ai.
+		return "", errClaudeWebPageNotReady
 	}
 	_, browserWS, ok := claudeWebActivePort(claudeWebProfileDirectory())
 	if !ok {
