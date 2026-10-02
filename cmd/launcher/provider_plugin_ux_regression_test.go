@@ -418,7 +418,7 @@ func TestClaudeWebPairsInsideTLStudioWithoutOpeningClaudeTab(t *testing.T) {
 		}
 	}
 
-	backgroundPath := filepath.Join("..", "..", "..", "integrations", "claude-web-extension", "background.js")
+	backgroundPath := filepath.Join("..", "..", "integrations", "claude-web-extension", "background.js")
 	backgroundBytes, err := os.ReadFile(backgroundPath)
 	if err != nil {
 		t.Fatalf("read Claude Web extension background: %v", err)
