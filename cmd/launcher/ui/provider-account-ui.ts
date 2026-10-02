@@ -593,16 +593,28 @@ import { K } from "./kernel";
       K.state.authURL = clean(login.authorizationUrl || login.verificationUrl);
       K.els.authInstructions.textContent = clean(login.instructions) || "Authorization is ready. Open the sign-in page to continue.";
 
+      let claudeWebBridgeAck = false;
+      let claudeWebBridgeError = "";
+      let claudeWebBridgeToken = "";
+      let claudeWebBridgeOrigin = "";
+
+      const claudeWebPairResult = (event: MessageEvent) => {
+        if (event.source !== window || event.origin !== window.location.origin) return;
+        const data = event.data as TLStudioDynamicRecord;
+        if (!data || clean(data.type) !== "tlstudio-claude-web-pair-result") return;
+        if (clean(data.token) !== claudeWebBridgeToken) return;
+        claudeWebBridgeAck = true;
+        const response = (data.response || {}) as TLStudioDynamicRecord;
+        const error = clean(response.error);
+        if (error) claudeWebBridgeError = error;
+      };
+
       if (clean(login.flow) === "claude_web_extension") {
-        const bridgeToken = clean(login.bridgeToken);
-        const bridgeOrigin = clean(login.bridgeOrigin) || window.location.origin;
-        if (!bridgeToken) throw new Error("Claude Web browser extension pairing token is missing.");
-        if (bridgeOrigin !== window.location.origin) throw new Error("Claude Web browser extension pairing origin mismatch.");
-        window.postMessage({
-          type: "tlstudio-claude-web-pair",
-          token: bridgeToken,
-          origin: bridgeOrigin,
-        }, window.location.origin);
+        claudeWebBridgeToken = clean(login.bridgeToken);
+        claudeWebBridgeOrigin = clean(login.bridgeOrigin) || window.location.origin;
+        if (!claudeWebBridgeToken) throw new Error("Claude Web browser extension pairing token is missing.");
+        if (claudeWebBridgeOrigin !== window.location.origin) throw new Error("Claude Web browser extension pairing origin mismatch.");
+        window.addEventListener("message", claudeWebPairResult);
         K.els.authOpen.disabled = true;
       }
 
@@ -617,8 +629,25 @@ import { K } from "./kernel";
 
       const expiresAt = login.expiresAt ? Date.parse(login.expiresAt) : 0;
       const interval = Math.max(1, Number(login.pollIntervalSeconds) || 2) * 1000;
+      const claudeWebPairStartedAt = Date.now();
       while (!controller.signal.aborted) {
         if (expiresAt && Date.now() >= expiresAt) throw new Error("Provider sign-in expired. Start again.");
+
+        if (claudeWebBridgeToken) {
+          window.postMessage({
+            type: "tlstudio-claude-web-pair",
+            token: claudeWebBridgeToken,
+            origin: claudeWebBridgeOrigin,
+          }, window.location.origin);
+
+          if (claudeWebBridgeError) {
+            throw new Error(`Claude Web extension pairing failed: ${claudeWebBridgeError}`);
+          }
+          if (!claudeWebBridgeAck && Date.now() - claudeWebPairStartedAt > 12000) {
+            throw new Error("Claude Web extension did not respond. Reload the unpacked extension and refresh TL Studio, then try again.");
+          }
+        }
+
         const status = await K.api.providerAccounts.pollLogin(account.id, login.loginId, controller.signal);
         if (status.state === "connected" || status.connected) {
           K.state.authController = null;
@@ -640,6 +669,7 @@ import { K } from "./kernel";
       }
       try { await load(); } catch {}
     } finally {
+      window.removeEventListener("message", claudeWebPairResult);
       if (K.state.authController === controller) K.state.authController = null;
     }
   };
