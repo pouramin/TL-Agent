@@ -400,3 +400,38 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 		t.Fatal("Claude provider actions must wrap without overflowing the compact card")
 	}
 }
+
+
+func TestClaudeWebPairsInsideTLStudioWithoutOpeningClaudeTab(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`clean(login.flow) === "claude_web_extension"`,
+		`type: "tlstudio-claude-web-pair"`,
+		`window.postMessage`,
+		`bridgeToken`,
+		`bridgeOrigin`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("Claude Web in-place pairing contract missing %q", required)
+		}
+	}
+
+	backgroundPath := filepath.Join("..", "..", "..", "integrations", "claude-web-extension", "background.js")
+	backgroundBytes, err := os.ReadFile(backgroundPath)
+	if err != nil {
+		t.Fatalf("read Claude Web extension background: %v", err)
+	}
+	background := string(backgroundBytes)
+	if strings.Contains(background, "chrome.tabs.create") || strings.Contains(background, "chrome.windows.create") {
+		t.Fatal("Claude Web transport must not open a Claude tab or window for model requests")
+	}
+	for _, required := range []string{
+		`chrome.cookies.getAll`,
+		`chrome.declarativeNetRequest.updateSessionRules`,
+		`https://claude.ai/api`,
+	} {
+		if !strings.Contains(background, required) {
+			t.Fatalf("Claude Web background transport missing %q", required)
+		}
+	}
+}
