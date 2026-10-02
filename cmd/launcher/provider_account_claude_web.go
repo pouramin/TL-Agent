@@ -262,7 +262,7 @@ func (a *claudeWebAccountAdapter) Configure(ctx context.Context, directory strin
 	return status, nil
 }
 
-func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, string) (providerAccountLogin, error) {
+func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (providerAccountLogin, error) {
 	if a == nil || a.transport == nil {
 		return providerAccountLogin{}, errors.New("Claude Web browser transport is unavailable")
 	}
@@ -406,7 +406,7 @@ func (a *claudeWebAccountAdapter) DiscoverModels(ctx context.Context, directory 
 	return append([]string(nil), status.Models...), nil
 }
 
-func (a *claudeWebAccountAdapter) Disconnect(ctx context.Context, string) error {
+func (a *claudeWebAccountAdapter) Disconnect(ctx context.Context, _ string) error {
 	a.mu.Lock()
 	a.logins = map[string]claudeWebLoginTransaction{}
 	a.mu.Unlock()
