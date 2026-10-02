@@ -154,21 +154,29 @@ const readSSEText = async (response) => {
   let output = "";
 
   const consumeEvent = () => {
-    if (!dataLines.length) return;
+    if (!dataLines.length) return false;
     const data = dataLines.join("\n");
     dataLines = [];
-    if (!data || data === "[DONE]") return;
+    if (!data || data === "[DONE]") return data === "[DONE]";
 
     let event;
     try {
       event = JSON.parse(data);
     } catch {
-      return;
+      return false;
     }
 
-    if (event.type === "completion" && typeof event.completion === "string") {
+    if (event.type === "error") {
+      throw new Error(
+        String(event.message || event.error?.message || "Claude Web stream error")
+      );
+    }
+
+    // Claude Web has used both legacy completion events and the newer
+    // content-block stream shape. The legacy event does not always carry
+    // type="completion", so key off the payload itself.
+    if (typeof event.completion === "string") {
       output += event.completion;
-      return;
     }
 
     if (
@@ -178,14 +186,25 @@ const readSSEText = async (response) => {
       typeof event.delta.text === "string"
     ) {
       output += event.delta.text;
-      return;
     }
 
-    if (event.type === "error") {
-      throw new Error(
-        String(event.message || event.error?.message || "Claude Web stream error")
-      );
-    }
+    const stopReason = String(
+      event.stop_reason ||
+      event.stopReason ||
+      event.delta?.stop_reason ||
+      ""
+    ).trim();
+
+    return event.type === "message_stop" ||
+      event.type === "completion_stop" ||
+      stopReason === "stop_sequence" ||
+      stopReason === "end_turn" ||
+      stopReason === "max_tokens";
+  };
+
+  const finish = async () => {
+    try { await reader.cancel(); } catch {}
+    return output.trim();
   };
 
   while (true) {
@@ -200,7 +219,7 @@ const readSSEText = async (response) => {
       if (line.endsWith("\r")) line = line.slice(0, -1);
 
       if (line === "") {
-        consumeEvent();
+        if (consumeEvent()) return await finish();
       } else if (line.startsWith("data:")) {
         dataLines.push(line.slice(5).trimStart());
       }
