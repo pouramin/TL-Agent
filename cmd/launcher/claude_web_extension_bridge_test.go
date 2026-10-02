@@ -217,3 +217,23 @@ func TestClaudeWebUIRelayPairsPollsAndReturnsResult(t *testing.T) {
 		t.Fatal(ctx.Err())
 	}
 }
+
+
+func TestClaudeWebSSEParserReturnsOnTerminalEvent(t *testing.T) {
+	source := readRepoText(t, "integrations/claude-web-extension/background.js")
+	for _, required := range []string{
+		`typeof event.completion === "string"`,
+		`event.type === "message_stop"`,
+		`stopReason === "stop_sequence"`,
+		`stopReason === "end_turn"`,
+		`await reader.cancel()`,
+		`if (consumeEvent()) return await finish()`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web SSE completion contract missing %q", required)
+		}
+	}
+	if strings.Contains(source, `event.type === "completion" && typeof event.completion`) {
+		t.Fatal("Claude Web parser must accept legacy completion payloads without requiring type=completion")
+	}
+}
