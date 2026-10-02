@@ -7,30 +7,20 @@ const DEFAULT_MODEL = "claude-sonnet-5-5";
 let polling = false;
 let pair = null;
 
-const injectIntoOpenTLStudioTabs = async () => {
-  let tabs = [];
-  try {
-    tabs = await chrome.tabs.query({
-      url: ["http://127.0.0.1/*", "http://localhost/*"]
-    });
-  } catch {
-    return;
-  }
-
-  for (const tab of tabs) {
-    if (!Number.isInteger(tab.id)) continue;
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        files: ["content.js"]
-      });
-    } catch {}
-  }
-};
-
 const validLocalOrigin = (value) => {
   try {
     const url = new URL(String(value || ""));
+    return url.protocol === "http:" &&
+      (url.hostname === "127.0.0.1" || url.hostname === "localhost");
+  } catch {
+    return false;
+  }
+};
+
+const validExternalSender = (sender) => {
+  try {
+    const raw = String(sender?.url || sender?.origin || "");
+    const url = new URL(raw);
     return url.protocol === "http:" &&
       (url.hostname === "127.0.0.1" || url.hostname === "localhost");
   } catch {
@@ -437,36 +427,68 @@ const startPolling = async () => {
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "tlstudio-pair") {
-    const origin = String(message.origin || "");
-    const token = String(message.token || "");
-
-    if (!validLocalOrigin(origin) || token.length < 32) {
-      sendResponse({ ok: false });
-      return;
-    }
-
-    void savePair(origin, token).then(async () => {
-      const probe = await probeSession();
-      void startPolling();
-      sendResponse(probe);
-    });
-    return true;
-  }
-
   if (message?.type === "tlstudio-ensure-polling") {
     void startPolling();
     sendResponse({ ok: true });
   }
 });
 
-chrome.runtime.onStartup.addListener(() => {
-  void injectIntoOpenTLStudioTabs();
-  void startPolling();
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (!validExternalSender(sender)) {
+    sendResponse({
+      ok: false,
+      connected: false,
+      stage: "extension-rejected-sender",
+      error: "TL Studio pairing request did not come from localhost."
+    });
+    return;
+  }
+
+  if (message?.type === "tlstudio-ping") {
+    sendResponse({
+      ok: true,
+      connected: false,
+      stage: "extension-reached",
+      extensionVersion: chrome.runtime.getManifest().version
+    });
+    return;
+  }
+
+  if (message?.type !== "tlstudio-pair-direct") return;
+
+  const origin = String(message.origin || "");
+  const token = String(message.token || "");
+  if (!validLocalOrigin(origin) || token.length < 32) {
+    sendResponse({
+      ok: false,
+      connected: false,
+      stage: "pairing-data-invalid",
+      error: "TL Studio pairing data is invalid."
+    });
+    return;
+  }
+
+  void savePair(origin, token).then(async () => {
+    let probe;
+    try {
+      probe = await probeSession();
+    } catch (error) {
+      probe = {
+        ok: false,
+        connected: false,
+        error: String(error?.message || error)
+      };
+    }
+    void startPolling();
+    sendResponse({
+      ...probe,
+      stage: probe?.connected ? "claude-session-ready" : "claude-session-probe-failed",
+      extensionVersion: chrome.runtime.getManifest().version
+    });
+  });
+  return true;
 });
-chrome.runtime.onInstalled.addListener(() => {
-  void injectIntoOpenTLStudioTabs();
-  void startPolling();
-});
-void injectIntoOpenTLStudioTabs();
+
+chrome.runtime.onStartup.addListener(() => { void startPolling(); });
+chrome.runtime.onInstalled.addListener(() => { void startPolling(); });
 void startPolling();
