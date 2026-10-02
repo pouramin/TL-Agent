@@ -52,6 +52,9 @@ func (f *fakeClaudeWebTransport) Close(context.Context) error {
 	return nil
 }
 
+func (f *fakeClaudeWebTransport) PairingToken() string { return "test-pair-token-abcdefghijklmnopqrstuvwxyz" }
+func (f *fakeClaudeWebTransport) PairingOrigin() string { return "http://127.0.0.1:32123" }
+
 func newClaudeWebTestManager(t *testing.T, transport *fakeClaudeWebTransport) (*providerManager, *claudeWebAccountAdapter) {
 	t.Helper()
 	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
@@ -77,7 +80,7 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if login.Flow != "claude_web_browser" || login.LoginID == "" || !transport.opened {
+	if login.Flow != "claude_web_extension" || login.LoginID == "" || !transport.opened {
 		t.Fatalf("unexpected Claude Web login challenge: %#v opened=%v", login, transport.opened)
 	}
 
