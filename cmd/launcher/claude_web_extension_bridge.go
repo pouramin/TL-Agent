@@ -115,7 +115,7 @@ func (b *claudeWebExtensionBridge) Paired() bool {
 
 func (b *claudeWebExtensionBridge) Probe(ctx context.Context) (claudeWebProbe, error) {
 	b.mu.Lock(); paired := b.paired; b.mu.Unlock()
-	if !paired { return claudeWebProbe{}, nil }
+	if !paired { return claudeWebProbe{}, errClaudeWebExtensionNotPaired }
 	result, err := b.send(ctx, claudeWebExtensionCommand{Kind:"probe"})
 	if err != nil { return claudeWebProbe{}, err }
 	if !result.OK { return claudeWebProbe{}, errors.New(strings.TrimSpace(result.Error)) }
