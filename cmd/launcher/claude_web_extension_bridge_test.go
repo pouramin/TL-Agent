@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -76,8 +77,9 @@ func TestClaudeWebExtensionBridgeProbeRoundTrip(t *testing.T) {
 func TestClaudeWebExtensionBridgeStartsDisconnectedUntilPaired(t *testing.T) {
 	bridge := newClaudeWebExtensionBridge(&appState{frontendURL: "http://127.0.0.1:32123"})
 	probe, err := bridge.Probe(context.Background())
-	if err != nil { t.Fatal(err) }
-	if probe.Connected { t.Fatalf("unexpected connected probe: %#v", probe) }
+	if !errors.Is(err, errClaudeWebExtensionNotPaired) {
+		t.Fatalf("expected unpaired bridge error, got probe=%#v err=%v", probe, err)
+	}
 }
 
 
@@ -112,7 +114,7 @@ func TestClaudeWebExtensionUsesExternallyConnectableDirectPairing(t *testing.T) 
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 
 	for _, required := range []string{
-		`"version": "0.5.1"`,
+		`"version": "0.5.2"`,
 		`"key":`,
 		`"externally_connectable"`,
 		`"http://127.0.0.1/*"`,
