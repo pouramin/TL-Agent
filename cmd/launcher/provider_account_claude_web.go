@@ -94,7 +94,7 @@ type claudeWebAccountAdapter struct {
 }
 
 func newClaudeWebAccountAdapter(state *appState, manager *providerManager) *claudeWebAccountAdapter {
-	return newClaudeWebAccountAdapterWithTransport(state, manager, newClaudeWebExtensionBridge(state))
+	return newClaudeWebAccountAdapterWithTransport(state, manager, newClaudeWebNativeTransport())
 }
 
 func newClaudeWebAccountAdapterWithTransport(state *appState, manager *providerManager, transport claudeWebTransport) *claudeWebAccountAdapter {
@@ -127,7 +127,7 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 		Setup: &providerAccountSetupSummary{
 			Configurable: false,
 			Configured:   availableErr == nil,
-			Label:        "Claude Web Chrome extension",
+			Label:        "Chrome session",
 		},
 	}
 	if availableErr != nil {
@@ -182,7 +182,7 @@ func (a *claudeWebAccountAdapter) removeManagedProvider() {
 	}
 }
 
-func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccountStatus, error) {
+func (a *claudeWebAccountAdapter) Status(ctx context.Context, _ string) (providerAccountStatus, error) {
 	status := a.baseStatus()
 	if !status.Available {
 		return status, nil
@@ -195,14 +195,34 @@ func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccou
 		a.removeManagedProvider()
 		return status, nil
 	}
-	if paired, ok := a.transport.(interface{ Paired() bool }); ok && !paired.Paired() {
+
+	probe, err := a.transport.Probe(ctx)
+	if err != nil {
 		a.removeManagedProvider()
 		status.State = providerAccountNeedsReauthentication
 		status.AccountType = "Claude Web"
 		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
 		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
-		status.Error = "Claude Web is still signed in, but the TL Studio browser bridge needs to reconnect."
+		status.Error = err.Error()
 		return status, nil
+	}
+	if !probe.Connected {
+		a.removeManagedProvider()
+		status.State = providerAccountNeedsReauthentication
+		status.AccountType = "Claude Web"
+		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
+		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
+		status.Error = strings.TrimSpace(probe.Error)
+		return status, nil
+	}
+	if name := strings.TrimSpace(probe.OrganizationName); name != "" {
+		config.OrganizationName = name
+	}
+	if id := strings.TrimSpace(probe.OrganizationID); id != "" {
+		config.OrganizationID = id
+	}
+	if err := saveClaudeWebConfig(config); err != nil {
+		return providerAccountStatus{}, err
 	}
 	ids, err := a.syncProvider(config)
 	if err != nil {
@@ -219,8 +239,8 @@ func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccou
 
 func (a *claudeWebAccountAdapter) Setup(context.Context, string) (providerAccountSetup, error) {
 	return providerAccountSetup{
-		Title:       "Claude Web Chrome extension",
-		Description: "Claude Web uses the bundled Chrome extension and the signed-in Claude session from the normal Chrome profile.",
+		Title:       "Claude Web through Chrome",
+		Description: "Claude Web uses the signed-in Claude session from the normal Chrome profile. No browser extension is required.",
 		Fields:      []providerAccountSetupField{},
 	}, nil
 }
@@ -244,28 +264,17 @@ func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (pro
 	a.mu.Lock()
 	a.logins[loginID] = claudeWebLoginTransaction{LoginID: loginID, ExpiresAt: expiresAt}
 	a.mu.Unlock()
-	login := providerAccountLogin{
+	return providerAccountLogin{
 		LoginID:             loginID,
-		Flow:                "claude_web_extension",
-		Instructions:        "Pairing with the Claude session already signed in inside this Chrome profile. Claude will stay inside TL Studio; no Claude tab is required.",
+		Flow:                "claude_web_native_chrome",
+		Instructions:        "TL Studio is using your normal Chrome profile. If Claude is not already signed in, finish sign-in in the Chrome window; it will be minimized after the connection is ready.",
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
 		PollIntervalSeconds: 1,
-	}
-	if pairing, ok := a.transport.(interface {
-		PairingToken() string
-		PairingOrigin() string
-	}); ok {
-		login.BridgeToken = strings.TrimSpace(pairing.PairingToken())
-		login.BridgeOrigin = strings.TrimSpace(pairing.PairingOrigin())
-	}
-	if login.BridgeToken == "" || login.BridgeOrigin == "" {
-		return providerAccountLogin{}, errors.New("Claude Web extension pairing data is unavailable")
-	}
-	return login, nil
+	}, nil
 }
 
 func (a *claudeWebAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
-	return errors.New("Claude Web login is completed through the local Chrome extension bridge")
+	return errors.New("Claude Web login is completed through the local Chrome session bridge")
 }
 
 func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, loginID string) (providerAccountStatus, error) {
@@ -286,12 +295,10 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	}
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
-		if errors.Is(err, errClaudeWebExtensionNotPaired) {
-			status := a.baseStatus()
-			status.State = providerAccountConnecting
-			return status, nil
-		}
-		return providerAccountStatus{}, err
+		status := a.baseStatus()
+		status.State = providerAccountConnecting
+		status.Error = err.Error()
+		return status, nil
 	}
 	if !probe.Connected {
 		status := a.baseStatus()
@@ -306,8 +313,12 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 		return providerAccountStatus{}, err
 	}
 	config.Connected = true
-	config.OrganizationID = strings.TrimSpace(probe.OrganizationID)
-	config.OrganizationName = strings.TrimSpace(probe.OrganizationName)
+	if id := strings.TrimSpace(probe.OrganizationID); id != "" {
+		config.OrganizationID = id
+	}
+	if name := strings.TrimSpace(probe.OrganizationName); name != "" {
+		config.OrganizationName = name
+	}
 	if err := saveClaudeWebConfig(config); err != nil {
 		return providerAccountStatus{}, err
 	}
@@ -339,30 +350,26 @@ func (a *claudeWebAccountAdapter) Refresh(ctx context.Context, directory string)
 		return a.Status(ctx, directory)
 	}
 	probe, err := a.transport.Probe(ctx)
-	if err != nil {
-		if errors.Is(err, errClaudeWebExtensionNotPaired) {
-			status := a.baseStatus()
-			status.State = providerAccountNeedsReauthentication
-			status.AccountType = "Claude Web"
-			status.AccountLabel = strings.TrimSpace(config.OrganizationName)
-			status.OrganizationID = strings.TrimSpace(config.OrganizationID)
-			status.Error = "Claude Web bridge needs to reconnect to this TL Studio page."
-			return status, nil
-		}
-		return providerAccountStatus{}, err
-	}
-	if !probe.Connected {
-		config.Connected = false
-		config.OrganizationID = ""
-		config.OrganizationName = ""
-		_ = saveClaudeWebConfig(config)
+	if err != nil || !probe.Connected {
 		a.removeManagedProvider()
 		status := a.baseStatus()
 		status.State = providerAccountNeedsReauthentication
+		status.AccountType = "Claude Web"
+		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
+		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
+		if err != nil {
+			status.Error = err.Error()
+		} else {
+			status.Error = strings.TrimSpace(probe.Error)
+		}
 		return status, nil
 	}
-	config.OrganizationID = strings.TrimSpace(probe.OrganizationID)
-	config.OrganizationName = strings.TrimSpace(probe.OrganizationName)
+	if id := strings.TrimSpace(probe.OrganizationID); id != "" {
+		config.OrganizationID = id
+	}
+	if name := strings.TrimSpace(probe.OrganizationName); name != "" {
+		config.OrganizationName = name
+	}
 	if err := saveClaudeWebConfig(config); err != nil {
 		return providerAccountStatus{}, err
 	}
@@ -471,18 +478,16 @@ func (a *claudeWebAccountAdapter) CompleteModelTurn(ctx context.Context, request
 	}
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
-		if errors.Is(err, errClaudeWebExtensionNotPaired) {
-			return nativeModelResponse{}, errors.New("Claude Web bridge is not connected to this TL Studio page yet; reconnecting is required")
-		}
+		a.removeManagedProvider()
 		return nativeModelResponse{}, err
 	}
 	if !probe.Connected {
-		config.Connected = false
-		config.OrganizationID = ""
-		config.OrganizationName = ""
-		_ = saveClaudeWebConfig(config)
 		a.removeManagedProvider()
-		return nativeModelResponse{}, errors.New("Claude Web browser session expired; sign in again from Provider Settings")
+		detail := strings.TrimSpace(probe.Error)
+		if detail == "" {
+			detail = "Claude Web is not signed in in the active Chrome profile"
+		}
+		return nativeModelResponse{}, errors.New(detail)
 	}
 	prompt, err := claudeWebBridgePrompt(request)
 	if err != nil {
