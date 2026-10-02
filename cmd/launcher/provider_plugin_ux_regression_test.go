@@ -197,6 +197,8 @@ func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
 		`apiProviderPresets`,
 		`openAPIProviderPreset`,
 		`grid-template-columns:repeat(3,minmax(0,1fr))`,
+		`render();`,
+		`void load().catch(() => {});`,
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("compact provider account card grid missing %q", required)
