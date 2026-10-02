@@ -24,6 +24,7 @@ var providerProtocolPackages = map[string]string{
 	"anthropic-messages":     "@ai-sdk/anthropic",
 	"gemini-generate-content": "@google/genai",
 	"codex-chatgpt":            "@openai/codex",
+	"claude-code-account":       "@anthropic-ai/claude-code",
 }
 
 type tlProviderModel struct {
@@ -288,6 +289,10 @@ func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	return err
 }
 
+type providerAccountRuntimeProvider interface {
+	RuntimeProviderID() string
+}
+
 func (m *providerManager) registerAccountAdapter(adapter providerAccountAdapter) {
 	if m == nil || adapter == nil {
 		return
@@ -300,6 +305,15 @@ func (m *providerManager) registerAccountAdapter(adapter providerAccountAdapter)
 	defer m.accountMu.Unlock()
 	if m.accounts == nil {
 		m.accounts = map[string]providerAccountAdapter{}
+	}
+	if runtimeProvider, ok := adapter.(providerAccountRuntimeProvider); ok {
+		runtimeID := strings.TrimSpace(runtimeProvider.RuntimeProviderID())
+		if runtimeID != "" && runtimeID != id {
+			// Hybrid providers such as Claude keep their branded API provider ID
+			// independent from the account-backed runtime provider.
+			m.accounts[runtimeID] = adapter
+			return
+		}
 	}
 	m.accounts[id] = adapter
 }
