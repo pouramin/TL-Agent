@@ -1,10 +1,14 @@
 TL Studio Claude Web Bridge
 
+Install / update:
 1. Open chrome://extensions
-2. Enable Developer mode
-3. Click Load unpacked
-4. Select this claude-web-extension folder
-5. Reopen TL Studio in Chrome
-6. In TL Studio, use Claude -> Web (Free/Pro)
+2. Remove any older "TL Studio Claude Web Bridge" unpacked extension
+3. Enable Developer mode
+4. Click "Load unpacked"
+5. Select this claude-web-extension folder
 
-Claude stays inside TL Studio. The extension reuses the Claude session from your normal Chrome profile and sends Claude Web requests in the browser background. No Claude tab is required.
+Then open TL Studio in the same Chrome profile and use:
+Claude -> Web (Free/Pro)
+
+Pairing is direct between the TL Studio localhost page and this extension.
+No Claude tab is required for normal use.
