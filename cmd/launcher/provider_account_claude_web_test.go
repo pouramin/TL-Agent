@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 )
@@ -165,7 +164,7 @@ func TestClaudeWebBridgeAcceptsFencedJSONAndPlainTextFallback(t *testing.T) {
 	}
 }
 
-func TestClaudeWebDisconnectClearsOnlyDedicatedBrowserProfile(t *testing.T) {
+func TestClaudeWebDisconnectPreservesManualAPIAndUnpairsBridge(t *testing.T) {
 	transport := &fakeClaudeWebTransport{probe: claudeWebProbe{Connected: true}}
 	manager, adapter := newClaudeWebTestManager(t, transport)
 
@@ -176,31 +175,13 @@ func TestClaudeWebDisconnectClearsOnlyDedicatedBrowserProfile(t *testing.T) {
 		BaseURL:  "https://api.anthropic.com/v1",
 		Models:   []tlProviderModel{{ID: "manual", Name: "Manual Claude", ToolCall: true}},
 	}
-	if err := manager.store.put(manualProvider); err != nil {
-		t.Fatal(err)
-	}
-	if err := putProviderCredentialSlot(manager.credentials, claudeAccountProviderID, providerCredentialSlotAPI, "manual-secret"); err != nil {
-		t.Fatal(err)
-	}
-	if err := saveClaudeWebConfig(claudeWebConfig{Connected: true, OrganizationID: "org_test"}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := adapter.syncProvider(claudeWebConfig{Connected: true, OrganizationID: "org_test"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(claudeWebProfileDirectory(), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepathJoinForClaudeWebTest(claudeWebProfileDirectory(), "marker"), []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	if err := manager.store.put(manualProvider); err != nil { t.Fatal(err) }
+	if err := putProviderCredentialSlot(manager.credentials, claudeAccountProviderID, providerCredentialSlotAPI, "manual-secret"); err != nil { t.Fatal(err) }
+	if err := saveClaudeWebConfig(claudeWebConfig{Connected: true, OrganizationID: "org_test"}); err != nil { t.Fatal(err) }
+	if _, err := adapter.syncProvider(claudeWebConfig{Connected: true, OrganizationID: "org_test"}); err != nil { t.Fatal(err) }
 
-	if err := adapter.Disconnect(context.Background(), ""); err != nil {
-		t.Fatal(err)
-	}
-	if !transport.closed {
-		t.Fatal("Claude Web transport was not closed")
-	}
+	if err := adapter.Disconnect(context.Background(), ""); err != nil { t.Fatal(err) }
+	if !transport.closed { t.Fatal("Claude Web bridge was not closed") }
 	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || found {
 		t.Fatalf("Claude Web runtime provider remained after disconnect: found=%v err=%v", found, err)
 	}
@@ -212,13 +193,6 @@ func TestClaudeWebDisconnectClearsOnlyDedicatedBrowserProfile(t *testing.T) {
 	if err != nil || secret != "manual-secret" {
 		t.Fatalf("manual Claude API credential was changed: %q err=%v", secret, err)
 	}
-	if _, err := os.Stat(claudeWebProfileDirectory()); !errors.Is(err, os.ErrNotExist) {
-		t.Fatalf("Claude Web dedicated profile was not cleared: %v", err)
-	}
-}
-
-func filepathJoinForClaudeWebTest(parts ...string) string {
-	return strings.Join(parts, string(os.PathSeparator))
 }
 
 func TestClaudeWebUnavailableWithoutBrowserTransport(t *testing.T) {
@@ -253,32 +227,12 @@ func TestClaudeWebLoginRouteNeverFallsThroughToClaudeCode(t *testing.T) {
 		t.Fatalf("Claude Web login route returned HTTP %d: %s", response.Code, response.Body.String())
 	}
 	if !transport.opened {
-		t.Fatal("Claude Web login route did not open the dedicated browser transport")
+		t.Fatal("Claude Web login route did not open the normal Chrome bridge")
 	}
 	if adapter, ok := service.adapter("claude-web"); !ok || adapter != webAdapter {
 		t.Fatalf("claude-web route resolved the wrong adapter: %#v ok=%v", adapter, ok)
 	}
 	if adapter, ok := service.adapter("claude"); !ok || adapter != codeAdapter {
 		t.Fatalf("claude route no longer resolves the Claude Code adapter: %#v ok=%v", adapter, ok)
-	}
-}
-
-
-func TestClaudeWebPollLoginKeepsConnectingAcrossTransientBrowserNavigation(t *testing.T) {
-	transport := &fakeClaudeWebTransport{
-		probeErr: errors.New("DevTools Runtime.evaluate failed (-32000): Cannot find default execution context"),
-	}
-	_, adapter := newClaudeWebTestManager(t, transport)
-
-	login, err := adapter.BeginLogin(context.Background(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	status, err := adapter.PollLogin(context.Background(), "", login.LoginID)
-	if err != nil {
-		t.Fatalf("transient browser navigation must not fail Claude Web login: %v", err)
-	}
-	if status.State != providerAccountConnecting || status.Connected {
-		t.Fatalf("transient browser navigation must remain connecting: %#v", status)
 	}
 }
