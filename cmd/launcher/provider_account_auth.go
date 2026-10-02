@@ -45,6 +45,8 @@ type providerAccountLogin struct {
 	AuthorizationURL    string `json:"authorizationUrl,omitempty"`
 	VerificationURL     string `json:"verificationUrl,omitempty"`
 	UserCode            string `json:"userCode,omitempty"`
+	BridgeToken         string `json:"bridgeToken,omitempty"`
+	BridgeOrigin        string `json:"bridgeOrigin,omitempty"`
 	Instructions        string `json:"instructions,omitempty"`
 	ExpiresAt           string `json:"expiresAt,omitempty"`
 	PollIntervalSeconds int    `json:"pollIntervalSeconds,omitempty"`
