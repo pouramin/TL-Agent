@@ -93,9 +93,11 @@ func TestOnlyUnresolvedProviderBoundariesStayOutOfRuntimeCredentialRegistry(t *t
 	for _, required := range []string{
 		"chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)",
 		"claudeAccount := newClaudeAccountAdapter(state, providerManager)",
+		"claudeWebAccount := newClaudeWebAccountAdapter(state, providerManager)",
 		"providerManager.registerAccountAdapter(chatGPTAccount)",
 		"providerManager.registerAccountAdapter(claudeAccount)",
-		"newNativeModelClient(chatGPTAccount, claudeAccount)",
+		"providerManager.registerAccountAdapter(claudeWebAccount)",
+		"newNativeModelClient(chatGPTAccount, claudeAccount, claudeWebAccount)",
 		"newGitHubCopilotAccountBoundaryAdapter()",
 	} {
 		if !strings.Contains(text, required) {
