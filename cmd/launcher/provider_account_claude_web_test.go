@@ -275,10 +275,10 @@ func TestClaudeWebPollLoginKeepsConnectingAcrossTransientBrowserNavigation(t *te
 		t.Fatal(err)
 	}
 	status, err := adapter.PollLogin(context.Background(), "", login.LoginID)
-	if err == nil {
-		t.Fatal("fake transport transient error should still reach adapter in this regression fixture")
+	if err != nil {
+		t.Fatalf("transient browser navigation must not fail Claude Web login: %v", err)
 	}
-	if status.State != "" {
-		t.Fatalf("unexpected status when fake transport bypasses browser transient handling: %#v", status)
+	if status.State != providerAccountConnecting || status.Connected {
+		t.Fatalf("transient browser navigation must remain connecting: %#v", status)
 	}
 }
