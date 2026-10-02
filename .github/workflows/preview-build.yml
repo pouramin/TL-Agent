@@ -62,6 +62,11 @@ jobs:
             --target windows-x64 \
             --package-dir staging/package
 
+      - name: Stage Claude Web Chrome extension
+        run: |
+          mkdir -p staging/package/claude-web-extension
+          cp -R integrations/claude-web-extension/. staging/package/claude-web-extension/
+
       - name: Assert package contains no Kilo runtime
         shell: bash
         run: |
