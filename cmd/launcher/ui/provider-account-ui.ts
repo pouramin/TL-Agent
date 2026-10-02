@@ -73,7 +73,7 @@ import { K } from "./kernel";
     .provider-account-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:720}
     .provider-account-state{display:flex;min-height:14px;align-items:center;gap:5px;color:var(--muted);font-size:8px;line-height:1.2}
     .provider-account-state .provider-status-dot{width:6px;height:6px}
-    .provider-account-card-actions{display:flex;width:100%;margin-top:auto;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
+    .provider-account-card-actions{display:flex;width:100%;margin-top:auto;align-items:center;justify-content:center;gap:5px}
     .provider-account-signin{min-width:74px}
     .provider-account-setup-button{position:absolute;top:8px;right:8px;width:25px;height:25px;padding:0;border-radius:8px;font-size:12px;line-height:1}
     .provider-account-details{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px}
@@ -89,12 +89,7 @@ import { K } from "./kernel";
   const accountList = document.getElementById("providerAccountList")!;
   let loading = false;
 
-  const accountLoginProviderIDs = new Set(["chatgpt", "claude", "github-copilot"]);
-  const accountRuntimeProviderIDs: Record<string, string> = {
-    chatgpt: "chatgpt",
-    claude: "claude-account",
-    "github-copilot": "github-copilot",
-  };
+  const accountLoginProviderIDs = new Set(["chatgpt", "github-copilot"]);
   const providerCardOrder = ["chatgpt", "claude", "gemini", "github-copilot", "huggingface", "openrouter"];
   const apiProviderPresets: Record<string, TLStudioDynamicRecord> = {
     claude: {
@@ -257,9 +252,8 @@ import { K } from "./kernel";
   const syncConnectedProviders = () => {
     for (const account of K.state.providerAccounts) {
       if (!accountLoginProviderIDs.has(account.id)) continue;
-      const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id;
-      if (account.connected) K.state.connectedProviders.add(runtimeProviderID);
-      else K.state.connectedProviders.delete(runtimeProviderID);
+      if (account.connected) K.state.connectedProviders.add(account.id);
+      else K.state.connectedProviders.delete(account.id);
     }
   };
 
@@ -295,22 +289,16 @@ import { K } from "./kernel";
     for (const account of cards) {
       const apiPreset = apiPresetFor(account.id);
       const isAPIProvider = !!apiPreset;
-      const isAccountProvider = accountLoginProviderIDs.has(account.id);
-      const isHybridProvider = isAPIProvider && isAccountProvider;
-      const apiConnected = isAPIProvider && apiProviderConnected(apiPreset);
-      const accountConnected = isAccountProvider && account.connected;
-      const connected = accountConnected || apiConnected;
+      const connected = isAPIProvider ? apiProviderConnected(apiPreset) : account.connected;
       const available = isAPIProvider || account.available;
 
       const card = document.createElement("div");
       card.className = `provider-account-card${available ? "" : " provider-account-unavailable"}${connected ? " provider-account-connected" : ""}`;
       card.dataset.providerAccountId = account.id;
 
-      const details = isHybridProvider
-        ? [providerAccountDetails(account), `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`].filter(Boolean).join(" · ")
-        : isAPIProvider
-          ? `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`
-          : providerAccountDetails(account);
+      const details = isAPIProvider
+        ? `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`
+        : providerAccountDetails(account);
       if (details) card.title = details;
 
       if (!isAPIProvider && account.setup?.configurable) {
@@ -340,24 +328,14 @@ import { K } from "./kernel";
       const dot = document.createElement("span");
       dot.className = `provider-status-dot${connected ? " ok" : ""}`;
       const stateLabel = document.createElement("span");
-      stateLabel.textContent = isHybridProvider
-        ? accountConnected && apiConnected
-          ? "Account + API connected"
-          : accountConnected
-            ? "Account connected"
-            : apiConnected
-              ? "API connected"
-              : account.available
-                ? "Account or API key"
-                : "API key"
-        : isAPIProvider
-          ? (apiConnected ? "API connected" : "API key")
-          : statusText(account);
+      stateLabel.textContent = isAPIProvider
+        ? (connected ? "API connected" : "API key")
+        : statusText(account);
       state.append(dot, stateLabel);
 
       const accountDetails = document.createElement("div");
       accountDetails.className = "provider-account-details";
-      accountDetails.textContent = accountConnected
+      accountDetails.textContent = !isAPIProvider && account.connected
         ? [account.accountLabel, account.accountType, account.organizationId].filter(Boolean).join(" · ")
         : "";
       if (!accountDetails.textContent) accountDetails.setAttribute("aria-hidden", "true");
@@ -365,54 +343,17 @@ import { K } from "./kernel";
       const actions = document.createElement("div");
       actions.className = "provider-account-card-actions";
 
-      if (isHybridProvider) {
-        const accountAction = document.createElement("button");
-        accountAction.type = "button";
-        accountAction.dataset.providerAccountAction = accountConnected ? "disconnect" : "connect";
-        accountAction.textContent = accountConnected ? "Sign out" : "Sign in";
-        accountAction.className = accountConnected ? "ghost small provider-delete" : "primary small provider-account-signin";
-        accountAction.disabled = !accountConnected && !account.available;
-        accountAction.title = accountConnected
-          ? `Sign out of ${account.name || account.id}`
-          : account.available
-            ? `Sign in with ${account.name || account.id}`
-            : clean(account.error) || "Claude account sign-in is unavailable.";
-        accountAction.addEventListener("click", () => {
-          if (accountConnected) void disconnectAccount(account);
-          else void connectAccount(account);
-        });
-        actions.appendChild(accountAction);
-
+      if (isAPIProvider) {
         const configure = document.createElement("button");
         configure.type = "button";
-        configure.className = "ghost small";
-        configure.dataset.providerAccountAction = "configure-api";
-        configure.textContent = "API";
-        configure.title = `Configure ${account.name || account.id} API key`;
-        configure.addEventListener("click", () => { void openAPIProviderPreset(apiPreset); });
-        actions.appendChild(configure);
-
-        if (apiConnected) {
-          const disconnectAPI = document.createElement("button");
-          disconnectAPI.type = "button";
-          disconnectAPI.className = "ghost small provider-delete";
-          disconnectAPI.dataset.providerAccountAction = "disconnect-api";
-          disconnectAPI.textContent = "Disconnect API";
-          disconnectAPI.title = `Disconnect ${account.name || account.id} API credential`;
-          disconnectAPI.addEventListener("click", () => { void disconnectAPIProviderPreset(account, apiPreset); });
-          actions.appendChild(disconnectAPI);
-        }
-      } else if (isAPIProvider) {
-        const configure = document.createElement("button");
-        configure.type = "button";
-        configure.className = apiConnected ? "ghost small" : "primary small provider-account-signin";
+        configure.className = connected ? "ghost small" : "primary small provider-account-signin";
         configure.dataset.providerAccountAction = "configure-api";
         configure.textContent = "Configure";
         configure.title = `Configure ${account.name || account.id} with an API credential`;
         configure.addEventListener("click", () => { void openAPIProviderPreset(apiPreset); });
         actions.appendChild(configure);
 
-        if (apiConnected) {
+        if (connected) {
           const disconnect = document.createElement("button");
           disconnect.type = "button";
           disconnect.className = "ghost small provider-delete";

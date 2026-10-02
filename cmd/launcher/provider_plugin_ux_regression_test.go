@@ -373,25 +373,3 @@ func TestActionButtonsShareOneVisualGeometryContract(t *testing.T) {
 		t.Fatal("provider account card actions must inherit the shared small-button geometry")
 	}
 }
-
-
-func TestClaudeProviderCardSupportsAccountAndAPIIndependently(t *testing.T) {
-	source := readBrowserSource(t, "provider-account-ui.ts")
-	for _, required := range []string{
-		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "github-copilot"])`,
-		`claude: "claude-account"`,
-		`const isHybridProvider = isAPIProvider && isAccountProvider`,
-		`accountConnected && apiConnected`,
-		`"Account + API connected"`,
-		`accountAction.textContent = accountConnected ? "Sign out" : "Sign in"`,
-		`configure.textContent = "API"`,
-		`disconnectAPI.textContent = "Disconnect API"`,
-	} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("Claude hybrid provider card contract missing %q", required)
-		}
-	}
-	if !strings.Contains(source, `flex-wrap:wrap`) {
-		t.Fatal("hybrid provider actions must wrap without overflowing the compact card")
-	}
-}
