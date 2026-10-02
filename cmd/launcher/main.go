@@ -137,7 +137,8 @@ func newServer(state *appState) (http.Handler, error) {
 	googleGeminiAccount := newGoogleGeminiAccountAdapter(state, providerManager)
 	chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)
 	claudeAccount := newClaudeAccountAdapter(state, providerManager)
-	claudeWebAccount := newClaudeWebAccountAdapter(state, providerManager)
+	claudeWebBridge := newClaudeWebExtensionBridge(state)
+	claudeWebAccount := newClaudeWebAccountAdapterWithTransport(state, providerManager, claudeWebBridge)
 	providerManager.registerAccountAdapter(openRouterAccount)
 	providerManager.registerAccountAdapter(huggingFaceAccount)
 	providerManager.registerAccountAdapter(googleGeminiAccount)
@@ -214,6 +215,7 @@ func newServer(state *appState) (http.Handler, error) {
 	registerLocalProcessRoutesWithManager(mux, state, processes)
 	registerProviderRoutes(mux, providerManager)
 	registerProviderAccountRoutes(mux, providerAccounts)
+	registerClaudeWebExtensionRoutes(mux, claudeWebBridge)
 	registerProviderDiscoveryRoutes(mux, providerManager)
 	registerJevRouterRoutes(mux, jevRouter)
 	registerDecisionEngineRoutes(mux, decisionEngines)
@@ -256,6 +258,10 @@ func localOnly(next http.Handler) http.Handler {
 		if err != nil { host = r.Host }
 		if !isLoopbackHost(host) { http.Error(w, "localhost only", http.StatusForbidden); return }
 		if origin := r.Header.Get("Origin"); origin != "" {
+			if isClaudeWebExtensionBridgeRequest(r) && claudeWebExtensionOriginAllowed(origin) {
+				next.ServeHTTP(w, r)
+				return
+			}
 			u, err := url.Parse(origin)
 			if err != nil || !isLoopbackHost(u.Hostname()) || !strings.EqualFold(u.Host, r.Host) {
 				http.Error(w, "cross-origin request blocked", http.StatusForbidden); return
