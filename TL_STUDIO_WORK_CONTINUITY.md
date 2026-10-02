@@ -1,6 +1,6 @@
 # TL Studio work continuity
 
-Last updated: 2026-09-29
+Last updated: 2026-10-02
 
 ## Source of truth
 
@@ -26,7 +26,7 @@ Current validation state:
 
 ChatGPT/Codex full Windows validation passed with a real ChatGPT-plan account. Login, model discovery/selection, selected-model identity, project read/search/write, Permission handling, multi-step Tool continuation, Terminal execution, restart persistence, explicit sign-out cleanup, and warm-turn latency were validated. Warm responses are currently about 3–5 seconds with the persistent Codex app-server. After restart the connected account remained usable; after sign-out and restart it remained signed out and required a fresh sign-in.
 
-Real validation for the remaining provider connection modes is still in progress on current dev.
+Claude subscription-account support is implemented through the official Claude Code CLI and has passed automated fake-CLI coverage plus a real Windows Claude CLI contract smoke. Real Claude.ai account validation is the next manual gate. Real validation for the remaining API-provider connection modes is still in progress on current dev.
 
 Current open development PR:
 
@@ -34,6 +34,9 @@ None.
 
 Completed 0.6 account-provider / validation UX PRs:
 
+#159 — Enable Claude subscription login through official Claude Code
+#158 — Unify button geometry across TL Studio
+#157 — Keep branded API providers on their cards
 #155 — Keep the ChatGPT Codex app-server warm between turns
 #154 — Reduce ChatGPT turn latency
 #153 — Report the selected ChatGPT model identity correctly
@@ -89,7 +92,7 @@ Owned by TL Studio:
 
 Normal startup initializes TL Studio services and the loopback local server directly.
 
-Optional provider/plugin integrations may launch their own explicit helper processes only when that integration is used. The ChatGPT account path is provider-specific and uses the official OpenAI Codex CLI; it does not replace TL Studio Session, Permission, Tool, persistence, or Native Agent ownership.
+Optional provider/plugin integrations may launch their own explicit helper processes only when that integration is used. ChatGPT account access uses the official OpenAI Codex CLI/App Server and Claude subscription access uses the official Anthropic Claude Code CLI. Neither helper replaces TL Studio Session, Permission, Tool, persistence, project mutation, or Native Agent ownership.
 
 Native execution is the normal core execution mode.
 
@@ -133,13 +136,13 @@ There is no external runtime event stream.
 
 Provider configuration and model catalogs are authoritative in TL Studio.
 
-Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini generateContent. ChatGPT-plan access uses the explicit `codex-chatgpt` provider bridge. Unsupported capabilities return explicit errors.
+Direct native model protocols currently include OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini generateContent. ChatGPT-plan access uses `codex-chatgpt`; Claude.ai subscription access uses `claude-code-account`. Unsupported capabilities return explicit errors.
 
 The generic ProviderAccountAdapter architecture now has a typed account lifecycle: begin login, OAuth callback completion or polling, cancellation, refresh, status, model discovery, and logout. Browser state is semantic only and does not carry provider access tokens, refresh tokens, authorization codes, PKCE verifiers, API keys, cookies, or client secrets.
 
 Manual API credentials and TL Studio-managed account credentials use separate credential-vault slots. An account credential takes precedence for native model execution while connected, but signing out exposes the preserved manual API credential instead of deleting it.
 
-ChatGPT is the exception to token persistence ownership: OpenAI's official Codex client manages ChatGPT OAuth/refresh material inside an isolated TL Studio-specific `CODEX_HOME`. TL Studio never reads or serializes the raw ChatGPT tokens.
+Provider-owned helper authentication is isolated. OpenAI's official Codex client manages ChatGPT OAuth/refresh material inside a TL Studio-specific `CODEX_HOME`. Anthropic's official Claude Code client manages Claude.ai subscription credentials inside a TL Studio-specific `CLAUDE_CONFIG_DIR`. TL Studio never reads or serializes either raw OAuth credential.
 
 OpenRouter is the first concrete 0.6 account adapter. It uses the documented OpenRouter OAuth + PKCE flow, performs code exchange server-side, stores the resulting account key only in the TL Studio credential vault, discovers models through the normal provider discovery layer, and exposes those models through the existing Native Agent/model selector path.
 
@@ -149,7 +152,7 @@ Google/Gemini is merged on dev through PR #124. The implementation uses the offi
 
 Custom Provider setup is simplified so a new provider normally requires only an API address, OpenAI-compatible or Anthropic-compatible protocol choice, and credential. Provider IDs are generated internally and model discovery runs automatically on save; manual model entry remains an explicit fallback. PR #126 fixed edit-mode behavior so hidden legacy Model ID fields cannot silently bypass a fresh discovery run when connection settings change.
 
-PR #148 changes the compact Provider cards to reflect connection type rather than OAuth availability. ChatGPT/Codex and GitHub Copilot are the account-login slots. Claude/Anthropic, Google/Gemini, Hugging Face, and OpenRouter are user-facing API-credential cards; clicking them opens the existing Provider editor with a correct preset endpoint/protocol and automatic model discovery. Provider-account refresh no longer removes API-key connected state for these cards.
+PR #148 introduced connection-aware compact Provider cards; PR #157 kept branded API providers on those cards instead of duplicating them under Custom Providers. Claude is now a hybrid card: Claude.ai account sign-in and Anthropic API-key configuration are independent, with account-backed runtime models stored under `claude-account` so they never intercept the manual `claude` API provider.
 
 ChatGPT/Codex account support is merged on dev through PR #143. It uses OpenAI's documented Codex surface. Login uses `codex app-server` with the official `account/login/start` ChatGPT browser flow, `account/read`, `account/logout`, and `model/list`. TL Studio uses an isolated `CODEX_HOME`, never imports browser cookies/session tokens, never copies a private OAuth client, and never calls undocumented ChatGPT backend endpoints.
 
@@ -157,7 +160,7 @@ For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-ch
 
 The ChatGPT adapter auto-detects an installed `codex` executable. When unavailable it can use `npx @openai/codex`; Provider Settings also exposes a non-secret Codex executable override. Windows npm shims are resolved through Node so the official Codex app-server starts reliably. Tests include a fake Codex executable plus a real Windows Codex app-server/CLI contract smoke with no real credentials.
 
-PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. After PR #143 only Claude and GitHub Copilot remain deferred. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
+PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. ChatGPT was resolved through official Codex surfaces in PR #143. Claude is resolved in PR #159 through Anthropic's documented Claude Code browser-auth and non-interactive CLI surfaces, without implementing a private OAuth client. GitHub Copilot is now the only deferred account boundary because its documented model-access path remains coupled to the Copilot SDK/runtime.
 
 ## Browser contract
 
@@ -169,7 +172,7 @@ Provider-specific helper processes are not Browser-facing control surfaces; the 
 
 Preview and Release workflows build TL Studio plus supported bundled plugins and notices.
 
-The ChatGPT integration does not bundle Codex into the TL Studio package in this alpha. It uses an installed Codex executable or the explicit npx fallback at runtime.
+The ChatGPT and Claude account integrations do not bundle their provider CLIs into the TL Studio package in this alpha. They use installed official executables or explicit npx fallbacks at runtime.
 
 Release and review packages remain subject to package-content validation.
 
@@ -192,6 +195,8 @@ Required evidence before review:
 - ChatGPT persistent app-server reuse regression test
 - ChatGPT structured model/tool bridge regression test
 - real official Codex app-server/CLI contract smoke on Windows
+- Claude account lifecycle/model bridge fake-CLI regression coverage
+- real official Claude Code CLI/auth-status contract smoke on Windows
 - SHA256 for the Windows review package
 
 ## Manual Windows validation
@@ -219,6 +224,9 @@ Manual review should verify:
 - ChatGPT sign-in through official Codex
 - ChatGPT account model discovery
 - ChatGPT model response and TL Studio Tool call round-trip
+- Claude.ai browser sign-in through official Claude Code
+- Claude account model response and TL Studio Tool call round-trip
+- Claude restart/sign-out persistence with manual API preservation
 
 ## Current manual validation gate
 
@@ -226,9 +234,11 @@ Automated validation is green through PR #155, including fake-Codex account life
 
 Real ChatGPT/Codex validation passed in full on Windows on 2026-09-29. Verified behavior includes browser login, account connection, model discovery/selection, model identity, project read/search/write, TL Studio Permission handling, model → Tool → model continuation, Terminal execution, roughly 3–5 second warm-turn latency, restart persistence, and explicit sign-out persistence.
 
+Claude account automation is green through PR #159, including a real Windows official-CLI smoke without credentials. Real Claude.ai subscription login/model/Tool/restart/logout validation remains pending.
+
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
-A Windows x64 review package is produced by CI and should be used for the remaining real provider checks. The ChatGPT/Codex Windows checklist is complete; validate the intended API-key provider setup paths before promoting dev to stable main. Do not promote dev to main until the intended provider integrations have passed their remaining checklist items or their limitations have been explicitly accepted and documented.
+A Windows x64 review package is produced by CI and should be used for the remaining real provider checks. The ChatGPT/Codex Windows checklist is complete; Claude.ai real-account validation and the intended API-key provider setup checks remain before stable promotion. Do not promote dev to main until the intended provider integrations have passed their remaining checklist items or their limitations have been explicitly accepted and documented.
 
 ## Resume protocol
 
