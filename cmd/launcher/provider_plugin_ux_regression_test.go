@@ -413,6 +413,11 @@ func TestClaudeWebPairsDirectlyWithFixedChromeExtensionID(t *testing.T) {
 		`Step 1/3 · Contacting TL Studio Claude Web Bridge`,
 		`Step 2/3 · Checking the Claude session`,
 		`Step 3/3 · Claude session found`,
+		`/local/claude-web-ui/pair?token=`,
+		`/local/claude-web-ui/poll?token=`,
+		`/local/claude-web-ui/result?token=`,
+		`type: "tlstudio-execute-direct"`,
+		`startClaudeWebRelay(claudeWebBridgeToken)`,
 	} {
 		if !strings.Contains(accounts, required) {
 			t.Fatalf("Claude Web direct extension pairing contract missing %q", required)
