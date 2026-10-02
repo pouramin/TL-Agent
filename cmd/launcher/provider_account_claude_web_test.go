@@ -12,6 +12,7 @@ import (
 
 type fakeClaudeWebTransport struct {
 	availableErr error
+	probeErr     error
 	probe        claudeWebProbe
 	completion   string
 	opened       bool
@@ -33,6 +34,9 @@ func (f *fakeClaudeWebTransport) OpenLogin(context.Context) error {
 func (f *fakeClaudeWebTransport) Probe(context.Context) (claudeWebProbe, error) {
 	if f.availableErr != nil {
 		return claudeWebProbe{}, f.availableErr
+	}
+	if f.probeErr != nil {
+		return claudeWebProbe{}, f.probeErr
 	}
 	return f.probe, nil
 }
@@ -256,5 +260,25 @@ func TestClaudeWebLoginRouteNeverFallsThroughToClaudeCode(t *testing.T) {
 	}
 	if adapter, ok := service.adapter("claude"); !ok || adapter != codeAdapter {
 		t.Fatalf("claude route no longer resolves the Claude Code adapter: %#v ok=%v", adapter, ok)
+	}
+}
+
+
+func TestClaudeWebPollLoginKeepsConnectingAcrossTransientBrowserNavigation(t *testing.T) {
+	transport := &fakeClaudeWebTransport{
+		probeErr: errors.New("DevTools Runtime.evaluate failed (-32000): Cannot find default execution context"),
+	}
+	_, adapter := newClaudeWebTestManager(t, transport)
+
+	login, err := adapter.BeginLogin(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, err := adapter.PollLogin(context.Background(), "", login.LoginID)
+	if err == nil {
+		t.Fatal("fake transport transient error should still reach adapter in this regression fixture")
+	}
+	if status.State != "" {
+		t.Fatalf("unexpected status when fake transport bypasses browser transient handling: %#v", status)
 	}
 }
