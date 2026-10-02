@@ -59,6 +59,7 @@ Provider Definition و Credential جدا ذخیره می‌شوند.
 
 Account Sign-in:
 - ChatGPT / Codex؛
+- Claude / Claude Code برای اشتراک Claude.ai؛
 - GitHub Copilot که Model Integration آن هنوز Deferred است.
 
 API Credential:
@@ -69,7 +70,7 @@ API Credential:
 
 با کلیک روی کارت API-based، همان Provider Editor فعلی با Endpoint و Protocol آماده و Model Discovery خودکار باز می‌شود.
 
-برای ChatGPT از Login رسمی OpenAI Codex استفاده می‌شود. TL Studio ابتدا codex روی PATH را پیدا می‌کند، در صورت نیاز می‌تواند از npx @openai/codex استفاده کند و امکان تنظیم مسیر مستقیم Codex Executable هم در Provider Settings وجود دارد.
+برای ChatGPT از Login رسمی OpenAI Codex استفاده می‌شود و برای اشتراک Claude.ai از Claude Code رسمی استفاده می‌شود. برنامه ابتدا CLI مربوطه را روی PATH پیدا می‌کند و در صورت نیاز می‌تواند از `npx @openai/codex` یا `npx @anthropic-ai/claude-code` استفاده کند. مسیر Executable نیز از Provider Settings قابل تنظیم است و Credential حساب Claude از تنظیمات Claude Code شخصی کاربر جدا نگه داشته می‌شود.
 
 ## اجرای Agent
 
