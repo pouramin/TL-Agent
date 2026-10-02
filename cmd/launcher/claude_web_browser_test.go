@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -59,8 +60,7 @@ func TestClaudeWebSocketMessageReassemblesFragmentsAcrossPing(t *testing.T) {
 	}
 }
 
-func TestClaudeWebPageTargetFallsBackDuringExternalLoginNavigation(t *testing.T) {
-	expected := "ws://127.0.0.1:54321/devtools/page/google-login"
+func TestClaudeWebPageTargetTreatsExternalLoginNavigationAsInProgress(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/json/list" {
 			http.NotFound(w, r)
@@ -69,7 +69,7 @@ func TestClaudeWebPageTargetFallsBackDuringExternalLoginNavigation(t *testing.T)
 		writeJSON(w, http.StatusOK, []map[string]any{{
 			"type":                 "page",
 			"url":                  "https://accounts.google.com/signin",
-			"webSocketDebuggerUrl": expected,
+			"webSocketDebuggerUrl": "ws://127.0.0.1:54321/devtools/page/google-login",
 		}})
 	}))
 	defer server.Close()
@@ -82,12 +82,24 @@ func TestClaudeWebPageTargetFallsBackDuringExternalLoginNavigation(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := claudeWebPageWebSocket(context.Background(), port)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := claudeWebPageWebSocket(context.Background(), port); !errors.Is(err, errClaudeWebPageNotReady) {
+		t.Fatalf("external-login navigation must remain in-progress, got %v", err)
 	}
-	if got != expected {
-		t.Fatalf("external-login page target was not reused: got %q want %q", got, expected)
+}
+
+func TestClaudeWebTransientBrowserErrorsIncludeDestroyedExecutionContext(t *testing.T) {
+	for _, err := range []error{
+		errClaudeWebPageNotReady,
+		errors.New("DevTools Runtime.evaluate failed (-32000): Cannot find default execution context"),
+		errors.New("Execution context was destroyed, most likely because of a navigation"),
+		errors.New("Inspected target navigated or closed"),
+	} {
+		if !isClaudeWebTransientBrowserError(err) {
+			t.Fatalf("expected transient Claude Web browser error: %v", err)
+		}
+	}
+	if isClaudeWebTransientBrowserError(errors.New("permission denied")) {
+		t.Fatal("unrelated Claude Web browser errors must not be hidden as transient")
 	}
 }
 
