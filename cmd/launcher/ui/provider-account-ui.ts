@@ -96,7 +96,7 @@ import { K } from "./kernel";
     "claude-web": "claude-web-account",
     "github-copilot": "github-copilot",
   };
-  const providerCardOrder = ["chatgpt", "claude", "claude-web", "gemini", "github-copilot", "huggingface", "openrouter"];
+  const providerCardOrder = ["chatgpt", "claude", "gemini", "github-copilot", "huggingface", "openrouter"];
   const apiProviderPresets: Record<string, TLStudioDynamicRecord> = {
     claude: {
       providerID: "claude",
@@ -299,20 +299,29 @@ import { K } from "./kernel";
       const isAPIProvider = !!apiPreset;
       const isAccountProvider = accountLoginProviderIDs.has(account.id);
       const isHybridProvider = isAPIProvider && isAccountProvider;
+      const isClaudeProvider = account.id === "claude";
+      const claudeWebAccount = isClaudeProvider ? accountByID.get("claude-web") : undefined;
       const apiConnected = isAPIProvider && apiProviderConnected(apiPreset);
       const accountConnected = isAccountProvider && account.connected;
-      const connected = accountConnected || apiConnected;
-      const available = isAPIProvider || account.available;
+      const claudeWebConnected = !!claudeWebAccount?.connected;
+      const connected = accountConnected || claudeWebConnected || apiConnected;
+      const available = isAPIProvider || account.available || !!claudeWebAccount?.available;
 
       const card = document.createElement("div");
       card.className = `provider-account-card${available ? "" : " provider-account-unavailable"}${connected ? " provider-account-connected" : ""}`;
       card.dataset.providerAccountId = account.id;
 
-      const details = isHybridProvider
-        ? [providerAccountDetails(account), `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`].filter(Boolean).join(" · ")
-        : isAPIProvider
-          ? `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`
-          : providerAccountDetails(account);
+      const details = isClaudeProvider
+        ? [
+            claudeWebAccount ? providerAccountDetails(claudeWebAccount) : "",
+            providerAccountDetails(account),
+            `${clean(apiPreset?.credentialLabel) || "API credential"} · ${clean(apiPreset?.baseURL)}`,
+          ].filter(Boolean).join(" · ")
+        : isHybridProvider
+          ? [providerAccountDetails(account), `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`].filter(Boolean).join(" · ")
+          : isAPIProvider
+            ? `${clean(apiPreset.credentialLabel) || "API credential"} · ${clean(apiPreset.baseURL)}`
+            : providerAccountDetails(account);
       if (details) card.title = details;
 
       if (!isAPIProvider && account.setup?.configurable) {
@@ -335,39 +344,105 @@ import { K } from "./kernel";
 
       const name = document.createElement("div");
       name.className = "provider-account-name";
-      name.textContent = account.name || account.id;
+      name.textContent = isClaudeProvider ? "Claude" : (account.name || account.id);
 
       const state = document.createElement("div");
       state.className = "provider-account-state";
       const dot = document.createElement("span");
       dot.className = `provider-status-dot${connected ? " ok" : ""}`;
       const stateLabel = document.createElement("span");
-      stateLabel.textContent = isHybridProvider
-        ? accountConnected && apiConnected
-          ? "Account + API connected"
-          : accountConnected
-            ? "Account connected"
-            : apiConnected
-              ? "API connected"
-              : account.available
-                ? "Account or API key"
-                : "API key"
-        : isAPIProvider
-          ? (apiConnected ? "API connected" : "API key")
-          : statusText(account);
+      if (isClaudeProvider) {
+        const modes: string[] = [];
+        if (claudeWebConnected) modes.push("Web");
+        if (accountConnected) modes.push("Code");
+        if (apiConnected) modes.push("API");
+        stateLabel.textContent = modes.length
+          ? `${modes.join(" + ")} connected`
+          : "Web (Free/Pro) · Code (Pro/Max) · API";
+      } else {
+        stateLabel.textContent = isHybridProvider
+          ? accountConnected && apiConnected
+            ? "Account + API connected"
+            : accountConnected
+              ? "Account connected"
+              : apiConnected
+                ? "API connected"
+                : account.available
+                  ? "Account or API key"
+                  : "API key"
+          : isAPIProvider
+            ? (apiConnected ? "API connected" : "API key")
+            : statusText(account);
+      }
       state.append(dot, stateLabel);
 
       const accountDetails = document.createElement("div");
       accountDetails.className = "provider-account-details";
-      accountDetails.textContent = accountConnected
-        ? [account.accountLabel, account.accountType, account.organizationId].filter(Boolean).join(" · ")
+      const detailAccount = claudeWebConnected ? claudeWebAccount : (accountConnected ? account : undefined);
+      accountDetails.textContent = detailAccount
+        ? [detailAccount.accountLabel, detailAccount.accountType, detailAccount.organizationId].filter(Boolean).join(" · ")
         : "";
       if (!accountDetails.textContent) accountDetails.setAttribute("aria-hidden", "true");
 
       const actions = document.createElement("div");
       actions.className = "provider-account-card-actions";
 
-      if (isHybridProvider) {
+      if (isClaudeProvider) {
+        const webAction = document.createElement("button");
+        webAction.type = "button";
+        webAction.dataset.providerAccountAction = claudeWebConnected ? "disconnect-web" : "connect-web";
+        webAction.textContent = claudeWebConnected ? "Web: Sign out" : "Web (Free/Pro)";
+        webAction.className = claudeWebConnected ? "ghost small provider-delete" : "primary small provider-account-signin";
+        webAction.disabled = !claudeWebConnected && !claudeWebAccount?.available;
+        webAction.title = claudeWebConnected
+          ? "Sign out of the Claude Web browser session"
+          : claudeWebAccount?.available
+            ? "Sign in to claude.ai in a dedicated browser profile and use the account's normal web quota"
+            : clean(claudeWebAccount?.error) || "Claude Web browser sign-in is unavailable.";
+        webAction.addEventListener("click", () => {
+          if (!claudeWebAccount) return;
+          if (claudeWebConnected) void disconnectAccount(claudeWebAccount);
+          else void connectAccount(claudeWebAccount);
+        });
+        actions.appendChild(webAction);
+
+        const codeAction = document.createElement("button");
+        codeAction.type = "button";
+        codeAction.dataset.providerAccountAction = accountConnected ? "disconnect-code" : "connect-code";
+        codeAction.textContent = accountConnected ? "Code: Sign out" : "Code (Pro/Max)";
+        codeAction.className = accountConnected ? "ghost small provider-delete" : "ghost small";
+        codeAction.disabled = !accountConnected && !account.available;
+        codeAction.title = accountConnected
+          ? "Sign out of the Claude Code subscription connection"
+          : account.available
+            ? "Sign in through Claude Code; requires a supported Claude subscription"
+            : clean(account.error) || "Claude Code sign-in is unavailable.";
+        codeAction.addEventListener("click", () => {
+          if (accountConnected) void disconnectAccount(account);
+          else void connectAccount(account);
+        });
+        actions.appendChild(codeAction);
+
+        const configure = document.createElement("button");
+        configure.type = "button";
+        configure.className = "ghost small";
+        configure.dataset.providerAccountAction = "configure-api";
+        configure.textContent = "API";
+        configure.title = "Configure Anthropic API key";
+        configure.addEventListener("click", () => { void openAPIProviderPreset(apiPreset); });
+        actions.appendChild(configure);
+
+        if (apiConnected) {
+          const disconnectAPI = document.createElement("button");
+          disconnectAPI.type = "button";
+          disconnectAPI.className = "ghost small provider-delete";
+          disconnectAPI.dataset.providerAccountAction = "disconnect-api";
+          disconnectAPI.textContent = "Disconnect API";
+          disconnectAPI.title = "Disconnect Anthropic API credential";
+          disconnectAPI.addEventListener("click", () => { void disconnectAPIProviderPreset(account, apiPreset); });
+          actions.appendChild(disconnectAPI);
+        }
+      } else if (isHybridProvider) {
         const accountAction = document.createElement("button");
         accountAction.type = "button";
         accountAction.dataset.providerAccountAction = accountConnected ? "disconnect" : "connect";
