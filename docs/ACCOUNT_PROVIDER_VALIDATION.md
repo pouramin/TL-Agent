@@ -183,6 +183,7 @@ Automated coverage verifies:
 - alternate API/cloud credential environment sources are scrubbed from the account helper;
 - account-backed models use the separate `claude-account` runtime provider;
 - structured Tool requests return to the TL Studio Tool/Permission loop rather than Claude Code executing project tools;
+- account-backed model turns do not use `--bare`, preserving the official subscription OAuth path;
 - restart and logout persistence are covered by the fake-CLI regression fixture.
 
 Prerequisite:
