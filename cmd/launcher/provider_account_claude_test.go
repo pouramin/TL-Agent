@@ -500,3 +500,39 @@ func TestClaudeManualAPICredentialRemainsWhenAccountCredentialMissing(t *testing
 		t.Fatalf("disconnected Claude account must not yield runtime credential, got %v", err)
 	}
 }
+
+
+func TestRealClaudeCLIContractSmoke(t *testing.T) {
+	if os.Getenv("TL_STUDIO_REAL_CLAUDE_SMOKE") != "1" {
+		t.Skip("real Claude Code smoke is opt-in")
+	}
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	adapter := newClaudeAccountAdapter(&appState{}, newProviderManager(&appState{}))
+	command, err := adapter.resolveCommand()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	cmd := claudeProcess(ctx, command, "--version")
+	if err := prepareClaudeCommand(cmd); err != nil {
+		t.Fatal(err)
+	}
+	var output boundedTextBuffer
+	output.max = 16 << 10
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("official Claude Code CLI did not start: %v — %s", err, output.String())
+	}
+	if strings.TrimSpace(output.String()) == "" {
+		t.Fatal("official Claude Code --version returned no output")
+	}
+
+	statusCtx, statusCancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer statusCancel()
+	_, _, err = adapter.authStatus(statusCtx, command)
+	if err != nil {
+		t.Fatalf("official Claude auth status contract failed: %v", err)
+	}
+}
