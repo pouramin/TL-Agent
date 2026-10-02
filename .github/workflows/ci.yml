@@ -49,7 +49,6 @@ jobs:
       - name: Verify Browser JavaScript syntax
         run: |
           for file in cmd/launcher/web/*.js; do node --check "$file"; done
-          node --check integrations/claude-web-extension/background.js
       - name: Verify npx quick launcher
         run: |
           node --check scripts/npx-launch.cjs
@@ -246,8 +245,6 @@ jobs:
           mkdir -p staging/package/third_party
           cp -R third_party/. staging/package/third_party/
           python3 scripts/stage-bundled-plugins.py --target windows-x64 --package-dir staging/package
-          mkdir -p staging/package/claude-web-extension
-          cp -R integrations/claude-web-extension/. staging/package/claude-web-extension/
       - name: Assert review package contains no Kilo runtime
         shell: bash
         run: |
