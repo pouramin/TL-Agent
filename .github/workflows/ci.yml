@@ -49,6 +49,8 @@ jobs:
       - name: Verify Browser JavaScript syntax
         run: |
           for file in cmd/launcher/web/*.js; do node --check "$file"; done
+          node --check integrations/claude-web-extension/background.js
+          node --check integrations/claude-web-extension/content.js
       - name: Verify npx quick launcher
         run: |
           node --check scripts/npx-launch.cjs
