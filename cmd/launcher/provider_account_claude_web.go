@@ -96,7 +96,7 @@ type claudeWebAccountAdapter struct {
 }
 
 func newClaudeWebAccountAdapter(state *appState, manager *providerManager) *claudeWebAccountAdapter {
-	return newClaudeWebAccountAdapterWithTransport(state, manager, newClaudeWebBrowserTransport())
+	return newClaudeWebAccountAdapterWithTransport(state, manager, newClaudeWebExtensionBridge(state))
 }
 
 func newClaudeWebAccountAdapterWithTransport(state *appState, manager *providerManager, transport claudeWebTransport) *claudeWebAccountAdapter {
@@ -120,12 +120,12 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 	status := providerAccountStatus{
 		ID:           claudeWebAccountProviderID,
 		Name:         "Claude Web (Free/Pro)",
-		Description:  "Use a dedicated local browser profile to sign in to claude.ai and use that account's normal web usage limits without an Anthropic API key.",
+		Description:  "Use Claude through the session already signed in inside the user's normal Chrome profile.",
 		Available:    availableErr == nil,
 		State:        providerAccountDisconnected,
 		AuthModes:    []string{"browser_session"},
 		Capabilities: []string{"models", "inference"},
-		BillingNote:  "Uses the signed-in Claude web account and its normal web limits. This connection does not use the Anthropic API-key provider.",
+		BillingNote:  "Uses the signed-in Claude Web account and its normal web usage limits. No Anthropic API billing is used.",
 		Setup: &providerAccountSetupSummary{
 			Configurable: true,
 			Configured:   availableErr == nil,
@@ -223,11 +223,11 @@ func (a *claudeWebAccountAdapter) Setup(context.Context, string) (providerAccoun
 	}
 	return providerAccountSetup{
 		Title:       "Claude Web browser setup",
-		Description: "TL Studio launches a dedicated Chrome, Edge, or Chromium profile for Claude Web. Leave this empty to auto-detect an installed browser.",
+		Description: "Use the bundled TL Studio Claude Web Bridge extension in your normal Chrome profile.",
 		Fields: []providerAccountSetupField{{
 			ID:          "browserExecutable",
-			Label:       "Browser executable",
-			Description: "Optional path or command for Chrome, Edge, or Chromium. The profile used for Claude Web is isolated under TL Studio state.",
+			Label:       "Legacy browser executable",
+			Description: "Legacy field; the Chrome extension bridge does not use a separate browser executable.",
 			Placeholder: "msedge / chrome",
 			Value:       value,
 			ReadOnly:    readOnly,
@@ -280,7 +280,7 @@ func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (pro
 	return providerAccountLogin{
 		LoginID:             loginID,
 		Flow:                "claude_web_browser",
-		Instructions:        "A dedicated Claude Web browser profile has opened. Sign in to Claude there with your normal account. TL Studio will detect the authenticated browser session automatically.",
+		Instructions:        "Claude opened in your normal browser. The bundled Chrome extension will pair this tab and use the Claude session already signed in there.",
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
 		PollIntervalSeconds: 2,
 	}, nil
@@ -308,7 +308,7 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	}
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
-		if isClaudeWebTransientBrowserError(err) {
+		if errors.Is(err, errClaudeWebExtensionNotPaired) {
 			status := a.baseStatus()
 			status.State = providerAccountConnecting
 			return status, nil
@@ -431,9 +431,6 @@ func (a *claudeWebAccountAdapter) Disconnect(ctx context.Context, _ string) erro
 		return err
 	}
 	a.removeManagedProvider()
-	if err := removeClaudeWebProfileWithRetry(ctx, claudeWebProfileDirectory()); err != nil {
-		return err
-	}
 	return nil
 }
 
