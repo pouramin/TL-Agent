@@ -587,6 +587,8 @@ import { K } from "./kernel";
     K.els.authOpen.disabled = true;
     K.els.authDialog.showModal();
 
+    let claudeWebPairResult: ((event: MessageEvent) => void) | null = null;
+
     try {
       const login = await K.api.providerAccounts.beginLogin(account.id);
       K.state.authLoginID = clean(login.loginId);
@@ -598,7 +600,7 @@ import { K } from "./kernel";
       let claudeWebBridgeToken = "";
       let claudeWebBridgeOrigin = "";
 
-      const claudeWebPairResult = (event: MessageEvent) => {
+      claudeWebPairResult = (event: MessageEvent) => {
         if (event.source !== window || event.origin !== window.location.origin) return;
         const data = event.data as TLStudioDynamicRecord;
         if (!data || clean(data.type) !== "tlstudio-claude-web-pair-result") return;
@@ -669,7 +671,7 @@ import { K } from "./kernel";
       }
       try { await load(); } catch {}
     } finally {
-      window.removeEventListener("message", claudeWebPairResult);
+      if (claudeWebPairResult) window.removeEventListener("message", claudeWebPairResult);
       if (K.state.authController === controller) K.state.authController = null;
     }
   };
