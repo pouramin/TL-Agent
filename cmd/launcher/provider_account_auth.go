@@ -157,7 +157,7 @@ func (s *providerAccountService) list(ctx context.Context, directory string) ([]
 				ID:        id,
 				Name:      id,
 				Available: false,
-				State:     providerAccountError,
+				State:     providerAccountErrorState,
 				Error:     err.Error(),
 			}))
 			continue
