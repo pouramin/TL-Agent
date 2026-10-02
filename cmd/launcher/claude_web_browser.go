@@ -513,10 +513,23 @@ func claudeWebPageWebSocket(ctx context.Context, port int) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	fallbackPageWS := ""
 	for _, target := range targets {
-		if target.Type == "page" && strings.HasPrefix(target.URL, "https://claude.ai") && target.WebSocketDebuggerURL != "" {
+		if target.Type != "page" || target.WebSocketDebuggerURL == "" {
+			continue
+		}
+		if strings.HasPrefix(target.URL, "https://claude.ai") {
 			return target.WebSocketDebuggerURL, nil
 		}
+		if fallbackPageWS == "" {
+			// During Google/SSO authentication the dedicated Claude tab can
+			// temporarily navigate away from claude.ai. Keep polling that same
+			// page instead of spawning extra Claude tabs while login is in flight.
+			fallbackPageWS = target.WebSocketDebuggerURL
+		}
+	}
+	if fallbackPageWS != "" {
+		return fallbackPageWS, nil
 	}
 	_, browserWS, ok := claudeWebActivePort(claudeWebProfileDirectory())
 	if !ok {
@@ -571,16 +584,13 @@ func cdpCall(ctx context.Context, websocketURL, method string, params map[string
 		return nil, err
 	}
 	for {
-		opcode, payload, err := readWebSocketFrame(reader)
+		opcode, payload, err := readWebSocketMessage(reader, conn)
 		if err != nil {
 			return nil, err
 		}
 		switch opcode {
 		case 0x8:
 			return nil, errors.New("DevTools WebSocket closed before returning a response")
-		case 0x9:
-			_ = writeWebSocketFrame(conn, 0xA, payload)
-			continue
 		case 0x1:
 			var response cdpResponse
 			if json.Unmarshal(payload, &response) != nil || response.ID != 1 {
@@ -687,15 +697,62 @@ func writeWebSocketFrame(writer io.Writer, opcode byte, payload []byte) error {
 	return err
 }
 
-func readWebSocketFrame(reader *bufio.Reader) (byte, []byte, error) {
+func readWebSocketMessage(reader *bufio.Reader, writer io.Writer) (byte, []byte, error) {
+	var messageOpcode byte
+	message := make([]byte, 0, 4096)
+	for {
+		fin, opcode, payload, err := readWebSocketFrame(reader)
+		if err != nil {
+			return 0, nil, err
+		}
+		switch opcode {
+		case 0x8:
+			return opcode, payload, nil
+		case 0x9:
+			if writer != nil {
+				if err := writeWebSocketFrame(writer, 0xA, payload); err != nil {
+					return 0, nil, err
+				}
+			}
+			continue
+		case 0xA:
+			continue
+		case 0x1, 0x2:
+			if messageOpcode != 0 {
+				return 0, nil, errors.New("DevTools WebSocket started a new data message before the previous message finished")
+			}
+			messageOpcode = opcode
+			message = append(message[:0], payload...)
+		case 0x0:
+			if messageOpcode == 0 {
+				return 0, nil, errors.New("DevTools WebSocket returned an unexpected continuation frame")
+			}
+			if len(message)+len(payload) > 32<<20 {
+				return 0, nil, errors.New("DevTools WebSocket message exceeded 32 MiB")
+			}
+			message = append(message, payload...)
+		default:
+			continue
+		}
+		if len(message) > 32<<20 {
+			return 0, nil, errors.New("DevTools WebSocket message exceeded 32 MiB")
+		}
+		if fin && messageOpcode != 0 {
+			return messageOpcode, message, nil
+		}
+	}
+}
+
+func readWebSocketFrame(reader *bufio.Reader) (bool, byte, []byte, error) {
 	first, err := reader.ReadByte()
 	if err != nil {
-		return 0, nil, err
+		return false, 0, nil, err
 	}
 	second, err := reader.ReadByte()
 	if err != nil {
-		return 0, nil, err
+		return false, 0, nil, err
 	}
+	fin := first&0x80 != 0
 	opcode := first & 0x0F
 	masked := second&0x80 != 0
 	length := uint64(second & 0x7F)
@@ -703,33 +760,53 @@ func readWebSocketFrame(reader *bufio.Reader) (byte, []byte, error) {
 	case 126:
 		var buffer [2]byte
 		if _, err := io.ReadFull(reader, buffer[:]); err != nil {
-			return 0, nil, err
+			return false, 0, nil, err
 		}
 		length = uint64(binary.BigEndian.Uint16(buffer[:]))
 	case 127:
 		var buffer [8]byte
 		if _, err := io.ReadFull(reader, buffer[:]); err != nil {
-			return 0, nil, err
+			return false, 0, nil, err
 		}
 		length = binary.BigEndian.Uint64(buffer[:])
 	}
 	if length > 32<<20 {
-		return 0, nil, errors.New("DevTools WebSocket frame exceeded 32 MiB")
+		return false, 0, nil, errors.New("DevTools WebSocket frame exceeded 32 MiB")
 	}
 	var mask [4]byte
 	if masked {
 		if _, err := io.ReadFull(reader, mask[:]); err != nil {
-			return 0, nil, err
+			return false, 0, nil, err
 		}
 	}
 	payload := make([]byte, int(length))
 	if _, err := io.ReadFull(reader, payload); err != nil {
-		return 0, nil, err
+		return false, 0, nil, err
 	}
 	if masked {
 		for index := range payload {
 			payload[index] ^= mask[index%4]
 		}
 	}
-	return opcode, payload, nil
+	return fin, opcode, payload, nil
+}
+
+func removeClaudeWebProfileWithRetry(ctx context.Context, profileDir string) error {
+	deadline := time.Now().Add(3 * time.Second)
+	var lastErr error
+	for {
+		if err := os.RemoveAll(profileDir); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("clear TL Studio Claude Web browser profile: %w", lastErr)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }
