@@ -63,3 +63,24 @@ func TestClaudeWebNativeUserDataDirUsesLocalAppData(t *testing.T) {
 		t.Fatalf("unexpected Chrome user data dir %q", got)
 	}
 }
+
+
+func TestClaudeWebNativePowerShellDoesNotUseReservedPIDVariable(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
+	if strings.Contains(source, "$pid =") || strings.Contains(source, "$PID =") {
+		t.Fatal("native Claude Chrome bridge must not assign to PowerShell's reserved PID variable")
+	}
+	if !strings.Contains(source, "$processId = $window.Current.ProcessId") {
+		t.Fatal("native Claude Chrome bridge must use a non-reserved process-id variable")
+	}
+}
+
+func TestClaudeWebPowerShellErrorsNeverExposeRawCLIXML(t *testing.T) {
+	got := cleanClaudeWebPowerShellError("#< CLIXML\n<Objs Version=\"1.1.0.1\"><S S=\"Error\">boom</S></Objs>")
+	if strings.Contains(got, "CLIXML") || strings.Contains(got, "<Objs") {
+		t.Fatalf("raw PowerShell CLIXML leaked into user-facing error: %q", got)
+	}
+	if !strings.Contains(got, "Windows PowerShell failed") {
+		t.Fatalf("unexpected sanitized PowerShell error: %q", got)
+	}
+}
