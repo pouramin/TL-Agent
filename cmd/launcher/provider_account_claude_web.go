@@ -277,17 +277,28 @@ func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (pro
 	a.mu.Lock()
 	a.logins[loginID] = claudeWebLoginTransaction{LoginID: loginID, ExpiresAt: expiresAt}
 	a.mu.Unlock()
-	return providerAccountLogin{
+	login := providerAccountLogin{
 		LoginID:             loginID,
-		Flow:                "claude_web_browser",
-		Instructions:        "Claude is pairing through your normal Chrome session. After TL Studio confirms the connection, the temporary pairing tab closes automatically and Claude stays available inside TL Studio.",
+		Flow:                "claude_web_extension",
+		Instructions:        "Pairing with the Claude session already signed in inside this Chrome profile. Claude will stay inside TL Studio; no Claude tab is required.",
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
-		PollIntervalSeconds: 2,
-	}, nil
+		PollIntervalSeconds: 1,
+	}
+	if pairing, ok := a.transport.(interface {
+		PairingToken() string
+		PairingOrigin() string
+	}); ok {
+		login.BridgeToken = strings.TrimSpace(pairing.PairingToken())
+		login.BridgeOrigin = strings.TrimSpace(pairing.PairingOrigin())
+	}
+	if login.BridgeToken == "" || login.BridgeOrigin == "" {
+		return providerAccountLogin{}, errors.New("Claude Web extension pairing data is unavailable")
+	}
+	return login, nil
 }
 
 func (a *claudeWebAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
-	return errors.New("Claude Web login is completed inside the dedicated browser profile")
+	return errors.New("Claude Web login is completed through the local Chrome extension bridge")
 }
 
 func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, loginID string) (providerAccountStatus, error) {
