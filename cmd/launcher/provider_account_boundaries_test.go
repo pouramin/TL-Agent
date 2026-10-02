@@ -93,8 +93,7 @@ func TestOnlyUnresolvedProviderBoundariesStayOutOfRuntimeCredentialRegistry(t *t
 	for _, required := range []string{
 		"chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)",
 		"claudeAccount := newClaudeAccountAdapter(state, providerManager)",
-		"claudeWebBridge := newClaudeWebExtensionBridge(state)",
-		"claudeWebAccount := newClaudeWebAccountAdapterWithTransport(state, providerManager, claudeWebBridge)",
+		"claudeWebAccount := newClaudeWebAccountAdapter(state, providerManager)",
 		"providerManager.registerAccountAdapter(chatGPTAccount)",
 		"providerManager.registerAccountAdapter(claudeAccount)",
 		"providerManager.registerAccountAdapter(claudeWebAccount)",
