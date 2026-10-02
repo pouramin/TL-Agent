@@ -328,7 +328,7 @@ func TestProviderAccountListIsolatesOneAdapterFailure(t *testing.T) {
 		switch item.ID {
 		case "bad":
 			foundBad = true
-			if item.Available || item.State != providerAccountError || !strings.Contains(item.Error, "status exploded") {
+			if item.Available || item.State != providerAccountErrorState || !strings.Contains(item.Error, "status exploded") {
 				t.Fatalf("unexpected isolated failure status: %#v", item)
 			}
 		case "good":
