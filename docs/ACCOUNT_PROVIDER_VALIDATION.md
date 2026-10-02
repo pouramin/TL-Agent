@@ -171,14 +171,56 @@ If ChatGPT login succeeds but model execution fails, record separately whether t
 
 Do not substitute an OpenAI API key for this test; the purpose is specifically to validate ChatGPT-plan account access.
 
+## Claude / Claude Code
+
+Claude account support uses Anthropic's official Claude Code browser-login and non-interactive model surfaces.
+
+Automated coverage verifies:
+
+- the official Claude Code CLI resolves on Windows;
+- account login/status/logout use the isolated TL Studio Claude config directory;
+- manual Anthropic API configuration remains independent from account-backed usage;
+- alternate API/cloud credential environment sources are scrubbed from the account helper;
+- account-backed models use the separate `claude-account` runtime provider;
+- structured Tool requests return to the TL Studio Tool/Permission loop rather than Claude Code executing project tools;
+- restart and logout persistence are covered by the fake-CLI regression fixture.
+
+Prerequisite:
+
+- either the official `claude` executable is available on PATH;
+- or `npx` is available so TL Studio can run `npx @anthropic-ai/claude-code`;
+- or an explicit official Claude Code executable path is configured from Provider Settings.
+
+Real Windows validation:
+
+1. Open Settings → Providers and find Claude.
+2. Confirm the card offers both Sign in and API configuration.
+3. Choose Sign in and confirm the official Claude Code browser authorization opens.
+4. Complete authorization with an eligible Claude.ai subscription.
+5. Return to TL Studio and confirm the card shows Account connected.
+6. Confirm `Claude / Account` appears in the normal model selector with Sonnet, Opus, and Haiku aliases.
+7. Run a plain prompt and record response latency.
+8. Run a prompt requiring a TL Studio project-file Tool call and confirm Permission/Tool execution remains TL Studio-owned.
+9. If an Anthropic API key is also configured, confirm both account and API provider paths remain selectable independently.
+10. Restart TL Studio and confirm the account remains connected and usable.
+11. Sign out, restart again, and confirm account-backed models remain signed out while any manual Anthropic API configuration is preserved.
+
+Expected security/product boundary:
+
+- TL Studio does not read or serialize the raw Claude.ai OAuth credential.
+- Claude Code stores account auth under the TL Studio-specific `CLAUDE_CONFIG_DIR`.
+- inherited API-key, bearer-token, profile, Bedrock, Vertex, Foundry, and external OAuth-token environment sources are not passed into the account helper;
+- Claude Code built-in tools and MCP tools are disabled for TL Studio model turns;
+- the bridge working directory is an empty temporary directory;
+- project mutations, Tool execution, Permission decisions, Session persistence, and the outer model → Tool → model loop remain TL Studio-owned.
+
 ## Deferred account integrations
 
-The following entries should be visible but unavailable, with an explicit reason:
+The following entry should be visible but unavailable, with an explicit reason:
 
-- Claude
 - GitHub Copilot
 
-They must not expose a working Sign in action or create runtime credentials.
+It must not expose a working Sign in action or create runtime credentials.
 
 ## Release decision
 
@@ -191,7 +233,8 @@ Before stable promotion, record:
 - Google / Gemini real sign-in result;
 - model discovery result for each connected account provider;
 - ChatGPT real account login and plan-backed model result — passed on Windows on 2026-09-29;
-- at least one Native Agent model/tool/model round trip for each provider intended to be declared usable — ChatGPT passed on Windows on 2026-09-29;
+- Claude.ai real account login and subscription-backed model result;
+- at least one Native Agent model/tool/model round trip for each provider intended to be declared usable — ChatGPT passed on Windows on 2026-09-29; Claude pending real-account validation;
 - sign-out/restart behavior — ChatGPT passed on Windows on 2026-09-29;
 - any provider-specific limitation that must be documented.
 
