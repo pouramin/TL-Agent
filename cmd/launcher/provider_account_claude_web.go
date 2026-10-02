@@ -52,7 +52,6 @@ func saveClaudeWebConfig(config claudeWebConfig) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	config.BrowserExecutable = strings.TrimSpace(config.BrowserExecutable)
 	config.OrganizationID = strings.TrimSpace(config.OrganizationID)
 	config.OrganizationName = strings.TrimSpace(config.OrganizationName)
 	data, err := json.MarshalIndent(config, "", "  ")
