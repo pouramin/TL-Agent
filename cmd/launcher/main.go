@@ -256,10 +256,6 @@ func localOnly(next http.Handler) http.Handler {
 		if err != nil { host = r.Host }
 		if !isLoopbackHost(host) { http.Error(w, "localhost only", http.StatusForbidden); return }
 		if origin := r.Header.Get("Origin"); origin != "" {
-			if isClaudeWebExtensionBridgeRequest(r) && claudeWebExtensionOriginAllowed(origin) {
-				next.ServeHTTP(w, r)
-				return
-			}
 			u, err := url.Parse(origin)
 			if err != nil || !isLoopbackHost(u.Hostname()) || !strings.EqualFold(u.Host, r.Host) {
 				http.Error(w, "cross-origin request blocked", http.StatusForbidden); return
