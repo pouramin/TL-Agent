@@ -216,6 +216,7 @@ func newServer(state *appState) (http.Handler, error) {
 	registerProviderRoutes(mux, providerManager)
 	registerProviderAccountRoutes(mux, providerAccounts)
 	registerClaudeWebExtensionRoutes(mux, claudeWebBridge)
+	registerClaudeWebUIRelayRoutes(mux, claudeWebBridge)
 	registerProviderDiscoveryRoutes(mux, providerManager)
 	registerJevRouterRoutes(mux, jevRouter)
 	registerDecisionEngineRoutes(mux, decisionEngines)
