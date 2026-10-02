@@ -324,6 +324,9 @@ func TestClaudeAccountBridgeReturnsTLStudioToolCallAndLocksDownClaudeTools(t *te
 			t.Fatalf("Claude bridge missing safety/runtime flag %q: %#v", required, args)
 		}
 	}
+	if strings.Contains(joined, "--bare") {
+		t.Fatalf("Claude subscription bridge must not use --bare because bare mode ignores subscription OAuth credentials: %#v", args)
+	}
 
 	var env map[string]*string
 	envData, err := os.ReadFile(envFile)
