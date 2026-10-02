@@ -306,13 +306,16 @@ func (m *providerManager) registerAccountAdapter(adapter providerAccountAdapter)
 	if m.accounts == nil {
 		m.accounts = map[string]providerAccountAdapter{}
 	}
-	m.accounts[id] = adapter
 	if runtimeProvider, ok := adapter.(providerAccountRuntimeProvider); ok {
 		runtimeID := strings.TrimSpace(runtimeProvider.RuntimeProviderID())
 		if runtimeID != "" && runtimeID != id {
+			// Hybrid providers such as Claude keep their branded API provider ID
+			// independent from the account-backed runtime provider.
 			m.accounts[runtimeID] = adapter
+			return
 		}
 	}
+	m.accounts[id] = adapter
 }
 
 func (m *providerManager) accountAdapter(providerID string) providerAccountAdapter {
