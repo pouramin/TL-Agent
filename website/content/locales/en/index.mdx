@@ -53,11 +53,12 @@ The current development line adds:
 - native Google Gemini generateContent transport;
 - separate manual-API and account credential slots;
 - ChatGPT/Codex account sign-in through OpenAI's official Codex surfaces and an isolated provider bridge;
-- API-key presets for **Claude / Anthropic**, **Google / Gemini**, **Hugging Face**, and **OpenRouter**;
+- Claude.ai subscription sign-in through the official Claude Code CLI, alongside a separate **Claude / Anthropic API-key** path;
+- API-key presets for **Google / Gemini**, **Hugging Face**, and **OpenRouter**;
 - discovery-first model setup through the normal Provider Registry;
 - a reserved GitHub Copilot account-login slot while its model integration remains deferred.
 
-The ChatGPT bridge does not replace TL Studio's outer Native Agent loop: TL Studio still owns Tools, Permissions, Sessions, persistence, and project mutations. API-based providers are not marked unavailable simply because they do not use consumer-account OAuth.
+The ChatGPT and Claude account bridges do not replace TL Studio's outer Native Agent loop: TL Studio still owns Tools, Permissions, Sessions, persistence, project mutations, and the model → Tool → model continuation. Claude real-account validation remains a development-preview gate.
 
 ## Quick start
 
