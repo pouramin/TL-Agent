@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"encoding/json"
 	"context"
 	"net/http"
@@ -275,5 +276,66 @@ func TestProviderAccountSetupBrowserContract(t *testing.T) {
 		if strings.Contains(ui+"\n"+api+"\n"+types, forbidden) {
 			t.Fatalf("Provider Account setup Browser contract must not expose %q", forbidden)
 		}
+	}
+}
+
+
+type failingProviderAccountAdapter struct {
+	id string
+}
+
+func (a *failingProviderAccountAdapter) ID() string { return a.id }
+func (a *failingProviderAccountAdapter) Status(context.Context, string) (providerAccountStatus, error) {
+	return providerAccountStatus{}, errors.New("status exploded")
+}
+func (a *failingProviderAccountAdapter) BeginLogin(context.Context, string) (providerAccountLogin, error) {
+	return providerAccountLogin{}, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
+	return errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) PollLogin(context.Context, string, string) (providerAccountStatus, error) {
+	return providerAccountStatus{}, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) CancelLogin(context.Context, string, string) error { return nil }
+func (a *failingProviderAccountAdapter) Refresh(context.Context, string) (providerAccountStatus, error) {
+	return providerAccountStatus{}, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) ResolveCredential(context.Context, string) (string, error) {
+	return "", errCredentialNotFound
+}
+func (a *failingProviderAccountAdapter) DiscoverModels(context.Context, string) ([]string, error) {
+	return nil, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) Disconnect(context.Context, string) error { return nil }
+
+func TestProviderAccountListIsolatesOneAdapterFailure(t *testing.T) {
+	good := &fakeProviderAccountAdapter{status: providerAccountStatus{
+		ID: "good", Name: "Good", Available: true,
+	}}
+	bad := &failingProviderAccountAdapter{id: "bad"}
+	service := newProviderAccountService(good, bad)
+
+	items, err := service.list(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("one failing provider must not erase the provider list: %#v", items)
+	}
+	var foundBad, foundGood bool
+	for _, item := range items {
+		switch item.ID {
+		case "bad":
+			foundBad = true
+			if item.Available || item.State != providerAccountError || !strings.Contains(item.Error, "status exploded") {
+				t.Fatalf("unexpected isolated failure status: %#v", item)
+			}
+		case "good":
+			foundGood = true
+		}
+	}
+	if !foundBad || !foundGood {
+		t.Fatalf("provider list lost entries: %#v", items)
 	}
 }
