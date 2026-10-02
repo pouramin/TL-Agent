@@ -100,6 +100,8 @@ import { K } from "./kernel";
   const CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla";
   let claudeWebRelayController: AbortController | null = null;
   let claudeWebRelayToken = "";
+  let claudeWebResumePromise: Promise<void> | null = null;
+  const CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5";
   const providerCardOrder = ["chatgpt", "claude", "gemini", "github-copilot", "huggingface", "openrouter"];
   const apiProviderPresets: Record<string, TLStudioDynamicRecord> = {
     claude: {
@@ -546,7 +548,18 @@ import { K } from "./kernel";
       const accounts = await K.api.providerAccounts.list();
       K.state.providerAccounts = Array.isArray(accounts) ? accounts : [];
       syncConnectedProviders();
+      if (
+        K.state.session?.model?.providerID === "claude-web-account" &&
+        clean(K.state.session.model.id || K.state.session.model.modelID) === "default"
+      ) {
+        K.state.session.model = {
+          ...K.state.session.model,
+          id: CLAUDE_WEB_MODEL_ID,
+          modelID: CLAUDE_WEB_MODEL_ID,
+        };
+      }
       render();
+      window.setTimeout(() => { void resumeClaudeWebIfNeeded(); }, 0);
       return K.state.providerAccounts;
     } catch (error) {
       K.state.providerAccounts = [];
@@ -698,6 +711,90 @@ import { K } from "./kernel";
     })();
   };
 
+  const establishClaudeWebBridge = async (
+    login: TLStudioDynamicRecord,
+    signal: AbortSignal,
+    onStage?: (message: string) => void,
+  ) => {
+    const token = clean(login.bridgeToken);
+    const origin = clean(login.bridgeOrigin) || window.location.origin;
+    if (!token) throw new Error("Claude Web extension pairing token is missing.");
+    if (origin !== window.location.origin) throw new Error("Claude Web extension pairing origin mismatch.");
+
+    onStage?.("Step 1/3 · Contacting TL Studio Claude Web Bridge…");
+    const ping = await sendClaudeWebExtensionMessage({ type: "tlstudio-ping" });
+    if (!ping.ok) {
+      throw new Error(clean(ping.error) || "TL Studio Claude Web Bridge did not accept the connection.");
+    }
+
+    onStage?.("Step 2/3 · Checking the Claude session in this Chrome profile…");
+    const paired = await sendClaudeWebExtensionMessage({
+      type: "tlstudio-pair-direct",
+      token,
+      origin,
+    }, 12000);
+    if (!paired.ok || !paired.connected) {
+      const stage = clean(paired.stage);
+      const detail = clean(paired.error) || "Claude is not signed in in this Chrome profile.";
+      throw new Error(stage ? `${stage}: ${detail}` : detail);
+    }
+
+    onStage?.("Step 3/3 · Claude session found. Connecting it to TL Studio…");
+    await claudeWebRelayFetch(
+      `/local/claude-web-ui/pair?token=${encodeURIComponent(token)}`,
+      { method: "POST", signal },
+    );
+    startClaudeWebRelay(token);
+    return token;
+  };
+
+  const resumeClaudeWebIfNeeded = async () => {
+    if (claudeWebRelayToken || claudeWebResumePromise) return claudeWebResumePromise;
+    const account = K.state.providerAccounts.find((item) => item.id === "claude-web");
+    if (!account?.available) return;
+    if (account.state !== "needs_reauthentication" && !account.connected) return;
+
+    claudeWebResumePromise = (async () => {
+      const controller = new AbortController();
+      try {
+        const login = await K.api.providerAccounts.beginLogin("claude-web");
+        if (clean(login.flow) !== "claude_web_extension") {
+          throw new Error("Claude Web returned an unexpected reconnect flow.");
+        }
+        await establishClaudeWebBridge(login, controller.signal);
+
+        const expiresAt = login.expiresAt ? Date.parse(login.expiresAt) : 0;
+        for (;;) {
+          if (expiresAt && Date.now() >= expiresAt) {
+            throw new Error("Claude Web bridge reconnect expired.");
+          }
+          const status = await K.api.providerAccounts.pollLogin("claude-web", login.loginId, controller.signal);
+          if (status.state === "connected" || status.connected) {
+            const accounts = await K.api.providerAccounts.list();
+            K.state.providerAccounts = Array.isArray(accounts) ? accounts : [];
+            syncConnectedProviders();
+            render();
+            await K.loadCatalog();
+            K.__providersUi?.reload?.();
+            K.renderModels?.();
+            K.renderSessionHeader?.();
+            return;
+          }
+          if (status.state === "expired" || status.state === "error") {
+            throw new Error(status.error || "Claude Web bridge reconnect failed.");
+          }
+          await wait(250, controller.signal);
+        }
+      } catch (error) {
+        stopClaudeWebRelay();
+        console.warn("Claude Web automatic reconnect:", error);
+      }
+    })().finally(() => {
+      claudeWebResumePromise = null;
+    });
+    return claudeWebResumePromise;
+  };
+
   const connectAccount = async (account: TLStudioProviderAccount) => {
     if (!account.available) return;
     K.showError("");
@@ -722,39 +819,12 @@ import { K } from "./kernel";
       K.state.authURL = clean(login.authorizationUrl || login.verificationUrl);
       K.els.authInstructions.textContent = clean(login.instructions) || "Authorization is ready. Open the sign-in page to continue.";
 
-      let claudeWebBridgeToken = "";
-      let claudeWebBridgeOrigin = "";
-
       if (clean(login.flow) === "claude_web_extension") {
-        claudeWebBridgeToken = clean(login.bridgeToken);
-        claudeWebBridgeOrigin = clean(login.bridgeOrigin) || window.location.origin;
-        if (!claudeWebBridgeToken) throw new Error("Claude Web extension pairing token is missing.");
-        if (claudeWebBridgeOrigin !== window.location.origin) throw new Error("Claude Web extension pairing origin mismatch.");
-
-        K.els.authInstructions.textContent = "Step 1/3 · Contacting TL Studio Claude Web Bridge…";
-        const ping = await sendClaudeWebExtensionMessage({ type: "tlstudio-ping" });
-        if (!ping.ok) {
-          throw new Error(clean(ping.error) || "TL Studio Claude Web Bridge did not accept the connection.");
-        }
-
-        K.els.authInstructions.textContent = "Step 2/3 · Checking the Claude session in this Chrome profile…";
-        const paired = await sendClaudeWebExtensionMessage({
-          type: "tlstudio-pair-direct",
-          token: claudeWebBridgeToken,
-          origin: claudeWebBridgeOrigin,
-        }, 12000);
-
-        if (!paired.ok || !paired.connected) {
-          const stage = clean(paired.stage);
-          const detail = clean(paired.error) || "Claude is not signed in in this Chrome profile.";
-          throw new Error(stage ? `${stage}: ${detail}` : detail);
-        }
-        K.els.authInstructions.textContent = "Step 3/3 · Claude session found. Connecting it to TL Studio…";
-        await claudeWebRelayFetch(
-          `/local/claude-web-ui/pair?token=${encodeURIComponent(claudeWebBridgeToken)}`,
-          { method: "POST", signal: controller.signal },
+        await establishClaudeWebBridge(
+          login,
+          controller.signal,
+          (message) => { K.els.authInstructions.textContent = message; },
         );
-        startClaudeWebRelay(claudeWebBridgeToken);
         K.els.authOpen.disabled = true;
       }
 
