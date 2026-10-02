@@ -15,8 +15,10 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 	"unicode/utf16"
+	"unsafe"
 )
 
 const claudeWebNativeURL = "https://claude.ai/new"
@@ -181,106 +183,171 @@ func runClaudeWebPowerShell(ctx context.Context, script string, env map[string]s
 	return text, nil
 }
 
-const claudeWebWindowScript = `
-$ErrorActionPreference = "Stop"
-$ProgressPreference = "SilentlyContinue"
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class TLStudioClaudeWin {
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern IntPtr GetProp(IntPtr hWnd, string lpString);
-  [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern bool SetProp(IntPtr hWnd, string lpString, IntPtr hData);
-  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-}
-"@
-
-function Get-ChromeWindows {
-  $items = @()
-  $root = [System.Windows.Automation.AutomationElement]::RootElement
-  $windows = $root.FindAll(
-    [System.Windows.Automation.TreeScope]::Children,
-    [System.Windows.Automation.Condition]::TrueCondition
-  )
-  foreach ($window in $windows) {
-    try {
-      $processId = $window.Current.ProcessId
-      if ($processId -le 0) { continue }
-      $process = Get-Process -Id $processId -ErrorAction Stop
-      if ($process.ProcessName -notin @("chrome", "chrome_proxy")) { continue }
-      $items += $window
-    } catch {}
-  }
-  return $items
-}
-
-$visible = $env:TL_CLAUDE_VISIBLE -eq "1"
-foreach ($window in (Get-ChromeWindows)) {
-  $handle = [IntPtr]$window.Current.NativeWindowHandle
-  if ($handle -eq [IntPtr]::Zero) { continue }
-  if ([TLStudioClaudeWin]::GetProp($handle, "TLStudioClaudeBridge") -ne [IntPtr]::Zero) {
-    if ($visible) {
-      [void][TLStudioClaudeWin]::ShowWindow($handle, 9)
-      [void][TLStudioClaudeWin]::SetForegroundWindow($handle)
-    } else {
-      [void][TLStudioClaudeWin]::ShowWindow($handle, 6)
-    }
-    Write-Output $handle.ToInt64()
-    exit 0
-  }
-}
-
-$before = @{}
-foreach ($window in (Get-ChromeWindows)) {
-  $before[[string]$window.Current.NativeWindowHandle] = $true
-}
-
-$args = @(
-  "--profile-directory=" + $env:TL_CLAUDE_PROFILE,
-  "--new-window",
-  "--no-first-run",
-  "--no-default-browser-check",
-  "--disable-features=PwaNavigationCapturing"
+var (
+	claudeWebUser32                 = syscall.NewLazyDLL("user32.dll")
+	claudeWebEnumWindows            = claudeWebUser32.NewProc("EnumWindows")
+	claudeWebGetClassNameW          = claudeWebUser32.NewProc("GetClassNameW")
+	claudeWebGetWindowTextLengthW   = claudeWebUser32.NewProc("GetWindowTextLengthW")
+	claudeWebGetWindowTextW         = claudeWebUser32.NewProc("GetWindowTextW")
+	claudeWebIsWindow               = claudeWebUser32.NewProc("IsWindow")
+	claudeWebShowWindow             = claudeWebUser32.NewProc("ShowWindow")
+	claudeWebSetForegroundWindow    = claudeWebUser32.NewProc("SetForegroundWindow")
+	claudeWebPostMessageW           = claudeWebUser32.NewProc("PostMessageW")
 )
-if (-not $visible) {
-  $args += "--start-minimized"
-}
-$args += "https://claude.ai/new"
-Start-Process -FilePath $env:TL_CLAUDE_CHROME -ArgumentList $args | Out-Null
 
-$deadline = [DateTime]::UtcNow.AddSeconds(20)
-while ([DateTime]::UtcNow -lt $deadline) {
-  Start-Sleep -Milliseconds 150
-  $candidate = $null
-  foreach ($window in (Get-ChromeWindows)) {
-    $handleValue = [string]$window.Current.NativeWindowHandle
-    if ($before.ContainsKey($handleValue)) { continue }
-    if ($window.Current.NativeWindowHandle -eq 0) { continue }
-    if ($window.Current.Name -match "Claude") {
-      $candidate = $window
-      break
-    }
-    if ($null -eq $candidate) { $candidate = $window }
-  }
-  if ($null -ne $candidate) {
-    $handle = [IntPtr]$candidate.Current.NativeWindowHandle
-    [void][TLStudioClaudeWin]::SetProp($handle, "TLStudioClaudeBridge", [IntPtr]1)
-    if ($visible) {
-      [void][TLStudioClaudeWin]::ShowWindow($handle, 9)
-      [void][TLStudioClaudeWin]::SetForegroundWindow($handle)
-    } else {
-      [void][TLStudioClaudeWin]::ShowWindow($handle, 6)
-    }
-    Write-Output $handle.ToInt64()
-    exit 0
-  }
+const (
+	claudeWebSWMinimize = 6
+	claudeWebSWRestore  = 9
+	claudeWebWMClose    = 0x0010
+)
+
+func claudeWebWindowClass(hwnd uintptr) string {
+	buffer := make([]uint16, 256)
+	length, _, _ := claudeWebGetClassNameW.Call(
+		hwnd,
+		uintptr(unsafe.Pointer(&buffer[0])),
+		uintptr(len(buffer)),
+	)
+	if length == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buffer[:length])
 }
-Write-Error "Chrome did not create the TL Studio Claude bridge window."
-exit 1
-`
+
+func claudeWebWindowTitle(hwnd uintptr) string {
+	length, _, _ := claudeWebGetWindowTextLengthW.Call(hwnd)
+	if length == 0 {
+		return ""
+	}
+	buffer := make([]uint16, int(length)+1)
+	copied, _, _ := claudeWebGetWindowTextW.Call(
+		hwnd,
+		uintptr(unsafe.Pointer(&buffer[0])),
+		uintptr(len(buffer)),
+	)
+	if copied == 0 {
+		return ""
+	}
+	return syscall.UTF16ToString(buffer[:copied])
+}
+
+func claudeWebChromeWindows() map[uintptr]string {
+	windows := map[uintptr]string{}
+	callback := syscall.NewCallback(func(hwnd uintptr, _ uintptr) uintptr {
+		className := claudeWebWindowClass(hwnd)
+		if !strings.HasPrefix(className, "Chrome_WidgetWin_") {
+			return 1
+		}
+		windows[hwnd] = claudeWebWindowTitle(hwnd)
+		return 1
+	})
+	claudeWebEnumWindows.Call(callback, 0)
+	return windows
+}
+
+func claudeWebNativeWindowAlive(hwnd uintptr) bool {
+	if hwnd == 0 {
+		return false
+	}
+	ok, _, _ := claudeWebIsWindow.Call(hwnd)
+	return ok != 0
+}
+
+func claudeWebSetNativeWindowVisible(hwnd uintptr, visible bool) error {
+	if !claudeWebNativeWindowAlive(hwnd) {
+		return errors.New("Claude bridge window is unavailable")
+	}
+	command := uintptr(claudeWebSWMinimize)
+	if visible {
+		command = claudeWebSWRestore
+	}
+	claudeWebShowWindow.Call(hwnd, command)
+	if visible {
+		claudeWebSetForegroundWindow.Call(hwnd)
+	}
+	return nil
+}
+
+func claudeWebCloseNativeWindow(hwnd uintptr) error {
+	if hwnd == 0 || !claudeWebNativeWindowAlive(hwnd) {
+		return nil
+	}
+	ok, _, callErr := claudeWebPostMessageW.Call(
+		hwnd,
+		uintptr(claudeWebWMClose),
+		0,
+		0,
+	)
+	if ok == 0 && callErr != syscall.Errno(0) {
+		return callErr
+	}
+	return nil
+}
+
+func (t *claudeWebNativeTransport) launchWindow(ctx context.Context, visible bool) (uintptr, error) {
+	if err := t.Available(); err != nil {
+		return 0, err
+	}
+	t.mu.Lock()
+	chrome := t.chrome
+	profile := t.profile
+	t.mu.Unlock()
+
+	before := claudeWebChromeWindows()
+	args := []string{
+		"--profile-directory=" + profile,
+		"--new-window",
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-features=PwaNavigationCapturing",
+		"--disable-backgrounding-occluded-windows",
+		"--disable-renderer-backgrounding",
+		"--disable-background-timer-throttling",
+		"--force-renderer-accessibility",
+	}
+	if !visible {
+		args = append(args, "--start-minimized")
+	}
+	args = append(args, claudeWebNativeURL)
+
+	cmd := exec.CommandContext(ctx, chrome, args...)
+	if err := cmd.Start(); err != nil {
+		return 0, fmt.Errorf("start Chrome for Claude Web: %w", err)
+	}
+	_ = cmd.Process.Release()
+
+	deadline := time.Now().Add(20 * time.Second)
+	var fallback uintptr
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		default:
+		}
+		for hwnd, title := range claudeWebChromeWindows() {
+			if _, existed := before[hwnd]; existed {
+				continue
+			}
+			if fallback == 0 {
+				fallback = hwnd
+			}
+			if strings.Contains(strings.ToLower(title), "claude") {
+				_ = claudeWebSetNativeWindowVisible(hwnd, visible)
+				return hwnd, nil
+			}
+		}
+		if fallback != 0 && time.Until(deadline) < 17*time.Second {
+			_ = claudeWebSetNativeWindowVisible(fallback, visible)
+			return fallback, nil
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+	if fallback != 0 {
+		_ = claudeWebSetNativeWindowVisible(fallback, visible)
+		return fallback, nil
+	}
+	return 0, errors.New("Chrome did not create the TL Studio Claude bridge window")
+}
 
 const claudeWebProbeScript = `
 Add-Type -AssemblyName UIAutomationClient
@@ -481,42 +548,13 @@ while ([DateTime]::UtcNow -lt $deadline) {
 throw "Timed out waiting for Claude to finish the TL Studio response."
 `
 
-const claudeWebVisibilityScript = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class TLStudioClaudeVisibility {
-  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-}
-"@
-$handle = [IntPtr]([Int64]::Parse($env:TL_CLAUDE_HWND))
-if ($env:TL_CLAUDE_VISIBLE -eq "1") {
-  [void][TLStudioClaudeVisibility]::ShowWindow($handle, 9)
-  [void][TLStudioClaudeVisibility]::SetForegroundWindow($handle)
-} else {
-  [void][TLStudioClaudeVisibility]::ShowWindow($handle, 6)
-}
-`
-
-const claudeWebCloseScript = `
-Add-Type @"
-using System;
-using System.Runtime.InteropServices;
-public static class TLStudioClaudeClose {
-  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
-}
-"@
-$handle = [IntPtr]([Int64]::Parse($env:TL_CLAUDE_HWND))
-[void][TLStudioClaudeClose]::PostMessage($handle, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-`
-
 func (t *claudeWebNativeTransport) ensureWindow(ctx context.Context, visible bool) (uintptr, error) {
 	t.mu.Lock()
-	if t.hwnd != 0 {
-		hwnd := t.hwnd
-		t.mu.Unlock()
-		if err := t.setWindowVisibility(ctx, hwnd, visible); err != nil {
+	hwnd := t.hwnd
+	t.mu.Unlock()
+
+	if hwnd != 0 && claudeWebNativeWindowAlive(hwnd) {
+		if err := claudeWebSetNativeWindowVisible(hwnd, visible); err != nil {
 			t.mu.Lock()
 			t.hwnd = 0
 			t.mu.Unlock()
@@ -524,46 +562,19 @@ func (t *claudeWebNativeTransport) ensureWindow(ctx context.Context, visible boo
 		}
 		return hwnd, nil
 	}
-	t.mu.Unlock()
 
-	if err := t.Available(); err != nil {
-		return 0, err
-	}
-	t.mu.Lock()
-	chrome := t.chrome
-	profile := t.profile
-	t.mu.Unlock()
-
-	output, err := runClaudeWebPowerShell(ctx, claudeWebWindowScript, map[string]string{
-		"TL_CLAUDE_CHROME":  chrome,
-		"TL_CLAUDE_PROFILE": profile,
-		"TL_CLAUDE_VISIBLE": map[bool]string{true: "1", false: "0"}[visible],
-	})
+	hwnd, err := t.launchWindow(ctx, visible)
 	if err != nil {
 		return 0, err
 	}
-	lines := strings.Fields(output)
-	if len(lines) == 0 {
-		return 0, errors.New("Claude Web Chrome bridge did not return a window handle")
-	}
-	value, err := strconv.ParseUint(lines[len(lines)-1], 10, 64)
-	if err != nil || value == 0 {
-		return 0, fmt.Errorf("invalid Claude Web Chrome bridge window handle %q", output)
-	}
 	t.mu.Lock()
-	t.hwnd = uintptr(value)
+	t.hwnd = hwnd
 	t.mu.Unlock()
-	return uintptr(value), nil
+	return hwnd, nil
 }
 
-func (t *claudeWebNativeTransport) setWindowVisibility(ctx context.Context, hwnd uintptr, visible bool) error {
-	visCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_, err := runClaudeWebPowerShell(visCtx, claudeWebVisibilityScript, map[string]string{
-		"TL_CLAUDE_HWND":    strconv.FormatUint(uint64(hwnd), 10),
-		"TL_CLAUDE_VISIBLE": map[bool]string{true: "1", false: "0"}[visible],
-	})
-	return err
+func (t *claudeWebNativeTransport) setWindowVisibility(_ context.Context, hwnd uintptr, visible bool) error {
+	return claudeWebSetNativeWindowVisible(hwnd, visible)
 }
 
 func (t *claudeWebNativeTransport) OpenLogin(ctx context.Context) error {
@@ -661,18 +672,10 @@ func (t *claudeWebNativeTransport) Complete(ctx context.Context, prompt string) 
 	return strings.TrimSpace(output), nil
 }
 
-func (t *claudeWebNativeTransport) Close(ctx context.Context) error {
+func (t *claudeWebNativeTransport) Close(context.Context) error {
 	t.mu.Lock()
 	hwnd := t.hwnd
 	t.hwnd = 0
 	t.mu.Unlock()
-	if hwnd == 0 {
-		return nil
-	}
-	closeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	_, err := runClaudeWebPowerShell(closeCtx, claudeWebCloseScript, map[string]string{
-		"TL_CLAUDE_HWND": strconv.FormatUint(uint64(hwnd), 10),
-	})
-	return err
+	return claudeWebCloseNativeWindow(hwnd)
 }
