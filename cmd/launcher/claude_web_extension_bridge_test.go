@@ -79,20 +79,26 @@ func TestClaudeWebExtensionBridgeStartsDisconnectedUntilPaired(t *testing.T) {
 }
 
 
-func TestClaudeWebExtensionClosesOnlyPairTabAndUsesInactiveCompletionTabs(t *testing.T) {
+func TestClaudeWebExtensionUsesTablessBackgroundTransport(t *testing.T) {
 	source := readRepoText(t, "integrations/claude-web-extension/background.js")
 	for _, required := range []string{
-		"pairTabId: Number.isInteger(pairTabId) ? pairTabId : null",
-		"sender?.tab?.id",
-		"const pairTabId = pair.pairTabId",
-		"await chrome.tabs.remove(pairTabId)",
-		"chrome.tabs.create({ url: \"https://claude.ai/new\", active: false })",
+		"chrome.cookies.getAll",
+		"chrome.declarativeNetRequest.updateSessionRules",
+		"https://claude.ai/api",
+		"claude-sonnet-5-5",
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("Claude Web invisible browser transport contract missing %q", required)
+			t.Fatalf("Claude Web tabless transport contract missing %q", required)
 		}
 	}
-	if strings.Contains(source, "chrome.tabs.remove(tab.id)") && !strings.Contains(source, "finally") {
-		t.Fatal("completion tab cleanup contract changed unexpectedly")
+	for _, forbidden := range []string{
+		"chrome.tabs.create",
+		"chrome.windows.create",
+		"chrome.tabs.remove",
+		"chrome.tabs.sendMessage",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("Claude Web must stay inside TL Studio; background transport contains %q", forbidden)
+		}
 	}
 }
