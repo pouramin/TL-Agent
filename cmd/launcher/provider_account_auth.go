@@ -153,7 +153,14 @@ func (s *providerAccountService) list(ctx context.Context, directory string) ([]
 	for _, id := range ids {
 		status, err := s.adapters[id].Status(ctx, directory)
 		if err != nil {
-			return nil, err
+			result = append(result, normalizeProviderAccountStatus(id, providerAccountStatus{
+				ID:        id,
+				Name:      id,
+				Available: false,
+				State:     providerAccountError,
+				Error:     err.Error(),
+			}))
+			continue
 		}
 		result = append(result, normalizeProviderAccountStatus(id, status))
 	}
