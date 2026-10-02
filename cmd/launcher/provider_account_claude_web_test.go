@@ -16,6 +16,7 @@ type fakeClaudeWebTransport struct {
 	completion   string
 	opened       bool
 	closed       bool
+	paired       bool
 }
 
 func (f *fakeClaudeWebTransport) Available() error {
@@ -27,6 +28,7 @@ func (f *fakeClaudeWebTransport) OpenLogin(context.Context) error {
 		return f.availableErr
 	}
 	f.opened = true
+	f.paired = true
 	return nil
 }
 
@@ -54,6 +56,7 @@ func (f *fakeClaudeWebTransport) Close(context.Context) error {
 
 func (f *fakeClaudeWebTransport) PairingToken() string { return "test-pair-token-abcdefghijklmnopqrstuvwxyz" }
 func (f *fakeClaudeWebTransport) PairingOrigin() string { return "http://127.0.0.1:32123" }
+func (f *fakeClaudeWebTransport) Paired() bool { return f.paired }
 
 func newClaudeWebTestManager(t *testing.T, transport *fakeClaudeWebTransport) (*providerManager, *claudeWebAccountAdapter) {
 	t.Helper()
@@ -97,7 +100,7 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 	if !status.Connected || status.AccountType != "Claude Web" || status.OrganizationID != "org_test" {
 		t.Fatalf("unexpected connected Claude Web status: %#v", status)
 	}
-	if len(status.Models) != 1 || status.Models[0] != "default" {
+	if len(status.Models) != 1 || status.Models[0] != claudeWebModelID {
 		t.Fatalf("unexpected Claude Web models: %#v", status.Models)
 	}
 
@@ -136,7 +139,7 @@ func TestClaudeWebBridgeKeepsTLStudioToolLoop(t *testing.T) {
 			BaseURL:   claudeWebRuntimeBaseURL,
 			ManagedBy: "account",
 		},
-		Model:  tlProviderModel{ID: "default", Name: "Claude Web (account default)", ToolCall: true},
+		Model:  tlProviderModel{ID: claudeWebModelID, Name: "Claude Sonnet 5.5 (Web)", ToolCall: true},
 		APIKey: claudeWebRuntimeCredentialSentinel,
 		Tools: []nativeModelToolDefinition{{
 			ID:          "files.read",
@@ -237,5 +240,42 @@ func TestClaudeWebLoginRouteNeverFallsThroughToClaudeCode(t *testing.T) {
 	}
 	if adapter, ok := service.adapter("claude"); !ok || adapter != codeAdapter {
 		t.Fatalf("claude route no longer resolves the Claude Code adapter: %#v ok=%v", adapter, ok)
+	}
+}
+
+
+func TestClaudeWebPersistedConnectionRequiresLiveBridgePairing(t *testing.T) {
+	transport := &fakeClaudeWebTransport{paired: false}
+	manager, adapter := newClaudeWebTestManager(t, transport)
+	if err := saveClaudeWebConfig(claudeWebConfig{
+		Connected: true,
+		OrganizationID: "org_test",
+		OrganizationName: "Personal",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := adapter.Status(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Connected || status.State != providerAccountNeedsReauthentication {
+		t.Fatalf("stale Claude Web connection must require bridge reconnect: %#v", status)
+	}
+	if status.OrganizationID != "org_test" || status.AccountLabel != "Personal" {
+		t.Fatalf("persisted account identity should survive bridge restart: %#v", status)
+	}
+	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || found {
+		t.Fatalf("stale Claude Web runtime provider must not remain selectable: found=%v err=%v", found, err)
+	}
+}
+
+func TestClaudeWebModelIdentityMatchesRequestedWebModel(t *testing.T) {
+	models := claudeWebModels()
+	if len(models) != 1 {
+		t.Fatalf("unexpected Claude Web model count: %#v", models)
+	}
+	if models[0].ID != "claude-sonnet-5-5" || models[0].Name != "Claude Sonnet 5.5 (Web)" {
+		t.Fatalf("Claude Web model identity is misleading: %#v", models[0])
 	}
 }
