@@ -404,36 +404,28 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 }
 
 
-func TestClaudeWebPairsInsideTLStudioWithoutOpeningClaudeTab(t *testing.T) {
+func TestClaudeWebPairsDirectlyWithFixedChromeExtensionID(t *testing.T) {
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
 		`clean(login.flow) === "claude_web_extension"`,
-		`type: "tlstudio-claude-web-pair"`,
-		`window.postMessage`,
-		`bridgeToken`,
-		`bridgeOrigin`,
+		`CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla"`,
+		`(window as any).chrome?.runtime`,
+		`type: "tlstudio-ping"`,
+		`type: "tlstudio-pair-direct"`,
+		`Step 1/3 · Contacting TL Studio Claude Web Bridge`,
+		`Step 2/3 · Checking the Claude session`,
+		`Step 3/3 · Claude session found`,
 	} {
 		if !strings.Contains(accounts, required) {
-			t.Fatalf("Claude Web in-place pairing contract missing %q", required)
+			t.Fatalf("Claude Web direct extension pairing contract missing %q", required)
 		}
 	}
-
-	backgroundPath := filepath.Join("..", "..", "integrations", "claude-web-extension", "background.js")
-	backgroundBytes, err := os.ReadFile(backgroundPath)
-	if err != nil {
-		t.Fatalf("read Claude Web extension background: %v", err)
-	}
-	background := string(backgroundBytes)
-	if strings.Contains(background, "chrome.tabs.create") || strings.Contains(background, "chrome.windows.create") {
-		t.Fatal("Claude Web transport must not open a Claude tab or window for model requests")
-	}
-	for _, required := range []string{
-		`chrome.cookies.getAll`,
-		`chrome.declarativeNetRequest.updateSessionRules`,
-		`https://claude.ai/api`,
+	for _, forbidden := range []string{
+		`window.postMessage({`,
+		`tlstudio-claude-web-pair-result`,
 	} {
-		if !strings.Contains(background, required) {
-			t.Fatalf("Claude Web background transport missing %q", required)
+		if strings.Contains(accounts, forbidden) {
+			t.Fatalf("Claude Web pairing must not depend on a content-script relay; found %q", forbidden)
 		}
 	}
 }
