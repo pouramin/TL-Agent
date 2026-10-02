@@ -180,6 +180,8 @@ The following entries should be visible but unavailable, with an explicit reason
 
 They must not expose a working Sign in action or create runtime credentials.
 
+Claude is a policy boundary, not a missing CLI capability. Anthropic's current Agent SDK documentation states that, unless previously approved, third-party developers may not offer claude.ai login or subscription rate limits in their products and should use API-key authentication instead (verified 2026-10-02: https://code.claude.com/docs/en/agent-sdk/overview). Do not run a real Claude.ai subscription sign-in test through TL Studio unless Anthropic grants prior approval or changes that documented policy. The Anthropic API-key path remains in scope for normal validation.
+
 ## Release decision
 
 Do not promote 0.6 to stable main solely because automated CI is green.

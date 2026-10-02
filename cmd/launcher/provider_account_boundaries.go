@@ -74,9 +74,9 @@ func newClaudeAccountBoundaryAdapter() providerAccountAdapter {
 	return &unavailableProviderAccountAdapter{
 		id:   "claude",
 		name: "Claude",
-		description: "Anthropic account OAuth exists in Anthropic-owned tools, but no documented public third-party consumer-account client registration suitable for TL Studio is currently used.",
+		description: "Anthropic's official Claude Code tools support Claude.ai login, but Anthropic's current Agent SDK policy says third-party developers may not offer claude.ai login or subscription rate limits in their products unless previously approved.",
 		billingNote: "Claude consumer subscriptions and Anthropic API billing are separate products.",
-		reason: "Account login is not enabled until Anthropic exposes a documented third-party authorization contract. Anthropic-compatible API configuration remains supported.",
+		reason: "Claude account login is deferred because Anthropic currently requires prior approval for third-party products to offer claude.ai login or subscription rate limits. Anthropic API-key configuration remains supported.",
 		authModes: []string{"account"},
 		capabilities: []string{"models", "inference"},
 	}

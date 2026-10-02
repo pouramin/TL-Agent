@@ -126,6 +126,8 @@ The compact Provider cards use the connection method that matches the product:
 
 Providers that use API credentials are **not** shown as unavailable just because they do not use consumer-account OAuth. Their cards open the existing discovery-first API configuration flow with the correct endpoint/protocol preset.
 
+Claude.ai subscription sign-in is intentionally not offered by TL Studio. Anthropic's current [Agent SDK documentation](https://code.claude.com/docs/en/agent-sdk/overview) states that, unless previously approved, third-party developers may not offer claude.ai login or subscription rate limits in their products and should use API-key authentication instead. TL Studio therefore keeps Claude on the Anthropic API-key path unless Anthropic grants approval or changes that documented policy.
+
 The ChatGPT integration uses OpenAI's official Codex CLI/App Server surface. TL Studio never copies ChatGPT cookies, browser sessions, private OAuth clients, or undocumented backend tokens. Codex authentication is isolated under TL Studio's own `CODEX_HOME`; the Browser sees only semantic account state.
 
 For ChatGPT-plan model turns, TL Studio invokes the official Codex CLI in ephemeral, read-only bridge mode with user/project Codex configuration ignored. The structured result is converted back into TL Studio model text or TL Studio Tool calls, so permission checks, Tool execution, Session persistence, and the outer model → tool → model loop remain owned by TL Studio.

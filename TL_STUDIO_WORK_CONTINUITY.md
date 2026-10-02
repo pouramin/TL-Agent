@@ -1,6 +1,6 @@
 # TL Studio work continuity
 
-Last updated: 2026-09-29
+Last updated: 2026-10-02
 
 ## Source of truth
 
@@ -26,7 +26,13 @@ Current validation state:
 
 ChatGPT/Codex full Windows validation passed with a real ChatGPT-plan account. Login, model discovery/selection, selected-model identity, project read/search/write, Permission handling, multi-step Tool continuation, Terminal execution, restart persistence, explicit sign-out cleanup, and warm-turn latency were validated. Warm responses are currently about 3–5 seconds with the persistent Codex app-server. After restart the connected account remained usable; after sign-out and restart it remained signed out and required a fresh sign-in.
 
-Real validation for the remaining provider connection modes is still in progress on current dev.
+Claude account/subscription status is deferred. On 2026-10-02, Anthropic's current Agent SDK documentation was re-checked and found to explicitly state that, unless previously approved, third-party developers may not offer claude.ai login or subscription rate limits in their products and should use API-key authentication instead. PR #159's Claude subscription-login implementation is therefore superseded by the official-boundary correction on the current development line and must not be exposed or manually validated with a real Claude.ai account unless Anthropic grants prior approval or changes the documented policy. Claude remains supported through the Anthropic API-key path.
+
+Official policy reference:
+
+https://code.claude.com/docs/en/agent-sdk/overview
+
+Real validation for the remaining permitted provider connection modes is still in progress on current dev.
 
 Current open development PR:
 
@@ -157,7 +163,7 @@ For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-ch
 
 The ChatGPT adapter auto-detects an installed `codex` executable. When unavailable it can use `npx @openai/codex`; Provider Settings also exposes a non-secret Codex executable override. Windows npm shims are resolved through Node so the official Codex app-server starts reliably. Tests include a fake Codex executable plus a real Windows Codex app-server/CLI contract smoke with no real credentials.
 
-PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. After PR #143 only Claude and GitHub Copilot remain deferred. Claude remains deferred because no documented arbitrary third-party consumer OAuth client contract was found. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
+PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. After PR #143 only Claude and GitHub Copilot remain deferred. Claude remains deferred because Anthropic's current documentation requires prior approval before a third-party product may offer claude.ai login or subscription rate limits; API-key configuration remains the supported TL Studio path. PR #159 briefly implemented the official Claude Code CLI login surface, but that implementation is superseded by the current correction because an official Anthropic-owned login command is not, by itself, permission to expose that login through a third-party product. Copilot remains deferred because the documented model-access path is coupled to the Copilot SDK/runtime.
 
 ## Browser contract
 

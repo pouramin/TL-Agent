@@ -42,6 +42,19 @@ func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T)
 	}
 }
 
+func TestClaudeDeferredBoundaryExplainsOfficialThirdPartyRestriction(t *testing.T) {
+	status, err := newClaudeAccountBoundaryAdapter().Status(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ToLower(status.Description + " " + status.Error)
+	for _, required := range []string{"anthropic", "third-party", "approval"} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("Claude deferred boundary must explain the official third-party restriction; missing %q in %q", required, text)
+		}
+	}
+}
+
 func TestDeferredProviderAccountAdaptersCannotYieldRuntimeCredentials(t *testing.T) {
 	for _, adapter := range []providerAccountAdapter{
 		newClaudeAccountBoundaryAdapter(),
