@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 )
@@ -38,11 +36,14 @@ type claudeWebExtensionCommand struct {
 }
 
 type claudeWebExtensionResult struct {
-	ID        string `json:"id"`
-	OK        bool   `json:"ok"`
-	Connected bool   `json:"connected,omitempty"`
-	Text      string `json:"text,omitempty"`
-	Error     string `json:"error,omitempty"`
+	ID               string `json:"id"`
+	OK               bool   `json:"ok"`
+	Connected        bool   `json:"connected,omitempty"`
+	Status           int    `json:"status,omitempty"`
+	Text             string `json:"text,omitempty"`
+	Error            string `json:"error,omitempty"`
+	OrganizationID   string `json:"organizationId,omitempty"`
+	OrganizationName string `json:"organizationName,omitempty"`
 }
 
 type claudeWebExtensionBridge struct {
@@ -81,21 +82,25 @@ func (b *claudeWebExtensionBridge) resetLocked(token string) {
 
 func (b *claudeWebExtensionBridge) OpenLogin(ctx context.Context) error {
 	if err := b.Available(); err != nil { return err }
-	origin := b.frontendURL()
-	if origin == "" { return errors.New("TL Studio local URL is unavailable") }
+	if b.frontendURL() == "" { return errors.New("TL Studio local URL is unavailable") }
 	token, err := randomSecret(32)
 	if err != nil { return err }
 	b.mu.Lock()
 	b.resetLocked(token)
 	b.mu.Unlock()
-
-	values := url.Values{}
-	values.Set("tlstudio_pair", token)
-	values.Set("tlstudio_origin", origin)
-	if err := openBrowser("https://claude.ai/#" + values.Encode()); err != nil {
-		return fmt.Errorf("open Claude in the default browser: %w", err)
-	}
 	select { case <-ctx.Done(): return ctx.Err(); default: return nil }
+}
+
+func (b *claudeWebExtensionBridge) PairingToken() string {
+	if b == nil { return "" }
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.token
+}
+
+func (b *claudeWebExtensionBridge) PairingOrigin() string {
+	if b == nil { return "" }
+	return b.frontendURL()
 }
 
 func (b *claudeWebExtensionBridge) Probe(ctx context.Context) (claudeWebProbe, error) {
@@ -104,7 +109,13 @@ func (b *claudeWebExtensionBridge) Probe(ctx context.Context) (claudeWebProbe, e
 	result, err := b.send(ctx, claudeWebExtensionCommand{Kind:"probe"})
 	if err != nil { return claudeWebProbe{}, err }
 	if !result.OK { return claudeWebProbe{}, errors.New(strings.TrimSpace(result.Error)) }
-	return claudeWebProbe{Connected:result.Connected, Status:200}, nil
+	return claudeWebProbe{
+		Connected: result.Connected,
+		Status: result.Status,
+		OrganizationID: strings.TrimSpace(result.OrganizationID),
+		OrganizationName: strings.TrimSpace(result.OrganizationName),
+		Error: strings.TrimSpace(result.Error),
+	}, nil
 }
 
 func (b *claudeWebExtensionBridge) Complete(ctx context.Context, prompt string) (string, error) {
