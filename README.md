@@ -119,20 +119,20 @@ The compact Provider cards use the connection method that matches the product:
 | --- | --- | --- |
 | **ChatGPT / Codex** | Account sign-in | ✅ Available through OpenAI's official Codex login/model surface. |
 | **GitHub Copilot** | Account sign-in | ⏳ Account slot reserved; model integration remains deferred. |
-| **Claude / Anthropic** | Account sign-in + API key | ✅ Claude.ai subscription login through the official Claude Code CLI, with Anthropic API configuration kept as a separate option. |
+| **Claude / Anthropic** | API key | ✅ Opens the Anthropic API configuration directly. |
 | **Google / Gemini** | API key | ✅ Uses Google's documented OpenAI-compatible Gemini endpoint. |
 | **Hugging Face** | API token | ✅ Uses the OpenAI-compatible Inference Providers router. |
 | **OpenRouter** | API key | ✅ Uses the OpenAI-compatible OpenRouter API. |
 
-Providers that use API credentials are **not** shown as unavailable just because they do not use consumer-account OAuth. Their cards open the existing discovery-first API configuration flow with the correct endpoint/protocol preset. Claude is a hybrid card: subscription sign-in and API-key configuration are independent and can coexist.
+Providers that use API credentials are **not** shown as unavailable just because they do not use consumer-account OAuth. Their cards open the existing discovery-first API configuration flow with the correct endpoint/protocol preset.
 
-Claude account login uses Anthropic's official Claude Code CLI: `claude auth login`, `claude auth status`, and `claude auth logout`. TL Studio gives Claude Code an isolated `CLAUDE_CONFIG_DIR` and does not read or serialize the raw Claude.ai OAuth credential. Account-backed model turns use the official non-interactive Claude Code surface with built-in tools and MCP tools disabled; TL Studio remains responsible for Tools, Permissions, Sessions, and project mutations. Manual Anthropic API keys remain separate.
+Claude.ai subscription sign-in is intentionally not offered by TL Studio. Anthropic's current [Agent SDK documentation](https://code.claude.com/docs/en/agent-sdk/overview) states that, unless previously approved, third-party developers may not offer claude.ai login or subscription rate limits in their products and should use API-key authentication instead. TL Studio therefore keeps Claude on the Anthropic API-key path unless Anthropic grants approval or changes that documented policy.
 
 The ChatGPT integration uses OpenAI's official Codex CLI/App Server surface. TL Studio never copies ChatGPT cookies, browser sessions, private OAuth clients, or undocumented backend tokens. Codex authentication is isolated under TL Studio's own `CODEX_HOME`; the Browser sees only semantic account state.
 
-For ChatGPT-plan model turns, TL Studio keeps an official Codex App Server warm and creates isolated ephemeral structured turns with Codex built-in tools disabled. The structured result is converted back into TL Studio model text or TL Studio Tool calls, so permission checks, Tool execution, Session persistence, and the outer model → tool → model loop remain owned by TL Studio.
+For ChatGPT-plan model turns, TL Studio invokes the official Codex CLI in ephemeral, read-only bridge mode with user/project Codex configuration ignored. The structured result is converted back into TL Studio model text or TL Studio Tool calls, so permission checks, Tool execution, Session persistence, and the outer model → tool → model loop remain owned by TL Studio.
 
-If `codex` is not already on `PATH`, TL Studio can use `npx @openai/codex`; Provider Settings also accepts an explicit Codex executable path. For Claude, TL Studio auto-detects `claude`, can fall back to `npx @anthropic-ai/claude-code`, and also accepts an explicit Claude Code executable path.
+If `codex` is not already on `PATH`, TL Studio can use `npx @openai/codex`; Provider Settings also accepts an explicit Codex executable path.
 
 ### Gemini alpha setup
 

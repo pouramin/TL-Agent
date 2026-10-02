@@ -58,29 +58,15 @@ type nativeModelClient interface {
 	Complete(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error)
 }
 
-type nativeModelBridge interface {
-	Protocol() string
-	CompleteModelTurn(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error)
-}
-
 type nativeHTTPModelClient struct {
 	httpClient *http.Client
-	bridges    map[string]nativeModelBridge
+	chatGPT    *chatGPTAccountAdapter
 }
 
-func newNativeModelClient(bridges ...nativeModelBridge) nativeModelClient {
-	client := &nativeHTTPModelClient{
-		httpClient: &http.Client{Timeout: 0},
-		bridges: map[string]nativeModelBridge{},
-	}
-	for _, bridge := range bridges {
-		if bridge == nil {
-			continue
-		}
-		protocol := strings.TrimSpace(bridge.Protocol())
-		if protocol != "" {
-			client.bridges[protocol] = bridge
-		}
+func newNativeModelClient(chatGPT ...*chatGPTAccountAdapter) nativeModelClient {
+	client := &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
+	if len(chatGPT) > 0 {
+		client.chatGPT = chatGPT[0]
 	}
 	return client
 }
@@ -170,10 +156,12 @@ func (c *nativeHTTPModelClient) Complete(ctx context.Context, request nativeMode
 		return c.completeAnthropic(ctx, request, onTextDelta)
 	case "gemini-generate-content":
 		return c.completeGemini(ctx, request, onTextDelta)
-	default:
-		if bridge := c.bridges[strings.TrimSpace(request.Provider.Protocol)]; bridge != nil {
-			return bridge.CompleteModelTurn(ctx, request, onTextDelta)
+	case codexChatGPTProviderProtocol:
+		if c.chatGPT == nil {
+			return nativeModelResponse{}, errors.New("ChatGPT account transport is unavailable")
 		}
+		return c.chatGPT.completeModelTurn(ctx, request, onTextDelta)
+	default:
 		return nativeModelResponse{}, fmt.Errorf("unsupported native provider protocol %q", request.Provider.Protocol)
 	}
 }

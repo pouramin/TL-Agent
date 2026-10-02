@@ -95,22 +95,6 @@ jobs:
           TL_STUDIO_REAL_CODEX_SMOKE: '1'
         run: go test ./cmd/launcher -run 'TestRealCodex(AppServerInitialize|ExecCLIContract)Smoke' -count=1 -v
 
-  windows-claude-code:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.23.x'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Verify official Claude Code CLI through TL Studio
-        shell: pwsh
-        env:
-          TL_STUDIO_REAL_CLAUDE_SMOKE: '1'
-        run: go test ./cmd/launcher -run TestRealClaudeCLIContractSmoke -count=1 -v
-
   native-product-contract:
     runs-on: ubuntu-latest
     steps:

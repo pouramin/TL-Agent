@@ -70,6 +70,18 @@ func (a *unavailableProviderAccountAdapter) Disconnect(context.Context, string) 
 	return nil
 }
 
+func newClaudeAccountBoundaryAdapter() providerAccountAdapter {
+	return &unavailableProviderAccountAdapter{
+		id:   "claude",
+		name: "Claude",
+		description: "Anthropic's official Claude Code tools support Claude.ai login, but Anthropic's current Agent SDK policy says third-party developers may not offer claude.ai login or subscription rate limits in their products unless previously approved.",
+		billingNote: "Claude consumer subscriptions and Anthropic API billing are separate products.",
+		reason: "Claude account login is deferred because Anthropic currently requires prior approval for third-party products to offer claude.ai login or subscription rate limits. Anthropic API-key configuration remains supported.",
+		authModes: []string{"account"},
+		capabilities: []string{"models", "inference"},
+	}
+}
+
 func newGitHubCopilotAccountBoundaryAdapter() providerAccountAdapter {
 	return &unavailableProviderAccountAdapter{
 		id:   "github-copilot",
