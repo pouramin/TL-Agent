@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "TL Studio Claude Web Bridge",
-  "version": "0.1.0",
-  "description": "Uses Claude in your normal Chrome profile for TL Studio.",
-  "permissions": ["storage", "tabs"],
+  "version": "0.2.0",
+  "description": "Connects TL Studio to the signed-in Claude Web session in your normal Chrome profile.",
+  "permissions": ["storage", "cookies", "declarativeNetRequestWithHostAccess"],
   "host_permissions": [
     "https://claude.ai/*",
     "http://127.0.0.1/*",
@@ -11,8 +11,8 @@
   ],
   "background": { "service_worker": "background.js" },
   "content_scripts": [{
-    "matches": ["https://claude.ai/*"],
+    "matches": ["http://127.0.0.1/*", "http://localhost/*"],
     "js": ["content.js"],
-    "run_at": "document_idle"
+    "run_at": "document_start"
   }]
 }
