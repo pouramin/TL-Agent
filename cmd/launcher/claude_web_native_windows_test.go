@@ -15,7 +15,10 @@ func TestClaudeWebNativeTransportUsesNormalChromeProfileWithoutExtension(t *test
 		`Google", "Chrome", "User Data"`,
 		`"last_used"`,
 		`--profile-directory=`,
-		`--app=https://claude.ai/new`,
+		`--new-window`,
+		`--start-minimized`,
+		`--disable-features=PwaNavigationCapturing`,
+		`$args += "https://claude.ai/new"`,
 		`UIAutomationClient`,
 		`TLStudioClaudeBridge`,
 		`TLSTUDIO_BEGIN_`,
@@ -30,6 +33,7 @@ func TestClaudeWebNativeTransportUsesNormalChromeProfileWithoutExtension(t *test
 		"chrome.cookies",
 		"sessionKey",
 		"claude-web-extension",
+		"--app=",
 	} {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("Claude Web native Chrome transport must not depend on %q", forbidden)
@@ -82,5 +86,57 @@ func TestClaudeWebPowerShellErrorsNeverExposeRawCLIXML(t *testing.T) {
 	}
 	if !strings.Contains(got, "Windows PowerShell failed") {
 		t.Fatalf("unexpected sanitized PowerShell error: %q", got)
+	}
+}
+
+
+func TestClaudeWebNativeCompletionNeverForegroundsChrome(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
+	start := strings.Index(source, "const claudeWebCompleteScript = `")
+	end := strings.Index(source[start:], "const claudeWebVisibilityScript = `")
+	if start < 0 || end < 0 {
+		t.Fatal("Claude Web completion script bounds were not found")
+	}
+	complete := source[start : start+end]
+	for _, forbidden := range []string{
+		"System.Windows.Forms",
+		"SendKeys",
+		"Clipboard",
+		"SetForegroundWindow",
+		"ShowWindow",
+	} {
+		if strings.Contains(complete, forbidden) {
+			t.Fatalf("Claude Web background completion must not use %q", forbidden)
+		}
+	}
+	for _, required := range []string{
+		"ValuePattern",
+		"LegacyIAccessiblePattern",
+		"InvokePattern",
+		"$baselineBeginCount",
+		"$baselineEndCount",
+		"$beginCount -le $baselineBeginCount",
+		"$endCount -le $baselineEndCount",
+		"$text.LastIndexOf($beginMarker",
+		"$text.LastIndexOf($endMarker",
+	} {
+		if !strings.Contains(complete, required) {
+			t.Fatalf("Claude Web background completion contract missing %q", required)
+		}
+	}
+}
+
+func TestClaudeWebNativeLoginOnlyShowsChromeWhenAuthenticationIsNeeded(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
+	for _, required := range []string{
+		"hwnd, err := t.ensureWindow(ctx, false)",
+		"if json.Unmarshal([]byte(strings.TrimSpace(output)), &probe) == nil && probe.Connected",
+		"return t.setWindowVisibility(ctx, hwnd, true)",
+		"if probe.Connected {",
+		"_ = t.setWindowVisibility(ctx, hwnd, false)",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web hidden-login contract missing %q", required)
+		}
 	}
 }
