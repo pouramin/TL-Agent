@@ -267,7 +267,7 @@ func (a *claudeAccountAdapter) baseStatus() providerAccountStatus {
 	_, commandErr := a.resolveCommand()
 	status := providerAccountStatus{
 		ID: claudeAccountProviderID,
-		Name: "Claude",
+		Name: "Claude Code (Pro/Max)",
 		Description: "Connect a Claude Pro, Max, Team, or Enterprise account through Anthropic's official Claude Code browser login.",
 		Available: commandErr == nil,
 		State: providerAccountDisconnected,
