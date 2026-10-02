@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "TL Studio Claude Web Bridge",
+  "version": "0.1.0",
+  "description": "Uses Claude in your normal Chrome profile for TL Studio.",
+  "permissions": ["storage", "tabs"],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["https://claude.ai/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}
