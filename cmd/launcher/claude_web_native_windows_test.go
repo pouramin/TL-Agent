@@ -18,9 +18,13 @@ func TestClaudeWebNativeTransportUsesNormalChromeProfileWithoutExtension(t *test
 		`--new-window`,
 		`--start-minimized`,
 		`--disable-features=PwaNavigationCapturing`,
-		`$args += "https://claude.ai/new"`,
+		`--disable-backgrounding-occluded-windows`,
+		`--disable-renderer-backgrounding`,
+		`--force-renderer-accessibility`,
+		`claudeWebNativeURL`,
+		`syscall.NewLazyDLL("user32.dll")`,
+		`Chrome_WidgetWin_`,
 		`UIAutomationClient`,
-		`TLStudioClaudeBridge`,
 		`TLSTUDIO_BEGIN_`,
 		`TLSTUDIO_END_`,
 	} {
@@ -69,13 +73,30 @@ func TestClaudeWebNativeUserDataDirUsesLocalAppData(t *testing.T) {
 }
 
 
-func TestClaudeWebNativePowerShellDoesNotUseReservedPIDVariable(t *testing.T) {
+func TestClaudeWebNativeWindowLifecycleUsesWin32NotPowerShell(t *testing.T) {
 	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
-	if strings.Contains(source, "$pid =") || strings.Contains(source, "$PID =") {
-		t.Fatal("native Claude Chrome bridge must not assign to PowerShell's reserved PID variable")
+	for _, required := range []string{
+		`NewProc("EnumWindows")`,
+		`NewProc("GetClassNameW")`,
+		`NewProc("IsWindow")`,
+		`NewProc("ShowWindow")`,
+		`NewProc("PostMessageW")`,
+		`func (t *claudeWebNativeTransport) launchWindow`,
+		`exec.CommandContext(ctx, chrome, args...)`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("native Claude Chrome lifecycle missing %q", required)
+		}
 	}
-	if !strings.Contains(source, "$processId = $window.Current.ProcessId") {
-		t.Fatal("native Claude Chrome bridge must use a non-reserved process-id variable")
+	for _, forbidden := range []string{
+		`const claudeWebWindowScript`,
+		`Start-Process -FilePath`,
+		`TLStudioClaudeBridge`,
+		`Get-ChromeWindows`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("native Claude Chrome lifecycle must not depend on PowerShell window management: found %q", forbidden)
+		}
 	}
 }
 
@@ -134,6 +155,7 @@ func TestClaudeWebNativeLoginOnlyShowsChromeWhenAuthenticationIsNeeded(t *testin
 		"return t.setWindowVisibility(ctx, hwnd, true)",
 		"if probe.Connected {",
 		"_ = t.setWindowVisibility(ctx, hwnd, false)",
+		"return claudeWebSetNativeWindowVisible(hwnd, visible)",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("Claude Web hidden-login contract missing %q", required)
