@@ -223,8 +223,8 @@ normal local API responses
     </tr>
     <tr>
       <td align="right"><strong><span dir="ltr">Claude / Anthropic</span></strong></td>
-      <td align="right"><span dir="ltr">API key</span></td>
-      <td align="right">✅ مستقیم وارد تنظیمات <span dir="ltr">Anthropic API</span> می‌شود.</td>
+      <td align="right"><span dir="ltr">Account sign-in + API key</span></td>
+      <td align="right">✅ ورود حساب <span dir="ltr">Claude.ai</span> از مسیر رسمی <span dir="ltr">Claude Code</span> و تنظیم مستقل <span dir="ltr">Anthropic API</span></td>
     </tr>
     <tr>
       <td align="right"><strong><span dir="ltr">Google / Gemini</span></strong></td>
@@ -244,15 +244,15 @@ normal local API responses
   </tbody>
 </table>
 
-<p dir="rtl" align="right">برای <span dir="ltr">Provider</span>های مبتنی بر <span dir="ltr">API</span>، کارت مستقیماً همان فرم موجود و <span dir="ltr">Discovery-first</span> را با Endpoint و Protocol درست باز می‌کند؛ بنابراین <span dir="ltr">Claude</span>، <span dir="ltr">Gemini</span>، <span dir="ltr">Hugging Face</span> و <span dir="ltr">OpenRouter</span> دیگر فقط به‌خاطر نداشتن ورود حسابی <span dir="ltr">Unavailable</span> نمایش داده نمی‌شوند.</p>
+<p dir="rtl" align="right">برای <span dir="ltr">Provider</span>های مبتنی بر <span dir="ltr">API</span>، کارت مستقیماً همان فرم موجود و <span dir="ltr">Discovery-first</span> را با Endpoint و Protocol درست باز می‌کند. کارت <span dir="ltr">Claude</span> دو مسیر مستقل دارد: ورود با حساب اشتراکی و تنظیم <span dir="ltr">API key</span>؛ این دو می‌توانند هم‌زمان وجود داشته باشند و یکدیگر را بازنویسی نمی‌کنند.</p>
 
-<p dir="rtl" align="right">ورود با اشتراک <span dir="ltr">Claude.ai</span> عمداً داخل <span dir="ltr">TL Studio</span> ارائه نمی‌شود. مستندات فعلی <a dir="ltr" href="https://code.claude.com/docs/en/agent-sdk/overview">Anthropic Agent SDK</a> صریحاً می‌گوید توسعه‌دهندهٔ شخص ثالث، مگر با تأیید قبلی <span dir="ltr">Anthropic</span>، نباید ورود <span dir="ltr">claude.ai</span> یا سهمیهٔ اشتراک را داخل محصول خودش ارائه کند و باید از احراز هویت مبتنی بر <span dir="ltr">API key</span> استفاده کند. بنابراین مسیر رسمی فعلی <span dir="ltr">Claude</span> در <span dir="ltr">TL Studio</span> همان <span dir="ltr">Anthropic API key</span> باقی می‌ماند، مگر اینکه این تأیید گرفته شود یا سیاست مستند تغییر کند.</p>
+<p dir="rtl" align="right">ورود حساب <span dir="ltr">Claude</span> از فرمان‌های رسمی <span dir="ltr">Claude Code</span> برای <span dir="ltr">login/status/logout</span> استفاده می‌کند. دادهٔ احراز هویت داخل <code dir="ltr">CLAUDE_CONFIG_DIR</code> ایزولهٔ مخصوص <span dir="ltr">TL Studio</span> می‌ماند و برنامه Token خام حساب را نمی‌خواند یا Serialize نمی‌کند. برای Turnهای مدل نیز Toolها و <span dir="ltr">MCP</span> داخلی <span dir="ltr">Claude Code</span> غیرفعال هستند و اجرای Tool، Permission، Session و تغییرات پروژه همچنان در اختیار <span dir="ltr">TL Studio</span> باقی می‌مانند.</p>
 
 <p dir="rtl" align="right">اتصال <span dir="ltr">ChatGPT</span> فقط از Surface رسمی <span dir="ltr">OpenAI Codex CLI/App Server</span> استفاده می‌کند. <span dir="ltr">TL Studio</span> هیچ <span dir="ltr">Cookie</span>، <span dir="ltr">Browser Session</span>، <span dir="ltr">Private OAuth Client</span> یا <span dir="ltr">Backend Token</span> مستندنشده را کپی نمی‌کند. احراز هویت <span dir="ltr">Codex</span> داخل <code dir="ltr">CODEX_HOME</code> ایزولهٔ خود <span dir="ltr">TL Studio</span> باقی می‌ماند و <span dir="ltr">Browser</span> فقط وضعیت معنایی حساب را می‌بیند.</p>
 
-<p dir="rtl" align="right">برای Turnهای مدل مبتنی بر پلن <span dir="ltr">ChatGPT</span>، برنامه <span dir="ltr">Codex CLI</span> رسمی را به‌صورت <span dir="ltr">Ephemeral</span>، <span dir="ltr">Read-only</span> و بدون <span dir="ltr">User/Project Codex Config</span> اجرا می‌کند. خروجی ساختاریافته دوباره به متن مدل یا <span dir="ltr">TL Studio Tool Call</span> تبدیل می‌شود؛ بنابراین <span dir="ltr">Permission</span>، اجرای Tool، <span dir="ltr">Session Persistence</span> و چرخهٔ بیرونی مدل → ابزار → مدل همچنان متعلق به خود <span dir="ltr">TL Studio</span> هستند.</p>
+<p dir="rtl" align="right">برای Turnهای مدل مبتنی بر پلن <span dir="ltr">ChatGPT</span>، یک <span dir="ltr">Codex App Server</span> رسمی به‌صورت Warm نگه داشته می‌شود و هر Turn در یک Thread ساختاریافته، ایزوله و <span dir="ltr">Ephemeral</span> اجرا می‌شود. خروجی ساختاریافته دوباره به متن مدل یا <span dir="ltr">TL Studio Tool Call</span> تبدیل می‌شود؛ بنابراین <span dir="ltr">Permission</span>، اجرای Tool، <span dir="ltr">Session Persistence</span> و چرخهٔ بیرونی مدل → ابزار → مدل همچنان متعلق به خود <span dir="ltr">TL Studio</span> هستند.</p>
 
-<p dir="rtl" align="right">اگر فرمان <span dir="ltr">codex</span> روی <span dir="ltr">PATH</span> موجود نباشد، برنامه می‌تواند از <span dir="ltr">npx @openai/codex</span> استفاده کند. در <span dir="ltr">Provider Settings</span> نیز می‌توان مسیر مستقیم Executable را تنظیم کرد.</p>
+<p dir="rtl" align="right">اگر فرمان <span dir="ltr">codex</span> روی <span dir="ltr">PATH</span> موجود نباشد، برنامه می‌تواند از <span dir="ltr">npx @openai/codex</span> استفاده کند. برای <span dir="ltr">Claude</span> نیز ابتدا فرمان <span dir="ltr">claude</span> شناسایی می‌شود و در صورت نیاز مسیر <span dir="ltr">npx @anthropic-ai/claude-code</span> یا Executable صریح قابل استفاده است.</p>
 
 <h3 dir="rtl" align="right">تنظیمات <span dir="ltr">Gemini</span> در نسخهٔ <span dir="ltr">Alpha</span></h3>
 

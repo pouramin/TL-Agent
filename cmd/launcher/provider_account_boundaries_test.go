@@ -11,7 +11,6 @@ import (
 
 func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T) {
 	adapters := []providerAccountAdapter{
-		newClaudeAccountBoundaryAdapter(),
 		newGitHubCopilotAccountBoundaryAdapter(),
 	}
 	service := newProviderAccountService(adapters...)
@@ -20,11 +19,11 @@ func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 2 {
-		t.Fatalf("expected 2 deferred provider accounts, got %#v", items)
+	if len(items) != 1 {
+		t.Fatalf("expected 1 deferred provider account, got %#v", items)
 	}
 
-	wantIDs := []string{"claude", "github-copilot"}
+	wantIDs := []string{"github-copilot"}
 	for index, want := range wantIDs {
 		status := items[index]
 		if status.ID != want {
@@ -42,22 +41,8 @@ func TestDeferredProviderAccountBoundariesAreVisibleAndUnavailable(t *testing.T)
 	}
 }
 
-func TestClaudeDeferredBoundaryExplainsOfficialThirdPartyRestriction(t *testing.T) {
-	status, err := newClaudeAccountBoundaryAdapter().Status(context.Background(), "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := strings.ToLower(status.Description + " " + status.Error)
-	for _, required := range []string{"anthropic", "third-party", "approval"} {
-		if !strings.Contains(text, required) {
-			t.Fatalf("Claude deferred boundary must explain the official third-party restriction; missing %q in %q", required, text)
-		}
-	}
-}
-
 func TestDeferredProviderAccountAdaptersCannotYieldRuntimeCredentials(t *testing.T) {
 	for _, adapter := range []providerAccountAdapter{
-		newClaudeAccountBoundaryAdapter(),
 		newGitHubCopilotAccountBoundaryAdapter(),
 	} {
 		if _, err := adapter.ResolveCredential(context.Background(), ""); !errors.Is(err, errCredentialNotFound) {
@@ -71,7 +56,6 @@ func TestDeferredProviderAccountAdaptersCannotYieldRuntimeCredentials(t *testing
 
 func TestDeferredProviderAccountStatusHasNoSecretFields(t *testing.T) {
 	service := newProviderAccountService(
-		newClaudeAccountBoundaryAdapter(),
 		newGitHubCopilotAccountBoundaryAdapter(),
 	)
 	items, err := service.list(context.Background(), "")
@@ -108,8 +92,10 @@ func TestOnlyUnresolvedProviderBoundariesStayOutOfRuntimeCredentialRegistry(t *t
 	text := string(mainSource)
 	for _, required := range []string{
 		"chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)",
+		"claudeAccount := newClaudeAccountAdapter(state, providerManager)",
 		"providerManager.registerAccountAdapter(chatGPTAccount)",
-		"newClaudeAccountBoundaryAdapter()",
+		"providerManager.registerAccountAdapter(claudeAccount)",
+		"newNativeModelClient(chatGPTAccount, claudeAccount)",
 		"newGitHubCopilotAccountBoundaryAdapter()",
 	} {
 		if !strings.Contains(text, required) {
@@ -118,7 +104,7 @@ func TestOnlyUnresolvedProviderBoundariesStayOutOfRuntimeCredentialRegistry(t *t
 	}
 	for _, forbidden := range []string{
 		"newChatGPTAccountBoundaryAdapter()",
-		"providerManager.registerAccountAdapter(newClaudeAccountBoundaryAdapter()",
+		"newClaudeAccountBoundaryAdapter()",
 		"providerManager.registerAccountAdapter(newGitHubCopilotAccountBoundaryAdapter()",
 	} {
 		if strings.Contains(text, forbidden) {
