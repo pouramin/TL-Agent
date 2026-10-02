@@ -402,37 +402,30 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 }
 
 
-func TestClaudeWebPairsDirectlyWithFixedChromeExtensionID(t *testing.T) {
+func TestClaudeWebUsesNativeChromeWithoutExtensionUI(t *testing.T) {
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
-		`clean(login.flow) === "claude_web_extension"`,
-		`CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla"`,
-		`(window as any).chrome?.runtime`,
-		`type: "tlstudio-ping"`,
-		`type: "tlstudio-pair-direct"`,
-		`Step 1/3 · Contacting TL Studio Claude Web Bridge`,
-		`Step 2/3 · Checking the Claude session`,
-		`Step 3/3 · Claude session found`,
-		`/local/claude-web-ui/pair?token=`,
-		`/local/claude-web-ui/poll?token=`,
-		`/local/claude-web-ui/result?token=`,
-		`type: "tlstudio-execute-direct"`,
-		`establishClaudeWebBridge`,
-		`resumeClaudeWebIfNeeded`,
 		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
 		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
-		`window.setTimeout(() => { void resumeClaudeWebIfNeeded(); }, 0)`,
+		`beginLogin(account.id)`,
+		`pollLogin(account.id, login.loginId`,
 	} {
 		if !strings.Contains(accounts, required) {
-			t.Fatalf("Claude Web direct extension pairing contract missing %q", required)
+			t.Fatalf("Claude Web native Chrome UI contract missing %q", required)
 		}
 	}
 	for _, forbidden := range []string{
-		`window.postMessage({`,
-		`tlstudio-claude-web-pair-result`,
+		`CLAUDE_WEB_EXTENSION_ID`,
+		`chrome?.runtime`,
+		`tlstudio-pair-direct`,
+		`claude-web-ui/pair`,
+		`claude-web-ui/poll`,
+		`claude-web-ui/result`,
+		`resumeClaudeWebIfNeeded`,
+		`establishClaudeWebBridge`,
 	} {
 		if strings.Contains(accounts, forbidden) {
-			t.Fatalf("Claude Web pairing must not depend on a content-script relay; found %q", forbidden)
+			t.Fatalf("Claude Web UI must not depend on the old Chrome extension relay; found %q", forbidden)
 		}
 	}
 }
