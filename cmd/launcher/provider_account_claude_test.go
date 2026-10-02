@@ -481,8 +481,8 @@ func TestClaudeRuntimeProviderAliasIsRegistered(t *testing.T) {
 	if got := manager.accountAdapter(claudeAccountRuntimeProviderID); got != adapter {
 		t.Fatalf("Claude runtime provider alias did not resolve account adapter: %#v", got)
 	}
-	if got := manager.accountAdapter(claudeAccountProviderID); got != adapter {
-		t.Fatalf("Claude account UI provider did not resolve adapter: %#v", got)
+	if got := manager.accountAdapter(claudeAccountProviderID); got != nil {
+		t.Fatalf("manual Claude API provider must not be intercepted by account adapter: %#v", got)
 	}
 }
 
