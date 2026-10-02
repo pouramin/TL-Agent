@@ -119,7 +119,7 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 	}
 	status := providerAccountStatus{
 		ID:           claudeWebAccountProviderID,
-		Name:         "Claude Web",
+		Name:         "Claude Web (Free/Pro)",
 		Description:  "Use a dedicated local browser profile to sign in to claude.ai and use that account's normal web usage limits without an Anthropic API key.",
 		Available:    availableErr == nil,
 		State:        providerAccountDisconnected,
