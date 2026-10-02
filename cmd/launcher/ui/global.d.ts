@@ -290,6 +290,8 @@ interface TLStudioProviderAccountLogin {
   authorizationUrl?: string;
   verificationUrl?: string;
   userCode?: string;
+  bridgeToken?: string;
+  bridgeOrigin?: string;
   instructions?: string;
   expiresAt?: string;
   pollIntervalSeconds?: number;
