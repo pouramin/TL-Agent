@@ -592,12 +592,28 @@ import { K } from "./kernel";
       K.state.authLoginID = clean(login.loginId);
       K.state.authURL = clean(login.authorizationUrl || login.verificationUrl);
       K.els.authInstructions.textContent = clean(login.instructions) || "Authorization is ready. Open the sign-in page to continue.";
+
+      if (clean(login.flow) === "claude_web_extension") {
+        const bridgeToken = clean(login.bridgeToken);
+        const bridgeOrigin = clean(login.bridgeOrigin) || window.location.origin;
+        if (!bridgeToken) throw new Error("Claude Web browser extension pairing token is missing.");
+        if (bridgeOrigin !== window.location.origin) throw new Error("Claude Web browser extension pairing origin mismatch.");
+        window.postMessage({
+          type: "tlstudio-claude-web-pair",
+          token: bridgeToken,
+          origin: bridgeOrigin,
+        }, window.location.origin);
+        K.els.authOpen.disabled = true;
+      }
+
       const code = clean(login.userCode);
       if (code) {
         K.els.authCode.textContent = code;
         K.els.authCodeWrap.classList.remove("hidden");
       }
-      K.els.authOpen.disabled = !K.state.authURL;
+      if (clean(login.flow) !== "claude_web_extension") {
+        K.els.authOpen.disabled = !K.state.authURL;
+      }
 
       const expiresAt = login.expiresAt ? Date.parse(login.expiresAt) : 0;
       const interval = Math.max(1, Number(login.pollIntervalSeconds) || 2) * 1000;
