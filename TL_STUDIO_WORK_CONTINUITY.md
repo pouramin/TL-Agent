@@ -34,7 +34,8 @@ None.
 
 Completed 0.6 account-provider / validation UX PRs:
 
-#159 — Enable Claude subscription login through official Claude Code
+#162 — Enable Claude subscription login through official Claude Code
+#159 — Initial Claude subscription-login implementation
 #158 — Unify button geometry across TL Studio
 #157 — Keep branded API providers on their cards
 #155 — Keep the ChatGPT Codex app-server warm between turns
@@ -160,7 +161,7 @@ For ChatGPT-plan inference, the account-managed Provider uses protocol `codex-ch
 
 The ChatGPT adapter auto-detects an installed `codex` executable. When unavailable it can use `npx @openai/codex`; Provider Settings also exposes a non-secret Codex executable override. Windows npm shims are resolved through Node so the official Codex app-server starts reliably. Tests include a fake Codex executable plus a real Windows Codex app-server/CLI contract smoke with no real credentials.
 
-PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. ChatGPT was resolved through official Codex surfaces in PR #143. Claude is resolved in PR #159 through Anthropic's documented Claude Code browser-auth and non-interactive CLI surfaces, without implementing a private OAuth client. GitHub Copilot is now the only deferred account boundary because its documented model-access path remains coupled to the Copilot SDK/runtime.
+PR #125 originally exposed ChatGPT/Codex, Claude, and GitHub Copilot as unavailable boundaries. ChatGPT was resolved through official Codex surfaces in PR #143. Claude account support is active on current dev through PR #162 using Anthropic's documented Claude Code browser-auth and non-interactive CLI surfaces, without implementing a private OAuth client. GitHub Copilot is now the only deferred account boundary because its documented model-access path remains coupled to the Copilot SDK/runtime.
 
 ## Browser contract
 
@@ -234,7 +235,7 @@ Automated validation is green through PR #155, including fake-Codex account life
 
 Real ChatGPT/Codex validation passed in full on Windows on 2026-09-29. Verified behavior includes browser login, account connection, model discovery/selection, model identity, project read/search/write, TL Studio Permission handling, model → Tool → model continuation, Terminal execution, roughly 3–5 second warm-turn latency, restart persistence, and explicit sign-out persistence.
 
-Claude account automation is green through PR #159, including a real Windows official-CLI smoke without credentials. Real Claude.ai subscription login/model/Tool/restart/logout validation remains pending.
+Claude account automation is green through PR #162, including fake-CLI lifecycle/model-bridge coverage, the no-`--bare` subscription-auth regression, and a real Windows official-CLI smoke without credentials. Real Claude.ai subscription login/model/Tool/restart/logout validation remains pending.
 
 Use docs/ACCOUNT_PROVIDER_VALIDATION.md.
 
