@@ -426,8 +426,8 @@ func (a *claudeWebAccountAdapter) Disconnect(ctx context.Context, _ string) erro
 		return err
 	}
 	a.removeManagedProvider()
-	if err := os.RemoveAll(claudeWebProfileDirectory()); err != nil {
-		return fmt.Errorf("clear TL Studio Claude Web browser profile: %w", err)
+	if err := removeClaudeWebProfileWithRetry(ctx, claudeWebProfileDirectory()); err != nil {
+		return err
 	}
 	return nil
 }
