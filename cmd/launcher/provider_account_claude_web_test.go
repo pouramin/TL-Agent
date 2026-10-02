@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -224,5 +226,35 @@ func TestClaudeWebUnavailableWithoutBrowserTransport(t *testing.T) {
 	}
 	if status.Available || !strings.Contains(status.Error, "no browser") {
 		t.Fatalf("unexpected unavailable Claude Web status: %#v", status)
+	}
+}
+
+
+func TestClaudeWebLoginRouteNeverFallsThroughToClaudeCode(t *testing.T) {
+	t.Setenv("TL_STUDIO_STATE_DIR", t.TempDir())
+	manager := newProviderManager(&appState{})
+	transport := &fakeClaudeWebTransport{}
+	webAdapter := newClaudeWebAccountAdapterWithTransport(&appState{}, manager, transport)
+	codeAdapter := newClaudeAccountAdapter(&appState{}, manager)
+	service := newProviderAccountService(codeAdapter, webAdapter)
+
+	mux := http.NewServeMux()
+	registerProviderAccountRoutes(mux, service)
+
+	request := httptest.NewRequest(http.MethodPost, "/local/provider-accounts/claude-web/login", nil)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("Claude Web login route returned HTTP %d: %s", response.Code, response.Body.String())
+	}
+	if !transport.opened {
+		t.Fatal("Claude Web login route did not open the dedicated browser transport")
+	}
+	if adapter, ok := service.adapter("claude-web"); !ok || adapter != webAdapter {
+		t.Fatalf("claude-web route resolved the wrong adapter: %#v ok=%v", adapter, ok)
+	}
+	if adapter, ok := service.adapter("claude"); !ok || adapter != codeAdapter {
+		t.Fatalf("claude route no longer resolves the Claude Code adapter: %#v ok=%v", adapter, ok)
 	}
 }
