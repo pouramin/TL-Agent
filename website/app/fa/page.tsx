@@ -115,7 +115,7 @@ export default function PersianHomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Development preview · v0.6.0-alpha.1</p>
             <h2 className="mt-2 text-3xl font-semibold">اتصال مدل با حساب کاربری در نسخهٔ 0.6 در حال اضافه‌شدن است.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              کارت‌های Provider حالا بر اساس روش واقعی اتصال هر سرویس کار می‌کنند. ChatGPT/Codex از Account Sign-in رسمی OpenAI Codex استفاده می‌کند. Claude، Google/Gemini، Hugging Face و OpenRouter مستقیماً تنظیم API Credential را با Preset آماده و Model Discovery خودکار باز می‌کنند. GitHub Copilot جایگاه Account Login را نگه می‌دارد اما Model Integration آن هنوز Deferred است.
+              کارت‌های Provider حالا بر اساس روش واقعی اتصال هر سرویس کار می‌کنند. مسیر ChatGPT/Codex از Account Sign-in رسمی OpenAI Codex استفاده می‌کند. برای Claude هم ورود اشتراک Claude.ai از مسیر رسمی Claude Code و هم مسیر مستقل Anthropic API Key وجود دارد. برای Google/Gemini، Hugging Face و OpenRouter از Presetهای API استفاده می‌شود و GitHub Copilot تنها Account Slot باقی‌مانده در حالت Deferred است.
             </p>
             <Link href="/fa/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               اتصال مدل‌ها <ArrowLeft className="size-4" />

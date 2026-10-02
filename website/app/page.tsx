@@ -115,7 +115,7 @@ export default function HomePage() {
             <p className="text-sm font-medium text-fd-muted-foreground">Development preview · v0.6.0-alpha.1</p>
             <h2 className="mt-2 text-3xl font-semibold">Account-backed model connections are landing in 0.6.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              The compact Provider cards now use the right connection method for each service. ChatGPT/Codex uses account sign-in through OpenAI&apos;s official Codex surface. Claude, Google/Gemini, Hugging Face, and OpenRouter open API credential setup with provider-specific presets and automatic model discovery. GitHub Copilot keeps an account-login slot while its model integration remains deferred.
+              The compact Provider cards now use the right connection method for each service. ChatGPT/Codex uses account sign-in through OpenAI&apos;s official Codex surface. Claude supports both Claude.ai subscription sign-in through the official Claude Code CLI and a separate Anthropic API-key path. Google/Gemini, Hugging Face, and OpenRouter use API credential presets. GitHub Copilot remains the deferred account slot.
             </p>
             <Link href="/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore model connections <ArrowRight className="size-4" />

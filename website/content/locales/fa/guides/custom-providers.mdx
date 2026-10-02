@@ -81,16 +81,20 @@ Secretها وارد Browser Storage یا Provider JSON عادی نمی‌شون�
 | --- | --- | --- |
 | **ChatGPT / Codex** | ✅ Account sign-in | Login رسمی Codex، Model Discovery مبتنی بر پلن ChatGPT و Provider Bridge ایزوله |
 | **GitHub Copilot** | ⏳ Account sign-in | جایگاه اتصال حساب آماده است اما مسیر Model هنوز Deferred است |
-| **Claude / Anthropic** | ✅ API key | Preset مربوط به Anthropic Messages API |
+| **Claude / Anthropic** | ✅ Account sign-in + API key | ورود مرورگری رسمی Claude Code برای اشتراک Claude.ai، در کنار مسیر مستقل Anthropic Messages API |
 | **Google / Gemini** | ✅ API key | Preset رسمی Gemini API سازگار با OpenAI |
 | **Hugging Face** | ✅ API token | Preset مربوط به Inference Providers سازگار با OpenAI |
 | **OpenRouter** | ✅ API key | Preset مربوط به OpenRouter سازگار با OpenAI |
 
 کارت‌های مبتنی بر API، Provider Editor فعلی را با Endpoint و Protocol آماده باز می‌کنند و فقط به‌خاطر نداشتن Consumer OAuth غیرفعال نمی‌شوند.
 
-احراز هویت ChatGPT در اختیار Client رسمی OpenAI Codex و داخل `CODEX_HOME` ایزولهٔ مخصوص TL Studio باقی می‌ماند. TL Studio هیچ OAuth Token خام، Browser Cookie، Private Session Token یا Backend Credential مستندنشدهٔ ChatGPT را نمی‌خواند یا کپی نمی‌کند.
+احراز هویت ChatGPT در اختیار Client رسمی OpenAI Codex و داخل `CODEX_HOME` ایزولهٔ مخصوص TL Studio باقی می‌ماند. احراز هویت اشتراک Claude.ai نیز در اختیار Claude Code رسمی و داخل `CLAUDE_CONFIG_DIR` ایزولهٔ مخصوص TL Studio است. TL Studio Token خام OAuth این دو مسیر را نمی‌خواند یا کپی نمی‌کند.
 
-برای Model Turnهای مبتنی بر پلن ChatGPT، برنامه Codex CLI رسمی را در Working Directory موقت و خالی، بدون User/Project Codex Config، با Sandbox فقط‌خواندنی، Approval Policy برابر `never` و Web Search غیرفعال اجرا می‌کند. خروجی ساختاریافته به متن Assistant یا TL Studio Tool Call تبدیل می‌شود و اجرای Tool و Permission همچنان داخل TL Studio انجام می‌شود.
+برای Turnهای حساب Claude، برنامه از حالت Non-interactive رسمی Claude Code با Safe Mode، Session Persistence غیرفعال، Toolهای داخلی غیرفعال، MCP مسدود، Chrome غیرفعال و Structured JSON Output استفاده می‌کند. Provider حساب با ID جداگانهٔ `claude-account` نگه‌داری می‌شود تا مسیر API دستی `claude` هیچ‌وقت بازنویسی نشود. اجرای Tool و Permission همچنان داخل TL Studio انجام می‌شود.
+
+برای Turnهای مبتنی بر پلن ChatGPT، یک Codex App Server رسمی Warm نگه داشته می‌شود و Turnهای ساختاریافتهٔ ایزوله اجرا می‌شوند؛ اجرای Tool و Permission همچنان داخل TL Studio است.
+
+> **Development Preview:** تست‌های خودکار Claude CLI و Bridge سبز هستند، اما Login و اجرای مدل با یک حساب واقعی Claude.ai هنوز باید قبل از Release Validation بررسی شوند.
 
 اگر `codex` روی PATH موجود نباشد، نسخهٔ Alpha می‌تواند از `npx @openai/codex` استفاده کند یا مسیر Codex Executable به‌صورت دستی در Provider Settings تنظیم شود.
 
