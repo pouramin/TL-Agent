@@ -586,11 +586,7 @@ func (a *claudeAccountAdapter) PollLogin(ctx context.Context, directory, loginID
 	return status, nil
 }
 
-func (a *claudeAccountAdapter) CancelLogin(context.Context, string, string) error {
-	return nil
-}
-
-func (a *claudeAccountAdapter) CancelLoginByID(loginID string) {
+func (a *claudeAccountAdapter) CancelLogin(_ context.Context, _ string, loginID string) error {
 	loginID = strings.TrimSpace(loginID)
 	a.mu.Lock()
 	transaction := a.logins[loginID]
@@ -599,6 +595,7 @@ func (a *claudeAccountAdapter) CancelLoginByID(loginID string) {
 	if transaction != nil && transaction.Command != nil && transaction.Command.Process != nil {
 		_ = transaction.Command.Process.Kill()
 	}
+	return nil
 }
 
 func (a *claudeAccountAdapter) Refresh(ctx context.Context, directory string) (providerAccountStatus, error) {
