@@ -280,7 +280,7 @@ func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (pro
 	return providerAccountLogin{
 		LoginID:             loginID,
 		Flow:                "claude_web_browser",
-		Instructions:        "Claude opened in your normal browser. The bundled Chrome extension will pair this tab and use the Claude session already signed in there.",
+		Instructions:        "Claude is pairing through your normal Chrome session. After TL Studio confirms the connection, the temporary pairing tab closes automatically and Claude stays available inside TL Studio.",
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
 		PollIntervalSeconds: 2,
 	}, nil
