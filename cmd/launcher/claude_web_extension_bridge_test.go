@@ -112,7 +112,7 @@ func TestClaudeWebExtensionUsesExternallyConnectableDirectPairing(t *testing.T) 
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 
 	for _, required := range []string{
-		`"version": "0.5.0"`,
+		`"version": "0.5.1"`,
 		`"key":`,
 		`"externally_connectable"`,
 		`"http://127.0.0.1/*"`,
