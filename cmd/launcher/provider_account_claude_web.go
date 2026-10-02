@@ -182,7 +182,7 @@ func (a *claudeWebAccountAdapter) removeManagedProvider() {
 	}
 }
 
-func (a *claudeWebAccountAdapter) Status(ctx context.Context, _ string) (providerAccountStatus, error) {
+func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccountStatus, error) {
 	status := a.baseStatus()
 	if !status.Available {
 		return status, nil
@@ -194,35 +194,6 @@ func (a *claudeWebAccountAdapter) Status(ctx context.Context, _ string) (provide
 	if !config.Connected {
 		a.removeManagedProvider()
 		return status, nil
-	}
-
-	probe, err := a.transport.Probe(ctx)
-	if err != nil {
-		a.removeManagedProvider()
-		status.State = providerAccountNeedsReauthentication
-		status.AccountType = "Claude Web"
-		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
-		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
-		status.Error = err.Error()
-		return status, nil
-	}
-	if !probe.Connected {
-		a.removeManagedProvider()
-		status.State = providerAccountNeedsReauthentication
-		status.AccountType = "Claude Web"
-		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
-		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
-		status.Error = strings.TrimSpace(probe.Error)
-		return status, nil
-	}
-	if name := strings.TrimSpace(probe.OrganizationName); name != "" {
-		config.OrganizationName = name
-	}
-	if id := strings.TrimSpace(probe.OrganizationID); id != "" {
-		config.OrganizationID = id
-	}
-	if err := saveClaudeWebConfig(config); err != nil {
-		return providerAccountStatus{}, err
 	}
 	ids, err := a.syncProvider(config)
 	if err != nil {
