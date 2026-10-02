@@ -59,6 +59,7 @@ In the v0.6 development line, the compact Provider cards choose the right connec
 
 Account sign-in:
 - ChatGPT / Codex;
+- Claude / Claude Code (Claude.ai subscription);
 - GitHub Copilot (model integration still deferred).
 
 API credential setup:
@@ -69,7 +70,7 @@ API credential setup:
 
 Clicking an API-based card opens the existing Provider editor with its endpoint/protocol preset and automatic model discovery.
 
-ChatGPT uses OpenAI's official Codex login. TL Studio auto-detects codex on PATH, can use npx @openai/codex, or accepts an explicit Codex executable path in Provider Settings.
+ChatGPT uses OpenAI's official Codex login. Claude subscription login uses the official Claude Code CLI. TL Studio auto-detects the provider CLI on PATH, can use `npx @openai/codex` or `npx @anthropic-ai/claude-code`, and accepts explicit executable paths in Provider Settings. Claude account credentials are isolated from any existing user Claude Code configuration.
 
 ## Run the Agent
 
