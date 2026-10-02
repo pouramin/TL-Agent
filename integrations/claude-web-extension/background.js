@@ -7,6 +7,27 @@ const DEFAULT_MODEL = "claude-sonnet-5-5";
 let polling = false;
 let pair = null;
 
+const injectIntoOpenTLStudioTabs = async () => {
+  let tabs = [];
+  try {
+    tabs = await chrome.tabs.query({
+      url: ["http://127.0.0.1/*", "http://localhost/*"]
+    });
+  } catch {
+    return;
+  }
+
+  for (const tab of tabs) {
+    if (!Number.isInteger(tab.id)) continue;
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ["content.js"]
+      });
+    } catch {}
+  }
+};
+
 const validLocalOrigin = (value) => {
   try {
     const url = new URL(String(value || ""));
@@ -439,6 +460,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-chrome.runtime.onStartup.addListener(() => { void startPolling(); });
-chrome.runtime.onInstalled.addListener(() => { void startPolling(); });
+chrome.runtime.onStartup.addListener(() => {
+  void injectIntoOpenTLStudioTabs();
+  void startPolling();
+});
+chrome.runtime.onInstalled.addListener(() => {
+  void injectIntoOpenTLStudioTabs();
+  void startPolling();
+});
+void injectIntoOpenTLStudioTabs();
 void startPolling();
