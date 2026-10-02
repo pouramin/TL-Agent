@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"net/http"
-	"strings"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -99,6 +99,52 @@ func TestClaudeWebExtensionUsesTablessBackgroundTransport(t *testing.T) {
 	} {
 		if strings.Contains(source, forbidden) {
 			t.Fatalf("Claude Web must stay inside TL Studio; background transport contains %q", forbidden)
+		}
+	}
+}
+
+
+func TestClaudeWebExtensionRepairsPairingInAlreadyOpenTLStudioTabs(t *testing.T) {
+	manifest := readRepoText(t, "integrations/claude-web-extension/manifest.json")
+	background := readRepoText(t, "integrations/claude-web-extension/background.js")
+	content := readRepoText(t, "integrations/claude-web-extension/content.js")
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+
+	for _, required := range []string{
+		`"tabs"`,
+		`"scripting"`,
+		`"version": "0.3.0"`,
+	} {
+		if !strings.Contains(manifest, required) {
+			t.Fatalf("Claude Web manifest pairing repair missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`injectIntoOpenTLStudioTabs`,
+		`chrome.tabs.query`,
+		`chrome.scripting.executeScript`,
+		`files: ["content.js"]`,
+	} {
+		if !strings.Contains(background, required) {
+			t.Fatalf("Claude Web background pairing repair missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`tlstudio-claude-web-pair-result`,
+		`chrome.runtime.sendMessage`,
+	} {
+		if !strings.Contains(content, required) {
+			t.Fatalf("Claude Web content pairing acknowledgement missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`claudeWebBridgeAck`,
+		`tlstudio-claude-web-pair-result`,
+		`Date.now() - claudeWebPairStartedAt > 12000`,
+		`Claude Web extension did not respond`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("Claude Web UI pairing retry contract missing %q", required)
 		}
 	}
 }
