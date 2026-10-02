@@ -21,7 +21,6 @@ const (
 )
 
 type claudeWebConfig struct {
-	BrowserExecutable string `json:"browserExecutable,omitempty"`
 	Connected         bool   `json:"connected,omitempty"`
 	OrganizationID    string `json:"organizationId,omitempty"`
 	OrganizationName  string `json:"organizationName,omitempty"`
@@ -43,7 +42,6 @@ func loadClaudeWebConfig() (claudeWebConfig, error) {
 	if err := json.Unmarshal(data, &config); err != nil {
 		return claudeWebConfig{}, fmt.Errorf("decode Claude Web config: %w", err)
 	}
-	config.BrowserExecutable = strings.TrimSpace(config.BrowserExecutable)
 	config.OrganizationID = strings.TrimSpace(config.OrganizationID)
 	config.OrganizationName = strings.TrimSpace(config.OrganizationName)
 	return config, nil
@@ -127,9 +125,9 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 		Capabilities: []string{"models", "inference"},
 		BillingNote:  "Uses the signed-in Claude Web account and its normal web usage limits. No Anthropic API billing is used.",
 		Setup: &providerAccountSetupSummary{
-			Configurable: true,
+			Configurable: false,
 			Configured:   availableErr == nil,
-			Label:        "Claude Web browser setup",
+			Label:        "Claude Web Chrome extension",
 		},
 	}
 	if availableErr != nil {
@@ -211,55 +209,15 @@ func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccou
 }
 
 func (a *claudeWebAccountAdapter) Setup(context.Context, string) (providerAccountSetup, error) {
-	config, err := loadClaudeWebConfig()
-	if err != nil {
-		return providerAccountSetup{}, err
-	}
-	override := strings.TrimSpace(os.Getenv("TL_STUDIO_CLAUDE_WEB_BROWSER"))
-	value := config.BrowserExecutable
-	readOnly := override != ""
-	if readOnly {
-		value = override
-	}
 	return providerAccountSetup{
-		Title:       "Claude Web browser setup",
-		Description: "Use the bundled TL Studio Claude Web Bridge extension in your normal Chrome profile.",
-		Fields: []providerAccountSetupField{{
-			ID:          "browserExecutable",
-			Label:       "Legacy browser executable",
-			Description: "Legacy field; the Chrome extension bridge does not use a separate browser executable.",
-			Placeholder: "msedge / chrome",
-			Value:       value,
-			ReadOnly:    readOnly,
-		}},
+		Title:       "Claude Web Chrome extension",
+		Description: "Claude Web uses the bundled Chrome extension and the signed-in Claude session from the normal Chrome profile.",
+		Fields:      []providerAccountSetupField{},
 	}, nil
 }
 
-func (a *claudeWebAccountAdapter) Configure(ctx context.Context, directory string, values map[string]string) (providerAccountStatus, error) {
-	if strings.TrimSpace(os.Getenv("TL_STUDIO_CLAUDE_WEB_BROWSER")) != "" {
-		return providerAccountStatus{}, errors.New("Claude Web browser executable is controlled by TL_STUDIO_CLAUDE_WEB_BROWSER")
-	}
-	config, err := loadClaudeWebConfig()
-	if err != nil {
-		return providerAccountStatus{}, err
-	}
-	config.BrowserExecutable = strings.TrimSpace(values["browserExecutable"])
-	if config.BrowserExecutable != "" {
-		if _, ok := resolveExecutableCandidate(config.BrowserExecutable); !ok {
-			return providerAccountStatus{}, errors.New("configured Claude Web browser executable was not found")
-		}
-	}
-	if err := saveClaudeWebConfig(config); err != nil {
-		return providerAccountStatus{}, err
-	}
-	status, err := a.Status(ctx, directory)
-	if err != nil {
-		return providerAccountStatus{}, err
-	}
-	if !status.Available {
-		return status, errors.New(status.Error)
-	}
-	return status, nil
+func (a *claudeWebAccountAdapter) Configure(ctx context.Context, directory string, _ map[string]string) (providerAccountStatus, error) {
+	return a.Status(ctx, directory)
 }
 
 func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (providerAccountLogin, error) {
