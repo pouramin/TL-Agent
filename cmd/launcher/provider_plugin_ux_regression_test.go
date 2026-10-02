@@ -378,7 +378,7 @@ func TestActionButtonsShareOneVisualGeometryContract(t *testing.T) {
 func TestClaudeProviderCardSupportsAccountAndAPIIndependently(t *testing.T) {
 	source := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
-		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "github-copilot"])`,
+		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "claude-web", "github-copilot"])`,
 		`claude: "claude-account"`,
 		`const isHybridProvider = isAPIProvider && isAccountProvider`,
 		`accountConnected && apiConnected`,
@@ -393,5 +393,21 @@ func TestClaudeProviderCardSupportsAccountAndAPIIndependently(t *testing.T) {
 	}
 	if !strings.Contains(source, `flex-wrap:wrap`) {
 		t.Fatal("hybrid provider actions must wrap without overflowing the compact card")
+	}
+}
+
+
+func TestClaudeWebProviderCardUsesIndependentBrowserAccountRuntime(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`"claude-web": "claude-web-account"`,
+		`providerCardOrder = ["chatgpt", "claude", "claude-web"`,
+		`account.id === "claude-web"`,
+		`data-provider="claude-web"`,
+		`const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web provider card contract missing %q", required)
+		}
 	}
 }

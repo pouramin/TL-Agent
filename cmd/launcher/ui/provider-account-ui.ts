@@ -64,7 +64,7 @@ import { K } from "./kernel";
     .provider-account-logo{display:grid;width:46px;height:46px;place-items:center;border:1px solid color-mix(in srgb,var(--line) 72%,transparent);border-radius:13px;background:rgba(255,255,255,.035);color:var(--text);overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.12)}
     .provider-account-logo svg{display:block;width:29px;height:29px}
     .provider-account-logo[data-provider="chatgpt"]{background:#111827;color:#fff}
-    .provider-account-logo[data-provider="claude"]{background:#D97757;color:#FFF8F0}
+    .provider-account-logo[data-provider="claude"],.provider-account-logo[data-provider="claude-web"]{background:#D97757;color:#FFF8F0}
     .provider-account-logo[data-provider="gemini"]{background:linear-gradient(135deg,rgba(66,133,244,.18),rgba(142,117,178,.22) 52%,rgba(217,101,167,.18));color:#fff}
     .provider-account-logo[data-provider="github-copilot"]{background:linear-gradient(135deg,#24292f,#8250df);color:#fff}
     .provider-account-logo[data-provider="huggingface"]{background:#FFD21E;color:#111827}
@@ -89,13 +89,14 @@ import { K } from "./kernel";
   const accountList = document.getElementById("providerAccountList")!;
   let loading = false;
 
-  const accountLoginProviderIDs = new Set(["chatgpt", "claude", "github-copilot"]);
+  const accountLoginProviderIDs = new Set(["chatgpt", "claude", "claude-web", "github-copilot"]);
   const accountRuntimeProviderIDs: Record<string, string> = {
     chatgpt: "chatgpt",
     claude: "claude-account",
+    "claude-web": "claude-web-account",
     "github-copilot": "github-copilot",
   };
-  const providerCardOrder = ["chatgpt", "claude", "gemini", "github-copilot", "huggingface", "openrouter"];
+  const providerCardOrder = ["chatgpt", "claude", "claude-web", "gemini", "github-copilot", "huggingface", "openrouter"];
   const apiProviderPresets: Record<string, TLStudioDynamicRecord> = {
     claude: {
       providerID: "claude",
@@ -238,6 +239,7 @@ import { K } from "./kernel";
       huggingface: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.025 1.13c-5.77 0-10.449 4.647-10.449 10.378 0 1.112.178 2.181.503 3.185.064-.222.203-.444.416-.577a.96.96 0 0 1 .524-.15c.293 0 .584.124.84.284.278.173.48.408.71.694.226.282.458.611.684.951v-.014c.017-.324.106-.622.264-.874s.403-.487.762-.543c.3-.047.596.06.787.203s.31.313.4.467c.15.257.212.468.233.542.01.026.653 1.552 1.657 2.54.616.605 1.01 1.223 1.082 1.912.055.537-.096 1.059-.38 1.572.637.121 1.294.187 1.967.187.657 0 1.298-.063 1.921-.178-.287-.517-.44-1.041-.384-1.581.07-.69.465-1.307 1.081-1.913 1.004-.987 1.647-2.513 1.657-2.539.021-.074.083-.285.233-.542.09-.154.208-.323.4-.467a1.08 1.08 0 0 1 .787-.203c.359.056.604.29.762.543s.247.55.265.874v.015c.225-.34.457-.67.683-.952.23-.286.432-.52.71-.694.257-.16.547-.284.84-.285a.97.97 0 0 1 .524.151c.228.143.373.388.43.625l.006.04a10.3 10.3 0 0 0 .534-3.273c0-5.731-4.678-10.378-10.449-10.378M8.327 6.583a1.5 1.5 0 0 1 .713.174 1.487 1.487 0 0 1 .617 2.013c-.183.343-.762-.214-1.102-.094-.38.134-.532.914-.917.71a1.487 1.487 0 0 1 .69-2.803m7.486 0a1.487 1.487 0 0 1 .689 2.803c-.385.204-.536-.576-.916-.71-.34-.12-.92.437-1.103.094a1.487 1.487 0 0 1 .617-2.013 1.5 1.5 0 0 1 .713-.174m-10.68 1.55a.96.96 0 1 1 0 1.921.96.96 0 0 1 0-1.92m13.838 0a.96.96 0 1 1 0 1.92.96.96 0 0 1 0-1.92M8.489 11.458c.588.01 1.965 1.157 3.572 1.164 1.607-.007 2.984-1.155 3.572-1.164.196-.003.305.12.305.454 0 .886-.424 2.328-1.563 3.202-.22-.756-1.396-1.366-1.63-1.32q-.011.001-.02.006l-.044.026-.01.008-.03.024q-.018.017-.035.036l-.032.04a1 1 0 0 0-.058.09l-.014.025q-.049.088-.11.19a1 1 0 0 1-.083.116 1.2 1.2 0 0 1-.173.18q-.035.029-.075.058a1.3 1.3 0 0 1-.251-.243 1 1 0 0 1-.076-.107c-.124-.193-.177-.363-.337-.444-.034-.016-.104-.008-.2.022q-.094.03-.216.087-.06.028-.125.063l-.13.074q-.067.04-.136.086a3 3 0 0 0-.135.096 3 3 0 0 0-.26.219 2 2 0 0 0-.12.121 2 2 0 0 0-.106.128l-.002.002a2 2 0 0 0-.09.132l-.001.001a1.2 1.2 0 0 0-.105.212q-.013.036-.024.073c-1.139-.875-1.563-2.317-1.563-3.203 0-.334.109-.457.305-.454m.836 10.354c.824-1.19.766-2.082-.365-3.194-1.13-1.112-1.789-2.738-1.789-2.738s-.246-.945-.806-.858-.97 1.499.202 2.362c1.173.864-.233 1.45-.685.64-.45-.812-1.683-2.896-2.322-3.295s-1.089-.175-.938.647 2.822 2.813 2.562 3.244-1.176-.506-1.176-.506-2.866-2.567-3.49-1.898.473 1.23 2.037 2.16c1.564.932 1.686 1.178 1.464 1.53s-3.675-2.511-4-1.297c-.323 1.214 3.524 1.567 3.287 2.405-.238.839-2.71-1.587-3.216-.642-.506.946 3.49 2.056 3.522 2.064 1.29.33 4.568 1.028 5.713-.624m5.349 0c-.824-1.19-.766-2.082.365-3.194 1.13-1.112 1.789-2.738 1.789-2.738s.246-.945.806-.858.97 1.499-.202 2.362c-1.173.864.233 1.45.685.64.451-.812 1.683-2.896 2.322-3.295s1.089-.175.938.647-2.822 2.813-2.562 3.244 1.176-.506 1.176-.506 2.866-2.567 3.49-1.898-.473 1.23-2.037 2.16c-1.564.932-1.686 1.178-1.464 1.53s3.675-2.511 4-1.297c.323 1.214-3.524 1.567-3.287 2.405.238.839 2.71-1.587 3.216-.642.506.946-3.49 2.056-3.522 2.064-1.29.33-4.568 1.028-5.713-.624"/></svg>`,
       openrouter: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.778 1.844v1.919q-.569-.026-1.138-.032-.708-.008-1.415.037c-1.93.126-4.023.728-6.149 2.237-2.911 2.066-2.731 1.95-4.14 2.75-.396.223-1.342.574-2.185.798-.841.225-1.753.333-1.751.333v4.229s.768.108 1.61.333c.842.224 1.789.575 2.185.799 1.41.798 1.228.683 4.14 2.75 2.126 1.509 4.22 2.11 6.148 2.236.88.058 1.716.041 2.555.005v1.918l7.222-4.168-7.222-4.17v2.176c-.86.038-1.611.065-2.278.021-1.364-.09-2.417-.357-3.979-1.465-2.244-1.593-2.866-2.027-3.68-2.508.889-.518 1.449-.906 3.822-2.59 1.56-1.109 2.614-1.377 3.978-1.466.667-.044 1.418-.017 2.278.02v2.176L24 6.014Z"/></svg>`,
     };
+    if (account.id === "claude-web") return icons.claude;
     return icons[account.id] || `<span class="provider-account-logo-fallback">${clean(account.name || account.id).slice(0, 1).toUpperCase() || "?"}</span>`;
   };
 
@@ -588,7 +590,8 @@ import { K } from "./kernel";
     K.showError("");
     try {
       await K.api.providerAccounts.disconnect(account.id);
-      if (K.state.session?.model?.providerID === account.id) K.state.session.model = undefined;
+      const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id;
+      if (K.state.session?.model?.providerID === runtimeProviderID) K.state.session.model = undefined;
       if (K.els.modelSelect) K.els.modelSelect.value = "";
       await refreshProviderSurfaces();
     } catch (error) {

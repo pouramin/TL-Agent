@@ -25,6 +25,7 @@ var providerProtocolPackages = map[string]string{
 	"gemini-generate-content": "@google/genai",
 	"codex-chatgpt":            "@openai/codex",
 	"claude-code-account":       "@anthropic-ai/claude-code",
+	"claude-web-browser":        "claude.ai browser",
 }
 
 type tlProviderModel struct {

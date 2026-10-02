@@ -137,17 +137,20 @@ func newServer(state *appState) (http.Handler, error) {
 	googleGeminiAccount := newGoogleGeminiAccountAdapter(state, providerManager)
 	chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)
 	claudeAccount := newClaudeAccountAdapter(state, providerManager)
+	claudeWebAccount := newClaudeWebAccountAdapter(state, providerManager)
 	providerManager.registerAccountAdapter(openRouterAccount)
 	providerManager.registerAccountAdapter(huggingFaceAccount)
 	providerManager.registerAccountAdapter(googleGeminiAccount)
 	providerManager.registerAccountAdapter(chatGPTAccount)
 	providerManager.registerAccountAdapter(claudeAccount)
+	providerManager.registerAccountAdapter(claudeWebAccount)
 	providerAccounts := newProviderAccountService(
 		openRouterAccount,
 		huggingFaceAccount,
 		googleGeminiAccount,
 		chatGPTAccount,
 		claudeAccount,
+		claudeWebAccount,
 		newGitHubCopilotAccountBoundaryAdapter(),
 	)
 	jevRouter := newJevRouterService(providerManager)
@@ -164,7 +167,7 @@ func newServer(state *appState) (http.Handler, error) {
 	nativeTools.setQuestionManager(questions)
 
 	sessionRead := newSessionReadContract(state)
-	nativeAgent := newNativeAgentRuntime(providerManager, newNativeModelClient(chatGPTAccount, claudeAccount), nativeTools, sessionRead.store, liveEvents.bus)
+	nativeAgent := newNativeAgentRuntime(providerManager, newNativeModelClient(chatGPTAccount, claudeAccount, claudeWebAccount), nativeTools, sessionRead.store, liveEvents.bus)
 	sessionRead.setNativeStatusProvider(nativeAgent)
 	sessionCommands := newSessionCommandContract(state, sessionRead, nativeAgent)
 
