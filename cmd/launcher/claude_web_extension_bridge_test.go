@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -110,7 +112,7 @@ func TestClaudeWebExtensionUsesExternallyConnectableDirectPairing(t *testing.T) 
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 
 	for _, required := range []string{
-		`"version": "0.4.0"`,
+		`"version": "0.5.0"`,
 		`"key":`,
 		`"externally_connectable"`,
 		`"http://127.0.0.1/*"`,
@@ -128,6 +130,7 @@ func TestClaudeWebExtensionUsesExternallyConnectableDirectPairing(t *testing.T) 
 		`tlstudio-ping`,
 		`tlstudio-pair-direct`,
 		`validExternalSender`,
+		`tlstudio-execute-direct`,
 	} {
 		if !strings.Contains(background, required) {
 			t.Fatalf("Claude Web external pairing background missing %q", required)
@@ -135,5 +138,82 @@ func TestClaudeWebExtensionUsesExternallyConnectableDirectPairing(t *testing.T) 
 	}
 	if !strings.Contains(accounts, `CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla"`) {
 		t.Fatal("TL Studio must target the fixed Claude Web extension ID")
+	}
+}
+
+
+func TestClaudeWebUIRelayPairsPollsAndReturnsResult(t *testing.T) {
+	bridge := newClaudeWebExtensionBridge(&appState{frontendURL: "http://127.0.0.1:32123"})
+	bridge.token = "pair-token"
+
+	mux := http.NewServeMux()
+	registerClaudeWebUIRelayRoutes(mux, bridge)
+
+	pairReq := httptest.NewRequest(http.MethodPost, "/local/claude-web-ui/pair?token=pair-token", nil)
+	pairRes := httptest.NewRecorder()
+	mux.ServeHTTP(pairRes, pairReq)
+	if pairRes.Code != http.StatusOK {
+		t.Fatalf("pair returned HTTP %d: %s", pairRes.Code, pairRes.Body.String())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := bridge.Complete(ctx, "hello")
+		done <- err
+	}()
+
+	deadline := time.Now().Add(time.Second)
+	var command claudeWebExtensionCommand
+	for time.Now().Before(deadline) {
+		req := httptest.NewRequest(http.MethodGet, "/local/claude-web-ui/poll?token=pair-token", nil)
+		res := httptest.NewRecorder()
+		mux.ServeHTTP(res, req)
+		if res.Code != http.StatusOK {
+			t.Fatalf("poll returned HTTP %d: %s", res.Code, res.Body.String())
+		}
+		var payload struct {
+			Command *claudeWebExtensionCommand `json:"command"`
+		}
+		if err := json.Unmarshal(res.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Command != nil {
+			command = *payload.Command
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if command.ID == "" || command.Kind != "complete" {
+		t.Fatalf("completion command was not relayed: %#v", command)
+	}
+
+	body, err := json.Marshal(claudeWebExtensionResult{
+		ID: command.ID,
+		OK: true,
+		Text: "done",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resultReq := httptest.NewRequest(
+		http.MethodPost,
+		"/local/claude-web-ui/result?token=pair-token",
+		bytes.NewReader(body),
+	)
+	resultRes := httptest.NewRecorder()
+	mux.ServeHTTP(resultRes, resultReq)
+	if resultRes.Code != http.StatusOK {
+		t.Fatalf("result returned HTTP %d: %s", resultRes.Code, resultRes.Body.String())
+	}
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
 	}
 }
