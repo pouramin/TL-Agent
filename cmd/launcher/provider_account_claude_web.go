@@ -308,6 +308,11 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	}
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
+		if isClaudeWebTransientBrowserError(err) {
+			status := a.baseStatus()
+			status.State = providerAccountConnecting
+			return status, nil
+		}
 		return providerAccountStatus{}, err
 	}
 	if !probe.Connected {
