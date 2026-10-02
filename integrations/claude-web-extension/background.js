@@ -10,15 +10,23 @@ const validOrigin = (value) => {
   } catch { return false; }
 };
 
-const savePair = async (origin, token) => {
-  pair = { origin: origin.replace(/\/$/, ""), token };
+const savePair = async (origin, token, pairTabId = null) => {
+  pair = {
+    origin: origin.replace(/\/$/, ""),
+    token,
+    pairTabId: Number.isInteger(pairTabId) ? pairTabId : null
+  };
   await chrome.storage.local.set({ tlStudioOrigin: pair.origin, tlStudioPairToken: pair.token });
 };
 
 const loadPair = async () => {
   const stored = await chrome.storage.local.get(["tlStudioOrigin","tlStudioPairToken"]);
   if (validOrigin(stored.tlStudioOrigin) && stored.tlStudioPairToken) {
-    pair = { origin: String(stored.tlStudioOrigin).replace(/\/$/, ""), token: String(stored.tlStudioPairToken) };
+    pair = {
+      origin: String(stored.tlStudioOrigin).replace(/\/$/, ""),
+      token: String(stored.tlStudioPairToken),
+      pairTabId: null
+    };
   }
 };
 
@@ -36,13 +44,27 @@ const waitForTabReady = (tabId, timeoutMs = 20000) => new Promise((resolve, reje
   chrome.tabs.onUpdated.addListener(onUpdated);
 });
 
+const closePairTabAfterSuccess = async () => {
+  if (!pair || !Number.isInteger(pair.pairTabId)) return;
+  const pairTabId = pair.pairTabId;
+  pair.pairTabId = null;
+  try { await chrome.tabs.remove(pairTabId); } catch {}
+};
+
 const executeProbe = async (command) => {
   const tabs = await chrome.tabs.query({ url: "https://claude.ai/*" });
-  const tab = tabs.find((item) => Number.isInteger(item.id));
+  let tab = null;
+  if (pair && Number.isInteger(pair.pairTabId)) {
+    tab = tabs.find((item) => item.id === pair.pairTabId) || null;
+  }
+  if (!tab) tab = tabs.find((item) => Number.isInteger(item.id)) || null;
   if (!tab) return { id: command.id, ok: true, connected: false };
+
   try {
     const result = await chrome.tabs.sendMessage(tab.id, { type: "tlstudio-probe" });
-    return { id: command.id, ...(result || { ok: true, connected: false }) };
+    const payload = { id: command.id, ...(result || { ok: true, connected: false }) };
+    if (payload.connected) await closePairTabAfterSuccess();
+    return payload;
   } catch {
     return { id: command.id, ok: true, connected: false };
   }
@@ -115,7 +137,7 @@ const startPolling = async () => {
   }
 };
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === "tlstudio-pair") {
     const origin = String(message.origin || "");
     const token = String(message.token || "");
@@ -123,7 +145,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse({ ok: false });
       return;
     }
-    void savePair(origin, token).then(() => {
+    void savePair(origin, token, sender?.tab?.id).then(() => {
       void startPolling();
       sendResponse({ ok: true });
     });
