@@ -18,6 +18,7 @@ const (
 	claudeWebProviderProtocol         = "claude-web-browser"
 	claudeWebRuntimeBaseURL           = "https://claude.ai"
 	claudeWebRuntimeCredentialSentinel = "claude-web-browser-session"
+	claudeWebModelID                   = "claude-sonnet-5-5"
 )
 
 type claudeWebConfig struct {
@@ -137,9 +138,9 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 
 func claudeWebModels() []tlProviderModel {
 	return []tlProviderModel{{
-		ID:       "default",
-		Name:     "Claude Web (account default)",
-		ToolCall: true,
+		ID:        claudeWebModelID,
+		Name:      "Claude Sonnet 5.5 (Web)",
+		ToolCall:  true,
 		Reasoning: true,
 	}}
 }
@@ -192,6 +193,15 @@ func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccou
 	}
 	if !config.Connected {
 		a.removeManagedProvider()
+		return status, nil
+	}
+	if paired, ok := a.transport.(interface{ Paired() bool }); ok && !paired.Paired() {
+		a.removeManagedProvider()
+		status.State = providerAccountNeedsReauthentication
+		status.AccountType = "Claude Web"
+		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
+		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
+		status.Error = "Claude Web is still signed in, but the TL Studio browser bridge needs to reconnect."
 		return status, nil
 	}
 	ids, err := a.syncProvider(config)
@@ -330,6 +340,15 @@ func (a *claudeWebAccountAdapter) Refresh(ctx context.Context, directory string)
 	}
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
+		if errors.Is(err, errClaudeWebExtensionNotPaired) {
+			status := a.baseStatus()
+			status.State = providerAccountNeedsReauthentication
+			status.AccountType = "Claude Web"
+			status.AccountLabel = strings.TrimSpace(config.OrganizationName)
+			status.OrganizationID = strings.TrimSpace(config.OrganizationID)
+			status.Error = "Claude Web bridge needs to reconnect to this TL Studio page."
+			return status, nil
+		}
 		return providerAccountStatus{}, err
 	}
 	if !probe.Connected {
@@ -452,6 +471,9 @@ func (a *claudeWebAccountAdapter) CompleteModelTurn(ctx context.Context, request
 	}
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
+		if errors.Is(err, errClaudeWebExtensionNotPaired) {
+			return nativeModelResponse{}, errors.New("Claude Web bridge is not connected to this TL Studio page yet; reconnecting is required")
+		}
 		return nativeModelResponse{}, err
 	}
 	if !probe.Connected {
