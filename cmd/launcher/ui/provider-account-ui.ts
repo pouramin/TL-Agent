@@ -98,6 +98,8 @@ import { K } from "./kernel";
   };
 
   const CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla";
+  let claudeWebRelayController: AbortController | null = null;
+  let claudeWebRelayToken = "";
   const providerCardOrder = ["chatgpt", "claude", "gemini", "github-copilot", "huggingface", "openrouter"];
   const apiProviderPresets: Record<string, TLStudioDynamicRecord> = {
     claude: {
@@ -616,6 +618,86 @@ import { K } from "./kernel";
     }
   });
 
+  const stopClaudeWebRelay = () => {
+    claudeWebRelayController?.abort();
+    claudeWebRelayController = null;
+    claudeWebRelayToken = "";
+  };
+
+  const claudeWebRelayFetch = async (
+    path: string,
+    init?: RequestInit,
+  ) => {
+    const response = await fetch(path, {
+      cache: "no-store",
+      credentials: "same-origin",
+      ...init,
+    });
+    if (!response.ok) {
+      let detail = "";
+      try {
+        const body = await response.json();
+        detail = clean(body?.error);
+      } catch {}
+      throw new Error(detail || `Claude Web relay returned HTTP ${response.status}`);
+    }
+    return response;
+  };
+
+  const startClaudeWebRelay = (token: string) => {
+    stopClaudeWebRelay();
+    const cleanToken = clean(token);
+    if (!cleanToken) throw new Error("Claude Web relay token is missing.");
+
+    const controller = new AbortController();
+    claudeWebRelayController = controller;
+    claudeWebRelayToken = cleanToken;
+
+    void (async () => {
+      while (!controller.signal.aborted && claudeWebRelayToken === cleanToken) {
+        try {
+          const response = await claudeWebRelayFetch(
+            `/local/claude-web-ui/poll?token=${encodeURIComponent(cleanToken)}`,
+            { signal: controller.signal },
+          );
+          const payload = await response.json();
+          const command = payload?.command as TLStudioDynamicRecord | undefined;
+          if (command?.id) {
+            let result: TLStudioDynamicRecord;
+            try {
+              result = await sendClaudeWebExtensionMessage({
+                type: "tlstudio-execute-direct",
+                command,
+              }, 190000);
+            } catch (error) {
+              result = {
+                id: clean(command.id),
+                ok: false,
+                error: error instanceof Error ? error.message : String(error),
+              };
+            }
+
+            await claudeWebRelayFetch(
+              `/local/claude-web-ui/result?token=${encodeURIComponent(cleanToken)}`,
+              {
+                method: "POST",
+                signal: controller.signal,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(result),
+              },
+            );
+            continue;
+          }
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          console.warn("Claude Web relay:", error);
+        }
+
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 180));
+      }
+    })();
+  };
+
   const connectAccount = async (account: TLStudioProviderAccount) => {
     if (!account.available) return;
     K.showError("");
@@ -668,6 +750,11 @@ import { K } from "./kernel";
           throw new Error(stage ? `${stage}: ${detail}` : detail);
         }
         K.els.authInstructions.textContent = "Step 3/3 · Claude session found. Connecting it to TL Studio…";
+        await claudeWebRelayFetch(
+          `/local/claude-web-ui/pair?token=${encodeURIComponent(claudeWebBridgeToken)}`,
+          { method: "POST", signal: controller.signal },
+        );
+        startClaudeWebRelay(claudeWebBridgeToken);
         K.els.authOpen.disabled = true;
       }
 
@@ -701,6 +788,7 @@ import { K } from "./kernel";
         await wait(interval, controller.signal);
       }
     } catch (error) {
+      if (account.id === "claude-web") stopClaudeWebRelay();
       if ((error as any)?.name !== "AbortError") {
         K.els.authInstructions.textContent = `Sign-in failed: ${error instanceof Error ? error.message : String(error)}`;
       }
@@ -746,6 +834,7 @@ import { K } from "./kernel";
     if (!window.confirm(`Sign out of ${account.name || account.id} on this computer?`)) return;
     K.showError("");
     try {
+      if (account.id === "claude-web") stopClaudeWebRelay();
       await K.api.providerAccounts.disconnect(account.id);
       const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id;
       if (K.state.session?.model?.providerID === runtimeProviderID) K.state.session.model = undefined;
