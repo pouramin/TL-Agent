@@ -4,9 +4,6 @@ const CLAUDE_API = "https://claude.ai/api";
 const SESSION_RULE_ID = 42001;
 const DEFAULT_MODEL = "claude-sonnet-5-5";
 
-let polling = false;
-let pair = null;
-
 const validLocalOrigin = (value) => {
   try {
     const url = new URL(String(value || ""));
@@ -25,27 +22,6 @@ const validExternalSender = (sender) => {
       (url.hostname === "127.0.0.1" || url.hostname === "localhost");
   } catch {
     return false;
-  }
-};
-
-const savePair = async (origin, token) => {
-  pair = { origin: origin.replace(/\/$/, ""), token };
-  await chrome.storage.local.set({
-    tlStudioOrigin: pair.origin,
-    tlStudioPairToken: pair.token
-  });
-};
-
-const loadPair = async () => {
-  const stored = await chrome.storage.local.get([
-    "tlStudioOrigin",
-    "tlStudioPairToken"
-  ]);
-  if (validLocalOrigin(stored.tlStudioOrigin) && stored.tlStudioPairToken) {
-    pair = {
-      origin: String(stored.tlStudioOrigin).replace(/\/$/, ""),
-      token: String(stored.tlStudioPairToken)
-    };
   }
 };
 
@@ -369,70 +345,6 @@ const execute = async (command) => {
   };
 };
 
-const postResult = async (result) => {
-  if (!pair) return;
-  await fetch(
-    pair.origin +
-      "/local/claude-web-extension/result?token=" +
-      encodeURIComponent(pair.token),
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(result),
-      cache: "no-store",
-      credentials: "omit"
-    }
-  );
-};
-
-const pollOnce = async () => {
-  if (!pair) return;
-  const response = await fetch(
-    pair.origin +
-      "/local/claude-web-extension/poll?token=" +
-      encodeURIComponent(pair.token),
-    { cache: "no-store", credentials: "omit" }
-  );
-
-  if (response.status === 401 || response.status === 403) {
-    pair = null;
-    return;
-  }
-  if (!response.ok) {
-    throw new Error("TL Studio bridge returned HTTP " + response.status);
-  }
-
-  const payload = await response.json();
-  if (payload?.command) {
-    await postResult(await execute(payload.command));
-  }
-};
-
-const startPolling = async () => {
-  if (polling) return;
-  if (!pair) await loadPair();
-  if (!pair) return;
-
-  polling = true;
-  try {
-    while (pair) {
-      try {
-        await pollOnce();
-      } catch {}
-      await new Promise((resolve) => setTimeout(resolve, 450));
-    }
-  } finally {
-    polling = false;
-  }
-};
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "tlstudio-ensure-polling") {
-    void startPolling();
-    sendResponse({ ok: true });
-  }
-});
-
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
   if (!validExternalSender(sender)) {
     sendResponse({
@@ -454,41 +366,33 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
     return;
   }
 
-  if (message?.type !== "tlstudio-pair-direct") return;
-
-  const origin = String(message.origin || "");
-  const token = String(message.token || "");
-  if (!validLocalOrigin(origin) || token.length < 32) {
-    sendResponse({
-      ok: false,
-      connected: false,
-      stage: "pairing-data-invalid",
-      error: "TL Studio pairing data is invalid."
-    });
-    return;
-  }
-
-  void savePair(origin, token).then(async () => {
-    let probe;
-    try {
-      probe = await probeSession();
-    } catch (error) {
-      probe = {
+  if (message?.type === "tlstudio-pair-direct") {
+    void probeSession().then((probe) => {
+      sendResponse({
+        ...probe,
+        stage: probe?.connected ? "claude-session-ready" : "claude-session-probe-failed",
+        extensionVersion: chrome.runtime.getManifest().version
+      });
+    }, (error) => {
+      sendResponse({
         ok: false,
         connected: false,
-        error: String(error?.message || error)
-      };
-    }
-    void startPolling();
-    sendResponse({
-      ...probe,
-      stage: probe?.connected ? "claude-session-ready" : "claude-session-probe-failed",
-      extensionVersion: chrome.runtime.getManifest().version
+        stage: "claude-session-probe-failed",
+        error: String(error?.message || error),
+        extensionVersion: chrome.runtime.getManifest().version
+      });
     });
-  });
-  return true;
-});
+    return true;
+  }
 
-chrome.runtime.onStartup.addListener(() => { void startPolling(); });
-chrome.runtime.onInstalled.addListener(() => { void startPolling(); });
-void startPolling();
+  if (message?.type === "tlstudio-execute-direct") {
+    void execute(message.command || {}).then(sendResponse, (error) => {
+      sendResponse({
+        id: String(message?.command?.id || ""),
+        ok: false,
+        error: String(error?.message || error)
+      });
+    });
+    return true;
+  }
+});
