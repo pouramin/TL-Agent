@@ -124,6 +124,10 @@ func newChatGPTAccountAdapter(state *appState, manager *providerManager) *chatGP
 }
 
 func (a *chatGPTAccountAdapter) ID() string { return chatGPTAccountProviderID }
+func (a *chatGPTAccountAdapter) Protocol() string { return codexChatGPTProviderProtocol }
+func (a *chatGPTAccountAdapter) CompleteModelTurn(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
+	return a.completeModelTurn(ctx, request, onTextDelta)
+}
 
 func sameCodexCommand(left, right codexCommand) bool {
 	if strings.TrimSpace(left.Executable) != strings.TrimSpace(right.Executable) ||
