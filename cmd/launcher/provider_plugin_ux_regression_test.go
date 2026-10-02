@@ -417,7 +417,11 @@ func TestClaudeWebPairsDirectlyWithFixedChromeExtensionID(t *testing.T) {
 		`/local/claude-web-ui/poll?token=`,
 		`/local/claude-web-ui/result?token=`,
 		`type: "tlstudio-execute-direct"`,
-		`startClaudeWebRelay(claudeWebBridgeToken)`,
+		`establishClaudeWebBridge`,
+		`resumeClaudeWebIfNeeded`,
+		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
+		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
+		`window.setTimeout(() => { void resumeClaudeWebIfNeeded(); }, 0)`,
 	} {
 		if !strings.Contains(accounts, required) {
 			t.Fatalf("Claude Web direct extension pairing contract missing %q", required)
