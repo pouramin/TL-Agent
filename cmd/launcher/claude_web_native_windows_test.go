@@ -10,40 +10,6 @@ import (
 	"testing"
 )
 
-func TestClaudeWebNativeTransportClonesNormalChromeProfile(t *testing.T) {
-	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
-	for _, required := range []string{
-		`Google", "Chrome", "User Data"`,
-		`"last_used"`,
-		`claude-web-profile-clone`,
-		`"Local State"`,
-		`"Network"`,
-		`"Local Storage"`,
-		`"Session Storage"`,
-		`"IndexedDB"`,
-		`newClaudeWebBrowserTransport(cloneDir, chrome, profileName)`,
-		`syncProfileClone`,
-	} {
-		if !strings.Contains(source, required) {
-			t.Fatalf("Claude Web profile-clone transport missing %q", required)
-		}
-	}
-	for _, forbidden := range []string{
-		"UIAutomationClient",
-		"UIAutomationTypes",
-		"powershell.exe",
-		"SendKeys",
-		"Clipboard",
-		"chrome.cookies",
-		"sessionKey",
-		"claude-web-extension",
-	} {
-		if strings.Contains(source, forbidden) {
-			t.Fatalf("Claude Web clone transport must not depend on %q", forbidden)
-		}
-	}
-}
-
 func TestClaudeWebNativeChromeProfileOverride(t *testing.T) {
 	t.Setenv("TL_STUDIO_CLAUDE_WEB_PROFILE", "Profile 9")
 	got, err := claudeWebNativeProfile()
@@ -71,57 +37,61 @@ func TestClaudeWebNativeUserDataDirUsesLocalAppData(t *testing.T) {
 	}
 }
 
-func TestCopyClaudeWebPathCopiesAuthTree(t *testing.T) {
-	src := filepath.Join(t.TempDir(), "Network")
-	dst := filepath.Join(t.TempDir(), "Network")
-	if err := os.MkdirAll(src, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	want := []byte("encrypted-cookie-bytes")
-	if err := os.WriteFile(filepath.Join(src, "Cookies"), want, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := copyClaudeWebPath(context.Background(), src, dst); err != nil {
-		t.Fatal(err)
-	}
-	got, err := os.ReadFile(filepath.Join(dst, "Cookies"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(want) {
-		t.Fatalf("copied cookie DB changed: %q", got)
-	}
-}
-
-func TestClaudeWebNativeLoginWindowExistsOnlyForAuthentication(t *testing.T) {
+func TestClaudeWebNativeLoginUsesDedicatedSessionCloneAndCDP(t *testing.T) {
 	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
 	for _, required := range []string{
-		`probe, probeErr := browser.Probe(probeCtx)`,
-		`if probeErr == nil && probe.Connected`,
-		`return t.launchLoginWindow(ctx)`,
-		`"--new-window"`,
-		`claudeWebCloseNativeWindow(loginHWND)`,
+		`sessionDir = claudeWebSessionDirectory()`,
+		`runtimeRoot = claudeWebRuntimeRootDirectory()`,
+		`browser := t.makeBrowser(sessionDir)`,
+		`browser.OpenLogin(ctx)`,
+		`probeHeadless`,
+		`refreshSessionCloneFromChrome`,
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("Claude Web login-window lifecycle missing %q", required)
+			t.Fatalf("Claude Web native clone transport missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"user32.dll",
+		"EnumWindows",
+		"GetWindowText",
+		"WM_CLOSE",
+		"UIAutomationClient",
+		"powershell.exe",
+		"SendKeys",
+		"Clipboard",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("Claude Web native transport must not depend on UI automation primitive %q", forbidden)
 		}
 	}
 }
 
-func TestClaudeWebNativeResetDeletesClonedSession(t *testing.T) {
+func TestClaudeWebNativeResetDeletesSessionAndRuntimeClones(t *testing.T) {
 	root := t.TempDir()
-	clone := filepath.Join(root, "clone")
-	if err := os.MkdirAll(clone, 0o755); err != nil {
-		t.Fatal(err)
+	session := filepath.Join(root, "session")
+	runtimeRoot := filepath.Join(root, "runtime")
+	for _, dir := range []string{session, filepath.Join(runtimeRoot, "run-test")} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "marker"), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := os.WriteFile(filepath.Join(clone, "marker"), []byte("x"), 0o600); err != nil {
-		t.Fatal(err)
+	transport := &claudeWebNativeTransport{
+		chrome:      "chrome.exe",
+		userDataDir: root,
+		profileName: "Default",
+		sessionDir:  session,
+		runtimeRoot: runtimeRoot,
 	}
-	transport := &claudeWebNativeTransport{cloneDir: clone, cloneReady: true}
 	if err := transport.Reset(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(clone); !os.IsNotExist(err) {
-		t.Fatalf("cloned Claude session still exists after reset: %v", err)
+	for _, dir := range []string{session, runtimeRoot} {
+		if _, err := os.Stat(dir); !os.IsNotExist(err) {
+			t.Fatalf("Claude Web clone still exists after reset: %s err=%v", dir, err)
+		}
 	}
 }

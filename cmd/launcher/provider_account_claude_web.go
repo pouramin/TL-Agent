@@ -469,19 +469,6 @@ func (a *claudeWebAccountAdapter) CompleteModelTurn(ctx context.Context, request
 			_ = a.transport.Close(context.Background())
 		}
 	}()
-	probe, err := a.transport.Probe(ctx)
-	if err != nil {
-		a.removeManagedProvider()
-		return nativeModelResponse{}, err
-	}
-	if !probe.Connected {
-		a.removeManagedProvider()
-		detail := strings.TrimSpace(probe.Error)
-		if detail == "" {
-			detail = "Claude Web is not signed in in the active Chrome profile"
-		}
-		return nativeModelResponse{}, errors.New(detail)
-	}
 	prompt, err := claudeWebBridgePrompt(request)
 	if err != nil {
 		return nativeModelResponse{}, err

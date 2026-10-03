@@ -14,6 +14,7 @@ type fakeClaudeWebTransport struct {
 	probeErr     error
 	probe        claudeWebProbe
 	completion   string
+	completionErr error
 	opened       bool
 	closed       bool
 }
@@ -41,6 +42,9 @@ func (f *fakeClaudeWebTransport) Probe(context.Context) (claudeWebProbe, error) 
 }
 
 func (f *fakeClaudeWebTransport) Complete(context.Context, string) (string, error) {
+	if f.completionErr != nil {
+		return "", f.completionErr
+	}
 	if f.completion == "" {
 		return "", errors.New("fake Claude Web completion is empty")
 	}
@@ -306,5 +310,50 @@ func TestClaudeWebCancelledLoginClosesTemporaryChromeWindow(t *testing.T) {
 	}
 	if !transport.closed {
 		t.Fatal("cancelling Claude Web login must close the temporary Chrome bridge")
+	}
+}
+
+
+func TestClaudeWebModelTurnFailureKeepsProviderStatusStable(t *testing.T) {
+	transport := &fakeClaudeWebTransport{completionErr: errors.New("transient browser failure")}
+	manager, adapter := newClaudeWebTestManager(t, transport)
+	config := claudeWebConfig{
+		Connected:        true,
+		OrganizationID:   "org_test",
+		OrganizationName: "Personal",
+	}
+	if err := saveClaudeWebConfig(config); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := adapter.syncProvider(config); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := adapter.CompleteModelTurn(context.Background(), nativeModelRequest{
+		Provider: tlProviderDefinition{
+			ID:        claudeWebRuntimeProviderID,
+			Name:      "Claude Web / Account",
+			Protocol:  claudeWebProviderProtocol,
+			BaseURL:   claudeWebRuntimeBaseURL,
+			ManagedBy: "account",
+		},
+		Model:  tlProviderModel{ID: claudeWebModelID, Name: "Claude Sonnet 5.5 (Web)", ToolCall: true},
+		APIKey: claudeWebRuntimeCredentialSentinel,
+	}, nil)
+	if err == nil || !strings.Contains(err.Error(), "transient browser failure") {
+		t.Fatalf("expected transient Claude Web failure, got %v", err)
+	}
+	if !transport.closed {
+		t.Fatal("Claude Web model turn failure must still close the temporary browser runtime")
+	}
+	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || !found {
+		t.Fatalf("transient model-turn failure removed the provider: found=%v err=%v", found, err)
+	}
+	status, err := adapter.Status(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Connected || status.State != providerAccountConnected {
+		t.Fatalf("transient model-turn failure destabilized provider status: %#v", status)
 	}
 }

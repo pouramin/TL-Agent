@@ -38,6 +38,7 @@ type claudeWebCompletionResult struct {
 type claudeWebBrowserTransport struct {
 	mu          sync.Mutex
 	command     *exec.Cmd
+	done        chan struct{}
 	profileDir  string
 	executable  string
 	profileName string
@@ -49,6 +50,26 @@ func newClaudeWebBrowserTransport(profileDir, executable, profileName string) *c
 		executable:  strings.TrimSpace(executable),
 		profileName: strings.TrimSpace(profileName),
 	}
+}
+
+func claudeWebBrowserArgs(profileDir, profileName string, visible bool) []string {
+	args := []string{
+		"--user-data-dir=" + strings.TrimSpace(profileDir),
+		"--remote-debugging-address=127.0.0.1",
+		"--remote-debugging-port=0",
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-sync",
+	}
+	if profileName = strings.TrimSpace(profileName); profileName != "" {
+		args = append(args, "--profile-directory="+profileName)
+	}
+	if visible {
+		args = append(args, "--new-window")
+	} else {
+		args = append(args, "--headless=new", "--disable-gpu")
+	}
+	return append(args, claudeWebURL)
 }
 
 func (t *claudeWebBrowserTransport) Available() error {
@@ -318,16 +339,37 @@ func (t *claudeWebBrowserTransport) closeBrowser(ctx context.Context) error {
 }
 
 func (t *claudeWebBrowserTransport) closeBrowserLocked(ctx context.Context) error {
-	if port, browserWS, ok := claudeWebActivePort(t.profileDir); ok {
-		_ = port
+	requestedClose := false
+	if _, browserWS, ok := claudeWebActivePort(t.profileDir); ok {
 		closeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		_, _ = cdpCall(closeCtx, browserWS, "Browser.close", map[string]any{})
+		_, err := cdpCall(closeCtx, browserWS, "Browser.close", map[string]any{})
 		cancel()
+		requestedClose = err == nil
 	}
-	if t.command != nil && t.command.Process != nil {
-		_ = t.command.Process.Kill()
+
+	command := t.command
+	done := t.done
+	exited := false
+	if command != nil && command.Process != nil {
+		if requestedClose && done != nil {
+			select {
+			case <-done:
+				exited = true
+			case <-time.After(2 * time.Second):
+			}
+		}
+		if !exited {
+			_ = command.Process.Kill()
+			if done != nil {
+				select {
+				case <-done:
+				case <-time.After(2 * time.Second):
+				}
+			}
+		}
 	}
 	t.command = nil
+	t.done = nil
 	return nil
 }
 
@@ -351,23 +393,7 @@ func (t *claudeWebBrowserTransport) ensureBrowser(ctx context.Context, visible b
 	}
 	_ = os.Remove(filepath.Join(t.profileDir, "DevToolsActivePort"))
 
-	args := []string{
-		"--user-data-dir=" + t.profileDir,
-		"--remote-debugging-address=127.0.0.1",
-		"--remote-debugging-port=0",
-		"--no-first-run",
-		"--no-default-browser-check",
-		"--disable-sync",
-	}
-	if t.profileName != "" {
-		args = append(args, "--profile-directory="+t.profileName)
-	}
-	if visible {
-		args = append(args, "--new-window")
-	} else {
-		args = append(args, "--headless=new", "--disable-gpu")
-	}
-	args = append(args, claudeWebURL)
+	args := claudeWebBrowserArgs(t.profileDir, t.profileName, visible)
 
 	cmd := exec.Command(executable, args...)
 	cmd.Stdout = io.Discard
@@ -375,15 +401,19 @@ func (t *claudeWebBrowserTransport) ensureBrowser(ctx context.Context, visible b
 	if err := cmd.Start(); err != nil {
 		return 0, fmt.Errorf("start Claude Web browser: %w", err)
 	}
+	done := make(chan struct{})
 	t.command = cmd
-	go func(command *exec.Cmd) {
+	t.done = done
+	go func(command *exec.Cmd, finished chan struct{}) {
 		_ = command.Wait()
+		close(finished)
 		t.mu.Lock()
 		if t.command == command {
 			t.command = nil
+			t.done = nil
 		}
 		t.mu.Unlock()
-	}(cmd)
+	}(cmd, done)
 
 	deadline := time.Now().Add(12 * time.Second)
 	for time.Now().Before(deadline) {
