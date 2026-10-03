@@ -452,7 +452,12 @@ func (a *claudeWebAccountAdapter) Disconnect(ctx context.Context, _ string) erro
 }
 
 func claudeWebBridgePrompt(request nativeModelRequest) (string, error) {
-	turn, err := claudeBridgePrompt(request)
+	payload := map[string]any{
+		"system":   request.System,
+		"messages": request.Messages,
+		"tools":    request.Tools,
+	}
+	turnBytes, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return "", err
 	}
@@ -460,8 +465,14 @@ func claudeWebBridgePrompt(request nativeModelRequest) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(claudeBridgeSystemPrompt()) +
-		"\n\n" + turn +
+	systemPrompt := strings.Replace(
+		claudeBridgeSystemPrompt(),
+		"- The model identity for this turn is the selectedModel supplied by TL Studio. If the user asks which model is being used, report selectedModel.id exactly.\n",
+		"",
+		1,
+	)
+	return strings.TrimSpace(systemPrompt) +
+		"\n\nTL Studio turn payload:\n" + string(turnBytes) +
 		"\n\nReturn exactly one JSON object and no markdown fences. Required schema:\n" +
 		string(schemaBytes), nil
 }

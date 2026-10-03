@@ -179,6 +179,21 @@ func TestClaudeWebBridgeKeepsTLStudioToolLoop(t *testing.T) {
 	}
 }
 
+func TestClaudeWebPromptDoesNotInjectSelectedModelIdentity(t *testing.T) {
+	prompt, err := claudeWebBridgePrompt(nativeModelRequest{
+		Model:    tlProviderModel{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5 (Web)"},
+		Messages: []nativeConversationMessage{{Role: "user", Text: "what model are you?"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"selectedModel", "report selectedModel.id exactly", "Claude Sonnet 5.5 (Web)"} {
+		if strings.Contains(prompt, forbidden) {
+			t.Fatalf("Claude Web prompt leaked TL Studio model identity %q: %s", forbidden, prompt)
+		}
+	}
+}
+
 func TestClaudeWebBridgeAcceptsFencedJSONAndPlainTextFallback(t *testing.T) {
 	output := parseClaudeWebBridgeOutput("~~~not-used~~~")
 	if output.Text != "~~~not-used~~~" || len(output.ToolCalls) != 0 {
