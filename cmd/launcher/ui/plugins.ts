@@ -560,7 +560,6 @@ import { K } from "./kernel";
     if (!panel.classList.contains("hidden")) load();
   });
 
-  const settingsDialog = document.getElementById("settingsDialog") as HTMLDialogElement | null;
   settingsDialog?.addEventListener("close", () => {
     if (pluginDialog.open) pluginDialog.close();
   });
