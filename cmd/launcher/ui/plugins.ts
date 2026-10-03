@@ -10,6 +10,8 @@ import { K } from "./kernel";
   let pluginCatalog: TLStudioPluginCatalogEntry[] = [];
 
   const panel = document.querySelector<HTMLElement>('[data-settings-panel="plugins"]');
+  const settingsDialog = document.getElementById("settingsDialog") as HTMLDialogElement | null;
+  const settingsWindow = settingsDialog?.querySelector<HTMLElement>(".settings-window") || null;
   const list = document.getElementById("pluginList");
   const editor = document.getElementById("pluginEditor");
   const pluginDialog = document.getElementById("pluginDialog") as HTMLDialogElement | null;
@@ -30,6 +32,11 @@ import { K } from "./kernel";
   const testButton = document.getElementById("pluginTestButton") as HTMLButtonElement | null;
   const saveButton = document.getElementById("pluginSaveButton") as HTMLButtonElement | null;
   if (!panel || !list || !editor || !pluginDialog || !addButton || !nameInput || !commandInput || !argsInput || !transportSelect || !scopeSelect || !cwdInput || !envInput || !editID) return;
+
+  const syncPluginWindowMode = () => settingsWindow?.classList.toggle("settings-window-plugins", !panel.classList.contains("hidden"));
+  const pluginPanelObserver = new MutationObserver(syncPluginWindowMode);
+  pluginPanelObserver.observe(panel, { attributes: true, attributeFilter: ["class"] });
+  syncPluginWindowMode();
 
   const setStatus = (message = "", kind = "") => {
     if (!status) return;
@@ -100,20 +107,6 @@ import { K } from "./kernel";
     envInput.value = (plugin?.environment || []).map((item) => `${item.name}=`).join("\n");
     setStatus(plugin?.environment?.length ? "Secret environment values are preserved unless you replace or remove their variable names." : "");
     if (pluginDialogTitle) pluginDialogTitle.textContent = plugin ? "Configure plugin" : "Add plugin";
-    if (!pluginDialog.open) pluginDialog.showModal();
-    requestAnimationFrame(() => nameInput.focus({ preventScroll: true }));
-  };
-
-  const openCatalogEditor = (preset: TLStudioPluginCatalogEntry) => {
-    resetEditor();
-    nameInput.value = preset.name || "";
-    if (descriptionInput) descriptionInput.value = preset.description || "";
-    commandInput.value = preset.command || "";
-    argsInput.value = (preset.arguments || []).join("\n");
-    transportSelect.value = preset.transport || "stdio";
-    scopeSelect.value = preset.scope || "project";
-    setStatus(preset.installHint ? `Install first if needed: ${preset.installHint}` : "");
-    if (pluginDialogTitle) pluginDialogTitle.textContent = `Add ${preset.name}`;
     if (!pluginDialog.open) pluginDialog.showModal();
     requestAnimationFrame(() => nameInput.focus({ preventScroll: true }));
   };
@@ -202,40 +195,45 @@ import { K } from "./kernel";
 
   const renderCatalogCard = (preset: TLStudioPluginCatalogEntry) => {
     const card = document.createElement("article");
-    card.className = "plugin-card plugin-card-catalog";
+    card.className = "plugin-catalog-card";
     card.dataset.pluginId = preset.id;
 
-    const head = document.createElement("div");
-    head.className = "plugin-card-head";
-    const copy = document.createElement("div");
-    copy.className = "plugin-card-copy";
-    const title = document.createElement("strong");
-    title.textContent = preset.name;
-    const description = document.createElement("span");
-    description.textContent = preset.description || "Curated MCP integration";
-    copy.append(title, description);
-
-    const state = document.createElement("span");
-    state.className = "plugin-status";
-    state.textContent = "Available";
-    head.append(copy, state);
-
-    const meta = document.createElement("div");
-    meta.className = "plugin-meta";
-    meta.textContent = `MCP · ${preset.scope === "global" ? "All projects" : "Current project"} · External runtime`;
-
-    card.append(head, meta);
-    if (preset.installHint) {
-      const install = document.createElement("code");
-      install.className = "plugin-command";
-      install.textContent = `Install: ${preset.installHint}`;
-      card.appendChild(install);
+    const logo = document.createElement("div");
+    logo.className = "plugin-catalog-logo";
+    if (preset.icon) {
+      const image = document.createElement("img");
+      image.src = preset.icon;
+      image.alt = "";
+      logo.appendChild(image);
+    } else {
+      logo.textContent = (preset.name || "?").slice(0, 1).toUpperCase();
     }
 
+    const name = document.createElement("strong");
+    name.className = "plugin-catalog-name";
+    name.textContent = preset.name;
+
+    const state = document.createElement("span");
+    state.className = "plugin-catalog-state";
+    state.textContent = "Available";
+
+    const category = document.createElement("span");
+    category.className = "plugin-catalog-category";
+    category.textContent = preset.category || "MCP integration";
+
+    const description = document.createElement("p");
+    description.className = "plugin-catalog-description";
+    description.textContent = preset.description || "Curated MCP integration";
+
+    const scope = document.createElement("span");
+    scope.className = "plugin-catalog-scope";
+    scope.textContent = preset.scope === "global" ? "All projects" : "Current project";
+
     const actions = document.createElement("div");
-    actions.className = "plugin-card-actions";
+    actions.className = "plugin-catalog-actions";
     actions.append(actionButton("Add", "catalog-add", preset.id, "primary small"));
-    card.appendChild(actions);
+
+    card.append(logo, name, state, category, description, scope, actions);
     return card;
   };
 
@@ -295,7 +293,10 @@ import { K } from "./kernel";
     head.append(title, subtitle);
     section.appendChild(head);
     if (plugins.length) {
-      for (const plugin of plugins) section.appendChild(renderer(plugin));
+      const body = document.createElement("div");
+      body.className = renderer === renderCatalogCard ? "plugin-catalog-grid" : "plugin-section-list";
+      for (const plugin of plugins) body.appendChild(renderer(plugin));
+      section.appendChild(body);
     } else {
       const empty = document.createElement("div");
       empty.className = "plugin-empty";
@@ -315,34 +316,40 @@ import { K } from "./kernel";
     const userAdded = K.state.plugins.filter((plugin) => plugin.origin !== "bundled");
     const activePluginIDs = new Set(K.state.plugins.map((plugin) => plugin.id));
     const available = pluginCatalog.filter((preset) => !activePluginIDs.has(preset.id));
+
     appendSection(
       "Available integrations",
-      "Curated MCP integrations you can add to TL Studio. Their runtimes stay external until you choose to install and enable them.",
+      "Curated integrations install and enable themselves when you choose Add.",
       available,
       "All curated integrations are added",
-      "You can still add any compatible stdio MCP server with the button above.",
+      "You can still add any compatible stdio MCP server with Add plugin.",
       renderCatalogCard,
     );
-    appendSection(
-      "Included with TL Studio",
-      "Version-pinned plugins shipped inside this TL Studio package.",
-      bundled,
-      "No bundled plugins in this build",
-      "Bundled plugins are reserved for version-pinned runtimes shipped inside the TL Studio package.",
-      renderCard,
-    );
+
+    if (bundled.length) {
+      appendSection(
+        "Included with TL Studio",
+        "Version-pinned plugins shipped inside this TL Studio package.",
+        bundled,
+        "",
+        "",
+        renderCard,
+      );
+    }
+
     appendSection(
       "Added by you",
-      "External MCP servers configured by you for this project or globally.",
+      "Installed integrations and external MCP servers configured for this project or globally.",
       userAdded,
       "No plugins added yet",
-      "Choose an available integration above or add any compatible stdio MCP server.",
+      "Choose an integration above or add any compatible stdio MCP server.",
       renderCard,
     );
+
     if (savedPlugins.length) {
       appendSection(
         "Saved for another project",
-        "These plugins still exist in TL Studio, but their saved project path no longer matches the project currently open.",
+        "These project-scoped plugins still exist, but belong to a different project.",
         savedPlugins,
         "",
         "",
@@ -437,7 +444,16 @@ import { K } from "./kernel";
     if (action === "catalog-add") {
       const preset = pluginCatalog.find((item) => item.id === button.dataset.pluginId);
       if (!preset) return;
-      openCatalogEditor(preset);
+      busy(button, true, "Installing…");
+      K.showError("");
+      try {
+        await K.api.plugins.installCatalog(preset.id);
+        await load();
+        await K.loadToolRegistry?.().catch(() => {});
+      } catch (error) {
+        K.showError((error as Error).message || String(error));
+        busy(button, false);
+      }
       return;
     }
     const plugin = (action === "attach" ? savedPlugins : K.state.plugins).find((item) => item.id === button.dataset.pluginId);
