@@ -16,7 +16,8 @@ func TestClaudeWebNativeTransportUsesNormalChromeProfileWithoutExtension(t *test
 		`"last_used"`,
 		`--profile-directory=`,
 		`--new-window`,
-		`--start-minimized`,
+		`--window-position=-32000,-32000`,
+		`--window-size=1100,800`,
 		`--disable-features=PwaNavigationCapturing`,
 		`--disable-backgrounding-occluded-windows`,
 		`--disable-renderer-backgrounding`,
@@ -80,6 +81,7 @@ func TestClaudeWebNativeWindowLifecycleUsesWin32NotPowerShell(t *testing.T) {
 		`NewProc("GetClassNameW")`,
 		`NewProc("IsWindow")`,
 		`NewProc("ShowWindow")`,
+		`NewProc("SetWindowPos")`,
 		`NewProc("PostMessageW")`,
 		`func (t *claudeWebNativeTransport) launchWindow`,
 		`exec.CommandContext(ctx, chrome, args...)`,
@@ -136,8 +138,8 @@ func TestClaudeWebNativeCompletionNeverForegroundsChrome(t *testing.T) {
 		"InvokePattern",
 		"$baselineBeginCount",
 		"$baselineEndCount",
-		"$beginCount -le $baselineBeginCount",
-		"$endCount -le $baselineEndCount",
+		"$beginCount -lt ($baselineBeginCount + 2)",
+		"$endCount -lt ($baselineEndCount + 2)",
 		"$text.LastIndexOf($beginMarker",
 		"$text.LastIndexOf($endMarker",
 	} {
@@ -159,6 +161,44 @@ func TestClaudeWebNativeLoginOnlyShowsChromeWhenAuthenticationIsNeeded(t *testin
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("Claude Web hidden-login contract missing %q", required)
+		}
+	}
+}
+
+
+func TestClaudeWebNativeHiddenWindowIsParkedOffScreenNotMinimized(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
+	for _, required := range []string{
+		`NewProc("SetWindowPos")`,
+		`offscreen := int32(-32000)`,
+		`--window-position=-32000,-32000`,
+		`--window-size=1100,800`,
+		`claudeWebSWPNoActivate`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web off-screen bridge contract missing %q", required)
+		}
+	}
+	if strings.Contains(source, "--start-minimized") || strings.Contains(source, "claudeWebSWMinimize") {
+		t.Fatal("Claude Web background bridge must stay rendered off-screen instead of being minimized")
+	}
+}
+
+func TestClaudeWebNativeMarkerParserWaitsForAssistantPair(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
+	baseline := strings.Index(source, "$baselineText = Get-DocumentText")
+	insert := strings.Index(source, "Set-ComposerText $composer $wrapped")
+	if baseline < 0 || insert < 0 || baseline > insert {
+		t.Fatal("marker baseline must be captured before inserting the TL Studio prompt")
+	}
+	for _, required := range []string{
+		`$beginCount -lt ($baselineBeginCount + 2)`,
+		`$endCount -lt ($baselineEndCount + 2)`,
+		`$text.LastIndexOf($beginMarker`,
+		`$text.LastIndexOf($endMarker`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web response-marker contract missing %q", required)
 		}
 	}
 }
