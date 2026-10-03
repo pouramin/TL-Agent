@@ -13,8 +13,10 @@ type fakeClaudeWebTransport struct {
 	availableErr error
 	probeErr     error
 	probe        claudeWebProbe
-	completion   string
-	completionErr error
+	completion      string
+	completionModel string
+	completionErr   error
+	requestedModel  string
 	opened       bool
 	closed       bool
 	paired       bool
@@ -43,14 +45,15 @@ func (f *fakeClaudeWebTransport) Probe(context.Context) (claudeWebProbe, error) 
 	return f.probe, nil
 }
 
-func (f *fakeClaudeWebTransport) Complete(context.Context, string) (string, error) {
+func (f *fakeClaudeWebTransport) Complete(_ context.Context, _ string, model string) (claudeWebCompletion, error) {
+	f.requestedModel = model
 	if f.completionErr != nil {
-		return "", f.completionErr
+		return claudeWebCompletion{}, f.completionErr
 	}
 	if f.completion == "" {
-		return "", errors.New("fake Claude Web completion is empty")
+		return claudeWebCompletion{}, errors.New("fake Claude Web completion is empty")
 	}
-	return f.completion, nil
+	return claudeWebCompletion{Text: f.completion, Model: f.completionModel}, nil
 }
 
 func (f *fakeClaudeWebTransport) Close(context.Context) error {
@@ -98,6 +101,7 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 		Status:           200,
 		OrganizationID:   "org_test",
 		OrganizationName: "Personal",
+		Models:           []string{"claude-opus-5-5", "claude-sonnet-5-5"},
 	}
 	status, err = adapter.PollLogin(context.Background(), "", login.LoginID)
 	if err != nil {
@@ -106,7 +110,7 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 	if !status.Connected || status.AccountType != "Claude Web" || status.OrganizationID != "org_test" {
 		t.Fatalf("unexpected connected Claude Web status: %#v", status)
 	}
-	if len(status.Models) != 1 || status.Models[0] != claudeWebModelID {
+	if len(status.Models) != 2 || status.Models[0] != "claude-opus-5-5" || status.Models[1] != "claude-sonnet-5-5" {
 		t.Fatalf("unexpected Claude Web models: %#v", status.Models)
 	}
 
@@ -129,7 +133,8 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 func TestClaudeWebBridgeKeepsTLStudioToolLoop(t *testing.T) {
 	transport := &fakeClaudeWebTransport{
 		probe: claudeWebProbe{Connected: true, Status: 200, OrganizationID: "org_test"},
-		completion: `{"text":"","toolCalls":[{"name":"files.read","arguments":"{\"path\":\"README.md\"}"}]}`,
+		completion:      `{"text":"","toolCalls":[{"name":"files.read","arguments":"{\"path\":\"README.md\"}"}]}`,
+		completionModel: "claude-sonnet-5-5",
 	}
 	_, adapter := newClaudeWebTestManager(t, transport)
 	config := claudeWebConfig{Connected: true, OrganizationID: "org_test"}
@@ -162,6 +167,12 @@ func TestClaudeWebBridgeKeepsTLStudioToolLoop(t *testing.T) {
 	}
 	if !strings.Contains(string(response.ToolCalls[0].Arguments), "README.md") {
 		t.Fatalf("unexpected Claude Web tool arguments: %s", response.ToolCalls[0].Arguments)
+	}
+	if transport.requestedModel != claudeWebModelID {
+		t.Fatalf("selected Claude Web model was not sent to transport: %q", transport.requestedModel)
+	}
+	if response.RoutedModel != "claude-sonnet-5-5" {
+		t.Fatalf("Claude Web routed model was not reported from transport: %#v", response)
 	}
 	if transport.closed {
 		t.Fatal("Claude Web model turn must keep the paired inference transport alive")
@@ -291,13 +302,16 @@ func TestClaudeWebPersistedConnectionListsImmediatelyAndRefreshValidatesExtensio
 }
 
 
-func TestClaudeWebModelIdentityMatchesRequestedWebModel(t *testing.T) {
+func TestClaudeWebModelCatalogMatchesCurrentWebChoices(t *testing.T) {
 	models := claudeWebModels()
-	if len(models) != 1 {
+	want := []string{"claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"}
+	if len(models) != len(want) {
 		t.Fatalf("unexpected Claude Web model count: %#v", models)
 	}
-	if models[0].ID != "claude-sonnet-5-5" || models[0].Name != "Claude Sonnet 5.5 (Web)" {
-		t.Fatalf("Claude Web model identity is misleading: %#v", models[0])
+	for i, id := range want {
+		if models[i].ID != id {
+			t.Fatalf("unexpected Claude Web model %d: %#v", i, models[i])
+		}
 	}
 }
 

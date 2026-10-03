@@ -78,7 +78,7 @@ func TestClaudeWebUIRelayPairsPollsAndReturnsResult(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	done := make(chan error, 1)
-	go func() { _, err := bridge.Complete(ctx, "hello"); done <- err }()
+	go func() { _, err := bridge.Complete(ctx, "hello", "claude-sonnet-5-5"); done <- err }()
 
 	deadline := time.Now().Add(time.Second)
 	var command claudeWebExtensionCommand
@@ -92,7 +92,7 @@ func TestClaudeWebUIRelayPairsPollsAndReturnsResult(t *testing.T) {
 		if payload.Command != nil { command = *payload.Command; break }
 		time.Sleep(10 * time.Millisecond)
 	}
-	if command.ID == "" || command.Kind != "complete" || command.Prompt != "hello" {
+	if command.ID == "" || command.Kind != "complete" || command.Prompt != "hello" || command.Model != "claude-sonnet-5-5" {
 		t.Fatalf("completion command was not relayed: %#v", command)
 	}
 	body, err := json.Marshal(claudeWebExtensionResult{ID: command.ID, OK: true, Text: "done"})
@@ -109,13 +109,12 @@ func TestClaudeWebUIRelayPairsPollsAndReturnsResult(t *testing.T) {
 	}
 }
 
-func TestClaudeWebExtensionUsesBrowserOwnedPageSession(t *testing.T) {
+func TestClaudeWebExtensionUsesBackgroundSessionWithoutTabs(t *testing.T) {
 	manifest := readRepoText(t, "integrations/claude-web-extension/manifest.json")
 	background := readRepoText(t, "integrations/claude-web-extension/background.js")
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 
 	for _, required := range []string{
-		`"permissions": ["scripting"]`,
 		`"https://claude.ai/*"`,
 		`"externally_connectable"`,
 		`"http://127.0.0.1/*"`,
@@ -123,14 +122,15 @@ func TestClaudeWebExtensionUsesBrowserOwnedPageSession(t *testing.T) {
 	} {
 		if !strings.Contains(manifest, required) { t.Fatalf("Claude Web manifest missing %q", required) }
 	}
-	for _, forbidden := range []string{`"cookies"`, `"debugger"`, "declarativeNetRequest"} {
+	for _, forbidden := range []string{
+		`"cookies"`, `"debugger"`, `"scripting"`, `"tabs"`, "declarativeNetRequest",
+	} {
 		if strings.Contains(manifest, forbidden) { t.Fatalf("Claude Web manifest must not request %q", forbidden) }
 	}
 	for _, required := range []string{
-		"chrome.scripting.executeScript",
-		`world: "MAIN"`,
+		`const CLAUDE_API = "https://claude.ai/api"`,
 		`credentials: "include"`,
-		`"/api/organizations"`,
+		`"/organizations"`,
 		`"/chat_conversations/"`,
 		`"/completion"`,
 		`method: "DELETE"`,
@@ -140,22 +140,29 @@ func TestClaudeWebExtensionUsesBrowserOwnedPageSession(t *testing.T) {
 		`stopReason === "end_turn"`,
 		`stopReason === "max_tokens"`,
 		"await reader.cancel()",
-		`DEFAULT_MODEL = "claude-sonnet-5-5"`,
+		`BRIDGE_VERSION = "0.6.2-background-fetch"`,
+		`"claude-fable-5-1"`,
+		`"claude-opus-5-5"`,
+		`"claude-sonnet-5-5"`,
+		`"claude-haiku-4-5"`,
 	} {
-		if !strings.Contains(background, required) { t.Fatalf("Claude Web page-session transport missing %q", required) }
+		if !strings.Contains(background, required) { t.Fatalf("Claude Web background transport missing %q", required) }
 	}
 	for _, forbidden := range []string{
-		"chrome.cookies", "sessionKey", "document.cookie", "Network.getAllCookies", "fpphidfmpfiibpbloeecegdlecfbhcla",
-		"Storage.getCookies", "CryptUnprotectData", "chrome.debugger",
-		"powershell.exe", "UIAutomationClient", "SendKeys", "Clipboard",
+		"chrome.tabs", "chrome.windows", "chrome.scripting", "chrome.cookies", "sessionKey",
+		"document.cookie", "Network.getAllCookies", "Storage.getCookies", "CryptUnprotectData",
+		"chrome.debugger", "powershell.exe", "UIAutomationClient", "SendKeys", "Clipboard",
 		"--remote-debugging-port",
 	} {
-		if strings.Contains(background, forbidden) { t.Fatalf("Claude Web transport contains forbidden session/control path %q", forbidden) }
+		if strings.Contains(background, forbidden) { t.Fatalf("Claude Web transport contains forbidden browser/control path %q", forbidden) }
 	}
 	if !strings.Contains(accounts, `CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`) {
 		t.Fatal("TL Studio must target the fixed review Claude Web extension ID")
 	}
-	for _, required := range []string{"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct", "token: cleanToken", `CLAUDE_WEB_BRIDGE_VERSION = "0.6.1-page-context"`} {
+	for _, required := range []string{
+		"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct",
+		"token: cleanToken", `CLAUDE_WEB_BRIDGE_VERSION = "0.6.2-background-fetch"`,
+	} {
 		if !strings.Contains(accounts, required) { t.Fatalf("provider UI missing extension relay contract %q", required) }
 	}
 }

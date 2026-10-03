@@ -21,7 +21,7 @@ Security boundary
 
 Review-build installation
 -------------------------
-This page-context transport deliberately has a new extension identity so Chrome
+This browser-session transport deliberately has a new extension identity so Chrome
 cannot reuse the service worker from the older cookie-based review bridge.
 If an older "TL Studio Claude Web Bridge" is still installed, disable or remove
 it in chrome://extensions to avoid confusing the two entries.
@@ -46,6 +46,6 @@ extension. The production path is Chrome Web Store distribution (public or
 unlisted), after which TL Studio can point users to the store install once and
 reuse the normal Chrome session without a separate Claude login.
 
-A Claude tab is not required to be open before use. The extension uses an existing
-claude.ai tab when available; otherwise it creates an inactive temporary Claude tab
-for the transport operation and closes it afterward.
+A Claude tab is not required to be open before use. The extension performs Claude
+Web requests directly from its Manifest V3 service worker using Chrome's browser-owned
+session. It does not create, activate, hide, or close Claude tabs for inference.

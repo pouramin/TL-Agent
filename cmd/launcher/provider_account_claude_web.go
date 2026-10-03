@@ -22,9 +22,10 @@ const (
 )
 
 type claudeWebConfig struct {
-	Connected         bool   `json:"connected,omitempty"`
-	OrganizationID    string `json:"organizationId,omitempty"`
-	OrganizationName  string `json:"organizationName,omitempty"`
+	Connected         bool     `json:"connected,omitempty"`
+	OrganizationID    string   `json:"organizationId,omitempty"`
+	OrganizationName  string   `json:"organizationName,omitempty"`
+	Models            []string `json:"models,omitempty"`
 }
 
 func claudeWebConfigPath() string {
@@ -137,19 +138,39 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 }
 
 func claudeWebModels() []tlProviderModel {
-	return []tlProviderModel{{
-		ID:        claudeWebModelID,
-		Name:      "Claude Sonnet 5.5 (Web)",
-		ToolCall:  true,
-		Reasoning: true,
-	}}
+	return []tlProviderModel{
+		{ID: "claude-fable-5-1", Name: "Claude Fable 5.1 (Web)", ToolCall: true, Reasoning: true},
+		{ID: "claude-opus-5-5", Name: "Claude Opus 5.5 (Web)", ToolCall: true, Reasoning: true},
+		{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5 (Web)", ToolCall: true, Reasoning: true},
+		{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5 (Web)", ToolCall: true, Reasoning: true},
+	}
+}
+
+func claudeWebModelsForIDs(ids []string) []tlProviderModel {
+	if len(ids) == 0 {
+		return claudeWebModels()
+	}
+	allowed := map[string]bool{}
+	for _, id := range ids {
+		allowed[strings.TrimSpace(id)] = true
+	}
+	result := []tlProviderModel{}
+	for _, model := range claudeWebModels() {
+		if allowed[model.ID] {
+			result = append(result, model)
+		}
+	}
+	if len(result) == 0 {
+		return claudeWebModels()
+	}
+	return result
 }
 
 func (a *claudeWebAccountAdapter) syncProvider(config claudeWebConfig) ([]string, error) {
 	if a == nil || a.manager == nil || a.manager.store == nil {
 		return nil, errors.New("TL Studio Provider Registry is unavailable")
 	}
-	models := claudeWebModels()
+	models := claudeWebModelsForIDs(config.Models)
 	definition := tlProviderDefinition{
 		ID:        claudeWebRuntimeProviderID,
 		Name:      "Claude Web / Account",
@@ -306,6 +327,9 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	if name := strings.TrimSpace(probe.OrganizationName); name != "" {
 		config.OrganizationName = name
 	}
+	if len(probe.Models) > 0 {
+		config.Models = append([]string(nil), probe.Models...)
+	}
 	if err := saveClaudeWebConfig(config); err != nil {
 		return providerAccountStatus{}, err
 	}
@@ -346,7 +370,9 @@ func (a *claudeWebAccountAdapter) Refresh(ctx context.Context, directory string)
 		status.AccountType = "Claude Web"
 		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
 		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
-		status.Models = []string{claudeWebModelID}
+		for _, model := range claudeWebModelsForIDs(config.Models) {
+			status.Models = append(status.Models, model.ID)
+		}
 		if err != nil && !errors.Is(err, errClaudeWebExtensionNotPaired) {
 			status.Error = err.Error()
 		} else if err == nil {
@@ -359,6 +385,9 @@ func (a *claudeWebAccountAdapter) Refresh(ctx context.Context, directory string)
 	}
 	if name := strings.TrimSpace(probe.OrganizationName); name != "" {
 		config.OrganizationName = name
+	}
+	if len(probe.Models) > 0 {
+		config.Models = append([]string(nil), probe.Models...)
 	}
 	if err := saveClaudeWebConfig(config); err != nil {
 		return providerAccountStatus{}, err
@@ -474,10 +503,17 @@ func (a *claudeWebAccountAdapter) CompleteModelTurn(ctx context.Context, request
 	if err != nil {
 		return nativeModelResponse{}, err
 	}
-	raw, err := a.transport.Complete(ctx, prompt)
+	completion, err := a.transport.Complete(ctx, prompt, strings.TrimSpace(request.Model.ID))
 	if err != nil {
 		return nativeModelResponse{}, err
 	}
-	output := parseClaudeWebBridgeOutput(raw)
-	return claudeBridgeResponse(request, output, onTextDelta)
+	output := parseClaudeWebBridgeOutput(completion.Text)
+	response, err := claudeBridgeResponse(request, output, onTextDelta)
+	if err != nil {
+		return nativeModelResponse{}, err
+	}
+	if strings.TrimSpace(completion.Model) != "" {
+		response.RoutedModel = strings.TrimSpace(completion.Model)
+	}
+	return response, nil
 }

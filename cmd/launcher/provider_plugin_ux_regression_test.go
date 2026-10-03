@@ -409,7 +409,7 @@ func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 	for _, required := range []string{
 		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
 		`CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`,
-		`CLAUDE_WEB_BRIDGE_VERSION = "0.6.1-page-context"`,
+		`CLAUDE_WEB_BRIDGE_VERSION = "0.6.2-background-fetch"`,
 		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
 		`tlstudio-pair-direct`,
 		`tlstudio-execute-direct`,

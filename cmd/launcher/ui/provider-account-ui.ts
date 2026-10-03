@@ -98,7 +98,7 @@ import { K } from "./kernel";
   };
 
   const CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna";
-  const CLAUDE_WEB_BRIDGE_VERSION = "0.6.1-page-context";
+  const CLAUDE_WEB_BRIDGE_VERSION = "0.6.2-background-fetch";
   let claudeWebRelayController: AbortController | null = null;
   let claudeWebRelayToken = "";
   let claudeWebResumePromise: Promise<void> | null = null;

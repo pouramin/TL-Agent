@@ -15,6 +15,7 @@ type claudeWebExtensionCommand struct {
 	ID     string `json:"id"`
 	Kind   string `json:"kind"`
 	Prompt string `json:"prompt,omitempty"`
+	Model  string `json:"model,omitempty"`
 }
 
 type claudeWebExtensionResult struct {
@@ -22,10 +23,12 @@ type claudeWebExtensionResult struct {
 	OK               bool   `json:"ok"`
 	Connected        bool   `json:"connected,omitempty"`
 	Status           int    `json:"status,omitempty"`
-	Text             string `json:"text,omitempty"`
-	Error            string `json:"error,omitempty"`
-	OrganizationID   string `json:"organizationId,omitempty"`
-	OrganizationName string `json:"organizationName,omitempty"`
+	Text             string   `json:"text,omitempty"`
+	Model            string   `json:"model,omitempty"`
+	Models           []string `json:"models,omitempty"`
+	Error            string   `json:"error,omitempty"`
+	OrganizationID   string   `json:"organizationId,omitempty"`
+	OrganizationName string   `json:"organizationName,omitempty"`
 }
 
 type claudeWebExtensionBridge struct {
@@ -140,26 +143,27 @@ func (b *claudeWebExtensionBridge) Probe(ctx context.Context) (claudeWebProbe, e
 		Status:           result.Status,
 		OrganizationID:   strings.TrimSpace(result.OrganizationID),
 		OrganizationName: strings.TrimSpace(result.OrganizationName),
+		Models:           append([]string(nil), result.Models...),
 		Error:            strings.TrimSpace(result.Error),
 	}, nil
 }
 
-func (b *claudeWebExtensionBridge) Complete(ctx context.Context, prompt string) (string, error) {
-	result, err := b.send(ctx, claudeWebExtensionCommand{Kind: "complete", Prompt: prompt})
+func (b *claudeWebExtensionBridge) Complete(ctx context.Context, prompt, model string) (claudeWebCompletion, error) {
+	result, err := b.send(ctx, claudeWebExtensionCommand{Kind: "complete", Prompt: prompt, Model: strings.TrimSpace(model)})
 	if err != nil {
-		return "", err
+		return claudeWebCompletion{}, err
 	}
 	if !result.OK {
 		detail := strings.TrimSpace(result.Error)
 		if detail == "" {
 			detail = "Claude Web request failed"
 		}
-		return "", errors.New(detail)
+		return claudeWebCompletion{}, errors.New(detail)
 	}
 	if strings.TrimSpace(result.Text) == "" {
-		return "", errors.New("Claude Web returned an empty response")
+		return claudeWebCompletion{}, errors.New("Claude Web returned an empty response")
 	}
-	return result.Text, nil
+	return claudeWebCompletion{Text: result.Text, Model: strings.TrimSpace(result.Model)}, nil
 }
 
 func (b *claudeWebExtensionBridge) Close(context.Context) error {

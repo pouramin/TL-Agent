@@ -67,7 +67,6 @@ For every turn:
 - Do not invoke Claude Code built-in tools, MCP tools, subagents, plugins, skills, or file-edit tools.
 - Do not modify any files.
 - Decide only the next assistant output for the supplied TL Studio conversation.
-- The model identity for this turn is the selectedModel supplied by TL Studio. If the user asks which model is being used, report selectedModel.id exactly.
 - If a TL Studio tool is needed, return it in toolCalls and stop. TL Studio will execute it and provide the result on the next turn.
 - Every toolCalls[].name must exactly match one of the supplied tool IDs.
 - toolCalls[].arguments must be a JSON string encoding one object that matches that tool's input schema.
@@ -78,11 +77,6 @@ For every turn:
 
 func claudeBridgePrompt(request nativeModelRequest) (string, error) {
 	payload := map[string]any{
-		"selectedModel": map[string]any{
-			"id": strings.TrimSpace(request.Model.ID),
-			"name": strings.TrimSpace(request.Model.Name),
-			"provider": claudeAccountProviderID,
-		},
 		"system": request.System,
 		"messages": request.Messages,
 		"tools": request.Tools,
