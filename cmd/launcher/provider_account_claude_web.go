@@ -94,7 +94,7 @@ type claudeWebAccountAdapter struct {
 }
 
 func newClaudeWebAccountAdapter(state *appState, manager *providerManager) *claudeWebAccountAdapter {
-	return newClaudeWebAccountAdapterWithTransport(state, manager, newClaudeWebNativeTransport())
+	return newClaudeWebAccountAdapterWithTransport(state, manager, newClaudeWebExtensionBridge(state))
 }
 
 func newClaudeWebAccountAdapterWithTransport(state *appState, manager *providerManager, transport claudeWebTransport) *claudeWebAccountAdapter {
@@ -127,7 +127,7 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 		Setup: &providerAccountSetupSummary{
 			Configurable: false,
 			Configured:   availableErr == nil,
-			Label:        "Chrome session",
+			Label:        "Chrome extension bridge",
 		},
 	}
 	if availableErr != nil {
@@ -211,7 +211,7 @@ func (a *claudeWebAccountAdapter) Status(context.Context, string) (providerAccou
 func (a *claudeWebAccountAdapter) Setup(context.Context, string) (providerAccountSetup, error) {
 	return providerAccountSetup{
 		Title:       "Claude Web through Chrome",
-		Description: "Claude Web uses the signed-in Claude session from the normal Chrome profile. No browser extension is required.",
+		Description: "Claude Web uses the Claude session already signed in to the normal Chrome profile through the TL Studio transport extension. The extension only transports model requests and responses; TL Studio keeps Agent, Tool, Permission, project, Terminal, Session, and persistence authority.",
 		Fields:      []providerAccountSetupField{},
 	}, nil
 }
@@ -235,13 +235,24 @@ func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (pro
 	a.mu.Lock()
 	a.logins[loginID] = claudeWebLoginTransaction{LoginID: loginID, ExpiresAt: expiresAt}
 	a.mu.Unlock()
-	return providerAccountLogin{
+	login := providerAccountLogin{
 		LoginID:             loginID,
-		Flow:                "claude_web_native_chrome",
-		Instructions:        "TL Studio is using your normal Chrome profile. If Claude is not already signed in, finish sign-in in the temporary Chrome window; TL Studio closes that window as soon as the connection is ready.",
+		Flow:                "claude_web_extension",
+		Instructions:        "TL Studio will connect to the Claude session already signed in inside this Chrome profile. No separate Claude login window is opened.",
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
 		PollIntervalSeconds: 1,
-	}, nil
+	}
+	if pairing, ok := a.transport.(interface {
+		PairingToken() string
+		PairingOrigin() string
+	}); ok {
+		login.BridgeToken = strings.TrimSpace(pairing.PairingToken())
+		login.BridgeOrigin = strings.TrimSpace(pairing.PairingOrigin())
+	}
+	if login.BridgeToken == "" || login.BridgeOrigin == "" {
+		return providerAccountLogin{}, errors.New("Claude Web extension pairing data is unavailable")
+	}
+	return login, nil
 }
 
 func (a *claudeWebAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
@@ -271,7 +282,9 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	if err != nil {
 		status := a.baseStatus()
 		status.State = providerAccountConnecting
-		status.Error = err.Error()
+		if !errors.Is(err, errClaudeWebExtensionNotPaired) {
+			status.Error = err.Error()
+		}
 		return status, nil
 	}
 	if !probe.Connected {
@@ -302,11 +315,6 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	a.mu.Lock()
 	delete(a.logins, loginID)
 	a.mu.Unlock()
-	if a.transport != nil {
-		if err := a.transport.Close(context.Background()); err != nil {
-			return providerAccountStatus{}, err
-		}
-	}
 	return a.Status(ctx, directory)
 }
 
@@ -328,22 +336,20 @@ func (a *claudeWebAccountAdapter) Refresh(ctx context.Context, directory string)
 	if !config.Connected {
 		return a.Status(ctx, directory)
 	}
-	defer func() {
-		if a.transport != nil {
-			_ = a.transport.Close(context.Background())
-		}
-	}()
 	probe, err := a.transport.Probe(ctx)
 	if err != nil || !probe.Connected {
-		a.removeManagedProvider()
+		// A missing or transient browser bridge must not delete the persisted
+		// account-managed provider. The UI can reconnect the transport while TL
+		// Studio keeps the provider/model identity stable.
 		status := a.baseStatus()
 		status.State = providerAccountNeedsReauthentication
 		status.AccountType = "Claude Web"
 		status.AccountLabel = strings.TrimSpace(config.OrganizationName)
 		status.OrganizationID = strings.TrimSpace(config.OrganizationID)
-		if err != nil {
+		status.Models = []string{claudeWebModelID}
+		if err != nil && !errors.Is(err, errClaudeWebExtensionNotPaired) {
 			status.Error = err.Error()
-		} else {
+		} else if err == nil {
 			status.Error = strings.TrimSpace(probe.Error)
 		}
 		return status, nil
@@ -464,11 +470,6 @@ func (a *claudeWebAccountAdapter) CompleteModelTurn(ctx context.Context, request
 	if !config.Connected {
 		return nativeModelResponse{}, errors.New("Claude Web account requires browser sign-in")
 	}
-	defer func() {
-		if a.transport != nil {
-			_ = a.transport.Close(context.Background())
-		}
-	}()
 	prompt, err := claudeWebBridgePrompt(request)
 	if err != nil {
 		return nativeModelResponse{}, err

@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "TL Studio Claude Web Bridge",
+  "version": "0.6.0",
+  "description": "Inference-only transport between TL Studio and the Claude Web session already signed in to this Chrome profile.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlWUmd1DkT4wmrvzGSsOyGcNAex6lQfLB+NfY86VQjfqtR+QjnmVZ2j2EJ8BXj/HKoEHb1dBUuVxXy4TcI0cSKrrbaQXBkOlR5QAwgI6AOtz5KLX7m3kS8TUV2qeJcoFHU/c8Rs/cHmpOSn12wh4Z6t39rmUDzeMZDzAZikKwjcEm8PmNOZJHTzdRkz/aytajYG0DDGetONBEbn1jjpmA9PZtB97rCvtSzhB9P6H3yJGkT/8UewOXo3+3DvAU/94eBW+UcSrQ6x0++E0R5Eg95jRt7Gn1HlAgjczIrp5+OsTIXcn9Wy3RIO+mFZ7VHmDSto8DZjdI7wPB/ULMqCovRQIDAQAB",
+  "permissions": ["scripting"],
+  "host_permissions": ["https://claude.ai/*"],
+  "externally_connectable": {
+    "matches": [
+      "http://127.0.0.1/*",
+      "http://localhost/*"
+    ]
+  },
+  "background": { "service_worker": "background.js" }
+}

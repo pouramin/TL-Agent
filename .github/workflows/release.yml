@@ -88,6 +88,8 @@ jobs:
           python3 scripts/stage-bundled-plugins.py \
             --target "${{ matrix.name }}" \
             --package-dir staging/package
+          mkdir -p staging/package/integrations
+          cp -R integrations/claude-web-extension staging/package/integrations/
       - name: Assert package contains no Kilo runtime
         shell: bash
         run: |

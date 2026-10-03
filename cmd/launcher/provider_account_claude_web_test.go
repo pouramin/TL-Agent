@@ -17,6 +17,7 @@ type fakeClaudeWebTransport struct {
 	completionErr error
 	opened       bool
 	closed       bool
+	paired       bool
 }
 
 func (f *fakeClaudeWebTransport) Available() error {
@@ -28,6 +29,7 @@ func (f *fakeClaudeWebTransport) OpenLogin(context.Context) error {
 		return f.availableErr
 	}
 	f.opened = true
+	f.paired = true
 	return nil
 }
 
@@ -53,8 +55,13 @@ func (f *fakeClaudeWebTransport) Complete(context.Context, string) (string, erro
 
 func (f *fakeClaudeWebTransport) Close(context.Context) error {
 	f.closed = true
+	f.paired = false
 	return nil
 }
+
+func (f *fakeClaudeWebTransport) PairingToken() string { return "test-pair-token-abcdefghijklmnopqrstuvwxyz" }
+func (f *fakeClaudeWebTransport) PairingOrigin() string { return "http://127.0.0.1:32123" }
+func (f *fakeClaudeWebTransport) Paired() bool { return f.paired }
 
 
 func newClaudeWebTestManager(t *testing.T, transport *fakeClaudeWebTransport) (*providerManager, *claudeWebAccountAdapter) {
@@ -82,7 +89,7 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if login.Flow != "claude_web_native_chrome" || login.LoginID == "" || !transport.opened {
+	if login.Flow != "claude_web_extension" || login.LoginID == "" || !transport.opened || login.BridgeToken == "" || login.BridgeOrigin == "" {
 		t.Fatalf("unexpected Claude Web login challenge: %#v opened=%v", login, transport.opened)
 	}
 
@@ -98,9 +105,6 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 	}
 	if !status.Connected || status.AccountType != "Claude Web" || status.OrganizationID != "org_test" {
 		t.Fatalf("unexpected connected Claude Web status: %#v", status)
-	}
-	if !transport.closed {
-		t.Fatal("successful Claude Web login must close the temporary Chrome bridge")
 	}
 	if len(status.Models) != 1 || status.Models[0] != claudeWebModelID {
 		t.Fatalf("unexpected Claude Web models: %#v", status.Models)
@@ -159,8 +163,8 @@ func TestClaudeWebBridgeKeepsTLStudioToolLoop(t *testing.T) {
 	if !strings.Contains(string(response.ToolCalls[0].Arguments), "README.md") {
 		t.Fatalf("unexpected Claude Web tool arguments: %s", response.ToolCalls[0].Arguments)
 	}
-	if !transport.closed {
-		t.Fatal("Claude Web model turn must close the temporary Chrome bridge")
+	if transport.closed {
+		t.Fatal("Claude Web model turn must keep the paired inference transport alive")
 	}
 }
 
@@ -175,7 +179,7 @@ func TestClaudeWebBridgeAcceptsFencedJSONAndPlainTextFallback(t *testing.T) {
 	}
 }
 
-func TestClaudeWebDisconnectPreservesManualAPIAndClosesNativeBridge(t *testing.T) {
+func TestClaudeWebDisconnectPreservesManualAPIAndClosesExtensionBridge(t *testing.T) {
 	transport := &fakeClaudeWebTransport{probe: claudeWebProbe{Connected: true}}
 	manager, adapter := newClaudeWebTestManager(t, transport)
 
@@ -192,7 +196,7 @@ func TestClaudeWebDisconnectPreservesManualAPIAndClosesNativeBridge(t *testing.T
 	if _, err := adapter.syncProvider(claudeWebConfig{Connected: true, OrganizationID: "org_test"}); err != nil { t.Fatal(err) }
 
 	if err := adapter.Disconnect(context.Background(), ""); err != nil { t.Fatal(err) }
-	if !transport.closed { t.Fatal("Claude Web native bridge was not closed") }
+	if !transport.closed { t.Fatal("Claude Web extension bridge was not closed") }
 	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || found {
 		t.Fatalf("Claude Web runtime provider remained after disconnect: found=%v err=%v", found, err)
 	}
@@ -249,7 +253,7 @@ func TestClaudeWebLoginRouteNeverFallsThroughToClaudeCode(t *testing.T) {
 }
 
 
-func TestClaudeWebPersistedConnectionListsImmediatelyAndRefreshValidatesChrome(t *testing.T) {
+func TestClaudeWebPersistedConnectionListsImmediatelyAndRefreshValidatesExtension(t *testing.T) {
 	transport := &fakeClaudeWebTransport{probe: claudeWebProbe{Connected: false, Status: 401, Error: "not signed in"}}
 	manager, adapter := newClaudeWebTestManager(t, transport)
 	if err := saveClaudeWebConfig(claudeWebConfig{
@@ -281,8 +285,8 @@ func TestClaudeWebPersistedConnectionListsImmediatelyAndRefreshValidatesChrome(t
 	if status.Connected || status.State != providerAccountNeedsReauthentication {
 		t.Fatalf("Refresh must expose a dead Chrome session: %#v", status)
 	}
-	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || found {
-		t.Fatalf("failed live validation must remove the stale runtime provider: found=%v err=%v", found, err)
+	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || !found {
+		t.Fatalf("failed live validation must preserve the account-managed runtime provider: found=%v err=%v", found, err)
 	}
 }
 
@@ -298,7 +302,7 @@ func TestClaudeWebModelIdentityMatchesRequestedWebModel(t *testing.T) {
 }
 
 
-func TestClaudeWebCancelledLoginClosesTemporaryChromeWindow(t *testing.T) {
+func TestClaudeWebCancelledLoginClosesExtensionPairing(t *testing.T) {
 	transport := &fakeClaudeWebTransport{}
 	_, adapter := newClaudeWebTestManager(t, transport)
 	login, err := adapter.BeginLogin(context.Background(), "")
@@ -309,7 +313,7 @@ func TestClaudeWebCancelledLoginClosesTemporaryChromeWindow(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !transport.closed {
-		t.Fatal("cancelling Claude Web login must close the temporary Chrome bridge")
+		t.Fatal("cancelling Claude Web login must close the extension pairing")
 	}
 }
 
@@ -343,8 +347,8 @@ func TestClaudeWebModelTurnFailureKeepsProviderStatusStable(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "transient browser failure") {
 		t.Fatalf("expected transient Claude Web failure, got %v", err)
 	}
-	if !transport.closed {
-		t.Fatal("Claude Web model turn failure must still close the temporary browser runtime")
+	if transport.closed {
+		t.Fatal("transient Claude Web model failure must not tear down the paired extension transport")
 	}
 	if _, found, err := manager.store.get(claudeWebRuntimeProviderID); err != nil || !found {
 		t.Fatalf("transient model-turn failure removed the provider: found=%v err=%v", found, err)
