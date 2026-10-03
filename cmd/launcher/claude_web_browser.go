@@ -28,6 +28,13 @@ const claudeWebURL = "https://claude.ai/"
 
 var errClaudeWebPageNotReady = errors.New("Claude Web page is not ready yet")
 
+type claudeWebCompletionResult struct {
+	OK     bool   `json:"ok"`
+	Status int    `json:"status,omitempty"`
+	Text   string `json:"text,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
 type claudeWebBrowserTransport struct {
 	mu          sync.Mutex
 	command     *exec.Cmd
@@ -63,9 +70,6 @@ func claudeWebBrowserExecutableCandidates() []string {
 	values := []string{}
 	if override := strings.TrimSpace(os.Getenv("TL_STUDIO_CLAUDE_WEB_BROWSER")); override != "" {
 		values = append(values, override)
-	}
-	if config, err := loadClaudeWebConfig(); err == nil && strings.TrimSpace(config.BrowserExecutable) != "" {
-		values = append(values, strings.TrimSpace(config.BrowserExecutable))
 	}
 	switch runtime.GOOS {
 	case "windows":
