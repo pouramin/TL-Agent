@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "TL Studio Claude Web Bridge",
-  "version": "0.6.0",
+  "name": "TL Studio Claude Web Bridge (Page Context)",
+  "version": "0.6.1",
   "description": "Inference-only transport between TL Studio and the Claude Web session already signed in to this Chrome profile.",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlWUmd1DkT4wmrvzGSsOyGcNAex6lQfLB+NfY86VQjfqtR+QjnmVZ2j2EJ8BXj/HKoEHb1dBUuVxXy4TcI0cSKrrbaQXBkOlR5QAwgI6AOtz5KLX7m3kS8TUV2qeJcoFHU/c8Rs/cHmpOSn12wh4Z6t39rmUDzeMZDzAZikKwjcEm8PmNOZJHTzdRkz/aytajYG0DDGetONBEbn1jjpmA9PZtB97rCvtSzhB9P6H3yJGkT/8UewOXo3+3DvAU/94eBW+UcSrQ6x0++E0R5Eg95jRt7Gn1HlAgjczIrp5+OsTIXcn9Wy3RIO+mFZ7VHmDSto8DZjdI7wPB/ULMqCovRQIDAQAB",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhXvlYg3RxeASoRvv6wn0fFxiyfeu8eD24zBvq1fNT1CaoqEFBvliuK9Une6RXBNDXUT/uHJb55pme2fXVdapSvdSvAYx5quqv3Z8e0/INEXWhXdU1pbP1A5HJMNQOmwRl+/Zx5ffS1HCgspFk4EY3UNk+il7r5XT2rEPzN5EevA3lljm1xcl6fGcOcGz0YRDvi0oPKfzV6D1kQ0xLDOh1sNOFom601XvGORKrT41HDjnrV1IW7AJwuxt1Wehe91fXH/hM0wpYfwAlpNwwiJHE8iYgcKNHDA5DYmDmoC3VN1tofB6RwDY7LF/vs4VyBblIMHKueKNgiiaUinUiImYIwIDAQAB",
   "permissions": ["scripting"],
   "host_permissions": ["https://claude.ai/*"],
   "externally_connectable": {

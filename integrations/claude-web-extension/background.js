@@ -1,6 +1,7 @@
 "use strict";
 
 const DEFAULT_MODEL = "claude-sonnet-5-5";
+const BRIDGE_VERSION = "0.6.1-page-context";
 const MAX_PROMPT_BYTES = 8 * 1024 * 1024;
 let pairedToken = "";
 let pairedOrigin = "";
@@ -318,7 +319,13 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   }
 
   if (message?.type === "tlstudio-ping") {
-    sendResponse({ ok: true, connected: false, stage: "extension-reached", extensionVersion: chrome.runtime.getManifest().version });
+    sendResponse({
+      ok: true,
+      connected: false,
+      stage: "extension-reached",
+      extensionVersion: chrome.runtime.getManifest().version,
+      bridgeVersion: BRIDGE_VERSION
+    });
     return;
   }
 
@@ -340,7 +347,8 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         status: Number(probe?.status || 0),
         stage: probe?.connected ? "claude-session-ready" : "claude-session-probe-failed",
         error: String(probe?.error || ""),
-        extensionVersion: chrome.runtime.getManifest().version
+        extensionVersion: chrome.runtime.getManifest().version,
+        bridgeVersion: BRIDGE_VERSION
       });
     }, (error) => {
       sendResponse({
@@ -348,7 +356,8 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
         connected: false,
         stage: "claude-session-probe-failed",
         error: String(error?.message || error),
-        extensionVersion: chrome.runtime.getManifest().version
+        extensionVersion: chrome.runtime.getManifest().version,
+        bridgeVersion: BRIDGE_VERSION
       });
     });
     return true;

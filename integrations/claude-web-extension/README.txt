@@ -21,6 +21,11 @@ Security boundary
 
 Review-build installation
 -------------------------
+This page-context transport deliberately has a new extension identity so Chrome
+cannot reuse the service worker from the older cookie-based review bridge.
+If an older "TL Studio Claude Web Bridge" is still installed, disable or remove
+it in chrome://extensions to avoid confusing the two entries.
+
 Until the extension is published through the Chrome Web Store, a review build can
 be tested manually:
 
@@ -32,7 +37,7 @@ be tested manually:
 5. Keep using TL Studio normally and choose Claude -> Web (Free/Pro).
 
 The fixed review extension ID is:
-fpphidfmpfiibpbloeecegdlecfbhcla
+hklkkfhbcohbfpojbcanhgmfanjhnfna
 
 Production distribution
 -----------------------

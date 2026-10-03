@@ -145,17 +145,17 @@ func TestClaudeWebExtensionUsesBrowserOwnedPageSession(t *testing.T) {
 		if !strings.Contains(background, required) { t.Fatalf("Claude Web page-session transport missing %q", required) }
 	}
 	for _, forbidden := range []string{
-		"chrome.cookies", "sessionKey", "document.cookie", "Network.getAllCookies",
+		"chrome.cookies", "sessionKey", "document.cookie", "Network.getAllCookies", "fpphidfmpfiibpbloeecegdlecfbhcla",
 		"Storage.getCookies", "CryptUnprotectData", "chrome.debugger",
 		"powershell.exe", "UIAutomationClient", "SendKeys", "Clipboard",
 		"--remote-debugging-port",
 	} {
 		if strings.Contains(background, forbidden) { t.Fatalf("Claude Web transport contains forbidden session/control path %q", forbidden) }
 	}
-	if !strings.Contains(accounts, `CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla"`) {
+	if !strings.Contains(accounts, `CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`) {
 		t.Fatal("TL Studio must target the fixed review Claude Web extension ID")
 	}
-	for _, required := range []string{"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct", "token: cleanToken"} {
+	for _, required := range []string{"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct", "token: cleanToken", `CLAUDE_WEB_BRIDGE_VERSION = "0.6.1-page-context"`} {
 		if !strings.Contains(accounts, required) { t.Fatalf("provider UI missing extension relay contract %q", required) }
 	}
 }

@@ -97,7 +97,8 @@ import { K } from "./kernel";
     "github-copilot": "github-copilot",
   };
 
-  const CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla";
+  const CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna";
+  const CLAUDE_WEB_BRIDGE_VERSION = "0.6.1-page-context";
   let claudeWebRelayController: AbortController | null = null;
   let claudeWebRelayToken = "";
   let claudeWebResumePromise: Promise<void> | null = null;
@@ -722,6 +723,11 @@ import { K } from "./kernel";
     if (!ping.ok) {
       throw new Error(clean(ping.error) || "TL Studio Claude Web Bridge did not accept the connection.");
     }
+    if (clean(ping.bridgeVersion) !== CLAUDE_WEB_BRIDGE_VERSION) {
+      throw new Error(
+        `TL Studio Claude Web Bridge is outdated or incompatible. Expected ${CLAUDE_WEB_BRIDGE_VERSION}, received ${clean(ping.bridgeVersion) || "unknown"}.`,
+      );
+    }
 
     onStage?.("Step 2/3 · Checking the Claude session in this Chrome profile…");
     const paired = await sendClaudeWebExtensionMessage({
@@ -729,6 +735,11 @@ import { K } from "./kernel";
       token,
       origin,
     }, 20000);
+    if (clean(paired.bridgeVersion) !== CLAUDE_WEB_BRIDGE_VERSION) {
+      throw new Error(
+        `TL Studio Claude Web Bridge changed during pairing. Expected ${CLAUDE_WEB_BRIDGE_VERSION}, received ${clean(paired.bridgeVersion) || "unknown"}.`,
+      );
+    }
     if (!paired.ok || !paired.connected) {
       const stage = clean(paired.stage);
       const detail = clean(paired.error) || "Claude is not signed in in this Chrome profile.";
