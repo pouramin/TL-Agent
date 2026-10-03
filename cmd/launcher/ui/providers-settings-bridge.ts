@@ -9,7 +9,15 @@ import { K } from "./kernel";
 
   const dialog = document.getElementById("settingsDialog");
   const panel = dialog?.querySelector('[data-settings-panel="providers"]');
-  if (!dialog || !panel) return;
+  const settingsWindow = dialog?.querySelector<HTMLElement>(".settings-window");
+  if (!dialog || !panel || !settingsWindow) return;
+
+  const syncProviderWindowMode = () => {
+    settingsWindow.classList.toggle("settings-window-providers", !panel.classList.contains("hidden"));
+  };
+  const panelObserver = new MutationObserver(syncProviderWindowMode);
+  panelObserver.observe(panel, { attributes: true, attributeFilter: ["class"] });
+  syncProviderWindowMode();
 
   // product-ui.js captures the original General/About panel list before the
   // Providers extension is injected. Keep the dynamically added panel in sync
@@ -26,11 +34,19 @@ import { K } from "./kernel";
   const style = document.createElement("style");
   style.id = "tl-providers-settings-bridge-style";
   style.textContent = `
+    .settings-window.settings-window-providers {
+      width: min(980px, calc(100vw - 36px));
+    }
     .providers-settings-panel {
-      max-height: min(62vh, 560px);
+      max-height: min(72vh, 690px);
       overflow-y: auto;
-      padding-right: 5px;
+      padding-right: 7px;
       scrollbar-gutter: stable;
+    }
+    @media(max-width:920px){
+      .settings-window.settings-window-providers {
+        width: min(820px, calc(100vw - 24px));
+      }
     }
   `;
   document.head.appendChild(style);

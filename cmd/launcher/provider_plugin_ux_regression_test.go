@@ -197,6 +197,10 @@ func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
 		`apiProviderPresets`,
 		`openAPIProviderPreset`,
 		`grid-template-columns:repeat(3,minmax(0,1fr))`,
+		`grid-template-areas:"logo name" "logo state" "details details" "actions actions"`,
+		`grid-template-columns:repeat(auto-fit,minmax(64px,1fr))`,
+		`render();`,
+		`void load().catch(() => {});`,
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("compact provider account card grid missing %q", required)
@@ -375,23 +379,82 @@ func TestActionButtonsShareOneVisualGeometryContract(t *testing.T) {
 }
 
 
-func TestClaudeProviderCardSupportsAccountAndAPIIndependently(t *testing.T) {
+func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 	source := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
-		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "github-copilot"])`,
-		`claude: "claude-account"`,
-		`const isHybridProvider = isAPIProvider && isAccountProvider`,
-		`accountConnected && apiConnected`,
-		`"Account + API connected"`,
-		`accountAction.textContent = accountConnected ? "Sign out" : "Sign in"`,
+		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "claude-web", "github-copilot"])`,
+		`"claude-web": "claude-web-account"`,
+		`providerCardOrder = ["chatgpt", "claude", "gemini"`,
+		`const claudeWebAccount = isClaudeProvider ? accountByID.get("claude-web") : undefined`,
+		`webAction.textContent = claudeWebConnected ? "Web ✓" : "Web"`,
+		`codeAction.textContent = accountConnected ? "Code ✓" : "Code"`,
+		`else void connectAccount(claudeWebAccount)`,
+		`else void connectAccount(account)`,
 		`configure.textContent = "API"`,
-		`disconnectAPI.textContent = "Disconnect API"`,
+		`const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id`,
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("Claude hybrid provider card contract missing %q", required)
+			t.Fatalf("Claude combined provider card contract missing %q", required)
 		}
 	}
-	if !strings.Contains(source, `flex-wrap:wrap`) {
-		t.Fatal("hybrid provider actions must wrap without overflowing the compact card")
+	if strings.Contains(source, `providerCardOrder = ["chatgpt", "claude", "claude-web"`) {
+		t.Fatal("Claude Web must not render as a second ambiguous standalone card")
+	}
+	for _, required := range []string{
+		`provider-account-mode-active`,
+		`grid-template-columns:repeat(auto-fit,minmax(64px,1fr))`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude provider actions must use compact responsive controls; missing %q", required)
+		}
+	}
+}
+
+
+func TestProviderSettingsWindowExpandsForProviderGrid(t *testing.T) {
+	bridge := readBrowserSource(t, "providers-settings-bridge.ts")
+	for _, required := range []string{
+		`settings-window-providers`,
+		`width: min(980px, calc(100vw - 36px))`,
+		`max-height: min(72vh, 690px)`,
+		`new MutationObserver(syncProviderWindowMode)`,
+	} {
+		if !strings.Contains(bridge, required) {
+			t.Fatalf("provider settings layout contract missing %q", required)
+		}
+	}
+}
+
+func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
+		`CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`,
+		`CLAUDE_WEB_BRIDGE_VERSION = "0.6.3-persistent-page"`,
+		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
+		`tlstudio-pair-direct`,
+		`tlstudio-execute-direct`,
+		`token: cleanToken`,
+		`claude-web-ui/pair`,
+		`claude-web-ui/poll`,
+		`claude-web-ui/result`,
+		`resumeClaudeWebIfNeeded`,
+		`establishClaudeWebBridge`,
+		`beginLogin(account.id)`,
+		`pollLogin(account.id, login.loginId`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("Claude Web extension relay UI contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`claude_web_native_chrome`,
+		`dedicated browser profile`,
+		`--remote-debugging-port`,
+		`fpphidfmpfiibpbloeecegdlecfbhcla`,
+	} {
+		if strings.Contains(accounts, forbidden) {
+			t.Fatalf("Claude Web UI must not fall back to the removed cloned/CDP transport; found %q", forbidden)
+		}
 	}
 }

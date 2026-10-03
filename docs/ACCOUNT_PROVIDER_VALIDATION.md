@@ -215,6 +215,50 @@ Expected security/product boundary:
 - the bridge working directory is an empty temporary directory;
 - project mutations, Tool execution, Permission decisions, Session persistence, and the outer model → Tool → model loop remain TL Studio-owned.
 
+## Claude Web browser session
+
+Claude Web is validated separately from the official Claude Code account path. It is intended to use the signed-in Claude Web account's normal web quota, including eligible Free accounts, without Anthropic API billing.
+
+The browser extension is transport only. Automated coverage must verify:
+
+- only `probe` and `complete` are accepted as Claude Web transport commands;
+- pairing is restricted to the TL Studio loopback UI and a per-pair random token;
+- the extension has no TL Studio Files, Terminal, Permissions, Sessions, Plugins, or Tool endpoint access;
+- the extension requests only the minimum Chrome surface needed for the page-context transport and `https://claude.ai/*` host access;
+- TL Studio and the extension never decrypt, parse, export, serialize, or store plaintext Claude cookies or `sessionKey` values;
+- the manifest does not request Chrome cookie, debugger, or declarative request-header permissions;
+- Claude Web requests run in the main-world `claude.ai` page context with `credentials: "include"`;
+- no cloned Chrome profile, CDP/remote-debugging transport, Windows UI Automation, PowerShell, SendKeys, or Clipboard bridge is used;
+- completion cleanup deletes the temporary Claude conversation where the web contract supports it;
+- SSE completion returns on terminal events instead of waiting for connection EOF;
+- an already-open Claude tab is reused when available; otherwise one inactive pinned transport tab is created and reused across multiple prompts rather than creating a tab per turn;
+- transient transport failures do not delete the persisted account-managed provider;
+- the model identity remains `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Web)`;
+- model → Tool → model continuation remains TL Studio-owned.
+
+Real Windows validation for PR #164:
+
+1. Use the normal Chrome profile already signed in to Claude Web, including a Free account when available.
+2. For a pre-store review build, load the packaged `integrations/claude-web-extension` directory once through Chrome's developer extension flow. Production distribution is expected to move to the Chrome Web Store.
+3. Connect Claude Web from Provider Settings and confirm no separate Chrome profile or Claude login window opens.
+4. Confirm TL Studio recognizes the existing Claude Web session without asking for Claude credentials again.
+5. Select `Claude Sonnet 5.5 (Web)` and confirm the model ID is `claude-sonnet-5-5`.
+6. Run a plain prompt and confirm a real Claude Web response is returned.
+7. Run a prompt that requests a TL Studio Tool, approve/deny through TL Studio Permissions, and confirm the follow-up model turn succeeds.
+8. Confirm the extension never executes a Tool itself and does not gain direct project, Terminal, Permission, Session, or Plugin access.
+9. Send at least 3 prompts in one session and confirm no additional Claude tabs appear after the initial transport tab. If a Claude tab was already open before pairing, confirm no transport tab is created at all.
+10. Restart TL Studio and confirm the local bridge can pair again with the still-signed-in normal Chrome session.
+11. Sign out through TL Studio and confirm only TL Studio's local provider connection is cleared; signing out must not mutate the user's Claude browser account. If the extension created the pinned transport tab, confirm it closes on sign-out; a user-owned Claude tab must remain open.
+12. Confirm no Anthropic API key or API-billing path was used for the test.
+
+Expected security/product boundary:
+
+- Chrome/extension is inference transport only.
+- TL Studio owns Agent loop, Context, Tool execution, permissions, project/filesystem access, Terminal, Plugins, Sessions, persistence, retry/recovery, and model → Tool → model continuation.
+- A model Tool call is a proposal returned to TL Studio, not an instruction executed by the provider.
+- Claude browser credentials remain browser-owned.
+- Cloudflare/CAPTCHA is never bypassed or solved programmatically.
+
 ## Deferred account integrations
 
 The following entry should be visible but unavailable, with an explicit reason:

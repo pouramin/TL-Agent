@@ -1,6 +1,6 @@
 # TL Studio work continuity
 
-Last updated: 2026-10-02
+Last updated: 2026-10-03
 
 ## Source of truth
 
@@ -28,9 +28,11 @@ ChatGPT/Codex full Windows validation passed with a real ChatGPT-plan account. L
 
 Claude subscription-account support is implemented through the official Claude Code CLI and has passed automated fake-CLI coverage plus a real Windows Claude CLI contract smoke. Real Claude.ai account validation is the next manual gate. Real validation for the remaining API-provider connection modes is still in progress on current dev.
 
+A separate Claude Web path is under review in PR #164. The active design uses a minimal Chrome extension against the user's already signed-in normal Chrome profile. The extension is inference transport only: it accepts `probe` and `complete`, runs authenticated Claude requests in the main-world `claude.ai` page context, and never receives TL Studio Tool/Permission/project/Terminal/Session authority. It reuses an existing Claude tab when available or creates one inactive pinned transport tab and reuses it across turns; it must not create a fresh tab per prompt. Direct service-worker inference fetches are excluded because Claude Web rejects the extension origin. Cookie/sessionKey extraction, cloned profiles, CDP/remote debugging, Windows UI Automation, and separate Claude login windows are also excluded. TL Studio remains the owner of Agent orchestration and every model → Tool → model continuation. Automated regression and CI are required before each review package; real Windows Claude Web validation remains the manual gate before any merge to dev.
+
 Current open development PR:
 
-None.
+#164 — Claude Web browser-session bridge on `feature/claude-web-browser-bridge` (draft; real Windows validation pending).
 
 Completed 0.6 account-provider / validation UX PRs:
 

@@ -45,6 +45,8 @@ type providerAccountLogin struct {
 	AuthorizationURL    string `json:"authorizationUrl,omitempty"`
 	VerificationURL     string `json:"verificationUrl,omitempty"`
 	UserCode            string `json:"userCode,omitempty"`
+	BridgeToken         string `json:"bridgeToken,omitempty"`
+	BridgeOrigin        string `json:"bridgeOrigin,omitempty"`
 	Instructions        string `json:"instructions,omitempty"`
 	ExpiresAt           string `json:"expiresAt,omitempty"`
 	PollIntervalSeconds int    `json:"pollIntervalSeconds,omitempty"`
@@ -151,7 +153,14 @@ func (s *providerAccountService) list(ctx context.Context, directory string) ([]
 	for _, id := range ids {
 		status, err := s.adapters[id].Status(ctx, directory)
 		if err != nil {
-			return nil, err
+			result = append(result, normalizeProviderAccountStatus(id, providerAccountStatus{
+				ID:        id,
+				Name:      id,
+				Available: false,
+				State:     providerAccountErrorState,
+				Error:     err.Error(),
+			}))
+			continue
 		}
 		result = append(result, normalizeProviderAccountStatus(id, status))
 	}
