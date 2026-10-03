@@ -42,10 +42,11 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		"K.api.plugins.remove",
 		"K.api.plugins.saved()",
 		"K.api.plugins.catalog()",
+		"K.api.plugins.installCatalog",
 		"K.api.plugins.attach",
 		"Available integrations",
 		"catalog-add",
-		"openCatalogEditor",
+		"Installing…",
 		"Saved for another project",
 		"Use in current project",
 		`transport: transportSelect.value || "stdio"`,
@@ -104,17 +105,37 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 	source := readBrowserSource(t, "plugins.ts")
 	for _, required := range []string{
 		"Available integrations",
-		"Curated MCP integrations",
-		"External runtime",
-		"Install first if needed:",
+		"install and enable themselves",
+		"plugin-catalog-logo",
+		"plugin-catalog-category",
+		"plugin-catalog-grid",
+		"K.api.plugins.installCatalog",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("plugin catalog UI missing %q", required)
 		}
 	}
-	for _, providerSpecific := range []string{"Graphify", "Laya", "graphify-mcp", "laya-mcp-server"} {
-		if strings.Contains(source, providerSpecific) {
-			t.Fatalf("browser catalog presentation must stay data-driven; found %q", providerSpecific)
+	for _, forbidden := range []string{
+		"Graphify", "Laya", "graphify-mcp", "laya-mcp-server",
+		"Install first if needed:", "preset.command", "preset.arguments", "preset.installHint",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("browser catalog presentation must stay data-driven and hide install commands; found %q", forbidden)
+		}
+	}
+
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, required := range []string{
+		".settings-window.settings-window-plugins",
+		".plugin-catalog-grid",
+		".plugin-catalog-card",
+		".plugin-catalog-logo",
+		"grid-template-columns: repeat(2, minmax(0, 1fr))",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("plugin catalog provider-style layout missing %q", required)
 		}
 	}
 }
