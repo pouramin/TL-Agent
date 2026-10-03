@@ -45,6 +45,30 @@ func registerPluginRoutes(mux *http.ServeMux, state *appState, manager *pluginMa
 		writeJSON(w, http.StatusOK, availablePluginCatalog())
 	})
 
+	mux.HandleFunc("POST /local/plugins/catalog/{pluginID}/install", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Confirmed bool `json:"confirmed,omitempty"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10)).Decode(&body); err != nil {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid JSON body"})
+			return
+		}
+		if !body.Confirmed {
+			writeJSON(w, http.StatusBadRequest, jsonError{Error: "catalog plugin installation requires explicit confirmation"})
+			return
+		}
+		view, err := manager.InstallCatalogPlugin(r.Context(), state.projectPath(), r.PathValue("pluginID"))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				writeJSON(w, http.StatusNotFound, jsonError{Error: "catalog plugin not found"})
+				return
+			}
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "plugin": view})
+			return
+		}
+		writeJSON(w, http.StatusOK, view)
+	})
+
 	mux.HandleFunc("GET /local/plugins", func(w http.ResponseWriter, r *http.Request) {
 		views, err := manager.List(state.projectPath(), true)
 		if err != nil {
