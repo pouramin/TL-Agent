@@ -404,30 +404,34 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 }
 
 
-func TestClaudeWebUsesNativeChromeWithoutExtensionUI(t *testing.T) {
+func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
 		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
+		`CLAUDE_WEB_EXTENSION_ID = "fpphidfmpfiibpbloeecegdlecfbhcla"`,
 		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
-		`beginLogin(account.id)`,
-		`pollLogin(account.id, login.loginId`,
-	} {
-		if !strings.Contains(accounts, required) {
-			t.Fatalf("Claude Web native Chrome UI contract missing %q", required)
-		}
-	}
-	for _, forbidden := range []string{
-		`CLAUDE_WEB_EXTENSION_ID`,
-		`chrome?.runtime`,
 		`tlstudio-pair-direct`,
+		`tlstudio-execute-direct`,
+		`token: cleanToken`,
 		`claude-web-ui/pair`,
 		`claude-web-ui/poll`,
 		`claude-web-ui/result`,
 		`resumeClaudeWebIfNeeded`,
 		`establishClaudeWebBridge`,
+		`beginLogin(account.id)`,
+		`pollLogin(account.id, login.loginId`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("Claude Web extension relay UI contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`claude_web_native_chrome`,
+		`dedicated browser profile`,
+		`--remote-debugging-port`,
 	} {
 		if strings.Contains(accounts, forbidden) {
-			t.Fatalf("Claude Web UI must not depend on the old Chrome extension relay; found %q", forbidden)
+			t.Fatalf("Claude Web UI must not fall back to the removed cloned/CDP transport; found %q", forbidden)
 		}
 	}
 }
