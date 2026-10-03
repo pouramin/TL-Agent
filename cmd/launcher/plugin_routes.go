@@ -45,7 +45,7 @@ func registerPluginRoutes(mux *http.ServeMux, state *appState, manager *pluginMa
 		writeJSON(w, http.StatusOK, availablePluginCatalog())
 	})
 
-	mux.HandleFunc("POST /local/plugins/catalog/{pluginID}/install", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /local/plugin-catalog/{pluginID}/install", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Confirmed bool `json:"confirmed,omitempty"`
 		}
