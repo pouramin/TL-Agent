@@ -107,7 +107,7 @@ func TestClaudeWebPowerShellErrorsNeverExposeRawCLIXML(t *testing.T) {
 	if strings.Contains(got, "CLIXML") || strings.Contains(got, "<Objs") {
 		t.Fatalf("raw PowerShell CLIXML leaked into user-facing error: %q", got)
 	}
-	if !strings.Contains(got, "Windows PowerShell failed") {
+	if !strings.Contains(got, "Windows UI automation failed") {
 		t.Fatalf("unexpected sanitized PowerShell error: %q", got)
 	}
 }
@@ -199,6 +199,23 @@ func TestClaudeWebNativeMarkerParserWaitsForAssistantPair(t *testing.T) {
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("Claude Web response-marker contract missing %q", required)
+		}
+	}
+}
+
+
+func TestClaudeWebNativeBackgroundBridgeIsHiddenFromTaskbar(t *testing.T) {
+	source := readRepoText(t, "cmd/launcher/claude_web_native_windows.go")
+	for _, required := range []string{
+		`NewProc("GetWindowLongPtrW")`,
+		`NewProc("SetWindowLongPtrW")`,
+		`claudeWebWSExToolWindow`,
+		`claudeWebWSExAppWindow`,
+		`claudeWebSWPFrameChanged`,
+		`claudeWebSetTaskbarVisible(hwnd, visible)`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web taskbar-hiding contract missing %q", required)
 		}
 	}
 }
