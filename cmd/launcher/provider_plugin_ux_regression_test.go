@@ -197,6 +197,8 @@ func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
 		`apiProviderPresets`,
 		`openAPIProviderPreset`,
 		`grid-template-columns:repeat(3,minmax(0,1fr))`,
+		`grid-template-areas:"logo name" "logo state" "details details" "actions actions"`,
+		`grid-template-columns:repeat(auto-fit,minmax(64px,1fr))`,
 		`render();`,
 		`void load().catch(() => {});`,
 	} {
@@ -384,8 +386,8 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 		`"claude-web": "claude-web-account"`,
 		`providerCardOrder = ["chatgpt", "claude", "gemini"`,
 		`const claudeWebAccount = isClaudeProvider ? accountByID.get("claude-web") : undefined`,
-		`webAction.textContent = claudeWebConnected ? "Web: Sign out" : "Web (Free/Pro)"`,
-		`codeAction.textContent = accountConnected ? "Code: Sign out" : "Code (Pro/Max)"`,
+		`webAction.textContent = claudeWebConnected ? "Web ✓" : "Web"`,
+		`codeAction.textContent = accountConnected ? "Code ✓" : "Code"`,
 		`else void connectAccount(claudeWebAccount)`,
 		`else void connectAccount(account)`,
 		`configure.textContent = "API"`,
@@ -398,11 +400,30 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 	if strings.Contains(source, `providerCardOrder = ["chatgpt", "claude", "claude-web"`) {
 		t.Fatal("Claude Web must not render as a second ambiguous standalone card")
 	}
-	if !strings.Contains(source, `flex-wrap:wrap`) {
-		t.Fatal("Claude provider actions must wrap without overflowing the compact card")
+	for _, required := range []string{
+		`provider-account-mode-active`,
+		`grid-template-columns:repeat(auto-fit,minmax(64px,1fr))`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude provider actions must use compact responsive controls; missing %q", required)
+		}
 	}
 }
 
+
+func TestProviderSettingsWindowExpandsForProviderGrid(t *testing.T) {
+	bridge := readBrowserSource(t, "providers-settings-bridge.ts")
+	for _, required := range []string{
+		`settings-window-providers`,
+		`width: min(980px, calc(100vw - 36px))`,
+		`max-height: min(72vh, 690px)`,
+		`new MutationObserver(syncProviderWindowMode)`,
+	} {
+		if !strings.Contains(bridge, required) {
+			t.Fatalf("provider settings layout contract missing %q", required)
+		}
+	}
+}
 
 func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 	accounts := readBrowserSource(t, "provider-account-ui.ts")

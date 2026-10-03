@@ -51,18 +51,19 @@ import { K } from "./kernel";
   const style = document.createElement("style");
   style.id = "tl-provider-accounts-ui-style";
   style.textContent = `
-    .provider-account-section{display:grid;gap:9px;margin:2px 0 12px}
-    .provider-subsection-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .provider-account-section{display:grid;gap:12px;margin:0 0 14px}
+    .provider-subsection-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:0 2px}
     .provider-subsection-head strong,.provider-subsection-head span{display:block}
-    .provider-subsection-head strong{font-size:11px}
-    .provider-subsection-head span{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.45}
-    .provider-account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-    .provider-account-card{position:relative;display:flex;min-width:0;min-height:148px;flex-direction:column;align-items:center;justify-content:flex-start;gap:7px;padding:13px 10px 10px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-align:center}
-    .provider-account-card.provider-account-unavailable{opacity:.78}
-    .provider-account-card.provider-account-unavailable .provider-account-name,.provider-account-card.provider-account-unavailable .provider-account-state{opacity:.72}
-    .provider-account-card.provider-account-connected{border-color:color-mix(in srgb,var(--accent) 42%,var(--line))}
-    .provider-account-logo{display:grid;width:46px;height:46px;place-items:center;border:1px solid color-mix(in srgb,var(--line) 72%,transparent);border-radius:13px;background:rgba(255,255,255,.035);color:var(--text);overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,.12)}
-    .provider-account-logo svg{display:block;width:29px;height:29px}
+    .provider-subsection-head strong{font-size:var(--tl-ui-md);font-weight:760}
+    .provider-subsection-head span{margin-top:4px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
+    .provider-account-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .provider-account-card{position:relative;display:grid;min-width:0;min-height:132px;grid-template-columns:44px minmax(0,1fr);grid-template-areas:"logo name" "logo state" "details details" "actions actions";grid-template-rows:auto auto minmax(12px,1fr) auto;column-gap:10px;row-gap:4px;padding:12px;border:1px solid var(--line);border-radius:13px;background:color-mix(in srgb,var(--panel),var(--panel-2) 18%);text-align:left;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+    .provider-account-card:hover{border-color:color-mix(in srgb,var(--muted-2),var(--line) 60%);background:var(--panel-2)}
+    .provider-account-card.provider-account-unavailable{opacity:.72}
+    .provider-account-card.provider-account-unavailable .provider-account-card-actions{opacity:.72}
+    .provider-account-card.provider-account-connected{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:color-mix(in srgb,var(--panel),var(--accent) 3%)}
+    .provider-account-logo{grid-area:logo;display:grid;width:42px;height:42px;place-items:center;align-self:start;border:1px solid color-mix(in srgb,var(--line) 72%,transparent);border-radius:12px;background:rgba(255,255,255,.035);color:var(--text);overflow:hidden;box-shadow:0 5px 14px rgba(0,0,0,.1)}
+    .provider-account-logo svg{display:block;width:27px;height:27px}
     .provider-account-logo[data-provider="chatgpt"]{background:#111827;color:#fff}
     .provider-account-logo[data-provider="claude"],.provider-account-logo[data-provider="claude-web"]{background:#D97757;color:#FFF8F0}
     .provider-account-logo[data-provider="gemini"]{background:linear-gradient(135deg,rgba(66,133,244,.18),rgba(142,117,178,.22) 52%,rgba(217,101,167,.18));color:#fff}
@@ -70,19 +71,24 @@ import { K } from "./kernel";
     .provider-account-logo[data-provider="huggingface"]{background:#FFD21E;color:#111827}
     .provider-account-logo[data-provider="openrouter"]{background:#94A3B8;color:#111827}
     .provider-account-logo-fallback{font-size:15px;font-weight:800;line-height:1}
-    .provider-account-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;font-weight:720}
-    .provider-account-state{display:flex;min-height:14px;align-items:center;gap:5px;color:var(--muted);font-size:8px;line-height:1.2}
-    .provider-account-state .provider-status-dot{width:6px;height:6px}
-    .provider-account-card-actions{display:flex;width:100%;margin-top:auto;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap}
-    .provider-account-signin{min-width:74px}
-    .provider-account-setup-button{position:absolute;top:8px;right:8px;width:25px;height:25px;padding:0;border-radius:8px;font-size:12px;line-height:1}
-    .provider-account-details{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:8px}
+    .provider-account-name{grid-area:name;min-width:0;padding-right:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--tl-ui-base);font-weight:760;line-height:1.25}
+    .provider-account-state{grid-area:state;display:flex;min-width:0;align-items:center;gap:6px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.25}
+    .provider-account-state>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .provider-account-state .provider-status-dot{width:6px;height:6px;flex:none}
+    .provider-account-details{grid-area:details;min-width:0;align-self:end;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted-2);font-size:var(--tl-ui-xs);line-height:1.35}
+    .provider-account-details:empty{display:none}
+    .provider-account-card-actions{grid-area:actions;display:grid;width:100%;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:6px;margin-top:5px}
+    .provider-account-card-actions .primary,.provider-account-card-actions .ghost{width:100%;min-width:0;padding-left:8px;padding-right:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .provider-account-mode-active{border-color:color-mix(in srgb,var(--accent) 50%,var(--line))!important;background:color-mix(in srgb,var(--accent),transparent 91%)!important;color:var(--text)!important}
+    .provider-account-mode-active:hover{border-color:color-mix(in srgb,var(--danger) 46%,var(--line))!important;color:var(--danger)!important}
+    .provider-account-signin{min-width:0}
+    .provider-account-setup-button{position:absolute;top:8px;right:8px;width:26px;height:26px;padding:0;border-radius:8px;font-size:12px;line-height:1}
     .provider-account-setup-dialog{width:min(620px,calc(100vw - 36px));padding:20px}
     .provider-account-setup-fields{display:grid;gap:10px}.provider-account-setup-field>span{display:block;margin-bottom:5px;color:var(--muted);font-size:var(--tl-ui-xs);font-weight:650}.provider-account-setup-field input{box-sizing:border-box;width:100%;height:34px}.provider-account-setup-field small{display:block;margin-top:5px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
-    .provider-section-divider{display:flex;align-items:center;gap:10px;margin:3px 0 1px;color:var(--muted);font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    .provider-section-divider{display:flex;align-items:center;gap:10px;margin:5px 0 2px;color:var(--muted-2);font-size:var(--tl-ui-xs);font-weight:750;letter-spacing:.08em;text-transform:uppercase}
     .provider-section-divider::before,.provider-section-divider::after{content:"";height:1px;background:var(--line);flex:1}
-    @media(max-width:900px){.provider-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media(max-width:620px){.provider-account-grid{grid-template-columns:1fr}}
+    @media(max-width:980px){.provider-account-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:680px){.provider-account-grid{grid-template-columns:1fr}.provider-account-card{min-height:124px}}
   `;
   document.head.appendChild(style);
 
@@ -365,7 +371,7 @@ import { K } from "./kernel";
         if (apiConnected) modes.push("API");
         stateLabel.textContent = modes.length
           ? `${modes.join(" + ")} connected`
-          : "Web (Free/Pro) · Code (Pro/Max) · API";
+          : "Web Free/Pro · Code Pro/Max · API";
       } else {
         stateLabel.textContent = isHybridProvider
           ? accountConnected && apiConnected
@@ -398,8 +404,8 @@ import { K } from "./kernel";
         const webAction = document.createElement("button");
         webAction.type = "button";
         webAction.dataset.providerAccountAction = claudeWebConnected ? "disconnect-web" : "connect-web";
-        webAction.textContent = claudeWebConnected ? "Web: Sign out" : "Web (Free/Pro)";
-        webAction.className = claudeWebConnected ? "ghost small provider-delete" : "primary small provider-account-signin";
+        webAction.textContent = claudeWebConnected ? "Web ✓" : "Web";
+        webAction.className = claudeWebConnected ? "ghost small provider-account-mode-active" : "primary small provider-account-signin";
         webAction.disabled = !claudeWebConnected && !claudeWebAccount?.available;
         webAction.title = claudeWebConnected
           ? "Sign out of the Claude Web browser session"
@@ -416,8 +422,8 @@ import { K } from "./kernel";
         const codeAction = document.createElement("button");
         codeAction.type = "button";
         codeAction.dataset.providerAccountAction = accountConnected ? "disconnect-code" : "connect-code";
-        codeAction.textContent = accountConnected ? "Code: Sign out" : "Code (Pro/Max)";
-        codeAction.className = accountConnected ? "ghost small provider-delete" : "ghost small";
+        codeAction.textContent = accountConnected ? "Code ✓" : "Code";
+        codeAction.className = accountConnected ? "ghost small provider-account-mode-active" : "ghost small";
         codeAction.disabled = !accountConnected && !account.available;
         codeAction.title = accountConnected
           ? "Sign out of the Claude Code subscription connection"
