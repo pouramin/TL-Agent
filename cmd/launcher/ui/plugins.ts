@@ -7,6 +7,7 @@ import { K } from "./kernel";
   K.__pluginsInstalled = true;
   K.state.plugins = [];
   let savedPlugins: TLStudioPluginView[] = [];
+  let pluginCatalog: TLStudioPluginCatalogEntry[] = [];
 
   const panel = document.querySelector<HTMLElement>('[data-settings-panel="plugins"]');
   const list = document.getElementById("pluginList");
@@ -103,6 +104,20 @@ import { K } from "./kernel";
     requestAnimationFrame(() => nameInput.focus({ preventScroll: true }));
   };
 
+  const openCatalogEditor = (preset: TLStudioPluginCatalogEntry) => {
+    resetEditor();
+    nameInput.value = preset.name || "";
+    if (descriptionInput) descriptionInput.value = preset.description || "";
+    commandInput.value = preset.command || "";
+    argsInput.value = (preset.arguments || []).join("\n");
+    transportSelect.value = preset.transport || "stdio";
+    scopeSelect.value = preset.scope || "project";
+    setStatus(preset.installHint ? `Install first if needed: ${preset.installHint}` : "");
+    if (pluginDialogTitle) pluginDialogTitle.textContent = `Add ${preset.name}`;
+    if (!pluginDialog.open) pluginDialog.showModal();
+    requestAnimationFrame(() => nameInput.focus({ preventScroll: true }));
+  };
+
   const statusClass = (value: string) => "plugin-status-" + String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   const actionButton = (label: string, action: string, pluginID: string, className = "ghost small") => {
@@ -185,6 +200,45 @@ import { K } from "./kernel";
     return card;
   };
 
+  const renderCatalogCard = (preset: TLStudioPluginCatalogEntry) => {
+    const card = document.createElement("article");
+    card.className = "plugin-card plugin-card-catalog";
+    card.dataset.pluginId = preset.id;
+
+    const head = document.createElement("div");
+    head.className = "plugin-card-head";
+    const copy = document.createElement("div");
+    copy.className = "plugin-card-copy";
+    const title = document.createElement("strong");
+    title.textContent = preset.name;
+    const description = document.createElement("span");
+    description.textContent = preset.description || "Curated MCP integration";
+    copy.append(title, description);
+
+    const state = document.createElement("span");
+    state.className = "plugin-status";
+    state.textContent = "Available";
+    head.append(copy, state);
+
+    const meta = document.createElement("div");
+    meta.className = "plugin-meta";
+    meta.textContent = `MCP · ${preset.scope === "global" ? "All projects" : "Current project"} · External runtime`;
+
+    card.append(head, meta);
+    if (preset.installHint) {
+      const install = document.createElement("code");
+      install.className = "plugin-command";
+      install.textContent = `Install: ${preset.installHint}`;
+      card.appendChild(install);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "plugin-card-actions";
+    actions.append(actionButton("Add", "catalog-add", preset.id, "primary small"));
+    card.appendChild(actions);
+    return card;
+  };
+
   const renderSavedCard = (plugin: TLStudioPluginView) => {
     const card = document.createElement("article");
     card.className = "plugin-card plugin-card-saved";
@@ -222,13 +276,13 @@ import { K } from "./kernel";
     return card;
   };
 
-  const appendSection = (
+  const appendSection = <T,>(
     titleText: string,
     subtitleText: string,
-    plugins: TLStudioPluginView[],
+    plugins: T[],
     emptyTitle: string,
     emptyText: string,
-    renderer: (plugin: TLStudioPluginView) => HTMLElement = renderCard,
+    renderer: (plugin: T) => HTMLElement,
   ) => {
     const section = document.createElement("section");
     section.className = "plugin-section";
@@ -259,19 +313,31 @@ import { K } from "./kernel";
     list.textContent = "";
     const bundled = K.state.plugins.filter((plugin) => plugin.origin === "bundled");
     const userAdded = K.state.plugins.filter((plugin) => plugin.origin !== "bundled");
+    const activePluginIDs = new Set(K.state.plugins.map((plugin) => plugin.id));
+    const available = pluginCatalog.filter((preset) => !activePluginIDs.has(preset.id));
+    appendSection(
+      "Available integrations",
+      "Curated MCP integrations you can add to TL Studio. Their runtimes stay external until you choose to install and enable them.",
+      available,
+      "All curated integrations are added",
+      "You can still add any compatible stdio MCP server with the button above.",
+      renderCatalogCard,
+    );
     appendSection(
       "Included with TL Studio",
       "Version-pinned plugins shipped inside this TL Studio package.",
       bundled,
       "No bundled plugins in this build",
-      "The bundled-plugin foundation is available, but this preview does not ship a third-party plugin yet.",
+      "Bundled plugins are reserved for version-pinned runtimes shipped inside the TL Studio package.",
+      renderCard,
     );
     appendSection(
       "Added by you",
       "External MCP servers configured by you for this project or globally.",
       userAdded,
       "No plugins added yet",
-      "Add any compatible stdio MCP server with the button above.",
+      "Choose an available integration above or add any compatible stdio MCP server.",
+      renderCard,
     );
     if (savedPlugins.length) {
       appendSection(
@@ -287,12 +353,14 @@ import { K } from "./kernel";
 
   const load = async () => {
     try {
-      const [current, saved] = await Promise.all([
+      const [current, saved, catalog] = await Promise.all([
         K.api.plugins.list(),
         K.api.plugins.saved(),
+        K.api.plugins.catalog(),
       ]);
       K.state.plugins = current;
       savedPlugins = saved;
+      pluginCatalog = catalog;
       render();
       return K.state.plugins;
     } catch (error) {
@@ -366,6 +434,12 @@ import { K } from "./kernel";
     const button = (event.target as Element | null)?.closest<HTMLButtonElement>("button[data-plugin-action]");
     if (!button) return;
     const action = button.dataset.pluginAction;
+    if (action === "catalog-add") {
+      const preset = pluginCatalog.find((item) => item.id === button.dataset.pluginId);
+      if (!preset) return;
+      openCatalogEditor(preset);
+      return;
+    }
     const plugin = (action === "attach" ? savedPlugins : K.state.plugins).find((item) => item.id === button.dataset.pluginId);
     if (!plugin) return;
 
