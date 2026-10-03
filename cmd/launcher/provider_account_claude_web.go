@@ -394,7 +394,11 @@ func (a *claudeWebAccountAdapter) Disconnect(ctx context.Context, _ string) erro
 	a.logins = map[string]claudeWebLoginTransaction{}
 	a.mu.Unlock()
 	if a.transport != nil {
-		if err := a.transport.Close(ctx); err != nil {
+		if resetter, ok := a.transport.(interface{ Reset(context.Context) error }); ok {
+			if err := resetter.Reset(ctx); err != nil {
+				return err
+			}
+		} else if err := a.transport.Close(ctx); err != nil {
 			return err
 		}
 	}
