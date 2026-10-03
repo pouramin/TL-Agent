@@ -41,7 +41,11 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		"K.api.plugins.setEnabled",
 		"K.api.plugins.remove",
 		"K.api.plugins.saved()",
+		"K.api.plugins.catalog()",
 		"K.api.plugins.attach",
+		"Available integrations",
+		"catalog-add",
+		"openCatalogEditor",
 		"Saved for another project",
 		"Use in current project",
 		`transport: transportSelect.value || "stdio"`,
@@ -92,6 +96,25 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 	} {
 		if strings.Contains(css, forbidden) {
 			t.Fatalf("Arguments field must not keep the rejected double/accent border treatment: %q", forbidden)
+		}
+	}
+}
+
+func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
+	source := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		"Available integrations",
+		"Curated MCP integrations",
+		"External runtime",
+		"Install first if needed:",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("plugin catalog UI missing %q", required)
+		}
+	}
+	for _, providerSpecific := range []string{"Graphify", "Laya", "graphify-mcp", "laya-mcp-server"} {
+		if strings.Contains(source, providerSpecific) {
+			t.Fatalf("browser catalog presentation must stay data-driven; found %q", providerSpecific)
 		}
 	}
 }
