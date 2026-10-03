@@ -136,7 +136,7 @@ func cleanClaudeWebPowerShellError(raw string) string {
 		return ""
 	}
 	if strings.Contains(text, "#< CLIXML") || strings.Contains(text, "<Objs Version=") {
-		return "Windows PowerShell failed while starting the native Chrome bridge"
+		return "Windows UI automation failed while controlling Claude Web"
 	}
 	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	for _, line := range lines {
@@ -149,7 +149,7 @@ func cleanClaudeWebPowerShellError(raw string) string {
 		}
 		return line
 	}
-	return "Windows PowerShell failed while starting the native Chrome bridge"
+	return "Windows UI automation failed while controlling Claude Web"
 }
 
 func runClaudeWebPowerShell(ctx context.Context, script string, env map[string]string) (string, error) {
@@ -191,6 +191,8 @@ var (
 	claudeWebGetWindowTextW         = claudeWebUser32.NewProc("GetWindowTextW")
 	claudeWebIsWindow               = claudeWebUser32.NewProc("IsWindow")
 	claudeWebShowWindow             = claudeWebUser32.NewProc("ShowWindow")
+	claudeWebGetWindowLongPtrW      = claudeWebUser32.NewProc("GetWindowLongPtrW")
+	claudeWebSetWindowLongPtrW      = claudeWebUser32.NewProc("SetWindowLongPtrW")
 	claudeWebSetWindowPos           = claudeWebUser32.NewProc("SetWindowPos")
 	claudeWebSetForegroundWindow    = claudeWebUser32.NewProc("SetForegroundWindow")
 	claudeWebPostMessageW           = claudeWebUser32.NewProc("PostMessageW")
@@ -202,7 +204,11 @@ const (
 	claudeWebSWPNoSize      = 0x0001
 	claudeWebSWPNoZOrder    = 0x0004
 	claudeWebSWPNoActivate  = 0x0010
+	claudeWebSWPFrameChanged = 0x0020
 	claudeWebSWPShowWindow  = 0x0040
+	claudeWebWSExToolWindow = 0x00000080
+	claudeWebWSExAppWindow  = 0x00040000
+	claudeWebGWLExStyle     = -20
 )
 
 func claudeWebWindowClass(hwnd uintptr) string {
@@ -257,11 +263,34 @@ func claudeWebNativeWindowAlive(hwnd uintptr) bool {
 	return ok != 0
 }
 
+func claudeWebSetTaskbarVisible(hwnd uintptr, visible bool) {
+	index := int32(claudeWebGWLExStyle)
+	style, _, _ := claudeWebGetWindowLongPtrW.Call(hwnd, uintptr(index))
+	if visible {
+		style &^= uintptr(claudeWebWSExToolWindow)
+		style |= uintptr(claudeWebWSExAppWindow)
+	} else {
+		style |= uintptr(claudeWebWSExToolWindow)
+		style &^= uintptr(claudeWebWSExAppWindow)
+	}
+	claudeWebSetWindowLongPtrW.Call(hwnd, uintptr(index), style)
+	claudeWebSetWindowPos.Call(
+		hwnd,
+		0,
+		0,
+		0,
+		0,
+		0,
+		uintptr(claudeWebSWPNoSize|claudeWebSWPNoZOrder|claudeWebSWPNoActivate|claudeWebSWPFrameChanged),
+	)
+}
+
 func claudeWebSetNativeWindowVisible(hwnd uintptr, visible bool) error {
 	if !claudeWebNativeWindowAlive(hwnd) {
 		return errors.New("Claude bridge window is unavailable")
 	}
 	claudeWebShowWindow.Call(hwnd, uintptr(claudeWebSWRestore))
+	claudeWebSetTaskbarVisible(hwnd, visible)
 	if visible {
 		claudeWebSetWindowPos.Call(
 			hwnd,
