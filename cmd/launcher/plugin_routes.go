@@ -41,6 +41,10 @@ func decodePluginUpsert(w http.ResponseWriter, r *http.Request) (pluginUpsertReq
 }
 
 func registerPluginRoutes(mux *http.ServeMux, state *appState, manager *pluginManager) {
+	mux.HandleFunc("GET /local/plugins/catalog", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, availablePluginCatalog())
+	})
+
 	mux.HandleFunc("GET /local/plugins", func(w http.ResponseWriter, r *http.Request) {
 		views, err := manager.List(state.projectPath(), true)
 		if err != nil {
