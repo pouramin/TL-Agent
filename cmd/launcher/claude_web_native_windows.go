@@ -191,14 +191,18 @@ var (
 	claudeWebGetWindowTextW         = claudeWebUser32.NewProc("GetWindowTextW")
 	claudeWebIsWindow               = claudeWebUser32.NewProc("IsWindow")
 	claudeWebShowWindow             = claudeWebUser32.NewProc("ShowWindow")
+	claudeWebSetWindowPos           = claudeWebUser32.NewProc("SetWindowPos")
 	claudeWebSetForegroundWindow    = claudeWebUser32.NewProc("SetForegroundWindow")
 	claudeWebPostMessageW           = claudeWebUser32.NewProc("PostMessageW")
 )
 
 const (
-	claudeWebSWMinimize = 6
-	claudeWebSWRestore  = 9
-	claudeWebWMClose    = 0x0010
+	claudeWebSWRestore      = 9
+	claudeWebWMClose        = 0x0010
+	claudeWebSWPNoSize      = 0x0001
+	claudeWebSWPNoZOrder    = 0x0004
+	claudeWebSWPNoActivate  = 0x0010
+	claudeWebSWPShowWindow  = 0x0040
 )
 
 func claudeWebWindowClass(hwnd uintptr) string {
@@ -257,14 +261,31 @@ func claudeWebSetNativeWindowVisible(hwnd uintptr, visible bool) error {
 	if !claudeWebNativeWindowAlive(hwnd) {
 		return errors.New("Claude bridge window is unavailable")
 	}
-	command := uintptr(claudeWebSWMinimize)
+	claudeWebShowWindow.Call(hwnd, uintptr(claudeWebSWRestore))
 	if visible {
-		command = claudeWebSWRestore
-	}
-	claudeWebShowWindow.Call(hwnd, command)
-	if visible {
+		claudeWebSetWindowPos.Call(
+			hwnd,
+			0,
+			uintptr(int32(80)),
+			uintptr(int32(80)),
+			uintptr(1100),
+			uintptr(800),
+			uintptr(claudeWebSWPNoZOrder|claudeWebSWPShowWindow),
+		)
 		claudeWebSetForegroundWindow.Call(hwnd)
+		return nil
 	}
+
+	offscreen := int32(-32000)
+	claudeWebSetWindowPos.Call(
+		hwnd,
+		0,
+		uintptr(offscreen),
+		uintptr(offscreen),
+		0,
+		0,
+		uintptr(claudeWebSWPNoSize|claudeWebSWPNoZOrder|claudeWebSWPNoActivate|claudeWebSWPShowWindow),
+	)
 	return nil
 }
 
@@ -306,7 +327,10 @@ func (t *claudeWebNativeTransport) launchWindow(ctx context.Context, visible boo
 		"--force-renderer-accessibility",
 	}
 	if !visible {
-		args = append(args, "--start-minimized")
+		args = append(args,
+			"--window-position=-32000,-32000",
+			"--window-size=1100,800",
+		)
 	}
 	args = append(args, claudeWebNativeURL)
 
@@ -495,14 +519,20 @@ function Set-ComposerText($composer, [string]$text) {
 
 $composer = Find-Composer
 if ($null -eq $composer) { throw "Claude message composer was not found." }
+
+# Count the unique markers before inserting this turn. The submitted user
+# message itself adds one begin/end pair; the assistant response adds the
+# second pair. Waiting for both prevents TL Studio from mistaking its own
+# prompt instructions for Claude's answer.
+$baselineText = Get-DocumentText
+$baselineBeginCount = Count-Marker $baselineText $beginMarker
+$baselineEndCount = Count-Marker $baselineText $endMarker
+
 if (-not (Set-ComposerText $composer $wrapped)) {
   throw "Claude message composer does not expose a background-edit automation pattern. TL Studio will not bring Chrome to the foreground as a fallback."
 }
 
 Start-Sleep -Milliseconds 120
-$baselineText = Get-DocumentText
-$baselineBeginCount = Count-Marker $baselineText $beginMarker
-$baselineEndCount = Count-Marker $baselineText $endMarker
 
 $sendButton = $null
 $buttons = $window.FindAll(
@@ -534,7 +564,7 @@ while ([DateTime]::UtcNow -lt $deadline) {
   $text = Get-DocumentText
   $beginCount = Count-Marker $text $beginMarker
   $endCount = Count-Marker $text $endMarker
-  if ($beginCount -le $baselineBeginCount -or $endCount -le $baselineEndCount) { continue }
+  if ($beginCount -lt ($baselineBeginCount + 2) -or $endCount -lt ($baselineEndCount + 2)) { continue }
 
   $begin = $text.LastIndexOf($beginMarker, [System.StringComparison]::Ordinal)
   $end = $text.LastIndexOf($endMarker, [System.StringComparison]::Ordinal)
