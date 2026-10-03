@@ -109,12 +109,13 @@ func TestClaudeWebUIRelayPairsPollsAndReturnsResult(t *testing.T) {
 	}
 }
 
-func TestClaudeWebExtensionUsesBackgroundSessionWithoutTabs(t *testing.T) {
+func TestClaudeWebExtensionReusesPersistentPageContext(t *testing.T) {
 	manifest := readRepoText(t, "integrations/claude-web-extension/manifest.json")
 	background := readRepoText(t, "integrations/claude-web-extension/background.js")
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 
 	for _, required := range []string{
+		`"permissions": ["scripting"]`,
 		`"https://claude.ai/*"`,
 		`"externally_connectable"`,
 		`"http://127.0.0.1/*"`,
@@ -122,15 +123,19 @@ func TestClaudeWebExtensionUsesBackgroundSessionWithoutTabs(t *testing.T) {
 	} {
 		if !strings.Contains(manifest, required) { t.Fatalf("Claude Web manifest missing %q", required) }
 	}
-	for _, forbidden := range []string{
-		`"cookies"`, `"debugger"`, `"scripting"`, `"tabs"`, "declarativeNetRequest",
-	} {
+	for _, forbidden := range []string{`"cookies"`, `"debugger"`, "declarativeNetRequest"} {
 		if strings.Contains(manifest, forbidden) { t.Fatalf("Claude Web manifest must not request %q", forbidden) }
 	}
+
 	for _, required := range []string{
-		`const CLAUDE_API = "https://claude.ai/api"`,
+		"chrome.tabs.query",
+		"chrome.tabs.create",
+		"transportTabId",
+		"transportTabOwned",
+		"chrome.scripting.executeScript",
+		`world: "MAIN"`,
 		`credentials: "include"`,
-		`"/organizations"`,
+		`"/api/organizations"`,
 		`"/chat_conversations/"`,
 		`"/completion"`,
 		`method: "DELETE"`,
@@ -140,18 +145,22 @@ func TestClaudeWebExtensionUsesBackgroundSessionWithoutTabs(t *testing.T) {
 		`stopReason === "end_turn"`,
 		`stopReason === "max_tokens"`,
 		"await reader.cancel()",
-		`BRIDGE_VERSION = "0.6.2-background-fetch"`,
+		`BRIDGE_VERSION = "0.6.3-persistent-page"`,
 		`"claude-fable-5-1"`,
 		`"claude-opus-5-5"`,
 		`"claude-sonnet-5-5"`,
 		`"claude-haiku-4-5"`,
+		"tlstudio-unpair",
 	} {
-		if !strings.Contains(background, required) { t.Fatalf("Claude Web background transport missing %q", required) }
+		if !strings.Contains(background, required) { t.Fatalf("Claude Web persistent page transport missing %q", required) }
+	}
+	if strings.Count(background, "chrome.tabs.create(") != 1 {
+		t.Fatalf("Claude Web transport must have exactly one tab-creation site, got %d", strings.Count(background, "chrome.tabs.create("))
 	}
 	for _, forbidden := range []string{
-		"chrome.tabs", "chrome.windows", "chrome.scripting", "chrome.cookies", "sessionKey",
-		"document.cookie", "Network.getAllCookies", "Storage.getCookies", "CryptUnprotectData",
-		"chrome.debugger", "powershell.exe", "UIAutomationClient", "SendKeys", "Clipboard",
+		"chrome.cookies", "sessionKey", "document.cookie", "Network.getAllCookies",
+		"Storage.getCookies", "CryptUnprotectData", "chrome.debugger",
+		"powershell.exe", "UIAutomationClient", "SendKeys", "Clipboard",
 		"--remote-debugging-port",
 	} {
 		if strings.Contains(background, forbidden) { t.Fatalf("Claude Web transport contains forbidden browser/control path %q", forbidden) }
@@ -160,8 +169,8 @@ func TestClaudeWebExtensionUsesBackgroundSessionWithoutTabs(t *testing.T) {
 		t.Fatal("TL Studio must target the fixed review Claude Web extension ID")
 	}
 	for _, required := range []string{
-		"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct",
-		"token: cleanToken", `CLAUDE_WEB_BRIDGE_VERSION = "0.6.2-background-fetch"`,
+		"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct", "tlstudio-unpair",
+		"token: cleanToken", `CLAUDE_WEB_BRIDGE_VERSION = "0.6.3-persistent-page"`,
 	} {
 		if !strings.Contains(accounts, required) { t.Fatalf("provider UI missing extension relay contract %q", required) }
 	}

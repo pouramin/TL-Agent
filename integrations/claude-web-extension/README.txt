@@ -46,6 +46,9 @@ extension. The production path is Chrome Web Store distribution (public or
 unlisted), after which TL Studio can point users to the store install once and
 reuse the normal Chrome session without a separate Claude login.
 
-A Claude tab is not required to be open before use. The extension performs Claude
-Web requests directly from its Manifest V3 service worker using Chrome's browser-owned
-session. It does not create, activate, hide, or close Claude tabs for inference.
+The extension executes authenticated Claude Web requests in the main-world context
+of claude.ai so the server sees the normal Claude origin. It first reuses any Claude
+tab already open in the user's normal Chrome profile. If none exists, it creates one
+inactive pinned transport tab and reuses that same tab for all later model turns.
+It does not create a fresh tab per prompt. If TL Studio created the transport tab,
+Sign out closes it; user-owned Claude tabs are never closed by TL Studio.

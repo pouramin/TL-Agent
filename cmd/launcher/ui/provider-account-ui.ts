@@ -98,7 +98,7 @@ import { K } from "./kernel";
   };
 
   const CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna";
-  const CLAUDE_WEB_BRIDGE_VERSION = "0.6.2-background-fetch";
+  const CLAUDE_WEB_BRIDGE_VERSION = "0.6.3-persistent-page";
   let claudeWebRelayController: AbortController | null = null;
   let claudeWebRelayToken = "";
   let claudeWebResumePromise: Promise<void> | null = null;
@@ -633,9 +633,16 @@ import { K } from "./kernel";
   });
 
   const stopClaudeWebRelay = () => {
+    const token = claudeWebRelayToken;
     claudeWebRelayController?.abort();
     claudeWebRelayController = null;
     claudeWebRelayToken = "";
+    if (token) {
+      void sendClaudeWebExtensionMessage({
+        type: "tlstudio-unpair",
+        token,
+      }, 4000).catch(() => {});
+    }
   };
 
   const claudeWebRelayFetch = async (path: string, init?: RequestInit) => {

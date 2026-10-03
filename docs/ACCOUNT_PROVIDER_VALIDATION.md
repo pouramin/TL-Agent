@@ -231,7 +231,7 @@ The browser extension is transport only. Automated coverage must verify:
 - no cloned Chrome profile, CDP/remote-debugging transport, Windows UI Automation, PowerShell, SendKeys, or Clipboard bridge is used;
 - completion cleanup deletes the temporary Claude conversation where the web contract supports it;
 - SSE completion returns on terminal events instead of waiting for connection EOF;
-- a temporary inactive Claude tab is closed after an operation when the extension created it;
+- an already-open Claude tab is reused when available; otherwise one inactive pinned transport tab is created and reused across multiple prompts rather than creating a tab per turn;
 - transient transport failures do not delete the persisted account-managed provider;
 - the model identity remains `claude-sonnet-5-5` / `Claude Sonnet 5.5 (Web)`;
 - model → Tool → model continuation remains TL Studio-owned.
@@ -246,9 +246,9 @@ Real Windows validation for PR #164:
 6. Run a plain prompt and confirm a real Claude Web response is returned.
 7. Run a prompt that requests a TL Studio Tool, approve/deny through TL Studio Permissions, and confirm the follow-up model turn succeeds.
 8. Confirm the extension never executes a Tool itself and does not gain direct project, Terminal, Permission, Session, or Plugin access.
-9. Confirm a temporary Claude tab is inactive and removed after the request when no existing Claude tab was available.
+9. Send at least 3 prompts in one session and confirm no additional Claude tabs appear after the initial transport tab. If a Claude tab was already open before pairing, confirm no transport tab is created at all.
 10. Restart TL Studio and confirm the local bridge can pair again with the still-signed-in normal Chrome session.
-11. Sign out through TL Studio and confirm only TL Studio's local provider connection is cleared; signing out must not mutate the user's Claude browser account.
+11. Sign out through TL Studio and confirm only TL Studio's local provider connection is cleared; signing out must not mutate the user's Claude browser account. If the extension created the pinned transport tab, confirm it closes on sign-out; a user-owned Claude tab must remain open.
 12. Confirm no Anthropic API key or API-billing path was used for the test.
 
 Expected security/product boundary:

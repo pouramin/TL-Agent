@@ -139,8 +139,8 @@ func (a *claudeWebAccountAdapter) baseStatus() providerAccountStatus {
 
 func claudeWebModels() []tlProviderModel {
 	return []tlProviderModel{
-		{ID: "claude-fable-5-1", Name: "Claude Fable 5.1 (Web)", ToolCall: true, Reasoning: true},
-		{ID: "claude-opus-5-5", Name: "Claude Opus 5.5 (Web)", ToolCall: true, Reasoning: true},
+		{ID: "claude-fable-5-1", Name: "Claude Fable 5.1 (Web · Pro/Max)", ToolCall: true, Reasoning: true},
+		{ID: "claude-opus-5-5", Name: "Claude Opus 5.5 (Web · Pro)", ToolCall: true, Reasoning: true},
 		{ID: "claude-sonnet-5-5", Name: "Claude Sonnet 5.5 (Web)", ToolCall: true, Reasoning: true},
 		{ID: "claude-haiku-4-5", Name: "Claude Haiku 4.5 (Web)", ToolCall: true, Reasoning: true},
 	}
