@@ -423,6 +423,7 @@ body { font-size: var(--tl-ui-base); }
   gap: 6px;
 }
 .plugin-catalog-actions .primary { min-width: 72px; }
+.plugin-catalog-error { grid-column: 1 / -1; margin-top: 4px; }
 @media(max-width:760px){
   .settings-window.settings-window-plugins { width: min(820px, calc(100vw - 24px)); }
   .plugin-catalog-grid { grid-template-columns: 1fr; }
