@@ -471,7 +471,9 @@ func claudeWebBridgePrompt(request nativeModelRequest) (string, error) {
 		"",
 		1,
 	)
+	const claudeWebIdentityRule = "If the user asks which model you are, answer with your own current model identity in one short sentence. Do not mention TL Studio internals, selectedModel, provider settings, bridge payloads, previous providers, or previous model turns unless the user explicitly asks about those internals."
 	return strings.TrimSpace(systemPrompt) +
+		"\n- " + claudeWebIdentityRule +
 		"\n\nTL Studio turn payload:\n" + string(turnBytes) +
 		"\n\nReturn exactly one JSON object and no markdown fences. Required schema:\n" +
 		string(schemaBytes), nil

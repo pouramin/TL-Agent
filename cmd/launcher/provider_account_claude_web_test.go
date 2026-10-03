@@ -187,9 +187,18 @@ func TestClaudeWebPromptDoesNotInjectSelectedModelIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"selectedModel", "report selectedModel.id exactly", "Claude Sonnet 5.5 (Web)"} {
+	for _, forbidden := range []string{"selectedModel.id", "report selectedModel.id exactly", "Claude Sonnet 5.5 (Web)"} {
 		if strings.Contains(prompt, forbidden) {
 			t.Fatalf("Claude Web prompt leaked TL Studio model identity %q: %s", forbidden, prompt)
+		}
+	}
+	for _, required := range []string{
+		"answer with your own current model identity in one short sentence",
+		"Do not mention TL Studio internals",
+		"previous providers",
+	} {
+		if !strings.Contains(prompt, required) {
+			t.Fatalf("Claude Web prompt is missing concise identity guidance %q: %s", required, prompt)
 		}
 	}
 }
