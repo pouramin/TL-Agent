@@ -124,6 +124,8 @@ import { K } from "./kernel";
   };
 
   const renderCard = (plugin: TLStudioPluginView) => {
+    const catalogPreset = pluginCatalog.find((preset) => preset.id === plugin.id);
+    if (catalogPreset) return renderInstalledCatalogCard(plugin, catalogPreset);
     const bundled = plugin.origin === "bundled";
     const card = document.createElement("article");
     card.className = `plugin-card${bundled ? " plugin-card-bundled" : ""}`;
@@ -234,6 +236,66 @@ import { K } from "./kernel";
     actions.append(actionButton("Add", "catalog-add", preset.id, "primary small"));
 
     card.append(logo, name, state, category, description, scope, actions);
+    return card;
+  };
+
+  const renderInstalledCatalogCard = (plugin: TLStudioPluginView, preset: TLStudioPluginCatalogEntry) => {
+    const card = document.createElement("article");
+    card.className = "plugin-catalog-card plugin-catalog-installed";
+    card.dataset.pluginId = plugin.id;
+
+    const logo = document.createElement("div");
+    logo.className = "plugin-catalog-logo";
+    if (preset.icon) {
+      const image = document.createElement("img");
+      image.src = preset.icon;
+      image.alt = "";
+      logo.appendChild(image);
+    } else {
+      logo.textContent = (preset.name || "?").slice(0, 1).toUpperCase();
+    }
+
+    const name = document.createElement("strong");
+    name.className = "plugin-catalog-name";
+    name.textContent = plugin.name || preset.name;
+
+    const state = document.createElement("span");
+    state.className = `plugin-status ${statusClass(plugin.status)}`;
+    state.textContent = plugin.status || (plugin.enabled ? "Starting" : "Disabled");
+
+    const category = document.createElement("span");
+    category.className = "plugin-catalog-category";
+    category.textContent = preset.category || "MCP integration";
+
+    const description = document.createElement("p");
+    description.className = "plugin-catalog-description";
+    description.textContent = plugin.description || preset.description || "Curated MCP integration";
+
+    const scope = document.createElement("span");
+    scope.className = "plugin-catalog-scope";
+    const scopeText = plugin.scope === "global" ? "All projects" : "Current project";
+    scope.textContent = `${scopeText} · ${plugin.discoveredTools || 0} tools`;
+
+    const actions = document.createElement("div");
+    actions.className = "plugin-catalog-actions";
+    actions.append(
+      actionButton(plugin.enabled ? "Disable" : "Enable", "toggle", plugin.id, plugin.enabled ? "ghost small" : "primary small"),
+      actionButton("Test", "test", plugin.id),
+    );
+    for (const integrationAction of plugin.integration?.actions || []) {
+      const extra = actionButton(integrationAction.label, "integration", plugin.id);
+      extra.dataset.integrationActionId = integrationAction.id;
+      actions.appendChild(extra);
+    }
+    actions.append(actionButton("Remove", "remove", plugin.id, "ghost small danger-text"));
+
+    card.append(logo, name, state, category, description, scope, actions);
+    if (plugin.error) {
+      const error = document.createElement("div");
+      error.className = "plugin-error plugin-catalog-error";
+      error.textContent = plugin.error;
+      card.appendChild(error);
+    }
     return card;
   };
 
