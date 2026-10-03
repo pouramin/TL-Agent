@@ -140,7 +140,7 @@ import { K } from "./kernel";
         const payload = await K.request("/local/plugins/catalog");
         return Array.isArray(payload) ? payload : [];
       },
-      installCatalog: (pluginID: string) => K.request(`/local/plugins/catalog/${enc(pluginID)}/install`, {
+      installCatalog: (pluginID: string) => K.request(`/local/plugin-catalog/${enc(pluginID)}/install`, {
         method: "POST",
         ...body({ confirmed: true }),
       }),
