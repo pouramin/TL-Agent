@@ -238,7 +238,7 @@ func (a *claudeWebAccountAdapter) BeginLogin(ctx context.Context, _ string) (pro
 	return providerAccountLogin{
 		LoginID:             loginID,
 		Flow:                "claude_web_native_chrome",
-		Instructions:        "TL Studio is using your normal Chrome profile. If Claude is not already signed in, finish sign-in in the Chrome window; it will be minimized after the connection is ready.",
+		Instructions:        "TL Studio is using your normal Chrome profile. If Claude is not already signed in, finish sign-in in the temporary Chrome window; TL Studio closes that window as soon as the connection is ready.",
 		ExpiresAt:           expiresAt.Format(time.RFC3339),
 		PollIntervalSeconds: 1,
 	}, nil
@@ -260,6 +260,9 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 		a.mu.Lock()
 		delete(a.logins, loginID)
 		a.mu.Unlock()
+		if a.transport != nil {
+			_ = a.transport.Close(context.Background())
+		}
 		status := a.baseStatus()
 		status.State = providerAccountExpired
 		return status, nil
@@ -299,6 +302,11 @@ func (a *claudeWebAccountAdapter) PollLogin(ctx context.Context, directory, logi
 	a.mu.Lock()
 	delete(a.logins, loginID)
 	a.mu.Unlock()
+	if a.transport != nil {
+		if err := a.transport.Close(context.Background()); err != nil {
+			return providerAccountStatus{}, err
+		}
+	}
 	return a.Status(ctx, directory)
 }
 
@@ -320,6 +328,11 @@ func (a *claudeWebAccountAdapter) Refresh(ctx context.Context, directory string)
 	if !config.Connected {
 		return a.Status(ctx, directory)
 	}
+	defer func() {
+		if a.transport != nil {
+			_ = a.transport.Close(context.Background())
+		}
+	}()
 	probe, err := a.transport.Probe(ctx)
 	if err != nil || !probe.Connected {
 		a.removeManagedProvider()
@@ -447,6 +460,11 @@ func (a *claudeWebAccountAdapter) CompleteModelTurn(ctx context.Context, request
 	if !config.Connected {
 		return nativeModelResponse{}, errors.New("Claude Web account requires browser sign-in")
 	}
+	defer func() {
+		if a.transport != nil {
+			_ = a.transport.Close(context.Background())
+		}
+	}()
 	probe, err := a.transport.Probe(ctx)
 	if err != nil {
 		a.removeManagedProvider()
