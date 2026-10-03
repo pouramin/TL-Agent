@@ -4,50 +4,35 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
-	"unicode/utf16"
 	"unsafe"
 )
 
 const claudeWebNativeURL = "https://claude.ai/new"
 
 type claudeWebNativeTransport struct {
-	mu      sync.Mutex
-	hwnd    uintptr
-	profile string
-	chrome  string
+	mu          sync.Mutex
+	chrome      string
+	userDataDir string
+	profileName string
+	cloneDir    string
+	browser     *claudeWebBrowserTransport
+	loginHWND   uintptr
+	cloneReady  bool
 }
 
 func newClaudeWebNativeTransport() claudeWebTransport {
 	return &claudeWebNativeTransport{}
-}
-
-func (t *claudeWebNativeTransport) Available() error {
-	chrome, err := resolveClaudeWebNativeChrome()
-	if err != nil {
-		return err
-	}
-	profile, err := claudeWebNativeProfile()
-	if err != nil {
-		return err
-	}
-	t.mu.Lock()
-	t.chrome = chrome
-	t.profile = profile
-	t.mu.Unlock()
-	return nil
 }
 
 func resolveClaudeWebNativeChrome() (string, error) {
@@ -121,95 +106,51 @@ func claudeWebNativeProfile() (string, error) {
 	return "", errors.New("Chrome's active profile could not be determined")
 }
 
-func encodePowerShell(script string) string {
-	runes := utf16.Encode([]rune(script))
-	bytes := make([]byte, len(runes)*2)
-	for index, value := range runes {
-		binary.LittleEndian.PutUint16(bytes[index*2:], value)
-	}
-	return base64.StdEncoding.EncodeToString(bytes)
+func claudeWebCloneDirectory() string {
+	return filepath.Join(tlStudioStateDirectory(), "claude-web-profile-clone")
 }
 
-func cleanClaudeWebPowerShellError(raw string) string {
-	text := strings.TrimSpace(raw)
-	if text == "" {
-		return ""
-	}
-	if strings.Contains(text, "#< CLIXML") || strings.Contains(text, "<Objs Version=") {
-		return "Windows UI automation failed while controlling Claude Web"
-	}
-	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if len(line) > 320 {
-			line = line[:320] + "…"
-		}
-		return line
-	}
-	return "Windows UI automation failed while controlling Claude Web"
-}
-
-func runClaudeWebPowerShell(ctx context.Context, script string, env map[string]string) (string, error) {
-	cmd := exec.CommandContext(
-		ctx,
-		"powershell.exe",
-		"-NoLogo",
-		"-NoProfile",
-		"-NonInteractive",
-		"-STA",
-		"-ExecutionPolicy", "Bypass",
-		"-EncodedCommand", encodePowerShell(script),
-	)
-	cmd.Env = append([]string(nil), os.Environ()...)
-	for key, value := range env {
-		cmd.Env = append(cmd.Env, key+"="+value)
-	}
-	output, err := cmd.Output()
-	text := strings.TrimSpace(string(output))
+func (t *claudeWebNativeTransport) Available() error {
+	chrome, err := resolveClaudeWebNativeChrome()
 	if err != nil {
-		detail := ""
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			detail = cleanClaudeWebPowerShellError(string(exitErr.Stderr))
-		}
-		if detail != "" {
-			return "", fmt.Errorf("Claude Web Chrome bridge: %s", detail)
-		}
-		return "", fmt.Errorf("Claude Web Chrome bridge: %w", err)
+		return err
 	}
-	return text, nil
+	userDataDir, err := claudeWebNativeUserDataDir()
+	if err != nil {
+		return err
+	}
+	profileName, err := claudeWebNativeProfile()
+	if err != nil {
+		return err
+	}
+	cloneDir := claudeWebCloneDirectory()
+
+	t.mu.Lock()
+	t.chrome = chrome
+	t.userDataDir = userDataDir
+	t.profileName = profileName
+	t.cloneDir = cloneDir
+	if t.browser == nil ||
+		t.browser.profileDir != cloneDir ||
+		t.browser.executable != chrome ||
+		t.browser.profileName != profileName {
+		t.browser = newClaudeWebBrowserTransport(cloneDir, chrome, profileName)
+	}
+	t.mu.Unlock()
+	return nil
 }
 
 var (
-	claudeWebUser32                 = syscall.NewLazyDLL("user32.dll")
-	claudeWebEnumWindows            = claudeWebUser32.NewProc("EnumWindows")
-	claudeWebGetClassNameW          = claudeWebUser32.NewProc("GetClassNameW")
-	claudeWebGetWindowTextLengthW   = claudeWebUser32.NewProc("GetWindowTextLengthW")
-	claudeWebGetWindowTextW         = claudeWebUser32.NewProc("GetWindowTextW")
-	claudeWebIsWindow               = claudeWebUser32.NewProc("IsWindow")
-	claudeWebShowWindow             = claudeWebUser32.NewProc("ShowWindow")
-	claudeWebGetWindowLongPtrW      = claudeWebUser32.NewProc("GetWindowLongPtrW")
-	claudeWebSetWindowLongPtrW      = claudeWebUser32.NewProc("SetWindowLongPtrW")
-	claudeWebSetWindowPos           = claudeWebUser32.NewProc("SetWindowPos")
-	claudeWebSetForegroundWindow    = claudeWebUser32.NewProc("SetForegroundWindow")
-	claudeWebPostMessageW           = claudeWebUser32.NewProc("PostMessageW")
+	claudeWebUser32               = syscall.NewLazyDLL("user32.dll")
+	claudeWebEnumWindows          = claudeWebUser32.NewProc("EnumWindows")
+	claudeWebGetClassNameW        = claudeWebUser32.NewProc("GetClassNameW")
+	claudeWebGetWindowTextLengthW = claudeWebUser32.NewProc("GetWindowTextLengthW")
+	claudeWebGetWindowTextW       = claudeWebUser32.NewProc("GetWindowTextW")
+	claudeWebIsWindow             = claudeWebUser32.NewProc("IsWindow")
+	claudeWebPostMessageW         = claudeWebUser32.NewProc("PostMessageW")
 )
 
-const (
-	claudeWebSWRestore      = 9
-	claudeWebWMClose        = 0x0010
-	claudeWebSWPNoSize      = 0x0001
-	claudeWebSWPNoZOrder    = 0x0004
-	claudeWebSWPNoActivate  = 0x0010
-	claudeWebSWPFrameChanged = 0x0020
-	claudeWebSWPShowWindow  = 0x0040
-	claudeWebWSExToolWindow = 0x00000080
-	claudeWebWSExAppWindow  = 0x00040000
-	claudeWebGWLExStyle     = -20
-)
+const claudeWebWMClose = 0x0010
 
 func claudeWebWindowClass(hwnd uintptr) string {
 	buffer := make([]uint16, 256)
@@ -244,8 +185,7 @@ func claudeWebWindowTitle(hwnd uintptr) string {
 func claudeWebChromeWindows() map[uintptr]string {
 	windows := map[uintptr]string{}
 	callback := syscall.NewCallback(func(hwnd uintptr, _ uintptr) uintptr {
-		className := claudeWebWindowClass(hwnd)
-		if !strings.HasPrefix(className, "Chrome_WidgetWin_") {
+		if !strings.HasPrefix(claudeWebWindowClass(hwnd), "Chrome_WidgetWin_") {
 			return 1
 		}
 		windows[hwnd] = claudeWebWindowTitle(hwnd)
@@ -263,118 +203,47 @@ func claudeWebNativeWindowAlive(hwnd uintptr) bool {
 	return ok != 0
 }
 
-func claudeWebSetTaskbarVisible(hwnd uintptr, visible bool) {
-	index := int32(claudeWebGWLExStyle)
-	style, _, _ := claudeWebGetWindowLongPtrW.Call(hwnd, uintptr(index))
-	if visible {
-		style &^= uintptr(claudeWebWSExToolWindow)
-		style |= uintptr(claudeWebWSExAppWindow)
-	} else {
-		style |= uintptr(claudeWebWSExToolWindow)
-		style &^= uintptr(claudeWebWSExAppWindow)
-	}
-	claudeWebSetWindowLongPtrW.Call(hwnd, uintptr(index), style)
-	claudeWebSetWindowPos.Call(
-		hwnd,
-		0,
-		0,
-		0,
-		0,
-		0,
-		uintptr(claudeWebSWPNoSize|claudeWebSWPNoZOrder|claudeWebSWPNoActivate|claudeWebSWPFrameChanged),
-	)
-}
-
-func claudeWebSetNativeWindowVisible(hwnd uintptr, visible bool) error {
-	if !claudeWebNativeWindowAlive(hwnd) {
-		return errors.New("Claude bridge window is unavailable")
-	}
-	claudeWebShowWindow.Call(hwnd, uintptr(claudeWebSWRestore))
-	claudeWebSetTaskbarVisible(hwnd, visible)
-	if visible {
-		claudeWebSetWindowPos.Call(
-			hwnd,
-			0,
-			uintptr(int32(80)),
-			uintptr(int32(80)),
-			uintptr(1100),
-			uintptr(800),
-			uintptr(claudeWebSWPNoZOrder|claudeWebSWPShowWindow),
-		)
-		claudeWebSetForegroundWindow.Call(hwnd)
-		return nil
-	}
-
-	offscreen := int32(-32000)
-	claudeWebSetWindowPos.Call(
-		hwnd,
-		0,
-		uintptr(offscreen),
-		uintptr(offscreen),
-		0,
-		0,
-		uintptr(claudeWebSWPNoSize|claudeWebSWPNoZOrder|claudeWebSWPNoActivate|claudeWebSWPShowWindow),
-	)
-	return nil
-}
-
 func claudeWebCloseNativeWindow(hwnd uintptr) error {
 	if hwnd == 0 || !claudeWebNativeWindowAlive(hwnd) {
 		return nil
 	}
-	ok, _, callErr := claudeWebPostMessageW.Call(
-		hwnd,
-		uintptr(claudeWebWMClose),
-		0,
-		0,
-	)
+	ok, _, callErr := claudeWebPostMessageW.Call(hwnd, uintptr(claudeWebWMClose), 0, 0)
 	if ok == 0 && callErr != syscall.Errno(0) {
 		return callErr
 	}
 	return nil
 }
 
-func (t *claudeWebNativeTransport) launchWindow(ctx context.Context, visible bool) (uintptr, error) {
+func (t *claudeWebNativeTransport) launchLoginWindow(ctx context.Context) error {
 	if err := t.Available(); err != nil {
-		return 0, err
+		return err
 	}
 	t.mu.Lock()
 	chrome := t.chrome
-	profile := t.profile
+	profile := t.profileName
 	t.mu.Unlock()
 
 	before := claudeWebChromeWindows()
-	args := []string{
-		"--profile-directory=" + profile,
+	cmd := exec.CommandContext(
+		ctx,
+		chrome,
+		"--profile-directory="+profile,
 		"--new-window",
 		"--no-first-run",
 		"--no-default-browser-check",
-		"--disable-features=PwaNavigationCapturing",
-		"--disable-backgrounding-occluded-windows",
-		"--disable-renderer-backgrounding",
-		"--disable-background-timer-throttling",
-		"--force-renderer-accessibility",
-	}
-	if !visible {
-		args = append(args,
-			"--window-position=-32000,-32000",
-			"--window-size=1100,800",
-		)
-	}
-	args = append(args, claudeWebNativeURL)
-
-	cmd := exec.CommandContext(ctx, chrome, args...)
+		claudeWebNativeURL,
+	)
 	if err := cmd.Start(); err != nil {
-		return 0, fmt.Errorf("start Chrome for Claude Web: %w", err)
+		return fmt.Errorf("open Claude sign-in in Chrome: %w", err)
 	}
 	_ = cmd.Process.Release()
 
-	deadline := time.Now().Add(20 * time.Second)
+	deadline := time.Now().Add(15 * time.Second)
 	var fallback uintptr
 	for time.Now().Before(deadline) {
 		select {
 		case <-ctx.Done():
-			return 0, ctx.Err()
+			return ctx.Err()
 		default:
 		}
 		for hwnd, title := range claudeWebChromeWindows() {
@@ -385,356 +254,268 @@ func (t *claudeWebNativeTransport) launchWindow(ctx context.Context, visible boo
 				fallback = hwnd
 			}
 			if strings.Contains(strings.ToLower(title), "claude") {
-				_ = claudeWebSetNativeWindowVisible(hwnd, visible)
-				return hwnd, nil
+				t.mu.Lock()
+				t.loginHWND = hwnd
+				t.mu.Unlock()
+				return nil
 			}
 		}
-		if fallback != 0 && time.Until(deadline) < 17*time.Second {
-			_ = claudeWebSetNativeWindowVisible(fallback, visible)
-			return fallback, nil
+		if fallback != 0 && time.Until(deadline) < 12*time.Second {
+			t.mu.Lock()
+			t.loginHWND = fallback
+			t.mu.Unlock()
+			return nil
 		}
 		time.Sleep(150 * time.Millisecond)
 	}
-	if fallback != 0 {
-		_ = claudeWebSetNativeWindowVisible(fallback, visible)
-		return fallback, nil
-	}
-	return 0, errors.New("Chrome did not create the TL Studio Claude bridge window")
+	return errors.New("Chrome did not create the temporary Claude sign-in window")
 }
 
-const claudeWebProbeScript = `
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
-$handle = [IntPtr]([Int64]::Parse($env:TL_CLAUDE_HWND))
-$window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
-if ($null -eq $window) {
-  Write-Output '{"connected":false,"error":"Claude bridge window is unavailable"}'
-  exit 0
-}
-$deadline = [DateTime]::UtcNow.AddSeconds(12)
-while ([DateTime]::UtcNow -lt $deadline) {
-  try {
-    $document = $window.FindFirst(
-      [System.Windows.Automation.TreeScope]::Descendants,
-      (New-Object System.Windows.Automation.PropertyCondition(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::Document
-      ))
-    )
-    $text = ""
-    if ($null -ne $document) {
-      $pattern = $null
-      if ($document.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
-        $text = $pattern.DocumentRange.GetText(-1)
-      }
-    }
-
-    $edits = $window.FindAll(
-      [System.Windows.Automation.TreeScope]::Descendants,
-      (New-Object System.Windows.Automation.PropertyCondition(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::Edit
-      ))
-    )
-    $composer = $false
-    foreach ($edit in $edits) {
-      $name = [string]$edit.Current.Name
-      $rect = $edit.Current.BoundingRectangle
-      if ($name -match "(How can I help|Message|Ask Claude|Talk to Claude)" -or ($rect.Width -gt 300 -and $rect.Height -gt 35)) {
-        $composer = $true
-        break
-      }
-    }
-
-    if ($composer -and ($text -match "(Claude|New chat|Projects|How can I help)")) {
-      Write-Output '{"connected":true,"status":200}'
-      exit 0
-    }
-  } catch {}
-  Start-Sleep -Milliseconds 200
-}
-Write-Output '{"connected":false,"status":401,"error":"Claude is not signed in or the Claude composer is not ready in this Chrome profile."}'
-`
-
-const claudeWebCompleteScript = `
-$ErrorActionPreference = "Stop"
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
-
-$handle = [IntPtr]([Int64]::Parse($env:TL_CLAUDE_HWND))
-$window = [System.Windows.Automation.AutomationElement]::FromHandle($handle)
-if ($null -eq $window) { throw "Claude bridge window is unavailable." }
-
-$prompt = Get-Content -LiteralPath $env:TL_CLAUDE_PROMPT_FILE -Raw -Encoding UTF8
-$beginMarker = $env:TL_CLAUDE_BEGIN
-$endMarker = $env:TL_CLAUDE_END
-$wrapped = @"
-Begin your visible response with this exact marker on its own line:
-$beginMarker
-End your visible response with this exact marker on its own line:
-$endMarker
-Do not put either marker inside a code fence. Everything between the markers must be the response requested below.
-
-$prompt
-"@
-
-function Get-DocumentText {
-  $document = $window.FindFirst(
-    [System.Windows.Automation.TreeScope]::Descendants,
-    (New-Object System.Windows.Automation.PropertyCondition(
-      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-      [System.Windows.Automation.ControlType]::Document
-    ))
-  )
-  if ($null -eq $document) { return "" }
-  $pattern = $null
-  if ($document.TryGetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern, [ref]$pattern)) {
-    return [string]$pattern.DocumentRange.GetText(-1)
-  }
-  return ""
+var claudeWebCloneEntries = []string{
+	"Preferences",
+	"Secure Preferences",
+	"Network",
+	"Local Storage",
+	"Session Storage",
+	"IndexedDB",
+	"Storage",
+	"Shared Dictionary",
+	"SharedStorage",
+	"SharedStorage-wal",
+	"Web Data",
+	"Web Data-journal",
+	"Cookies",
+	"Cookies-journal",
+	"Trust Tokens",
+	"Trust Tokens-journal",
 }
 
-function Count-Marker([string]$text, [string]$marker) {
-  if ([string]::IsNullOrEmpty($text) -or [string]::IsNullOrEmpty($marker)) { return 0 }
-  $count = 0
-  $index = 0
-  while ($true) {
-    $index = $text.IndexOf($marker, $index, [System.StringComparison]::Ordinal)
-    if ($index -lt 0) { break }
-    $count++
-    $index += $marker.Length
-  }
-  return $count
-}
-
-function Find-Composer {
-  $edits = $window.FindAll(
-    [System.Windows.Automation.TreeScope]::Descendants,
-    (New-Object System.Windows.Automation.PropertyCondition(
-      [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-      [System.Windows.Automation.ControlType]::Edit
-    ))
-  )
-  $fallback = $null
-  foreach ($edit in $edits) {
-    $name = [string]$edit.Current.Name
-    $rect = $edit.Current.BoundingRectangle
-    if ($name -match "(How can I help|Message|Ask Claude|Talk to Claude)") { return $edit }
-    if ($rect.Width -gt 300 -and $rect.Height -gt 35) { $fallback = $edit }
-  }
-  return $fallback
-}
-
-function Set-ComposerText($composer, [string]$text) {
-  $valuePattern = $null
-  if ($composer.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
-    try {
-      if (-not $valuePattern.Current.IsReadOnly) {
-        $valuePattern.SetValue($text)
-        return $true
-      }
-    } catch {}
-  }
-
-  $legacyPattern = $null
-  if ($composer.TryGetCurrentPattern([System.Windows.Automation.LegacyIAccessiblePattern]::Pattern, [ref]$legacyPattern)) {
-    try {
-      $legacyPattern.SetValue($text)
-      return $true
-    } catch {}
-  }
-  return $false
-}
-
-$composer = Find-Composer
-if ($null -eq $composer) { throw "Claude message composer was not found." }
-
-# Count the unique markers before inserting this turn. The submitted user
-# message itself adds one begin/end pair; the assistant response adds the
-# second pair. Waiting for both prevents TL Studio from mistaking its own
-# prompt instructions for Claude's answer.
-$baselineText = Get-DocumentText
-$baselineBeginCount = Count-Marker $baselineText $beginMarker
-$baselineEndCount = Count-Marker $baselineText $endMarker
-
-if (-not (Set-ComposerText $composer $wrapped)) {
-  throw "Claude message composer does not expose a background-edit automation pattern. TL Studio will not bring Chrome to the foreground as a fallback."
-}
-
-Start-Sleep -Milliseconds 120
-
-$sendButton = $null
-$buttons = $window.FindAll(
-  [System.Windows.Automation.TreeScope]::Descendants,
-  (New-Object System.Windows.Automation.PropertyCondition(
-    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-    [System.Windows.Automation.ControlType]::Button
-  ))
-)
-foreach ($button in $buttons) {
-  $name = [string]$button.Current.Name
-  if ($name -match "^(Send|Send message|Send Message)$") {
-    $sendButton = $button
-    break
-  }
-}
-if ($null -eq $sendButton) {
-  throw "Claude send button was not found for background automation."
-}
-$invoke = $null
-if (-not $sendButton.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invoke)) {
-  throw "Claude send button does not expose a background invoke pattern."
-}
-$invoke.Invoke()
-
-$deadline = [DateTime]::UtcNow.AddSeconds(180)
-while ([DateTime]::UtcNow -lt $deadline) {
-  Start-Sleep -Milliseconds 180
-  $text = Get-DocumentText
-  $beginCount = Count-Marker $text $beginMarker
-  $endCount = Count-Marker $text $endMarker
-  if ($beginCount -lt ($baselineBeginCount + 2) -or $endCount -lt ($baselineEndCount + 2)) { continue }
-
-  $begin = $text.LastIndexOf($beginMarker, [System.StringComparison]::Ordinal)
-  $end = $text.LastIndexOf($endMarker, [System.StringComparison]::Ordinal)
-  if ($begin -lt 0 -or $end -le $begin) { continue }
-
-  $contentStart = $begin + $beginMarker.Length
-  $result = $text.Substring($contentStart, $end - $contentStart).Trim()
-  Write-Output $result
-  exit 0
-}
-throw "Timed out waiting for Claude to finish the TL Studio response."
-`
-
-func (t *claudeWebNativeTransport) ensureWindow(ctx context.Context, visible bool) (uintptr, error) {
-	t.mu.Lock()
-	hwnd := t.hwnd
-	t.mu.Unlock()
-
-	if hwnd != 0 && claudeWebNativeWindowAlive(hwnd) {
-		if err := claudeWebSetNativeWindowVisible(hwnd, visible); err != nil {
-			t.mu.Lock()
-			t.hwnd = 0
-			t.mu.Unlock()
-			return 0, err
-		}
-		return hwnd, nil
-	}
-
-	hwnd, err := t.launchWindow(ctx, visible)
-	if err != nil {
-		return 0, err
-	}
-	t.mu.Lock()
-	t.hwnd = hwnd
-	t.mu.Unlock()
-	return hwnd, nil
-}
-
-func (t *claudeWebNativeTransport) setWindowVisibility(_ context.Context, hwnd uintptr, visible bool) error {
-	return claudeWebSetNativeWindowVisible(hwnd, visible)
-}
-
-func (t *claudeWebNativeTransport) OpenLogin(ctx context.Context) error {
-	hwnd, err := t.ensureWindow(ctx, false)
+func copyClaudeWebFile(src, dst string) error {
+	source, err := os.Open(src)
 	if err != nil {
 		return err
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
-	defer cancel()
-	output, probeErr := runClaudeWebPowerShell(probeCtx, claudeWebProbeScript, map[string]string{
-		"TL_CLAUDE_HWND": strconv.FormatUint(uint64(hwnd), 10),
-	})
-	if probeErr == nil {
-		var probe claudeWebProbe
-		if json.Unmarshal([]byte(strings.TrimSpace(output)), &probe) == nil && probe.Connected {
+	defer source.Close()
+	info, err := source.Stat()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+		return err
+	}
+	temp := dst + ".tlstudio-copy"
+	_ = os.Remove(temp)
+	target, err := os.OpenFile(temp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	_, copyErr := io.Copy(target, source)
+	closeErr := target.Close()
+	if copyErr != nil {
+		_ = os.Remove(temp)
+		return copyErr
+	}
+	if closeErr != nil {
+		_ = os.Remove(temp)
+		return closeErr
+	}
+	_ = os.Chmod(temp, info.Mode().Perm())
+	_ = os.Remove(dst)
+	if err := os.Rename(temp, dst); err != nil {
+		_ = os.Remove(temp)
+		return err
+	}
+	return nil
+}
+
+func copyClaudeWebPath(ctx context.Context, src, dst string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	info, err := os.Lstat(src)
+	if err != nil {
+		if os.IsNotExist(err) {
 			return nil
 		}
+		return err
 	}
-	return t.setWindowVisibility(ctx, hwnd, true)
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil
+	}
+	if !info.IsDir() {
+		return copyClaudeWebFile(src, dst)
+	}
+	if err := os.MkdirAll(dst, 0o700); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		switch name {
+		case "LOCK", "LOG", "LOG.old", "DevToolsActivePort", "SingletonCookie", "SingletonLock", "SingletonSocket":
+			continue
+		}
+		if err := copyClaudeWebPath(ctx, filepath.Join(src, name), filepath.Join(dst, name)); err != nil {
+			// Chrome can rotate cache or SQLite helper files while the main
+			// profile is live. Skip individual volatile files; the probe below
+			// is the authoritative validation of whether the clone is usable.
+			continue
+		}
+	}
+	return nil
+}
+
+func (t *claudeWebNativeTransport) syncProfileClone(ctx context.Context) error {
+	if err := t.Available(); err != nil {
+		return err
+	}
+	t.mu.Lock()
+	browser := t.browser
+	userDataDir := t.userDataDir
+	profileName := t.profileName
+	cloneDir := t.cloneDir
+	t.mu.Unlock()
+
+	if browser != nil {
+		_ = browser.Close(ctx)
+	}
+
+	tempDir := cloneDir + ".sync"
+	_ = os.RemoveAll(tempDir)
+	if err := os.MkdirAll(filepath.Join(tempDir, profileName), 0o700); err != nil {
+		return err
+	}
+	if err := copyClaudeWebFile(filepath.Join(userDataDir, "Local State"), filepath.Join(tempDir, "Local State")); err != nil {
+		return fmt.Errorf("copy Chrome Local State for Claude Web: %w", err)
+	}
+
+	sourceProfile := filepath.Join(userDataDir, profileName)
+	targetProfile := filepath.Join(tempDir, profileName)
+	for _, relative := range claudeWebCloneEntries {
+		if err := copyClaudeWebPath(ctx, filepath.Join(sourceProfile, relative), filepath.Join(targetProfile, relative)); err != nil {
+			_ = os.RemoveAll(tempDir)
+			return fmt.Errorf("copy Chrome profile data %s for Claude Web: %w", relative, err)
+		}
+	}
+
+	_ = os.RemoveAll(filepath.Join(tempDir, "SingletonCookie"))
+	_ = os.RemoveAll(filepath.Join(tempDir, "SingletonLock"))
+	_ = os.RemoveAll(filepath.Join(tempDir, "SingletonSocket"))
+	_ = os.Remove(filepath.Join(tempDir, "DevToolsActivePort"))
+
+	backupDir := cloneDir + ".old"
+	_ = os.RemoveAll(backupDir)
+	if _, err := os.Stat(cloneDir); err == nil {
+		if err := os.Rename(cloneDir, backupDir); err != nil {
+			_ = os.RemoveAll(tempDir)
+			return fmt.Errorf("rotate Claude Web profile clone: %w", err)
+		}
+	}
+	if err := os.Rename(tempDir, cloneDir); err != nil {
+		if _, statErr := os.Stat(backupDir); statErr == nil {
+			_ = os.Rename(backupDir, cloneDir)
+		}
+		return fmt.Errorf("activate Claude Web profile clone: %w", err)
+	}
+	_ = os.RemoveAll(backupDir)
+
+	t.mu.Lock()
+	t.cloneReady = true
+	t.browser = newClaudeWebBrowserTransport(cloneDir, t.chrome, profileName)
+	t.mu.Unlock()
+	return nil
+}
+
+func (t *claudeWebNativeTransport) browserTransport() (*claudeWebBrowserTransport, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.browser, t.cloneReady && t.browser != nil
+}
+
+func (t *claudeWebNativeTransport) OpenLogin(ctx context.Context) error {
+	if err := t.Close(ctx); err != nil {
+		return err
+	}
+	if err := t.syncProfileClone(ctx); err == nil {
+		if browser, ok := t.browserTransport(); ok {
+			probeCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+			probe, probeErr := browser.Probe(probeCtx)
+			cancel()
+			_ = browser.Close(context.Background())
+			if probeErr == nil && probe.Connected {
+				return nil
+			}
+		}
+	}
+	return t.launchLoginWindow(ctx)
 }
 
 func (t *claudeWebNativeTransport) Probe(ctx context.Context) (claudeWebProbe, error) {
-	hwnd, err := t.ensureWindow(ctx, false)
-	if err != nil {
-		return claudeWebProbe{}, err
+	t.mu.Lock()
+	loginOpen := t.loginHWND != 0 && claudeWebNativeWindowAlive(t.loginHWND)
+	cloneReady := t.cloneReady
+	t.mu.Unlock()
+
+	if loginOpen || !cloneReady {
+		if err := t.syncProfileClone(ctx); err != nil {
+			return claudeWebProbe{}, err
+		}
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-	defer cancel()
-	output, err := runClaudeWebPowerShell(probeCtx, claudeWebProbeScript, map[string]string{
-		"TL_CLAUDE_HWND": strconv.FormatUint(uint64(hwnd), 10),
-	})
-	if err != nil {
-		t.mu.Lock()
-		t.hwnd = 0
-		t.mu.Unlock()
-		return claudeWebProbe{}, err
+	browser, ok := t.browserTransport()
+	if !ok {
+		return claudeWebProbe{}, errors.New("Claude Web profile clone is unavailable")
 	}
-	var probe claudeWebProbe
-	if err := json.Unmarshal([]byte(strings.TrimSpace(output)), &probe); err != nil {
-		return claudeWebProbe{}, fmt.Errorf("decode Claude Web Chrome probe: %w", err)
-	}
-	if probe.Connected {
-		_ = t.setWindowVisibility(ctx, hwnd, false)
-	}
-	return probe, nil
+	return browser.Probe(ctx)
 }
 
 func (t *claudeWebNativeTransport) Complete(ctx context.Context, prompt string) (string, error) {
-	hwnd, err := t.ensureWindow(ctx, false)
-	if err != nil {
-		return "", err
+	browser, ok := t.browserTransport()
+	if !ok {
+		if err := t.syncProfileClone(ctx); err != nil {
+			return "", err
+		}
+		browser, ok = t.browserTransport()
+		if !ok {
+			return "", errors.New("Claude Web profile clone is unavailable")
+		}
 	}
-	nonce, err := randomBase64URL(18)
-	if err != nil {
-		return "", err
-	}
-	beginMarker := "TLSTUDIO_BEGIN_" + nonce
-	endMarker := "TLSTUDIO_END_" + nonce
-	dir := filepath.Join(tlStudioStateDirectory(), "claude-web-native")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", err
-	}
-	file, err := os.CreateTemp(dir, "prompt-*.txt")
-	if err != nil {
-		return "", err
-	}
-	path := file.Name()
-	defer os.Remove(path)
-	if err := file.Chmod(0o600); err != nil {
-		_ = file.Close()
-		return "", err
-	}
-	if _, err := file.WriteString(prompt); err != nil {
-		_ = file.Close()
-		return "", err
-	}
-	if err := file.Close(); err != nil {
-		return "", err
-	}
-
-	callCtx, cancel := context.WithTimeout(ctx, 190*time.Second)
-	defer cancel()
-	output, err := runClaudeWebPowerShell(callCtx, claudeWebCompleteScript, map[string]string{
-		"TL_CLAUDE_HWND":        strconv.FormatUint(uint64(hwnd), 10),
-		"TL_CLAUDE_PROMPT_FILE": path,
-		"TL_CLAUDE_BEGIN":       beginMarker,
-		"TL_CLAUDE_END":         endMarker,
-	})
-	if err != nil {
-		return "", err
-	}
-	if strings.TrimSpace(output) == "" {
-		return "", errors.New("Claude Web returned an empty response")
-	}
-	return strings.TrimSpace(output), nil
+	return browser.Complete(ctx, prompt)
 }
 
-func (t *claudeWebNativeTransport) Close(context.Context) error {
+func (t *claudeWebNativeTransport) Close(ctx context.Context) error {
 	t.mu.Lock()
-	hwnd := t.hwnd
-	t.hwnd = 0
+	browser := t.browser
+	loginHWND := t.loginHWND
+	t.loginHWND = 0
 	t.mu.Unlock()
-	return claudeWebCloseNativeWindow(hwnd)
+
+	var firstErr error
+	if browser != nil {
+		if err := browser.Close(ctx); err != nil {
+			firstErr = err
+		}
+	}
+	if err := claudeWebCloseNativeWindow(loginHWND); err != nil && firstErr == nil {
+		firstErr = err
+	}
+	return firstErr
+}
+
+func (t *claudeWebNativeTransport) Reset(ctx context.Context) error {
+	if err := t.Close(ctx); err != nil {
+		return err
+	}
+	t.mu.Lock()
+	cloneDir := t.cloneDir
+	t.cloneReady = false
+	t.mu.Unlock()
+	if strings.TrimSpace(cloneDir) == "" {
+		cloneDir = claudeWebCloneDirectory()
+	}
+	return os.RemoveAll(cloneDir)
 }
