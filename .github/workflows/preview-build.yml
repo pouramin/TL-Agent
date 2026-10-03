@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - dev
-      - feature/plugin-catalog-graphify-laya
   workflow_dispatch:
 
 permissions:
