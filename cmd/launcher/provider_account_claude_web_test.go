@@ -95,6 +95,9 @@ func TestClaudeWebBrowserLoginSyncsIndependentRuntimeProvider(t *testing.T) {
 	if !status.Connected || status.AccountType != "Claude Web" || status.OrganizationID != "org_test" {
 		t.Fatalf("unexpected connected Claude Web status: %#v", status)
 	}
+	if !transport.closed {
+		t.Fatal("successful Claude Web login must close the temporary Chrome bridge")
+	}
 	if len(status.Models) != 1 || status.Models[0] != claudeWebModelID {
 		t.Fatalf("unexpected Claude Web models: %#v", status.Models)
 	}
@@ -151,6 +154,9 @@ func TestClaudeWebBridgeKeepsTLStudioToolLoop(t *testing.T) {
 	}
 	if !strings.Contains(string(response.ToolCalls[0].Arguments), "README.md") {
 		t.Fatalf("unexpected Claude Web tool arguments: %s", response.ToolCalls[0].Arguments)
+	}
+	if !transport.closed {
+		t.Fatal("Claude Web model turn must close the temporary Chrome bridge")
 	}
 }
 
@@ -284,5 +290,21 @@ func TestClaudeWebModelIdentityMatchesRequestedWebModel(t *testing.T) {
 	}
 	if models[0].ID != "claude-sonnet-5-5" || models[0].Name != "Claude Sonnet 5.5 (Web)" {
 		t.Fatalf("Claude Web model identity is misleading: %#v", models[0])
+	}
+}
+
+
+func TestClaudeWebCancelledLoginClosesTemporaryChromeWindow(t *testing.T) {
+	transport := &fakeClaudeWebTransport{}
+	_, adapter := newClaudeWebTestManager(t, transport)
+	login, err := adapter.BeginLogin(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.CancelLogin(context.Background(), "", login.LoginID); err != nil {
+		t.Fatal(err)
+	}
+	if !transport.closed {
+		t.Fatal("cancelling Claude Web login must close the temporary Chrome bridge")
 	}
 }
