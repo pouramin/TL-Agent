@@ -156,13 +156,10 @@ interface TLStudioPluginCatalogEntry {
   id: string;
   name: string;
   description?: string;
-  type: "mcp" | string;
+  category: string;
+  icon?: string;
   scope: "project" | "global" | string;
-  transport: "stdio" | string;
-  command: string;
-  arguments?: string[];
   upstream?: string;
-  installHint?: string;
 }
 
 interface TLStudioPluginEnvironmentRef {
@@ -354,6 +351,7 @@ interface TLStudioProductAPI {
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
     catalog(): Promise<TLStudioPluginCatalogEntry[]>;
+    installCatalog(pluginID: string): Promise<TLStudioPluginView>;
     list(): Promise<TLStudioPluginView[]>;
     saved(): Promise<TLStudioPluginView[]>;
     attach(pluginID: string, sourceProject: string): Promise<TLStudioPluginView>;
