@@ -152,6 +152,19 @@ interface TLStudioToolRegistry {
   unknown: TLStudioToolDescriptor | null;
 }
 
+interface TLStudioPluginCatalogEntry {
+  id: string;
+  name: string;
+  description?: string;
+  type: "mcp" | string;
+  scope: "project" | "global" | string;
+  transport: "stdio" | string;
+  command: string;
+  arguments?: string[];
+  upstream?: string;
+  installHint?: string;
+}
+
 interface TLStudioPluginEnvironmentRef {
   name: string;
   configured?: boolean;
@@ -340,6 +353,7 @@ interface TLStudioProductAPI {
   };
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
+    catalog(): Promise<TLStudioPluginCatalogEntry[]>;
     list(): Promise<TLStudioPluginView[]>;
     saved(): Promise<TLStudioPluginView[]>;
     attach(pluginID: string, sourceProject: string): Promise<TLStudioPluginView>;
