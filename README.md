@@ -21,8 +21,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/stable-v0.5.0-16a34a" alt="Stable v0.5.0">
-  <img src="https://img.shields.io/badge/dev-v0.6.0--alpha.1-f59e0b" alt="Development v0.6.0-alpha.1">
+  <img src="https://img.shields.io/badge/stable-v0.6.0-16a34a" alt="Stable v0.6.0">
+  <img src="https://img.shields.io/badge/dev-v0.7.0--alpha.1-f59e0b" alt="Development v0.7.0-alpha.1">
 </p>
 
 ---
@@ -144,7 +144,7 @@ If `codex` is not already on `PATH`, TL Studio can use `npx @openai/codex`; Prov
 
 ### Gemini alpha setup
 
-The current 0.6 development line lets users configure these **non-secret** values directly in Provider Settings:
+TL Studio lets users configure these **non-secret** values directly in Provider Settings:
 
 - Google Cloud Project ID
 - Desktop OAuth Client ID
@@ -303,8 +303,8 @@ Real credentials are not used in CI; provider integrations are exercised through
 
 | Branch / channel | Purpose | Current version |
 | --- | --- | --- |
-| `main` | Stable production | **v0.5.0** |
-| `dev` | Active development | **v0.6.0-alpha.1** |
+| `main` | Stable production | **v0.6.0** |
+| `dev` | Next development generation | **v0.7.0-alpha.1** |
 | Feature branches | Focused work based on current `dev` | Short-lived |
 
 Stable releases are promoted to `main` only after the milestone has passed automated validation and hands-on review.

@@ -1,73 +1,36 @@
 # TL Studio work continuity
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
 ## Source of truth
 
-The actual repository state on dev is the source of truth. Before substantial work, inspect current dev and reconcile this file with README.md, README.fa_IR.md, docs/ARCHITECTURE.md, VERSION, open PRs, and CI.
+The actual repository state is the source of truth. Before substantial work, inspect current dev and main and reconcile this file with README.md, README.fa_IR.md, docs/ARCHITECTURE.md, VERSION, open PRs, releases, and CI.
 
 Stable main contains only validated stable releases. Ongoing development continues on dev.
 
 ## Current milestone
 
-Development version:
+Release candidate version:
 
-0.6.0-alpha.1
+0.6.0
 
-Stable base:
+Stable base before promotion:
 
 v0.5.0 on main
 
-Development status:
+Next development generation after the stable release:
 
-The fully native runtime milestone is complete and released as stable v0.5.0. The active 0.6 milestone is account-based providers and simplified custom-provider setup.
+0.7.0-alpha.1 on dev
 
-Current validation state:
+Release status:
 
-ChatGPT/Codex full Windows validation passed with a real ChatGPT-plan account. Login, model discovery/selection, selected-model identity, project read/search/write, Permission handling, multi-step Tool continuation, Terminal execution, restart persistence, explicit sign-out cleanup, and warm-turn latency were validated. Warm responses are currently about 3–5 seconds with the persistent Codex app-server. After restart the connected account remained usable; after sign-out and restart it remained signed out and required a fresh sign-in.
+PR #167 merged the validated 0.6 feature work into dev. The exact feature head passed CI #1019 and Custom Provider Contract #879, and the exact dev merge tree passed Preview Build #138. The stable promotion target is v0.6.0.
 
-Claude subscription-account support is implemented through the official Claude Code CLI and has passed automated fake-CLI coverage plus a real Windows Claude CLI contract smoke. Real Claude.ai account validation is the next manual gate. Real validation for the remaining API-provider connection modes is still in progress on current dev.
-
-A separate Claude Web path is under review in PR #164. The active design uses a minimal Chrome extension against the user's already signed-in normal Chrome profile. The extension is inference transport only: it accepts `probe` and `complete`, runs authenticated Claude requests in the main-world `claude.ai` page context, and never receives TL Studio Tool/Permission/project/Terminal/Session authority. It reuses an existing Claude tab when available or creates one inactive pinned transport tab and reuses it across turns; it must not create a fresh tab per prompt. Direct service-worker inference fetches are excluded because Claude Web rejects the extension origin. Cookie/sessionKey extraction, cloned profiles, CDP/remote debugging, Windows UI Automation, and separate Claude login windows are also excluded. TL Studio remains the owner of Agent orchestration and every model → Tool → model continuation. Automated regression and CI are required before each review package; real Windows Claude Web validation remains the manual gate before any merge to dev.
-
-Current open development PR:
-
-#164 — Claude Web browser-session bridge on `feature/claude-web-browser-bridge` (draft; real Windows validation pending).
-
-Completed 0.6 account-provider / validation UX PRs:
-
-#162 — Enable Claude subscription login through official Claude Code
-#159 — Initial Claude subscription-login implementation
-#158 — Unify button geometry across TL Studio
-#157 — Keep branded API providers on their cards
-#155 — Keep the ChatGPT Codex app-server warm between turns
-#154 — Reduce ChatGPT turn latency
-#153 — Report the selected ChatGPT model identity correctly
-#152 — Fix ChatGPT Codex model bridge structured output
-#151 — Fix Codex app-server launch on Windows
-#149 — Document provider connection modes
-#148 — Make API-based provider cards configurable
-#147 — Fix the official Codex initialize contract
-#146 — Add the real ChatGPT account validation gate
-#143 — Enable ChatGPT account login through official Codex
-
-#130 — Compact provider account settings into logo cards
-#129 — Document the 0.6 real account validation gate
-#128 — Use a dedicated Gemini desktop OAuth loopback
-#127 — Add in-app setup for account providers
-#126 — Keep custom provider setup discovery-first
-#125 — Expose deferred account-provider boundaries
-#124 — Google Gemini account provider for 0.6
-#123 — Hugging Face account provider for 0.6
-#122 — Account provider foundation for 0.6
-
-Completed milestone:
-
-v0.5 — TL Studio became a fully independent native product.
+The 0.6 release includes the Laya Router, JEV Direct through TypeSafe while preserving JEV via OpenRouter, global Graphify installation with project-local graphs, the responsive Plugins redesign, Claude Web Bridge improvements, native routed-Agent fallback/cooldown reliability, the single-scroll Settings redesign, and the verified GitHub Releases updater.
 
 Stable promotion rule:
 
-Promote dev to main only after the next milestone is fully validated and its version has been finalized as stable. Stable main must not carry alpha or beta version labels.
+Promote dev to main only through the protected pull-request path after the stable preparation commit passes the required checks. Publish v0.6.0 from the exact final main commit. Only after that release is published should dev advance to 0.7.0-alpha.1.
 
 ## Architecture state
 

@@ -173,10 +173,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PRERELEASE=""
-          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc) ]]; then PRERELEASE="--prerelease"; fi
+          RELEASE_ARGS=(--generate-notes)
+          NOTES_FILE="docs/releases/${RELEASE_TAG}.md"
+          if [[ -f "$NOTES_FILE" ]]; then
+            RELEASE_ARGS=(--notes-file "$NOTES_FILE")
+          fi
+          if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc) ]]; then
+            RELEASE_ARGS+=(--prerelease)
+          fi
           gh release create "$RELEASE_TAG" dist/* \
             --target "$GITHUB_SHA" \
             --title "TL Studio $RELEASE_TAG" \
-            --generate-notes \
-            $PRERELEASE
+            "${RELEASE_ARGS[@]}"
