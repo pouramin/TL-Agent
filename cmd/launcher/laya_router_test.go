@@ -172,6 +172,7 @@ func TestLayaRouteFailureClassification(t *testing.T) {
 	}{
 		{name: "rate limit", message: "model request failed with status 429: rate-limited", providerWide: false, ok: true},
 		{name: "model unavailable", message: "model_not_available", providerWide: false, ok: true},
+		{name: "free model removed", message: "model request failed with status 404: This model is unavailable for free. The paid version is available now", providerWide: false, ok: true},
 		{name: "bridge pairing", message: "Claude Web bridge is not paired", providerWide: true, ok: true},
 		{name: "provider unavailable", message: "provider unavailable", providerWide: false, ok: true},
 		{name: "temporary provider failure", message: "provider temporary failure", providerWide: false, ok: true},
@@ -203,5 +204,49 @@ func TestLayaRouterSkipsCandidateThatIsNotReady(t *testing.T) {
 	}
 	if selected.ModelID != "ready" {
 		t.Fatalf("router selected an unavailable model: %#v", selected)
+	}
+}
+
+
+func TestLayaRouterFreeTierDailyQuotaCoolsWholeProviderFreeGroup(t *testing.T) {
+	service := newLayaRouterService(nil, nil)
+	selection := nativeRouteSelection{
+		ProviderID: "openrouter",
+		ModelID:    "qwen/qwen3.8-27b:free",
+		Group:      "free",
+	}
+	failure := errors.New("model request failed with status 429: free-models-per-day limit_source=openrouter_free_tier_daily")
+	if !service.markRouteFailure(selection, failure) {
+		t.Fatal("free-tier daily quota failure should be reroutable")
+	}
+
+	if cooldown, ok := service.candidateCooldown("openrouter", "cohere/north-mini-code:free", "free"); !ok {
+		t.Fatal("another free model on the same provider should inherit the free-tier cooldown")
+	} else if cooldown.Reason != "Free-tier daily quota exhausted" {
+		t.Fatalf("unexpected free-tier cooldown reason %q", cooldown.Reason)
+	}
+	if _, ok := service.candidateCooldown("openrouter", "paid/model", "budget"); ok {
+		t.Fatal("paid/budget models on the same provider must remain eligible")
+	}
+	if _, ok := service.candidateCooldown("another-provider", "free/model", "free"); ok {
+		t.Fatal("free models on another provider must remain eligible")
+	}
+}
+
+func TestLayaRouterOrdinaryRateLimitRemainsModelScoped(t *testing.T) {
+	service := newLayaRouterService(nil, nil)
+	selection := nativeRouteSelection{
+		ProviderID: "openrouter",
+		ModelID:    "qwen/qwen3.8-27b:free",
+		Group:      "free",
+	}
+	if !service.markRouteFailure(selection, errors.New("model request failed with status 429: temporarily rate-limited upstream")) {
+		t.Fatal("ordinary rate limit should be reroutable")
+	}
+	if _, ok := service.candidateCooldown("openrouter", "qwen/qwen3.8-27b:free", "free"); !ok {
+		t.Fatal("failed model should be cooled down")
+	}
+	if _, ok := service.candidateCooldown("openrouter", "cohere/north-mini-code:free", "free"); ok {
+		t.Fatal("ordinary model rate limit must not cool every free model on the provider")
 	}
 }

@@ -159,6 +159,20 @@ func layaProviderCooldownKey(providerID string) string {
 	return layaPreferenceKey(providerID, "*")
 }
 
+func layaGroupCooldownKey(providerID, group string) string {
+	return layaPreferenceKey(providerID, "group:"+normalizeLayaModelGroup(group))
+}
+
+func layaFreeTierQuotaFailure(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(strings.TrimSpace(err.Error()))
+	return strings.Contains(text, "free-models-per-day") ||
+		strings.Contains(text, "openrouter_free_tier_daily") ||
+		strings.Contains(text, "free model requests per day")
+}
+
 func classifyLayaRouteFailure(err error) (providerWide bool, cooldown time.Duration, reason string, ok bool) {
 	if err == nil {
 		return false, 0, "", false
@@ -175,6 +189,9 @@ func classifyLayaRouteFailure(err error) (providerWide bool, cooldown time.Durat
 		strings.Contains(text, "model isn't available right now") ||
 		strings.Contains(text, "model is not available"):
 		return false, 30 * time.Minute, "Model unavailable", true
+	case strings.Contains(text, "unavailable for free") ||
+		strings.Contains(text, "model is unavailable for free"):
+		return false, 30 * time.Minute, "Free model unavailable", true
 	case strings.Contains(text, "status 429") ||
 		strings.Contains(text, "rate-limited") ||
 		strings.Contains(text, "rate limit") ||
@@ -205,8 +222,23 @@ func classifyLayaRouteFailure(err error) (providerWide bool, cooldown time.Durat
 }
 
 func (s *layaRouterService) markRouteFailure(selection nativeRouteSelection, err error) bool {
+	if s == nil {
+		return false
+	}
+	if normalizeLayaModelGroup(selection.Group) == "free" && layaFreeTierQuotaFailure(err) {
+		s.healthMu.Lock()
+		if s.cooldowns == nil {
+			s.cooldowns = map[string]layaRouterCooldown{}
+		}
+		s.cooldowns[layaGroupCooldownKey(selection.ProviderID, "free")] = layaRouterCooldown{
+			Until:  time.Now().Add(15 * time.Minute),
+			Reason: "Free-tier daily quota exhausted",
+		}
+		s.healthMu.Unlock()
+		return true
+	}
 	providerWide, duration, reason, ok := classifyLayaRouteFailure(err)
-	if !ok || s == nil {
+	if !ok {
 		return false
 	}
 	key := layaPreferenceKey(selection.ProviderID, selection.ModelID)
@@ -222,12 +254,16 @@ func (s *layaRouterService) markRouteFailure(selection nativeRouteSelection, err
 	return true
 }
 
-func (s *layaRouterService) candidateCooldown(providerID, modelID string) (layaRouterCooldown, bool) {
+func (s *layaRouterService) candidateCooldown(providerID, modelID, group string) (layaRouterCooldown, bool) {
 	if s == nil {
 		return layaRouterCooldown{}, false
 	}
 	now := time.Now()
-	keys := []string{layaProviderCooldownKey(providerID), layaPreferenceKey(providerID, modelID)}
+	keys := []string{
+		layaProviderCooldownKey(providerID),
+		layaGroupCooldownKey(providerID, group),
+		layaPreferenceKey(providerID, modelID),
+	}
 	s.healthMu.Lock()
 	defer s.healthMu.Unlock()
 	for _, key := range keys {
@@ -448,7 +484,7 @@ func (s *layaRouterService) candidates(ctx context.Context, project string) ([]l
 			}
 			ready := providerReady
 			availability := providerAvailability
-			if cooldown, cooling := s.candidateCooldown(provider.ID, model.ID); cooling {
+			if cooldown, cooling := s.candidateCooldown(provider.ID, model.ID, group); cooling {
 				ready = false
 				availability = cooldown.Reason
 			}
