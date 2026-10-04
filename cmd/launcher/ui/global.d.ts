@@ -367,6 +367,18 @@ interface TLStudioProductAPI {
   readonly version: string;
   health(): Promise<any>;
   path(): Promise<any>;
+  updates: {
+    status(): Promise<{
+      currentVersion: string;
+      latestVersion?: string;
+      available: boolean;
+      canAutoUpdate: boolean;
+      releaseURL?: string;
+      channel: string;
+      message?: string;
+    }>;
+    apply(): Promise<{ started: boolean; latestVersion?: string; releaseURL?: string }>;
+  };
   agents(): Promise<any[]>;
   providerState(): Promise<TLStudioProviderState>;
   providerAccounts: {
