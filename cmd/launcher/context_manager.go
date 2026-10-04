@@ -328,7 +328,7 @@ func buildNativeContextPlan(messages []nativeConversationMessage, system string,
 	plan.CheckpointInserted = checkpoint
 	plan.EstimatedMessageTokens = nativeEstimateConversationTokens(selected)
 	plan.EstimatedRequestTokens = fixedTokens + nativeContextOutputReserve(model, contextLimit) + plan.EstimatedMessageTokens
-	plan.OverBudget = plan.EstimatedMessageTokens > messageBudget
+	plan.OverBudget = plan.EstimatedRequestTokens > contextLimit
 	return plan
 }
 
