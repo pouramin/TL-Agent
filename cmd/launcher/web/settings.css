@@ -335,9 +335,10 @@ body { font-size: var(--tl-ui-base); }
 /* Curated plugin catalog */
 .plugin-section-list { display: grid; gap: 8px; }
 .plugin-catalog-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  align-items:stretch;
 }
 .plugin-catalog-card {
   position: relative;
@@ -349,8 +350,9 @@ body { font-size: var(--tl-ui-base); }
     "logo name state"
     "logo category category"
     "description description description"
-    "scope actions actions";
-  grid-template-rows: auto auto minmax(38px,1fr) auto;
+    "scope scope scope"
+    "actions actions actions";
+  grid-template-rows:auto auto minmax(44px,1fr) auto auto;
   column-gap: 10px;
   row-gap: 4px;
   padding: 12px;
@@ -420,15 +422,22 @@ body { font-size: var(--tl-ui-base); }
   font-size: var(--tl-ui-xs);
 }
 .plugin-catalog-actions {
-  grid-area: actions;
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
+  grid-area:actions;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-start;
+  gap:6px;
+  padding-top:6px;
+  border-top:1px solid var(--line-soft);
 }
 .plugin-catalog-actions .primary { min-width: 72px; }
 .plugin-catalog-error { grid-column: 1 / -1; margin-top: 4px; }
+@media(max-width:1080px){
+  .plugin-catalog-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 @media(max-width:760px){
-  .plugin-catalog-grid { grid-template-columns: 1fr; }
+  .plugin-catalog-grid { grid-template-columns:1fr; }
 }
 
 

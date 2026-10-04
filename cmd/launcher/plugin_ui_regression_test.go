@@ -132,7 +132,9 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 		".plugin-catalog-grid",
 		".plugin-catalog-card",
 		".plugin-catalog-logo",
-		"grid-template-columns: repeat(2, minmax(0, 1fr))",
+		"grid-template-columns:repeat(3,minmax(0,1fr))",
+		`body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid"`,
+		`"actions actions actions"`,
 	} {
 		if !strings.Contains(css, required) {
 			t.Fatalf("plugin catalog provider-style layout missing %q", required)
@@ -324,5 +326,27 @@ func TestJevDirectPluginSetupValidatesBeforeEnable(t *testing.T) {
 	enableIndex := strings.Index(source, `await K.api.plugins.setEnabled(plugin.id, true)`)
 	if testIndex < 0 || enableIndex < 0 || testIndex > enableIndex {
 		t.Fatal("JEV Direct must validate the saved TypeSafe credential before enabling the router")
+	}
+}
+
+
+func TestInstalledPluginsUseThreeColumnProviderStyleCards(t *testing.T) {
+	source := readBrowserSource(t, "plugins.ts")
+	if !strings.Contains(source, `body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid"`) {
+		t.Fatal("installed Plugins must use the same card grid as curated integrations")
+	}
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, required := range []string{
+		"grid-template-columns:repeat(3,minmax(0,1fr))",
+		`"actions actions actions"`,
+		".plugin-catalog-actions {",
+		"flex-wrap:wrap",
+		"border-top:1px solid var(--line-soft)",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("installed Plugin card layout missing %q", required)
+		}
 	}
 }

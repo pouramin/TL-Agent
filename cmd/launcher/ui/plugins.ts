@@ -429,7 +429,7 @@ import { K } from "./kernel";
     section.appendChild(head);
     if (plugins.length) {
       const body = document.createElement("div");
-      body.className = renderer === renderCatalogCard ? "plugin-catalog-grid" : "plugin-section-list";
+      body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid";
       for (const plugin of plugins) body.appendChild(renderer(plugin));
       section.appendChild(body);
     } else {
