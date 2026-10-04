@@ -77,21 +77,25 @@ type layaRouteAnalysis struct {
 }
 
 type nativeRouteSelection struct {
-	ProviderID   string            `json:"providerID"`
-	ProviderName string            `json:"providerName"`
-	ModelID      string            `json:"modelID"`
-	ModelName    string            `json:"modelName"`
-	Profile      string            `json:"profile"`
-	Group        string            `json:"group"`
-	Quality      int               `json:"quality"`
-	Speed        int               `json:"speed"`
-	Reason       string            `json:"reason"`
-	Analysis     layaRouteAnalysis `json:"analysis"`
+	ProviderID       string            `json:"providerID"`
+	ProviderName     string            `json:"providerName"`
+	ModelID          string            `json:"modelID"`
+	ModelName        string            `json:"modelName"`
+	Profile          string            `json:"profile"`
+	Group            string            `json:"group"`
+	Quality          int               `json:"quality"`
+	Speed            int               `json:"speed"`
+	Reason           string            `json:"reason"`
+	Analysis         layaRouteAnalysis `json:"analysis"`
+	RouterProviderID string            `json:"routerProviderID,omitempty"`
+	RouterModelID    string            `json:"routerModelID,omitempty"`
+	RouterName       string            `json:"routerName,omitempty"`
+	RouterSource     string            `json:"routerSource,omitempty"`
 }
 
 type nativeRequestRouter interface {
 	Handles(*sessionModelRef) bool
-	Route(context.Context, string, string) (nativeRouteSelection, error)
+	Route(context.Context, string, string, ...*sessionModelRef) (nativeRouteSelection, error)
 }
 
 type nativeRequestFallbackRouter interface {
@@ -895,10 +899,14 @@ func (s *layaRouterService) routeWithConfig(ctx context.Context, project, prompt
 		ModelID: selected.ModelID, ModelName: selected.ModelName,
 		Profile: config.Profile, Group: selected.Group, Quality: selected.Quality, Speed: selected.Speed,
 		Reason: reason, Analysis: analysis,
+		RouterProviderID: layaRouterProviderID,
+		RouterModelID: layaRouterModelID,
+		RouterName: "Laya",
+		RouterSource: "laya-model-router",
 	}, nil
 }
 
-func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
+func (s *layaRouterService) Route(ctx context.Context, project, prompt string, _ ...*sessionModelRef) (nativeRouteSelection, error) {
 	config, err := s.loadConfig()
 	if err != nil {
 		return nativeRouteSelection{}, err
@@ -943,6 +951,10 @@ func (s *layaRouterService) Fallback(
 		Speed: selected.Speed,
 		Reason: "Automatic fallback after " + strings.TrimSpace(failure.Error()) + " · " + reason,
 		Analysis: previous.Analysis,
+		RouterProviderID: firstSessionString(previous.RouterProviderID, layaRouterProviderID),
+		RouterModelID: firstSessionString(previous.RouterModelID, layaRouterModelID),
+		RouterName: firstSessionString(previous.RouterName, "Laya"),
+		RouterSource: firstSessionString(previous.RouterSource, "laya-model-router"),
 	}, true, nil
 }
 

@@ -247,13 +247,17 @@ func nativeRoutedModelActivity(provider tlProviderDefinition, model tlProviderMo
 }
 
 func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityView {
+	routerName := firstSessionString(selection.RouterName, "Laya")
+	source := firstSessionString(selection.RouterSource, "laya-model-router")
 	return sessionActivityView{
 		Kind:   "model",
 		Status: "completed",
-		Title:  "Routed by Laya",
+		Title:  "Routed by " + routerName,
 		Model:  &sessionModelRef{ProviderID: selection.ProviderID, ID: selection.ModelID},
 		Metadata: map[string]any{
-			"source":        "laya-model-router",
+			"source":        source,
+			"routerProviderID": selection.RouterProviderID,
+			"routerModelID": selection.RouterModelID,
 			"providerName":  selection.ProviderName,
 			"modelName":     selection.ModelName,
 			"profile":       selection.Profile,
@@ -267,7 +271,7 @@ func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityV
 			"sensitive":     selection.Analysis.Sensitive,
 			"layaCheckpoint": selection.Analysis.Checkpoint,
 			"layaReason":    selection.Analysis.LayaReason,
-			"layaLatencyMs": selection.Analysis.LatencyMS,
+			"routerLatencyMs": selection.Analysis.LatencyMS,
 		},
 	}
 }
@@ -275,7 +279,7 @@ func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityV
 func nativeRequestRouteFailureActivity(selection nativeRouteSelection, failure error) sessionActivityView {
 	activity := nativeRequestRouteActivity(selection)
 	activity.Status = "failed"
-	activity.Title = "Laya route unavailable"
+	activity.Title = firstSessionString(selection.RouterName, "Laya") + " route unavailable"
 	activity.Error = &sessionErrorView{Type: "provider", Message: strings.TrimSpace(failure.Error())}
 	if activity.Metadata == nil {
 		activity.Metadata = map[string]any{}
@@ -404,7 +408,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 	providerID := input.Model.ProviderID
 	modelID := input.Model.ID
 	if r.requestRouter != nil && r.requestRouter.Handles(input.Model) {
-		selection, routeErr := r.requestRouter.Route(ctx, directory, routingPrompt)
+		selection, routeErr := r.requestRouter.Route(ctx, directory, routingPrompt, input.Model)
 		if routeErr != nil {
 			return routeErr
 		}
