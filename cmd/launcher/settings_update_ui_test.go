@@ -48,8 +48,17 @@ func TestSettingsAboutExposesVerifiedUpdater(t *testing.T) {
 	cssBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "settings.css"))
 	if err != nil { t.Fatal(err) }
 	css := string(cssBytes)
-	if !strings.Contains(css, ".settings-window { box-sizing:border-box; width:920px; min-width:920px; max-width:calc(100vw - 36px);") {
-		t.Fatal("Settings must keep one stable desktop width across sections")
+	if !strings.Contains(css, ".settings-window { box-sizing:border-box; width:920px; min-width:920px; max-width:calc(100vw - 36px); height:680px; max-height:calc(100vh - 36px); display:grid; grid-template-rows:auto minmax(0,1fr) auto;") {
+		t.Fatal("Settings must keep one stable desktop size across sections")
+	}
+	for _, required := range []string{
+		".settings-layout { min-height:0; overflow:hidden;",
+		".settings-content { min-width:0; min-height:0; overflow-y:auto;",
+		".settings-nav { min-height:0; overflow-y:auto;",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("Settings fixed-height scrolling contract missing %q", required)
+		}
 	}
 	if strings.Contains(css, "settings-window-plugins") {
 		t.Fatal("Settings must not change width for the Plugins section")
