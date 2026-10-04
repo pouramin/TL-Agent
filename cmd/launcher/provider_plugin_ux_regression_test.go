@@ -480,6 +480,10 @@ func TestClaudeWebMissingBridgeOpensStoreWithoutLeakingRawURLIntoErrorCopy(t *te
 		`isClaudeWebBridgeUnavailableError(error)`,
 		`To continue with Claude Web, TL Studio Claude Web Bridge must be installed`,
 		`The Chrome Web Store page opened automatically.`,
+		`TL Studio is waiting for the installation and will connect automatically`,
+		`waitForClaudeWebBridgeInstall`,
+		`K.els.authOpen.textContent = "Extension detected"`,
+		`Finishing the Claude Web connection`,
 		`K.els.authOpen.textContent = "Open sign-in page"`,
 	} {
 		if !strings.Contains(source, required) {

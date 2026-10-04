@@ -16,10 +16,10 @@ The Store listing is intentionally unlisted. You do not need Developer mode for 
 
 1. Open **Settings → Providers** in TL Studio.
 2. On the **Claude** card, choose **Web**.
-3. If the bridge is not installed, TL Studio opens the Chrome Web Store install page automatically.
-4. Install the extension in the current Chrome profile.
-5. Make sure that same Chrome profile is signed in to <code>claude.ai</code>.
-6. Return to TL Studio and choose **Web** again.
+3. If the bridge is not installed, TL Studio opens the Chrome Web Store install page automatically and keeps the current connection transaction waiting.
+4. Install the extension in the current Chrome profile; keep the TL Studio connection dialog open.
+5. TL Studio detects the newly installed bridge automatically, verifies the Claude session, and continues pairing without requiring another click on **Web**.
+6. Make sure that same Chrome profile is signed in to <code>claude.ai</code>.
 7. When the card shows **Web connected**, Claude Web models are available in the model selector.
 
 ## Pairing lifecycle
@@ -38,7 +38,7 @@ The bridge uses a per-pair random token and accepts requests only from TL Studio
 
 **The bridge is not installed**
 
-Choose **Claude → Web**. TL Studio opens the Store page automatically. Install the extension, return to TL Studio, and choose **Web** again.
+Choose **Claude → Web**. TL Studio opens the Store page automatically. Keep the connection dialog open while installing the extension; TL Studio detects it and continues the same connection automatically.
 
 **Claude is not signed in**
 

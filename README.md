@@ -128,7 +128,7 @@ Providers that use API credentials are **not** shown as unavailable just because
 
 ### Claude Web (Free/Pro)
 
-Claude Web requires the **TL Studio Claude Web Bridge** Chrome extension in the same Chrome profile that is signed in to `claude.ai`. If the extension is missing, choosing **Claude → Web** opens the official unlisted Chrome Web Store install page automatically; no extension URL needs to be copied manually. After installation, return to TL Studio and choose **Web** again.
+Claude Web requires the **TL Studio Claude Web Bridge** Chrome extension in the same Chrome profile that is signed in to `claude.ai`. If the extension is missing, choosing **Claude → Web** opens the official unlisted Chrome Web Store install page automatically; no extension URL needs to be copied manually. Keep the TL Studio connection dialog open while installing it: TL Studio watches for the extension and continues pairing automatically as soon as Chrome makes the bridge available.
 
 The bridge is inference-only. Claude session credentials remain browser-owned, while Agent, Tools, Permissions, project access, Terminal, Sessions, and persistence remain owned by TL Studio. If Chrome suspends or restarts the Manifest V3 extension service worker and its in-memory pairing is lost, TL Studio automatically re-pairs the bridge and retries the interrupted transport command once.
 

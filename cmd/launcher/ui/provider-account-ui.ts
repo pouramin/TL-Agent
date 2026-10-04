@@ -690,12 +690,27 @@ import { K } from "./kernel";
     if (title) title.textContent = "Install TL Studio Claude Web Bridge";
     K.state.authURL = CLAUDE_WEB_STORE_URL;
     K.els.authInstructions.textContent =
-      "To continue with Claude Web, TL Studio Claude Web Bridge must be installed in this Chrome profile. The Chrome Web Store page opened automatically. After installing it, return to TL Studio and choose Web again.";
+      "To continue with Claude Web, TL Studio Claude Web Bridge must be installed in this Chrome profile. The Chrome Web Store page opened automatically. TL Studio is waiting for the installation and will connect automatically when the extension becomes available.";
     K.els.authCode.textContent = "";
     K.els.authCodeWrap.classList.add("hidden");
     K.els.authOpen.textContent = "Install extension";
     K.els.authOpen.disabled = false;
     openClaudeWebStore();
+  };
+
+  const waitForClaudeWebBridgeInstall = async (
+    signal: AbortSignal,
+  ): Promise<TLStudioDynamicRecord> => {
+    for (;;) {
+      if (signal.aborted) throw new DOMException("Provider login cancelled", "AbortError");
+      try {
+        const ping = await sendClaudeWebExtensionMessage({ type: "tlstudio-ping" }, 1800);
+        if (ping?.ok) return ping;
+      } catch (error) {
+        if (!isClaudeWebBridgeUnavailableError(error)) throw error;
+      }
+      await wait(700, signal);
+    }
   };
 
   const claudeWebBridgeVersionCompatible = (value: any) =>
@@ -939,11 +954,31 @@ import { K } from "./kernel";
       K.els.authInstructions.textContent = clean(login.instructions) || "Authorization is ready. Open the sign-in page to continue.";
 
       if (clean(login.flow) === "claude_web_extension") {
-        await establishClaudeWebBridge(
-          login,
-          controller.signal,
-          (message) => { K.els.authInstructions.textContent = message; },
-        );
+        try {
+          await establishClaudeWebBridge(
+            login,
+            controller.signal,
+            (message) => { K.els.authInstructions.textContent = message; },
+          );
+        } catch (error) {
+          if (!isClaudeWebBridgeUnavailableError(error)) throw error;
+
+          presentClaudeWebBridgeInstall();
+          await waitForClaudeWebBridgeInstall(controller.signal);
+
+          const titleAfterInstall = K.els.authDialog.querySelector("h2");
+          if (titleAfterInstall) titleAfterInstall.textContent = "Connecting Claude Web";
+          K.els.authOpen.textContent = "Extension detected";
+          K.els.authOpen.disabled = true;
+          K.els.authInstructions.textContent =
+            "TL Studio Claude Web Bridge was detected. Finishing the Claude Web connection…";
+
+          await establishClaudeWebBridge(
+            login,
+            controller.signal,
+            (message) => { K.els.authInstructions.textContent = message; },
+          );
+        }
         K.els.authOpen.disabled = true;
       }
 

@@ -50,9 +50,12 @@ Production distribution
 -----------------------
 Normal consumer Windows Chrome installs should use the unlisted Chrome Web Store
 release above. When Claude Web is selected and the bridge is missing, TL Studio
-opens the Store install page automatically. The auth dialog does not require the
-user to copy the extension URL manually. TL Studio tries the production Store
-extension first and retains the bundled review ID only as a backwards-compatible
+opens the Store install page automatically. The auth dialog stays on the same
+connection transaction and polls for the newly installed bridge; as soon as Chrome
+makes it available, TL Studio verifies the Claude session and finishes pairing
+without requiring the user to cancel and choose Web again. The dialog does not
+require the user to copy the extension URL manually. TL Studio tries the production
+Store extension first and retains the bundled review ID only as a backwards-compatible
 development fallback.
 
 Manifest V3 service workers may be suspended between model turns. Pairing is

@@ -17,10 +17,10 @@
 <ol dir="rtl">
   <li>در <span dir="ltr">TL Studio</span> وارد <span dir="ltr">Settings → Providers</span> شوید.</li>
   <li>در کارت <span dir="ltr">Claude</span> گزینهٔ <span dir="ltr">Web</span> را انتخاب کنید.</li>
-  <li>اگر افزونه نصب نباشد، <span dir="ltr">TL Studio</span> صفحهٔ نصب در <span dir="ltr">Chrome Web Store</span> را به‌صورت خودکار باز می‌کند.</li>
-  <li>افزونه را در همان پروفایل مرورگر نصب کنید.</li>
+  <li>اگر افزونه نصب نباشد، <span dir="ltr">TL Studio</span> صفحهٔ نصب در <span dir="ltr">Chrome Web Store</span> را به‌صورت خودکار باز می‌کند و همان فرایند اتصال را در حالت انتظار نگه می‌دارد.</li>
+  <li>افزونه را در همان پروفایل مرورگر نصب کنید و پنجرهٔ اتصال <span dir="ltr">TL Studio</span> را باز نگه دارید.</li>
+  <li><span dir="ltr">TL Studio</span> افزونهٔ تازه‌نصب‌شده را به‌صورت خودکار تشخیص می‌دهد، نشست <span dir="ltr">Claude</span> را بررسی می‌کند و بدون نیاز به کلیک دوباره روی <span dir="ltr">Web</span>، <span dir="ltr">Pairing</span> را ادامه می‌دهد.</li>
   <li>مطمئن شوید همان پروفایل داخل <span dir="ltr">claude.ai</span> وارد شده است.</li>
-  <li>به <span dir="ltr">TL Studio</span> برگردید و دوباره <span dir="ltr">Web</span> را انتخاب کنید.</li>
   <li>وقتی کارت وضعیت <span dir="ltr">Web connected</span> را نشان داد، مدل‌های <span dir="ltr">Claude Web</span> در انتخاب‌گر مدل قابل استفاده هستند.</li>
 </ol>
 
@@ -40,7 +40,7 @@
 
 <h2 dir="rtl" align="right">رفع مشکل</h2>
 
-<p dir="rtl" align="right"><strong>افزونه نصب نیست:</strong> گزینهٔ <span dir="ltr">Claude → Web</span> را بزنید. صفحهٔ فروشگاه به‌صورت خودکار باز می‌شود. افزونه را نصب کنید، برگردید و دوباره <span dir="ltr">Web</span> را انتخاب کنید.</p>
+<p dir="rtl" align="right"><strong>افزونه نصب نیست:</strong> گزینهٔ <span dir="ltr">Claude → Web</span> را بزنید. صفحهٔ فروشگاه به‌صورت خودکار باز می‌شود. هنگام نصب، پنجرهٔ اتصال را باز نگه دارید؛ <span dir="ltr">TL Studio</span> افزونه را تشخیص می‌دهد و همان اتصال را خودکار ادامه می‌دهد.</p>
 
 <p dir="rtl" align="right"><strong><span dir="ltr">Claude</span> وارد حساب نیست:</strong> در همان پروفایل <span dir="ltr">Chrome</span> وارد <span dir="ltr">claude.ai</span> شوید و بعد اتصال <span dir="ltr">Web</span> را دوباره برقرار کنید.</p>
 
