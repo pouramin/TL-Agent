@@ -16,9 +16,7 @@ TL Studio starts its loopback local server and opens the Browser workspace.
 
 ## Choose a Project
 
-The normal workflow is graphical: use the operating-system Folder Picker.
-
-If you started from inside a Project with the npm launcher, that directory is selected automatically.
+Use the operating-system Folder Picker, or start the npm launcher from inside the Project directory so that folder is selected automatically.
 
 You can also preselect a Project:
 
@@ -34,53 +32,46 @@ tl-studio.exe --project "C:\Users\you\Projects\my-project"
 
 ## Get oriented
 
-The workspace is Editor-centered:
-
-1. choose Explorer, Search, Sessions, Changes, or Settings from the Activity Rail;
-2. work with files in the Monaco Editor;
-3. use the Agent panel in Collapsed, Compact, or Focused mode;
-4. run Project commands from the resizable bottom Terminal;
-5. open Live Preview when the active file or Project is previewable;
-6. use the Status Bar for local status, changes, Agent state, selected Model, cursor position, and Terminal access.
+The workspace is Editor-centered: Explorer, Search, Sessions, Changes, Settings, Monaco, the Agent panel, Terminal, Live Preview, Command Palette, and the Status Bar share one local workspace.
 
 Open the Command Palette with Ctrl/Cmd+K. Project Search uses Ctrl/Cmd+Shift+F.
 
-## Configure a Provider
+## Configure a model connection
 
 Open **Settings → Providers**.
 
-For a custom Provider, configure the endpoint, API type, and credential. TL Studio can discover the available model catalog automatically when the Provider exposes a compatible model-list API.
+Stable v0.6 supports direct API/provider configuration plus supported account-backed paths:
 
-Provider definitions and credentials are stored separately.
+- ChatGPT / Codex: official account sign-in;
+- Claude / Anthropic: separate Claude account and API-key paths;
+- Claude Web: Chrome Web Store bridge using the already signed-in Claude Web session;
+- Google / Gemini: API-key preset;
+- Hugging Face: API token;
+- OpenRouter: API key.
 
-## Development account sign-in
+Provider definitions and credentials remain separate.
 
-In the v0.6 development line, the compact Provider cards choose the right connection mode automatically.
+## Optional model routing
 
-Account sign-in:
-- ChatGPT / Codex;
-- Claude / Claude Code (Claude.ai subscription);
-- GitHub Copilot (model integration still deferred).
+The Model Selector can also use supported routers such as **Laya Router** or **JEV Direct**.
 
-API credential setup:
-- Claude / Anthropic;
-- Google / Gemini;
-- Hugging Face;
-- OpenRouter.
+Available routing profiles include Balanced, Lowest cost, Best quality, Fastest, and strict Free only. The router chooses among enabled native models; TL Studio still owns the Agent loop, tools, permissions, sessions, retries, fallback, filesystem, and Terminal.
 
-Clicking an API-based card opens the existing Provider editor with its endpoint/protocol preset and automatic model discovery.
+## Optional Plugins
 
-ChatGPT uses OpenAI's official Codex login. Claude subscription login uses the official Claude Code CLI. TL Studio auto-detects the provider CLI on PATH, can use `npx @openai/codex` or `npx @anthropic-ai/claude-code`, and accepts explicit executable paths in Provider Settings. Claude account credentials are isolated from any existing user Claude Code configuration.
+Open **Settings → Plugins** to add MCP integrations.
+
+Graphify is installed globally as an integration, but each Project keeps its own graph in `graphify-out/`. A new Project shows **Graph Missing** until you explicitly choose **Build Graph**.
 
 ## Run the Agent
 
-Choose a configured Model and send a prompt.
+Choose a configured Model or Router and send a prompt.
 
 ~~~text
 Browser
 → TL Studio Session
 → Native Agent
-→ Selected Provider
+→ Selected Provider / Router-selected native model
 → Tool Executor when needed
 → Session Persistence + Local Events
 ~~~

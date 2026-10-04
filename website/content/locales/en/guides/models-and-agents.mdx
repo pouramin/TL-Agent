@@ -1,6 +1,6 @@
 ---
 title: Models and agents
-description: Choose models and run the TL Studio Native Agent across stable and development provider paths.
+description: Choose native models or routers while the TL Studio Native Agent stays in control.
 icon: Bot
 ---
 
@@ -8,49 +8,29 @@ TL Studio uses one core execution model: the **TL Studio Native Agent**.
 
 A selected Model must be executable through a protocol adapter implemented by TL Studio.
 
-## Native model protocols
+## Stable native model protocols
 
-Stable v0.5 supports:
+Stable v0.6 supports:
 
 - OpenAI-compatible Chat Completions;
 - OpenAI Responses;
-- Anthropic Messages.
+- Anthropic Messages;
+- Google Gemini `generateContent`.
 
-Development v0.6 additionally includes native Google Gemini generateContent transport.
-
-## Model catalog
+## Model catalog and credentials
 
 Provider definitions and configured Models live in TL Studio's local Provider Registry.
 
-The Provider UI can discover a remote model catalog, normalize useful metadata, and let you choose which Models to save.
+The Provider UI can discover remote model catalogs and normalize metadata such as context/output limits, Tool Calling, Reasoning, Vision, and Router kind.
 
-Metadata can include:
+Manual API credentials and account-backed credentials remain separate and never enter the Agent transcript.
 
-- context limit;
-- output limit;
-- Tool Calling;
-- Reasoning;
-- Vision;
-- Router kind.
-
-Unknown capability metadata remains explicit in the UI rather than being silently assumed.
-
-## Credentials
-
-Manual API credentials and account-backed credentials are separate.
-
-In the 0.6 development line, the runtime resolves a connected account credential first when an account adapter is active. A manual API key remains stored separately and can still be used after account sign-out.
-
-Credential material never enters the Agent transcript.
-
-## Agent execution
-
-For a selected supported Model:
+## Native Agent execution
 
 ~~~text
 Session prompt
 → Native Agent
-→ selected Provider
+→ selected Provider / router-selected native model
 → Model response
 → Tool calls when requested
 → TL Studio Tool Executor
@@ -58,27 +38,31 @@ Session prompt
 → final response
 ~~~
 
-The Agent includes cancellation plus guards for maximum iterations, Tool rounds, Tools per round, and repeated identical Tool calls.
+Direct/default model turns use a 2-minute timeout. Routed Agent model turns use a 4-minute timeout for heavier routed work.
 
-## Native interaction
+## Model routers
 
-The Agent can call the built-in interaction.question Tool to pause and ask the user for structured input.
+Stable v0.6 includes top-level routing through:
 
-Questions can include choices, multiple selection, custom text, and defaults.
+- **Laya Router**;
+- **JEV Direct**.
 
-## Tool sources
+Both support these profiles:
 
-The Agent can receive Tool definitions from:
+- Balanced;
+- Lowest cost;
+- Best quality;
+- Fastest;
+- Free only.
 
-1. built-in native TL Studio Tools;
-2. enabled compatible MCP Plugins for the active Project.
+Per-model routing metadata can include enabled/disabled state, cost group, quality 1–5, and speed 1–5.
 
-Both enter the same Agent-facing Tool model and Permission system.
+**Free only is strict:** paid models are removed from the candidate set and are never used as fallback.
 
-## Development account paths
+Router failures, cooldowns, retries, and fallback activity remain visible in Chat.
 
-The 0.6 development line can resolve Models through connected OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex accounts.
+## Ownership boundary
 
-OpenRouter, Hugging Face, and Gemini resolve credentials inside TL Studio's account adapters. ChatGPT uses OpenAI's official Codex client for ChatGPT OAuth and plan-backed model access under an isolated TL Studio-specific CODEX_HOME.
+A router chooses a native model only.
 
-For ChatGPT model turns, the official Codex CLI acts only as a provider bridge. TL Studio still owns Session lifecycle, the outer model/tool/model loop, Tool execution, Permission handling, project mutations, and persistence.
+TL Studio still owns the Agent loop, context, filesystem, tools, permissions, sessions, retries, fallback, Terminal, project mutations, and every model → Tool → model continuation.

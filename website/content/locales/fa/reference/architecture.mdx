@@ -6,7 +6,7 @@ icon: Network
 
 TL Studio یک **Application محلی واحد** با Browser Assetهای Embedded و Coding-Agent Core بومی است.
 
-نسخهٔ عمومی فعلی v0.5.0 است. خط توسعهٔ v0.6.0-alpha.1 مرز Provider را با Account Integration گسترش می‌دهد، بدون اینکه معماری Agent تغییر کند.
+نسخهٔ پایدار فعلی v0.6.0 است و خط توسعهٔ بعدی v0.7.0-alpha.1 محسوب می‌شود. معماری اصلی Agent همچنان متعلق به خود TL Studio است و Router یا Provider Bridge فقط مرز انتخاب/Transport مدل را گسترش می‌دهد.
 
 ~~~text
 Browser Workspace
@@ -109,7 +109,7 @@ Credentialها جداگانه در Credential Vault نگهداری می‌شون
 
 ### Provider Account Domain
 
-در Development v0.6، Provider Account Adapter برای این سرویس‌ها پیاده‌سازی شده است:
+در Stable v0.6، Provider Account Adapter برای این سرویس‌ها پیاده‌سازی شده است:
 
 - OpenRouter؛
 - Hugging Face؛
@@ -163,3 +163,14 @@ Secretها از JSON Config معمولی جدا می‌مانند.
 TL Studio برای استفادهٔ معمول به Application Backend، Database، Telemetry Collector، Model Proxy یا Hosted Workspace متعلق به پروژه نیاز ندارد.
 
 Network Traffic از Configuration صریح User مثل Model Provider یا MCP Process ایجاد می‌شود.
+
+
+## Router Plugin و Graphify
+
+در نسخهٔ پایدار v0.6، Router Plugin از MCP Tool Plugin جداست. Laya Router و JEV Direct فقط بین Modelهای بومی قابل اجرا انتخاب می‌کنند و هیچ‌کدام مالک Agent Loop، Tool، Permission، File، Terminal، Session، Retry یا Fallback نیستند.
+
+Graphify به‌صورت Global نصب می‌شود، اما Graph هر Project داخل `graphify-out/` همان Project باقی می‌ماند. Project بدون Graph وضعیت **Graph Missing** دارد و Build فقط با Action صریح **Build Graph** انجام می‌شود.
+
+## Claude Web
+
+Claude Web یک Transport جدا و Inference-only است. Extension از Session احرازهویت‌شدهٔ موجود در Chrome استفاده می‌کند و Credential یا Cookie مربوط به Claude را به TL Studio منتقل نمی‌کند. Readiness این Transport در Routing و Fallback لحاظ می‌شود، اما اجرای Tool و تمام ادامه‌های مدل → Tool → مدل همچنان در اختیار Native Agent است.

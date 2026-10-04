@@ -49,7 +49,7 @@ export default function HomePage() {
             <img src={site.logoUrl} alt="TL Studio" />
           </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground">
-            Stable v0.5.0 · Development v0.6.0-alpha.1 · Local-first
+            Stable v0.6.0 · Development v0.7.0-alpha.1 · Local-first
           </div>
           <h1 className="max-w-5xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
             Build software yourself, with AI, or both.
@@ -62,7 +62,7 @@ export default function HomePage() {
               Read the docs <ArrowRight className="size-4" />
             </Link>
             <a href={site.releasesUrl} className="inline-flex items-center gap-2 rounded-lg border bg-fd-card px-5 py-3 font-medium" target="_blank" rel="noreferrer">
-              <Download className="size-4" /> Download v0.5.0
+              <Download className="size-4" /> Download v0.6.0
             </a>
           </div>
 
@@ -99,10 +99,10 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/20">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground">Stable release · v0.5.0</p>
+            <p className="text-sm font-medium text-fd-muted-foreground">Stable release · v0.6.0</p>
             <h2 className="mt-2 text-3xl font-semibold">A fully native local coding workspace.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              Stable TL Studio owns the workspace, sessions, direct provider calls, questions, permissions, semantic events, native tools, and Plugin/MCP execution. Unsupported capabilities return an explicit error at the TL Studio product boundary.
+              Stable TL Studio owns the workspace, sessions, direct provider calls, routing handoff, questions, permissions, semantic events, native tools, Plugin/MCP execution, and fallback. Router plugins only select a native model; they never take over the Agent runtime.
             </p>
             <Link href="/docs/reference/architecture" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore the architecture <ArrowRight className="size-4" />
@@ -112,10 +112,10 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground">Development preview · v0.6.0-alpha.1</p>
-            <h2 className="mt-2 text-3xl font-semibold">Account-backed model connections are landing in 0.6.</h2>
+            <p className="text-sm font-medium text-fd-muted-foreground">Development preview · v0.7.0-alpha.1</p>
+            <h2 className="mt-2 text-3xl font-semibold">Smarter routing, plugins, and safer updates are stable in 0.6.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
-              The compact Provider cards now use the right connection method for each service. ChatGPT/Codex uses account sign-in through OpenAI&apos;s official Codex surface. Claude supports both Claude.ai subscription sign-in through the official Claude Code CLI and a separate Anthropic API-key path. Google/Gemini, Hugging Face, and OpenRouter use API credential presets. GitHub Copilot remains the deferred account slot.
+              TL Studio v0.6 adds Laya Router, JEV Direct, project-local Graphify graphs, Claude Web Bridge support, responsive Plugin cards, stronger fallback visibility, and a checksum-verified Windows updater while keeping the Native Agent and Tool Executor in control.
             </p>
             <Link href="/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               Explore model connections <ArrowRight className="size-4" />

@@ -1,19 +1,19 @@
 ---
 title: Release
-description: آشنایی با Stable Release، Development Preview، npm Launcher و Package Validation در TL Studio.
+description: آشنایی با Stable Release، Development Preview، npm Launcher، Checksum و Updater داخلی TL Studio.
 icon: PackageCheck
 ---
 
 کانال‌های فعلی انتشار:
 
 ~~~text
-Stable:      v0.5.0
-Development: v0.6.0-alpha.1
+Stable:      v0.6.0
+Development: v0.7.0-alpha.1
 ~~~
 
 ## نسخهٔ پایدار
 
-شاخهٔ main خط Stable Production است.
+شاخهٔ `main` خط Stable Production است.
 
 اجرای سریع نسخهٔ پایدار:
 
@@ -21,17 +21,17 @@ Development: v0.6.0-alpha.1
 npx --yes tl-studio
 ~~~
 
-پکیج npm یک Launcher سبک و Pin‌شده به GitHub Release متناظر است. Archive درست را برای Platform دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را داخل Project انتخاب‌شده یا فعلی اجرا می‌کند.
+پکیج npm یک Launcher سبک و متصل به GitHub Release پایدار متناظر است. Archive مناسب Platform را دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را داخل Project انتخاب‌شده یا فعلی اجرا می‌کند.
 
-Workflow پایدار npm فقط Version غیرPrerelease را از main روی Dist-tag به نام latest منتشر می‌کند.
+انتشار پایدار npm فقط برای Version غیرPrerelease روی `main` انجام می‌شود.
 
 ## Development Preview
 
-شاخهٔ dev خط توسعهٔ نسخهٔ بعدی است.
+شاخهٔ `dev` خط توسعهٔ نسخهٔ بعدی است.
 
-Preview Build جدا از Stable Release ساخته می‌شود و برای Validation قبل از Promotion استفاده می‌شود. این Buildها npm پایدار یا GitHub Release پایدار را تغییر نمی‌دهند.
+Preview Buildها جدا از Stable Release ساخته می‌شوند و برای Validation قبل از Promotion هستند. این Buildها Stable npm یا Stable GitHub Release را جایگزین نمی‌کنند.
 
-خط فعلی v0.6.0-alpha.1 شامل توسعهٔ Account Providerها و Transport بومی Gemini است.
+نسخهٔ فعلی Development برابر `v0.7.0-alpha.1` است و قابلیت‌های آن تا زمان Promotion باید Development محسوب شوند.
 
 ## Portable Build
 
@@ -43,21 +43,30 @@ Stable Release برای این Platformها ساخته می‌شود:
 - macOS Intel x64؛
 - macOS Apple Silicon ARM64.
 
-Package شامل Executable خود TL Studio، License/Noticeها و هر Bundled Plugin نسخه‌ثابتی است که برای همان Release تنظیم شده باشد.
+کنار Archiveهای Platform، فایل `SHA256SUMS.txt` هم منتشر می‌شود.
+
+## Updater داخلی
+
+بخش About می‌تواند GitHub Releases را برای Update بررسی کند.
+
+- Build پایدار Prerelease را نادیده می‌گیرد؛
+- Build آزمایشی می‌تواند Prerelease جدیدتر را ببیند؛
+- در Windows x64، Archive رسمی و `SHA256SUMS.txt` دانلود می‌شوند؛
+- قبل از جایگزینی، SHA-256 Verify می‌شود؛
+- بعد از Update، TL Studio Restart می‌شود و در صورت امکان همان Project دوباره باز می‌شود.
 
 ## Release Validation
 
-Validation مربوط به Release و Preview، بسته به نوع Build، شامل این موارد است:
+Validation مربوط به Release و Preview، بسته به Build، شامل این موارد است:
 
-- Type-check مربوط به Browser TypeScript؛
-- Build نهایی Browser؛
+- Type-check و Build نهایی Browser TypeScript؛
 - Go Test و Vet؛
 - Cross-build برای Platformهای پشتیبانی‌شده؛
 - Native Product Contract؛
 - Custom Provider Contract؛
 - Browser Smoke؛
 - Agent/runtime E2E؛
-- Regression Testهای Provider؛
+- Regression Testهای Provider، Router و Plugin؛
 - Windows Review Package؛
 - SHA-256 Checksum برای Stable Release.
 

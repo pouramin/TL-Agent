@@ -16,9 +16,7 @@ TL Studio، Local Server خودش را روی Loopback بالا می‌آورد 
 
 ## انتخاب Project
 
-روش معمول گرافیکی است و از Folder Picker سیستم‌عامل استفاده می‌کند.
-
-اگر npm Launcher را داخل Folder پروژه اجرا کرده باشید، همان Directory به‌صورت خودکار انتخاب می‌شود.
+می‌توانید از Folder Picker سیستم‌عامل استفاده کنید یا npm Launcher را داخل Folder پروژه اجرا کنید تا همان Directory خودکار انتخاب شود.
 
 برای Preselect کردن Project:
 
@@ -34,55 +32,48 @@ tl-studio.exe --project "C:\Users\you\Projects\my-project"
 
 ## آشنایی با Workspace
 
-Workspace با محوریت Editor طراحی شده است:
-
-1. از Activity Rail بین Explorer، Search، Sessions، Changes و Settings جابه‌جا شوید؛
-2. Fileها را در Monaco Editor باز و Edit کنید؛
-3. Agent Panel را در حالت Collapsed، Compact یا Focused استفاده کنید؛
-4. Commandهای Project را در Terminal قابل Resize پایین Workspace اجرا کنید؛
-5. برای File یا Project پشتیبانی‌شده Live Preview را باز کنید؛
-6. Status Bar، Local Status، Changes، Agent State، Model انتخاب‌شده، Cursor و Terminal را نشان می‌دهد.
+محیط با محوریت Editor ساخته شده و Explorer، Search، Sessions، Changes، Settings، Monaco، Agent Panel، Terminal، Live Preview، Command Palette و Status Bar را در یک Workspace محلی کنار هم قرار می‌دهد.
 
 برای Command Palette از Ctrl/Cmd+K و برای Project Search از Ctrl/Cmd+Shift+F استفاده کنید.
 
-## تنظیم Provider
+## تنظیم اتصال مدل
 
 وارد **Settings → Providers** شوید.
 
-برای Provider سفارشی، Endpoint، API Type و Credential را تنظیم کنید. اگر Provider دارای Model-list API سازگار باشد، TL Studio می‌تواند Model Catalog را خودکار Discover کند.
+نسخهٔ پایدار v0.6 علاوه بر Provider/API مستقیم، مسیرهای حسابی پشتیبانی‌شده را هم دارد:
 
-Provider Definition و Credential جدا ذخیره می‌شوند.
+- برای ChatGPT / Codex از Account Sign-in رسمی استفاده می‌شود؛
+- برای Claude / Anthropic مسیر حساب Claude و API Key جدا از هم هستند؛
+- برای Claude Web از Bridge موجود در Chrome Web Store و Session لاگین‌شدهٔ Browser استفاده می‌شود؛
+- برای Google / Gemini از API Key استفاده می‌شود؛
+- برای Hugging Face از API Token استفاده می‌شود؛
+- برای OpenRouter از API Key استفاده می‌شود.
 
-## Account Login در Development
+Provider Definition و Credential جدا از هم نگه‌داری می‌شوند.
 
-در خط توسعهٔ v0.6، کارت‌های Provider روش اتصال مناسب هر سرویس را خودکار انتخاب می‌کنند.
+## Model Routing اختیاری
 
-Account Sign-in:
-- ChatGPT / Codex؛
-- Claude / Claude Code برای اشتراک Claude.ai؛
-- GitHub Copilot که Model Integration آن هنوز Deferred است.
+از Model Selector می‌توانید Routerهای پشتیبانی‌شده مثل **Laya Router** یا **JEV Direct** را هم انتخاب کنید.
 
-API Credential:
-- Claude / Anthropic؛
-- Google / Gemini؛
-- Hugging Face؛
-- OpenRouter.
+Profileها شامل Balanced، Lowest cost، Best quality، Fastest و حالت سخت‌گیرانهٔ Free only هستند. Router فقط بین Modelهای بومی فعال انتخاب می‌کند؛ Agent Loop، Tool، Permission، Session، Retry، Fallback، فایل‌ها و Terminal همچنان در اختیار TL Studio هستند.
 
-با کلیک روی کارت API-based، همان Provider Editor فعلی با Endpoint و Protocol آماده و Model Discovery خودکار باز می‌شود.
+## Plugin اختیاری
 
-برای ChatGPT از Login رسمی OpenAI Codex استفاده می‌شود و برای اشتراک Claude.ai از Claude Code رسمی استفاده می‌شود. برنامه ابتدا CLI مربوطه را روی PATH پیدا می‌کند و در صورت نیاز می‌تواند از `npx @openai/codex` یا `npx @anthropic-ai/claude-code` استفاده کند. مسیر Executable نیز از Provider Settings قابل تنظیم است و Credential حساب Claude از تنظیمات Claude Code شخصی کاربر جدا نگه داشته می‌شود.
+از **Settings → Plugins** می‌توانید Integrationهای MCP را اضافه کنید.
+
+Graphify به‌صورت Global نصب می‌شود، اما Graph هر Project داخل `graphify-out/` همان Project باقی می‌ماند. Project جدید تا زمانی که **Build Graph** را صریح اجرا نکنید، وضعیت **Graph Missing** نشان می‌دهد.
 
 ## اجرای Agent
 
-Model را انتخاب کنید و Prompt بفرستید.
+یک Model یا Router تنظیم‌شده را انتخاب کنید و Prompt بفرستید.
 
 ~~~text
 Browser
 → TL Studio Session
 → Native Agent
-→ Selected Provider
+→ Selected Provider / Router-selected native model
 → Tool Executor when needed
 → Session Persistence + Local Events
 ~~~
 
-Tool نیازمند Approval در Permission UI خود TL Studio Pause می‌شود. Agent همچنین می‌تواند Interactive Question بپرسد و بعد از پاسخ شما ادامه دهد.
+Tool نیازمند Approval در Permission UI خود TL Studio Pause می‌شود. Agent همچنین می‌تواند Interactive Question بپرسد و بعد از پاسخ ادامه دهد.

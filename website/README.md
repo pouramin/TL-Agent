@@ -6,34 +6,30 @@ This directory contains the public documentation and product site for **TL Studi
 
 Released behavior comes from stable `main`.
 
-Development-preview documentation may also track `dev`, but it must be labeled clearly and must never be presented as part of the stable release before promotion.
+Development-preview documentation may also track `dev`, but it must be labeled clearly and must never be presented as stable behavior before promotion.
 
 Current documented state:
 
 ```text
-Stable:      v0.5.0
-Development: v0.6.0-alpha.1
+Stable:      v0.6.0
+Development: v0.7.0-alpha.1
 ```
 
-Reconcile public content with the root READMEs, `VERSION`, `docs/ARCHITECTURE.md`, and the relevant implementation branch.
+Reconcile public content with the root READMEs, `VERSION`, `docs/ARCHITECTURE.md`, release notes, and the relevant implementation branch.
 
 ## Public coverage
 
 The site covers:
 
-- TL Studio's local-first standalone product architecture;
-- Editor-centered workspace and locally bundled Monaco;
-- Project files, Search, Terminal, Changes, Command Palette, and Preview;
-- native Sessions, Questions, Permissions, Events, and Agent execution;
-- model connection registry, discovery, catalog cache, and credential vault;
-- Native Tool Registry/Executor;
-- Plugins/MCP with Project/Global scope;
-- stable v0.5 model connections;
-- the explicitly labeled v0.6 Provider Account preview for OpenRouter, Hugging Face, Google/Gemini, and ChatGPT/Codex;
-- the official Codex bridge used for ChatGPT-plan login/model access;
-- deferred account boundaries for Claude and GitHub Copilot;
-- local security/trust boundaries;
-- stable npm launcher, portable releases, and development Preview Builds.
+- TL Studio's local-first standalone product architecture and Native Agent ownership;
+- Editor-centered workspace, Monaco, Search, Terminal, Preview, Sessions, Questions, Permissions, and local persistence;
+- direct model protocols and discovery-first Provider configuration;
+- ChatGPT/Codex account access, Claude/Anthropic API and Claude account access, plus Claude Web Bridge transport;
+- Laya Router and JEV Direct model-routing profiles while TL Studio retains Agent/tool ownership;
+- Graphify as a global integration with project-local `graphify-out/` data and explicit graph builds;
+- Plugins/MCP, including global/project scope and responsive plugin cards;
+- stable npm launcher, portable releases, SHA-256 checksums, and the Windows x64 in-app updater;
+- the stable `v0.6.0` release and clearly labeled `v0.7.0-alpha.1` development line.
 
 Historical implementation details do not belong in current product-facing documentation.
 

@@ -1,77 +1,45 @@
 ---
 title: TL Studio
-description: Learn how stable TL Studio v0.5 and the v0.6 development preview fit together.
+description: Local-first coding workspace with a native AI agent, model routing, Plugins/MCP, and local project tools.
 icon: House
 ---
 
-TL Studio is a **local-first coding workspace with a native Agent**. The workspace, sessions, tools, permissions, providers, credentials, Terminal, Preview, and Plugins/MCP all live behind TL Studio-owned local contracts.
+TL Studio is a standalone local development environment built around the **TL Studio Native Agent**.
 
-This site distinguishes released behavior from development-preview behavior:
-
-~~~text
-Stable:      v0.5.0
-Development: v0.6.0-alpha.1
-~~~
-
-## Product architecture
+Current channels:
 
 ~~~text
-You
- ↓
-Browser Workspace
- ↓
-TL Studio Local Core
- ├─ Files / Search / Terminal / Preview
- ├─ Provider Registry + Discovery + Credential Vault
- ├─ Sessions / Questions / Permissions / Events
- ├─ Tool Registry + Native Tool Executor
- ├─ Plugins / MCP
- └─ Native Agent
-       ↓
-   Selected Provider
+Stable:      v0.6.0
+Development: v0.7.0-alpha.1
 ~~~
 
-Unsupported protocols or capabilities return an explicit unsupported-capability error.
+## Stable v0.6.0
 
-## Stable v0.5
+The current stable release includes:
 
-The stable release includes:
+- the TL Studio-owned Agent loop, Tool Executor, Sessions, Questions, Permissions, Terminal, Preview, and persistence;
+- direct model protocols for OpenAI-compatible Chat Completions, OpenAI Responses, Anthropic Messages, and Google Gemini `generateContent`;
+- ChatGPT/Codex account access and Claude account access through the providers' official client surfaces;
+- Claude Web Bridge support through the Chrome Web Store while the authenticated browser session remains browser-owned;
+- Laya Router and JEV Direct as model-selection routers with Balanced, Lowest cost, Best quality, Fastest, and strict Free only profiles;
+- Graphify as a global integration with project-local graph output under `graphify-out/`;
+- responsive provider-style Plugin cards and preserved support for custom project-scoped MCP servers;
+- automatic update checks in About, with SHA-256 verification before Windows x64 replacement.
 
-- the Editor-centered desktop workspace with Monaco, Explorer, Search, Sessions, Changes, Terminal, Preview, and Command Palette;
-- native Sessions, Questions, Permissions, semantic Events, and local persistence;
-- direct model execution through TL Studio-owned OpenAI-compatible, OpenAI Responses, and Anthropic protocol adapters;
-- Provider model discovery, searchable catalogs, and local cache fallback;
-- the TL Studio credential vault;
-- the native model/tool/model Agent loop;
-- built-in coding Tools plus compatible MCP tools;
-- stable npm and portable release distribution.
-
-## Development preview: v0.6
-
-The current development line adds:
-
-- native Google Gemini generateContent transport;
-- separate manual-API and account credential slots;
-- ChatGPT/Codex account sign-in through OpenAI's official Codex surfaces and an isolated provider bridge;
-- Claude.ai subscription sign-in through the official Claude Code CLI, alongside a separate **Claude / Anthropic API-key** path;
-- API-key presets for **Google / Gemini**, **Hugging Face**, and **OpenRouter**;
-- discovery-first model setup through the normal Provider Registry;
-- a reserved GitHub Copilot account-login slot while its model integration remains deferred.
-
-The ChatGPT and Claude account bridges do not replace TL Studio's outer Native Agent loop: TL Studio still owns Tools, Permissions, Sessions, persistence, project mutations, and the model → Tool → model continuation. Claude real-account validation remains a development-preview gate.
+Routing plugins choose a native model only. TL Studio still owns tools, filesystem access, permissions, sessions, retries, fallback, Terminal, and every model → Tool → model continuation.
 
 ## Quick start
 
-Stable launch:
+Run the stable release from a Project directory:
 
 ~~~bash
 npx --yes tl-studio
 ~~~
 
-Or download a portable build from GitHub Releases.
+Portable archives are also available from GitHub Releases.
 
 ## Start here
 
-Start with [Installation](./getting-started/installation) and [First run](./getting-started/first-run).
+Read [Installation](./getting-started/installation) and [First run](./getting-started/first-run).
 
-Then see [Workspace and editor](./guides/workspace-editor), [Native Agent and tools](./guides/native-agent-and-tools), [Plugins and MCP](./guides/plugins-and-mcp), and [Model connections](./guides/custom-providers).
+Then continue with [Models and agents](./guides/models-and-agents), [Plugins and MCP](./guides/plugins-and-mcp), [Model connections](./guides/custom-providers), and [Architecture](./reference/architecture).

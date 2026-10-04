@@ -1,14 +1,12 @@
 ---
 title: Plugins and MCP
-description: Connect stdio MCP servers to TL Studio and expose their tools to the Native Agent.
+description: Use MCP integrations, Graphify, and router plugins inside the TL Studio product boundary.
 icon: Cable
 ---
 
-Stable v0.5 includes a **TL Studio-owned Plugin/MCP system**. Enabled MCP servers can contribute tools to the same Tool Registry and Native Agent used by built-in coding tools.
+Stable v0.6 includes a **TL Studio-owned Plugin/MCP system**. Enabled MCP servers can contribute tools to the same Tool Registry and Native Agent used by built-in coding tools.
 
-## Current support
-
-The current Plugin system supports:
+## Current MCP support
 
 ```text
 Type:      MCP
@@ -16,61 +14,58 @@ Transport: stdio
 Scope:     project or global
 ```
 
-HTTP/SSE MCP transports are not part of the current implementation.
+Custom project-scoped MCP servers remain supported.
 
-## Add a Plugin
+Saving a Plugin does not start its command. Enabling is a separate explicit action and TL Studio asks for confirmation before starting configured local MCP commands.
 
-Open **Settings → Plugins → Add plugin** and configure:
+## Plugin UI
 
-- name and optional description;
-- local MCP command;
-- one argument per line;
-- Project or Global scope;
-- optional working directory;
-- required environment variable names and secret values.
+Plugins are shown as provider-style cards across:
 
-Saving a Plugin **does not start its command**. New Plugins are saved disabled.
+- Available integrations;
+- Included with TL Studio;
+- Added by you.
 
-Enabling is a separate explicit action and TL Studio asks for confirmation before it starts the configured local MCP command.
+The grid is responsive: 3 columns on wide desktop, 2 on medium layouts, and 1 on narrow layouts.
 
-## Project and Global scope
+## Graphify
 
-A Project-scoped Plugin applies only to its saved Project.
+Graphify is installed once globally, while generated graph data remains project-local.
 
-A Global Plugin is available across Projects, but the running MCP process is restarted when the active Project changes so it does not keep operating with the previous Project as its working directory.
+A Project without graph data shows **Graph Missing**. Graph creation is explicit through **Build Graph**; adding Graphify does not build automatically.
 
-Project identity is normalized so equivalent paths, junctions, and symlink-resolved directory spellings do not accidentally create cross-Project leakage.
+The reliable local build uses:
 
-## Secrets
+~~~bash
+graphify extract . --code-only
+graphify export html
+~~~
 
-Environment secret values are stored through the TL Studio credential vault.
+Outputs:
 
-`plugins.json` stores the Plugin definition and environment variable names/configuration state, not the secret values themselves.
+~~~text
+graphify-out/graph.json
+graphify-out/graph.html
+~~~
 
-## Test Connection
+Global MCP processes restart with the active Project working directory when Projects change.
 
-**Test Connection** starts the MCP process temporarily, performs MCP initialization, discovers Tools, attempts Resource discovery, and then closes the temporary client.
+## Router plugins
 
-The current MCP client uses protocol version:
+Router plugins are separate from MCP Tool plugins. They influence model selection but never enter the Tool Registry.
 
-```text
-2024-11-05
-```
+### Laya Router
 
-`tools/list` is required. `resources/list` is optional so a tools-only MCP server can still connect.
+Laya is installed as a global Plugin/MCP integration and can also appear as a top-level Model Router.
 
-## Agent tools
+### JEV Direct
 
-Tools discovered from an enabled MCP server are added dynamically to TL Studio's Tool Registry and the Native Agent's tool definitions.
+JEV Direct is a separate global router that calls TypeSafe System One directly with `jev-latest`.
 
-They still pass through TL Studio's Permission authorizer before execution. TL Studio uses MCP annotations when available and conservative name/capability heuristics otherwise.
+Both routers hand the selected native model back to TL Studio. They do not own tools, permissions, files, Sessions, Terminal, retries, or the Agent loop.
 
-If an MCP process or transport fails during a Tool call, TL Studio can restart the client once and retry that call.
+## Secrets and permissions
 
-## Bundled Plugin foundation
+Plugin environment secrets are stored through the TL Studio credential vault.
 
-TL Studio supports version-pinned Plugins staged inside a Release package. Bundled Plugins cannot be removed, but can be enabled or disabled.
-
-**The v0.5.0 bundled-plugin catalog is empty.** No third-party MCP Plugin ships by default in this stable build.
-
-
+MCP Tools discovered from enabled servers still pass through TL Studio's Permission authorizer before execution.

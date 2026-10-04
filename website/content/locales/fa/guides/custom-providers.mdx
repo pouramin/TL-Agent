@@ -1,120 +1,65 @@
 ---
 title: اتصال مدل‌ها
-description: تنظیم Provider مستقیم، Model Discovery و اتصال حساب‌های پشتیبانی‌شده در TL Studio.
+description: تنظیم Provider مستقیم، مسیرهای حسابی پشتیبانی‌شده، Claude Web و Model Discovery.
 icon: Cable
 ---
 
 تعریف Provider، Model Discovery، Model Catalog و Credentialهای Provider در اختیار خود TL Studio هستند.
 
-رفتار Stable و Development Preview در ادامه جدا از هم مشخص شده است.
+## Protocolهای بومی مدل
 
-## Protocolهای Native مدل
+| Protocol | Stable v0.6 |
+| --- | --- |
+| OpenAI-compatible Chat Completions | ✅ |
+| OpenAI Responses | ✅ |
+| Anthropic Messages | ✅ |
+| Google Gemini generateContent | ✅ |
 
-| Protocol | Stable v0.5 | Development v0.6 |
-| --- | --- | --- |
-| OpenAI-compatible Chat Completions | ✅ | ✅ |
-| OpenAI Responses | ✅ | ✅ |
-| Anthropic Messages | ✅ | ✅ |
-| Google Gemini generateContent | — | ✅ |
-
-Model Request مستقیماً از TL Studio به Endpoint تنظیم‌شدهٔ Provider می‌رود.
+Model Request در حالت عادی مستقیماً از TL Studio به Endpoint تنظیم‌شدهٔ Provider می‌رود؛ فقط Bridgeهای رسمی حساب و Transport مربوط به Claude Web مسیر مستند و جداگانه دارند.
 
 ## راه‌اندازی Provider سفارشی
 
-در نسخهٔ 0.6 راه‌اندازی Provider سفارشی Discovery-first باقی مانده است. در حالت عادی فقط این موارد وارد می‌شوند:
+راه‌اندازی Provider سفارشی Discovery-first است. در حالت عادی این موارد کافی هستند:
 
 - API Address؛
-- API Type از نوع OpenAI-compatible یا Anthropic-compatible؛
+- API Type؛
 - API Key.
 
-بعد از آن TL Studio تلاش می‌کند مدل‌ها را به‌صورت خودکار Discover کند. ورود دستی Model ID فقط Fallback صریح برای مدل خصوصی یا فهرست‌نشده است.
+بعد از آن TL Studio تلاش می‌کند Modelها را خودکار Discover کند. ورود دستی Model ID فقط Fallback صریح برای Model خصوصی یا فهرست‌نشده است.
 
-Providerهای قدیمی از نوع OpenAI Responses همچنان قابل ویرایش باقی می‌مانند.
+## روش اتصال Providerها
 
-## Model Discovery
+| Provider | روش پیش‌فرض | رفتار Stable v0.6 |
+| --- | --- | --- |
+| **ChatGPT / Codex** | Account sign-in | Login رسمی Codex و Model Access مبتنی بر پلن از طریق Provider Bridge ایزوله |
+| **GitHub Copilot** | Account slot رزروشده | Model Integration هنوز Deferred است |
+| **Claude / Anthropic** | Account sign-in + API key | مسیر حساب Claude و مسیر دستی Anthropic API جدا می‌مانند |
+| **Claude Web** | Chrome extension bridge | از Session احرازهویت‌شدهٔ Claude Web که متعلق به Chrome است استفاده می‌کند |
+| **Google / Gemini** | API key | Preset مربوط به Gemini با پشتیبانی از Transport بومی Gemini |
+| **Hugging Face** | API token | Preset مربوط به Inference Providers |
+| **OpenRouter** | API key | Preset سازگار با OpenAI برای OpenRouter |
 
-اگر Provider دارای Model-list API باشد، TL Studio آدرس را Validate می‌کند، Discovery Request می‌فرستد، Modelها را Normalize می‌کند و Catalog قابل Search می‌سازد.
+Helperهای مربوط به حساب ChatGPT و Claude فقط Authentication و Model Transport را فراهم می‌کنند. Session، Tool، Permission، تغییرات Project، Persistence و Agent Loop اصلی همچنان در اختیار TL Studio هستند.
 
-Metadata قابل استفاده می‌تواند شامل این موارد باشد:
+### مرز Claude Web
 
-- Model ID و Name؛
-- Context/Output Limit؛
-- Tool Calling؛
-- Reasoning؛
-- Vision؛
-- Router Kind.
+برای Claude Web از Extension رسمی TL Studio Claude Web Bridge در Chrome Web Store استفاده می‌شود. اگر Extension نصب نباشد، TL Studio صفحهٔ نصب را باز می‌کند و بعد از نصب به‌صورت خودکار دوباره آن را Detect و Pair می‌کند.
 
-## امنیت Discovery
-
-Provider Discovery:
-
-- فقط HTTP(S) Base URL معتبر و بدون Embedded Credential را قبول می‌کند؛
-- Timeout محدود دارد؛
-- اندازهٔ Response Catalog را محدود می‌کند؛
-- تعداد Modelهای Normalize‌شده را محدود می‌کند؛
-- Redirect ناامن بین Originها را Block می‌کند؛
-- در Endpointهای صفحه‌بندی‌شده از Page Count محدود استفاده می‌کند.
-
-Authentication Failure به‌صورت صریح باقی می‌ماند و با Cache قدیمی پنهان نمی‌شود.
-
-## Provider Registry
-
-Definitionهای ذخیره‌شده داخل این فایل هستند:
-
-~~~text
-providers.json
-~~~
-
-Registry فقط Metadata و Model Definition را نگه می‌دارد و API Key یا OAuth Token داخل آن قرار نمی‌گیرد.
+Extension فقط نقش Inference Transport دارد. Session احرازهویت‌شده در اختیار Chrome می‌ماند و TL Studio Cookie یا Session Credential مربوط به Claude را کپی نمی‌کند. Readiness مربوط به این Bridge در Routing و Fallback هم لحاظ می‌شود.
 
 ## Credential Vault
 
-Credential دستی API و Credential حساب در Slotهای جداگانه نگهداری می‌شوند.
+Credential دستی API و Credential حساب در Slotهای جدا هستند.
 
-اتصال حساب می‌تواند در زمان فعال بودن اولویت داشته باشد، اما Sign out کردن حساب API Key دستی موجود را حذف نمی‌کند.
+اتصال حساب API Key دستی موجود را Overwrite نمی‌کند و Sign out هم آن را حذف نمی‌کند.
 
-Secretها وارد Browser Storage یا Provider JSON عادی نمی‌شوند.
+Secret وارد Browser Storage یا Provider JSON عادی نمی‌شود.
 
-## روش اتصال Providerها — Development Preview نسخهٔ 0.6
+## دو مسیر JEV
 
-| Provider | روش پیش‌فرض | Integration |
-| --- | --- | --- |
-| **ChatGPT / Codex** | ✅ Account sign-in | Login رسمی Codex، Model Discovery مبتنی بر پلن ChatGPT و Provider Bridge ایزوله |
-| **GitHub Copilot** | ⏳ Account sign-in | جایگاه اتصال حساب آماده است اما مسیر Model هنوز Deferred است |
-| **Claude / Anthropic** | ✅ Account sign-in + API key | ورود مرورگری رسمی Claude Code برای اشتراک Claude.ai، در کنار مسیر مستقل Anthropic Messages API |
-| **Google / Gemini** | ✅ API key | Preset رسمی Gemini API سازگار با OpenAI |
-| **Hugging Face** | ✅ API token | Preset مربوط به Inference Providers سازگار با OpenAI |
-| **OpenRouter** | ✅ API key | Preset مربوط به OpenRouter سازگار با OpenAI |
+JEV عمداً دو Integration جدا دارد:
 
-کارت‌های مبتنی بر API، Provider Editor فعلی را با Endpoint و Protocol آماده باز می‌کنند و فقط به‌خاطر نداشتن Consumer OAuth غیرفعال نمی‌شوند.
+- مسیر **JEV via OpenRouter** همان Provider/Model قدیمی را حفظ می‌کند؛
+- مسیر **JEV Direct** یک Router Plugin سراسری است که مستقیم از TypeSafe System One و `jev-latest` استفاده می‌کند.
 
-احراز هویت ChatGPT در اختیار Client رسمی OpenAI Codex و داخل `CODEX_HOME` ایزولهٔ مخصوص TL Studio باقی می‌ماند. احراز هویت اشتراک Claude.ai نیز در اختیار Claude Code رسمی و داخل `CLAUDE_CONFIG_DIR` ایزولهٔ مخصوص TL Studio است. TL Studio Token خام OAuth این دو مسیر را نمی‌خواند یا کپی نمی‌کند.
-
-برای Turnهای حساب Claude، برنامه از حالت Non-interactive رسمی Claude Code با Safe Mode، Session Persistence غیرفعال، Toolهای داخلی غیرفعال، MCP مسدود، Chrome غیرفعال و Structured JSON Output استفاده می‌کند. Provider حساب با ID جداگانهٔ `claude-account` نگه‌داری می‌شود تا مسیر API دستی `claude` هیچ‌وقت بازنویسی نشود. اجرای Tool و Permission همچنان داخل TL Studio انجام می‌شود.
-
-برای Turnهای مبتنی بر پلن ChatGPT، یک Codex App Server رسمی Warm نگه داشته می‌شود و Turnهای ساختاریافتهٔ ایزوله اجرا می‌شوند؛ اجرای Tool و Permission همچنان داخل TL Studio است.
-
-> **Development Preview:** تست‌های خودکار Claude CLI و Bridge سبز هستند، اما Login و اجرای مدل با یک حساب واقعی Claude.ai هنوز باید قبل از Release Validation بررسی شوند.
-
-اگر `codex` روی PATH موجود نباشد، نسخهٔ Alpha می‌تواند از `npx @openai/codex` استفاده کند یا مسیر Codex Executable به‌صورت دستی در Provider Settings تنظیم شود.
-
-## تنظیم Gemini
-
-در Alpha فعلی، Account Login مربوط به Gemini به دو مقدار غیرمحرمانه نیاز دارد:
-
-~~~text
-Google Cloud Project ID
-Desktop OAuth Client ID
-~~~
-
-این مقادیر از Provider Settings قابل تنظیم هستند.
-
-Access Token و Refresh Token فقط داخل Credential Vault خود TL Studio باقی می‌مانند.
-
-برای هر Sign-in یک Listener موقت روی این آدرس ساخته می‌شود:
-
-~~~text
-127.0.0.1:<random-port>
-~~~
-
-Listener مقدار OAuth state را بررسی می‌کند، Flow مبتنی بر PKCE را کامل می‌کند و پس از موفقیت، لغو یا Expiry بسته می‌شود.
+JEV Direct فقط Routing State را می‌گیرد و Model مناسب را برمی‌گرداند. Final Model Request، Tool، File، Permission، Session، Retry و Terminal همچنان متعلق به TL Studio هستند.

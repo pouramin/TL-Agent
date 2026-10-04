@@ -47,7 +47,7 @@ Provider و Plugin JSON عادی Definition/Reference را ذخیره می‌ک�
 
 ### Credential حساب
 
-در Development v0.6، Credential دستی API و Credential حسابی که TL Studio مدیریت می‌کند در Slotهای جدا هستند.
+در Stable v0.6، Credential دستی API و Credential حسابی که TL Studio مدیریت می‌کند در Slotهای جدا هستند.
 
 OAuth Code، PKCE Verifier، Access Token، Refresh Token، API Key، Cookie و Client Secret وارد Browser State نمی‌شوند.
 
@@ -94,3 +94,10 @@ Static/File Preview روی Loopback Origin جداست و Dev Server Preview فق
 TL Studio به Telemetry Backend، Model Proxy، Remote Workspace Service یا Database متعلق به پروژه نیاز ندارد.
 
 Network Access از Model Endpoint صریح User، Package/Release Distribution و رفتار MCP/Plugin تنظیم‌شده ایجاد می‌شود.
+
+
+## مرز Claude Web
+
+Claude Web Bridge فقط نقش Inference Transport دارد. Session احرازهویت‌شده و Cookieها در اختیار Chrome می‌مانند و TL Studio آن‌ها را نمی‌خواند، کپی نمی‌کند یا ذخیره نمی‌کند.
+
+Extension هیچ اختیار مستقیمی روی File، Terminal، Permission، Session، Plugin یا Tool ندارد. TL Studio همچنان Agent Loop، Tool Execution، Permission و Project Mutation را کنترل می‌کند.

@@ -1,77 +1,45 @@
 ---
 title: TL Studio
-description: آشنایی با نسخهٔ پایدار v0.5 و Development Preview نسخهٔ v0.6 در TL Studio.
+description: محیط کدنویسی Local-first با Agent بومی، Model Routing، Plugins/MCP و ابزارهای محلی پروژه.
 icon: House
 ---
 
-TL Studio یک **محیط کدنویسی Local-first با Agent بومی** است. Workspace، Sessionها، Toolها، Permissionها، Providerها، Credentialها، Terminal، Preview و Plugins/MCP همگی پشت Contractهای محلی خود TL Studio قرار دارند.
+TL Studio یک محیط توسعهٔ مستقل و محلی است که هستهٔ آن **TL Studio Native Agent** است.
 
-این سایت رفتار Stable و Development Preview را از هم جدا نگه می‌دارد:
-
-~~~text
-Stable:      v0.5.0
-Development: v0.6.0-alpha.1
-~~~
-
-## معماری محصول
+کانال‌های فعلی:
 
 ~~~text
-User
- ↓
-Browser Workspace
- ↓
-TL Studio Local Core
- ├─ Files / Search / Terminal / Preview
- ├─ Provider Registry + Discovery + Credential Vault
- ├─ Sessions / Questions / Permissions / Events
- ├─ Tool Registry + Native Tool Executor
- ├─ Plugins / MCP
- └─ Native Agent
-       ↓
-   Selected Provider
+Stable:      v0.6.0
+Development: v0.7.0-alpha.1
 ~~~
 
-اگر Protocol یا Capability پشتیبانی نشود، خطای Unsupported Capability به‌صورت شفاف برمی‌گردد.
+## نسخهٔ پایدار v0.6.0
 
-## نسخهٔ پایدار v0.5
+نسخهٔ پایدار فعلی این قابلیت‌ها را دارد:
 
-نسخهٔ پایدار شامل این موارد است:
+- چرخهٔ Agent، Tool Executor، Session، Question، Permission، Terminal، Preview و Persistence متعلق به خود TL Studio؛
+- Protocolهای مستقیم برای OpenAI-compatible Chat Completions، OpenAI Responses، Anthropic Messages و Google Gemini `generateContent`؛
+- اتصال حساب ChatGPT/Codex و حساب Claude از مسیر Clientهای رسمی Providerها؛
+- پشتیبانی از Claude Web Bridge از طریق Chrome Web Store، بدون خارج‌کردن Session احرازهویت‌شده از Browser؛
+- Routerهای Laya و JEV Direct با Profileهای Balanced، Lowest cost، Best quality، Fastest و حالت سخت‌گیرانهٔ Free only؛
+- Graphify به‌صورت Integration سراسری، با Graph مخصوص هر Project داخل `graphify-out/`؛
+- کارت‌های Responsive برای Pluginها و حفظ پشتیبانی از MCP سفارشی Project-scoped؛
+- بررسی Update از بخش About و Verify کردن SHA-256 قبل از جایگزینی نسخه در Windows x64.
 
-- Workspace دسکتاپ با محوریت Editor و شامل Monaco، Explorer، Search، Sessionها، Changes، Terminal، Preview و Command Palette؛
-- Session، Question، Permission، Event معنایی و Persistence محلی؛
-- اجرای مستقیم مدل از طریق Adapterهای متعلق به TL Studio برای OpenAI-compatible، OpenAI Responses و Anthropic؛
-- Model Discovery، Catalog قابل Search و Cache محلی؛
-- Credential Vault خود TL Studio؛
-- Agent Loop بومی مدل/Tool/مدل؛
-- Toolهای داخلی کدنویسی و Toolهای سازگار MCP؛
-- توزیع پایدار با npm و Portable Release.
-
-## پیش‌نمایش توسعهٔ v0.6
-
-خط توسعهٔ فعلی این قابلیت‌ها را اضافه می‌کند:
-
-- Transport بومی Google Gemini generateContent؛
-- Slot جدا برای Credential دستی API و Credential حساب؛
-- اتصال حساب ChatGPT/Codex از مسیر رسمی OpenAI Codex و یک Provider Bridge ایزوله؛
-- ورود اشتراک Claude.ai از مسیر رسمی Claude Code، در کنار مسیر مستقل **Claude / Anthropic API Key**؛
-- Preset مبتنی بر API Key برای **Google / Gemini**، **Hugging Face** و **OpenRouter**؛
-- Model Discovery خودکار از همان Provider Registry؛
-- جایگاه Account Login برای GitHub Copilot که Model Integration آن هنوز Deferred است.
-
-Bridgeهای حساب ChatGPT و Claude جای Native Agent اصلی TL Studio را نمی‌گیرند؛ Tool، Permission، Session، Persistence، تغییرات پروژه و ادامهٔ مدل → Tool → مدل همچنان در اختیار خود TL Studio هستند. اعتبارسنجی واقعی حساب Claude هنوز یکی از Gateهای Development Preview است.
+Router فقط Model بومی مناسب را انتخاب می‌کند. Tool، فایل‌ها، Permission، Session، Retry، Fallback، Terminal و ادامهٔ مدل → Tool → مدل همچنان در اختیار خود TL Studio هستند.
 
 ## شروع سریع
 
-اجرای نسخهٔ پایدار:
+نسخهٔ پایدار را داخل Project اجرا کنید:
 
 ~~~bash
 npx --yes tl-studio
 ~~~
 
-نسخهٔ Portable نیز از GitHub Releases قابل دریافت است.
+نسخهٔ Portable هم از GitHub Releases قابل دریافت است.
 
 ## از کجا شروع کنم؟
 
 از [نصب](./getting-started/installation) و [اولین اجرا](./getting-started/first-run) شروع کنید.
 
-بعد [Workspace و Editor](./guides/workspace-editor)، [Native Agent و Toolها](./guides/native-agent-and-tools)، [Plugins و MCP](./guides/plugins-and-mcp) و [اتصال مدل‌ها](./guides/custom-providers) را ببینید.
+بعد [Model و Agent](./guides/models-and-agents)، [Plugins و MCP](./guides/plugins-and-mcp)، [اتصال مدل‌ها](./guides/custom-providers) و [معماری](./reference/architecture) را ببینید.

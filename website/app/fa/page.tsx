@@ -49,7 +49,7 @@ export default function PersianHomePage() {
             <img src={site.logoUrl} alt="TL Studio" />
           </div>
           <div className="mb-6 rounded-full border bg-fd-card/70 px-4 py-1.5 text-sm text-fd-muted-foreground" dir="ltr">
-            Stable v0.5.0 · Development v0.6.0-alpha.1 · Local-first
+            Stable v0.6.0 · Development v0.7.0-alpha.1 · Local-first
           </div>
           <h1 className="max-w-5xl text-balance text-5xl font-bold tracking-tight md:text-7xl">
             خودت بساز، با هوش مصنوعی بساز، یا هردو.
@@ -62,7 +62,7 @@ export default function PersianHomePage() {
               مستندات <ArrowLeft className="size-4" />
             </Link>
             <a href={site.releasesUrl} className="inline-flex items-center gap-2 rounded-lg border bg-fd-card px-5 py-3 font-medium" target="_blank" rel="noreferrer" dir="ltr">
-              <Download className="size-4" /> Download v0.5.0
+              <Download className="size-4" /> Download v0.6.0
             </a>
           </div>
 
@@ -99,10 +99,10 @@ export default function PersianHomePage() {
 
         <section className="border-t bg-fd-card/20">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Stable release · v0.5.0</p>
+            <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Stable release · v0.6.0</p>
             <h2 className="mt-2 text-3xl font-semibold">یک محیط کدنویسی محلی با اجرای بومی.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              نسخهٔ پایدار، Workspace، Sessionها، Provider Call مستقیم، Questionها، Permissionها، Eventهای معنایی، Toolهای بومی و اجرای Plugins/MCP را در اختیار خود TL Studio نگه می‌دارد. قابلیت پشتیبانی‌نشده با خطای صریح متوقف می‌شود.
+              نسخهٔ پایدار، Workspace، Sessionها، Provider Call مستقیم، Routing Handoff، Question، Permission، Event، Tool، Plugins/MCP و Fallback را در اختیار خود TL Studio نگه می‌دارد. Router فقط Model بومی را انتخاب می‌کند و جای Agent Runtime را نمی‌گیرد.
             </p>
             <Link href="/fa/docs/reference/architecture" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               معماری پروژه <ArrowLeft className="size-4" />
@@ -112,10 +112,10 @@ export default function PersianHomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Development preview · v0.6.0-alpha.1</p>
-            <h2 className="mt-2 text-3xl font-semibold">اتصال مدل با حساب کاربری در نسخهٔ 0.6 در حال اضافه‌شدن است.</h2>
+            <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Development preview · v0.7.0-alpha.1</p>
+            <h2 className="mt-2 text-3xl font-semibold">Routing، Plugin و Update امن‌تر در نسخهٔ 0.6 پایدار شده‌اند.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
-              کارت‌های Provider حالا بر اساس روش واقعی اتصال هر سرویس کار می‌کنند. مسیر ChatGPT/Codex از Account Sign-in رسمی OpenAI Codex استفاده می‌کند. برای Claude هم ورود اشتراک Claude.ai از مسیر رسمی Claude Code و هم مسیر مستقل Anthropic API Key وجود دارد. برای Google/Gemini، Hugging Face و OpenRouter از Presetهای API استفاده می‌شود و GitHub Copilot تنها Account Slot باقی‌مانده در حالت Deferred است.
+              نسخهٔ v0.6، Laya Router، JEV Direct، Graphify با دادهٔ Project-local، Claude Web Bridge، کارت‌های Responsive مربوط به Plugin، نمایش بهتر Fallback و Updater با بررسی Checksum در Windows را اضافه می‌کند، در حالی‌که Native Agent و Tool Executor همچنان در اختیار خود TL Studio هستند.
             </p>
             <Link href="/fa/docs/guides/custom-providers" className="mt-5 inline-flex items-center gap-2 font-medium text-fd-primary">
               اتصال مدل‌ها <ArrowLeft className="size-4" />

@@ -1,14 +1,12 @@
 ---
 title: Plugins و MCP
-description: اتصال MCP Server از نوع stdio به TL Studio و اضافه‌کردن Toolهای آن به Native Agent.
+description: استفاده از MCP Integration، Graphify و Router Plugin داخل مرز محصول TL Studio.
 icon: Cable
 ---
 
-در Stable v0.5 یک **Plugin/MCP System متعلق به خود TL Studio** وجود دارد. MCP Server فعال می‌تواند Toolهای خودش را وارد همان Tool Registry و Native Agent کند که Built-in Toolهای کدنویسی استفاده می‌کنند.
+در Stable v0.6 یک **Plugin/MCP System متعلق به خود TL Studio** وجود دارد. MCP Server فعال می‌تواند Toolهای خودش را وارد همان Tool Registry و Native Agent کند که Built-in Toolهای کدنویسی استفاده می‌کنند.
 
-## پشتیبانی فعلی
-
-در نسخه فعلی:
+## پشتیبانی MCP فعلی
 
 ```text
 Type:      MCP
@@ -16,61 +14,58 @@ Transport: stdio
 Scope:     project or global
 ```
 
-Transportهای HTTP/SSE MCP فعلاً پیاده‌سازی نشده‌اند.
+پشتیبانی از MCP سفارشی Project-scoped همچنان حفظ شده است.
 
-## اضافه‌کردن Plugin
+صرف Save کردن Plugin هیچ Commandی را Start نمی‌کند. Enable یک Action جدا و صریح است و قبل از Start شدن Command محلی، TL Studio تأیید می‌گیرد.
 
-از **Settings → Plugins → Add plugin** این موارد را تنظیم کنید:
+## رابط Plugin
 
-- Name و Description اختیاری؛
-- Command محلی MCP؛
-- هر Argument در یک Line؛
-- Scope از نوع Project یا Global؛
-- Working Directory اختیاری؛
-- Environment Variableهای لازم و Secret Valueهای آن‌ها.
+Pluginها در کارت‌های شبیه Provider داخل این بخش‌ها نمایش داده می‌شوند:
 
-صرف Save کردن Plugin هیچ Commandی را Start نمی‌کند. Plugin جدید در حالت Disabled ذخیره می‌شود.
+- Available integrations؛
+- Included with TL Studio؛
+- Added by you.
 
-Enable یک Action جدا و صریح است و قبل از Start شدن MCP Command، TL Studio از User تأیید می‌گیرد.
+Grid به‌صورت Responsive در Desktop عریض 3 ستون، در اندازهٔ متوسط 2 ستون و در عرض کم 1 ستون دارد.
 
-## Scope پروژه و Global
+## Graphify
 
-Plugin از نوع Project فقط برای همان Project ذخیره‌شده فعال است.
+Graphify فقط یک‌بار به‌صورت Global نصب می‌شود، اما دادهٔ Graph هر Project محلی باقی می‌ماند.
 
-Plugin از نوع Global در Projectهای مختلف در دسترس است، اما هنگام Project Switch، MCP Process Restart می‌شود تا با Working Directory مربوط به Project قبلی ادامه ندهد.
+Project بدون Graph وضعیت **Graph Missing** نشان می‌دهد. ساخت Graph فقط با Action صریح **Build Graph** انجام می‌شود و Add کردن Graphify باعث Build خودکار نمی‌شود.
 
-Project Identity Normalize می‌شود تا Pathهای معادل، Junction و Symlink-resolved Path باعث Leakage بین Projectهای نامرتبط نشوند.
+Build محلی قابل اتکا:
 
-## Secretها
+~~~bash
+graphify extract . --code-only
+graphify export html
+~~~
 
-Secret Value مربوط به Environment Variable از Credential Vault خود TL Studio استفاده می‌کند.
+خروجی‌ها:
 
-فایل `plugins.json` فقط Definition، اسم Environment Variable و Configured State را نگه می‌دارد؛ Secret Value داخل آن ذخیره نمی‌شود.
+~~~text
+graphify-out/graph.json
+graphify-out/graph.html
+~~~
 
-## Test Connection
+هنگام تغییر Project، MCP Process سراسری با Working Directory مربوط به Project فعال Restart می‌شود.
 
-گزینه **Test Connection**، MCP Process را موقت Start می‌کند، Initialization را انجام می‌دهد، Toolها را Discover می‌کند، Resource Discovery را امتحان می‌کند و بعد Client موقت را می‌بندد.
+## Router Plugin
 
-نسخه MCP Protocol فعلی:
+Router Plugin از MCP Tool Plugin جداست. روی انتخاب Model اثر می‌گذارد، اما وارد Tool Registry نمی‌شود.
 
-```text
-2024-11-05
-```
+### Laya Router
 
-`tools/list` لازم است، اما `resources/list` اختیاری در نظر گرفته می‌شود تا MCP Server فقط-Tool هم بتواند وصل شود.
+Laya به‌صورت Plugin/MCP سراسری نصب می‌شود و در عین حال می‌تواند به‌عنوان Model Router سطح بالا در Model Selector دیده شود.
 
-## Toolهای Agent
+### JEV Direct
 
-Toolهای Discover‌شده از MCP فعال به‌صورت Dynamic به Tool Registry و Tool Definition مربوط به Native Agent اضافه می‌شوند.
+JEV Direct یک Router سراسری و جداست که مستقیم TypeSafe System One را با `jev-latest` صدا می‌زند.
 
-قبل از اجرای واقعی، این Toolها همچنان از Permission Authorizer خود TL Studio عبور می‌کنند.
+هر دو Router فقط Model بومی انتخاب‌شده را به TL Studio برمی‌گردانند. Tool، Permission، File، Session، Terminal، Retry و Agent Loop در اختیار خود TL Studio می‌مانند.
 
-اگر MCP Process یا Transport وسط Tool Call Fail شود، TL Studio می‌تواند Client را یک بار Restart و همان Call را Retry کند.
+## Secret و Permission
 
-## Bundled Plugin Foundation
+Plugin Secret از Credential Vault خود TL Studio استفاده می‌کند.
 
-TL Studio امکان Stage کردن Plugin نسخه‌ثابت داخل Release Package را دارد. Bundled Plugin قابل Remove نیست، اما می‌تواند Enable یا Disable شود.
-
-**در v0.5.0 Catalog مربوط به Bundled Plugin خالی است.** هیچ Third-party MCP Plugin به‌صورت پیش‌فرض همراه این Stable Build توزیع نمی‌شود.
-
-
+MCP Tool کشف‌شده قبل از اجرای واقعی همچنان از Permission Authorizer خود TL Studio عبور می‌کند.

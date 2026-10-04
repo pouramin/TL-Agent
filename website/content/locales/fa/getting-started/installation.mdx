@@ -1,6 +1,6 @@
 ---
 title: نصب
-description: نصب Stable v0.5 با npm یا Portable Release.
+description: نصب نسخهٔ پایدار v0.6 با npm یا Portable Release.
 icon: Download
 ---
 
@@ -12,7 +12,7 @@ icon: Download
 npx --yes tl-studio
 ```
 
-پکیج npm یک Launcher سبک است که به GitHub Release پایدار متناظر Pin می‌شود. سیستم‌عامل و Architecture را تشخیص می‌دهد، Archive رسمی را دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را با Folder فعلی به‌عنوان Project اجرا می‌کند.
+پکیج npm یک Launcher سبک است که به GitHub Release پایدار متناظر متصل می‌شود. سیستم‌عامل و Architecture را تشخیص می‌دهد، Archive رسمی را دانلود می‌کند، SHA-256 را Verify می‌کند، Local Cache می‌سازد و TL Studio را با Folder فعلی به‌عنوان Project اجرا می‌کند.
 
 برای جلوگیری از بازشدن خودکار Browser:
 
@@ -20,7 +20,7 @@ npx --yes tl-studio
 npx --yes tl-studio --no-browser
 ```
 
-## نسخه Portable
+## نسخهٔ Portable
 
 Archive مناسب را از GitHub Releases بگیرید، Extract کنید و اجرا کنید:
 
@@ -32,26 +32,19 @@ macOS:    ./tl-studio
 
 Build پایدار برای Windows x64، Linux x64/ARM64 و macOS Intel x64/Apple Silicon ARM64 منتشر می‌شود.
 
-## داخل Package چیست؟
+## داخل v0.6.0 چیست؟
 
-Release عادی v0.5 شامل Executable خود TL Studio، License/Noticeهای لازم و هر Bundled Plugin نسخه‌ثابتی است که برای همان Build Configure شده باشد.
+Package عادی نسخهٔ v0.6.0 شامل Executable خود TL Studio، License/Noticeهای لازم، فایل‌های Integration تنظیم‌شده برای Release و فایل‌های Claude Web Bridge مربوط به Extension پشتیبانی‌شدهٔ Chrome است.
 
-Catalog مربوط به Bundled Plugin در v0.5.0 خالی است؛ بنابراین این Release به‌صورت پیش‌فرض Third-party Plugin همراه ندارد.
-
+Graphify هنگام Add شدن به‌صورت Integration سراسری نصب می‌شود، اما دادهٔ Graph هر Project داخل `graphify-out/` همان Project باقی می‌ماند.
 
 ## بررسی فایل دانلودی
 
-هر Release فایل زیر را منتشر می‌کند:
+هر Release فایل `SHA256SUMS.txt` را منتشر می‌کند. برای Verify کردن Package می‌توانید Hash Archive را با مقدار منتشرشده مقایسه کنید.
 
-```text
-SHA256SUMS.txt
-```
-
-برای Verify کردن Package می‌توانید Hash Archive را با مقدار منتشرشده مقایسه کنید.
+Updater داخلی Windows x64 نیز قبل از جایگزینی Executable همین بررسی SHA-256 را انجام می‌دهد.
 
 ## Cache مربوط به npm Launcher
-
-Release دانلودشده جدا از Cache عادی npm نگه‌داری می‌شود:
 
 ```text
 Windows:     %LOCALAPPDATA%\TL-Studio\cache

@@ -1,96 +1,31 @@
 ---
 title: Security model
-description: Understand TL Studio local network, filesystem, Provider, Provider Account, Plugin/MCP, credential, Permission, Session, and Preview boundaries.
+description: TL Studio v0.6 local network, filesystem, Provider, routing, Claude Web, Plugin/MCP, credential, Permission, Session, and Preview boundaries.
 icon: ShieldCheck
 ---
 
-TL Studio is designed as a local application, not a remotely exposed coding service.
+TL Studio is intentionally local-first. Its Browser control UI binds to loopback and the launcher refuses a non-loopback UI address.
 
-## Loopback-only control surface
+The Native Agent can read or modify project files and execute commands only through TL Studio tools and permission policy. Treat prompts, connected providers, MCP servers, repositories, tool output, and plugin processes as potentially security-sensitive inputs.
 
-The Browser-facing TL Studio server binds to loopback.
+The launcher protects its local control surface by:
 
-Non-loopback listen values are rejected.
+- binding the control server to loopback;
+- rejecting non-loopback Host values;
+- requiring Browser Origin to match the local control origin;
+- keeping provider credentials out of Browser code and provider registry files;
+- keeping ChatGPT OAuth material inside the official Codex client's isolated TL Studio-specific `CODEX_HOME`;
+- enforcing project boundaries on filesystem operations;
+- rejecting traversal and symlink escapes;
+- isolating Preview content from the TL Studio control origin;
+- permission-gating sensitive tool actions.
 
-Requests with an Origin are checked against the local control origin and the UI is served with a restrictive Content Security Policy.
+TL Studio may launch an explicit provider-owned helper process only when that provider's documented integration requires it. The ChatGPT account integration uses OpenAI's official Codex CLI/App Server for login and ChatGPT-plan model transport. TL Studio does not read or copy Codex OAuth tokens, browser cookies, private session tokens, or undocumented ChatGPT credentials.
 
-## Project filesystem boundary
+The ChatGPT model bridge runs in an empty temporary working directory with user/project Codex configuration and rules ignored, a read-only sandbox, approval policy set to never, and web search disabled. TL Studio remains responsible for project Tool execution and Permission decisions.
 
-Browser filesystem operations and native built-in Tool operations are constrained to the selected Project.
+External model providers, the official Codex helper, and MCP servers are separate trust boundaries configured or selected by the user.
 
-TL Studio rejects path traversal, symlink escape, protected root mutation, and protected Git metadata mutation where applicable.
+Do not expose the local control port through a public proxy. Review project code, provider endpoints, plugin commands, and requested permissions before approving sensitive actions.
 
-Editor saves use SHA-256 revision checks so newer disk content cannot be silently overwritten by a stale buffer.
-
-## Native Permission boundary
-
-Read-only Tools without write/execute/network capability can run without a human prompt.
-
-Write/edit and command execution pass through TL Studio's Permission Engine.
-
-Sensitive execute/network actions are not persisted as reusable approvals. Unknown native Tools cannot be authorized.
-
-Project-scoped remembered rules live in permissions.json.
-
-## Credential vault
-
-Provider API keys, account-backed credentials, and Plugin secret environment values are separated from normal configuration.
-
-The credential backend uses:
-
-- Windows DPAPI;
-- macOS Keychain when available;
-- Linux Secret Service through secret-tool when available;
-- encrypted private-file fallback otherwise.
-
-Normal Provider and Plugin JSON stores definitions/references rather than raw secret values.
-
-### Account credentials
-
-Development v0.6 keeps manual API and TL Studio-managed account credentials in separate vault slots.
-
-OAuth codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets do not enter Browser state.
-
-For ChatGPT, OpenAI's official Codex client owns the OAuth token store inside an isolated TL Studio-specific `CODEX_HOME`. TL Studio does not read, copy, or serialize those raw ChatGPT tokens.
-
-The ChatGPT model bridge runs from an empty temporary working directory with user/project Codex config and rules ignored, a read-only sandbox, approval policy set to `never`, and web search disabled. TL Studio still owns project Tool execution and Permission decisions.
-
-Signing out from a TL Studio-managed account does not delete an existing manual API key.
-
-## Provider discovery boundary
-
-Remote Model discovery treats the configured endpoint as a separate trust boundary.
-
-TL Studio validates HTTP(S) Base URLs, rejects embedded URL credentials, bounds redirects and response size, and does not hide authentication failures behind stale cache.
-
-Model requests send data to the configured endpoint; configure only endpoints you trust.
-
-## Plugin/MCP trust boundary
-
-A user-added stdio MCP Plugin is a **local executable process**.
-
-Saving a Plugin never starts the command. Enabling requires a separate explicit action and UI confirmation.
-
-Plugin secret environment values come from the TL Studio credential vault.
-
-Discovered MCP Tool calls still pass through TL Studio's Permission authorizer before execution.
-
-Only configure Plugin commands you trust.
-
-## Session persistence
-
-Semantic Session snapshots are stored locally in private application state and can contain Prompt text, assistant output, Tool activity, usage data, and Project Changes.
-
-Treat the TL Studio state directory as sensitive user data.
-
-## Preview isolation
-
-Previewed Project web content does not run on TL Studio's privileged control origin.
-
-Static/file Preview uses a separate loopback origin; supported dev-server Preview accepts local URLs only.
-
-## No product-owned telemetry or model proxy
-
-TL Studio does not require a product-owned telemetry backend, model proxy, remote workspace service, or database.
-
-Network access comes from explicitly configured model endpoints, package/release distribution, and configured MCP/Plugin behavior.
+Please report security issues privately to the repository owner rather than opening a public exploit report.

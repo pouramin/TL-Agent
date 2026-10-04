@@ -1,120 +1,65 @@
 ---
 title: Model connections
-description: Configure direct model providers, discover catalogs, and use supported account-backed connections.
+description: Configure direct providers, supported account paths, Claude Web, and model discovery.
 icon: Cable
 ---
 
 TL Studio owns Provider definitions, model discovery, the model catalog shown in the product, and Provider credentials.
 
-Released behavior and development-preview behavior are labeled separately below.
-
 ## Native model protocols
 
-| Protocol | Stable v0.5 | Development v0.6 |
-| --- | --- | --- |
-| OpenAI-compatible Chat Completions | ✅ | ✅ |
-| OpenAI Responses | ✅ | ✅ |
-| Anthropic Messages | ✅ | ✅ |
-| Google Gemini generateContent | — | ✅ |
+| Protocol | Stable v0.6 |
+| --- | --- |
+| OpenAI-compatible Chat Completions | ✅ |
+| OpenAI Responses | ✅ |
+| Anthropic Messages | ✅ |
+| Google Gemini generateContent | ✅ |
 
-Model requests go directly from TL Studio to the configured Provider endpoint.
+Model requests go directly from TL Studio to the configured Provider endpoint, except for documented provider-owned account bridges and Claude Web transport.
 
 ## Custom Provider setup
 
-The 0.6 setup stays discovery-first. For a normal custom Provider you provide:
+Custom Provider setup is discovery-first. Normally you provide:
 
 - API address;
-- API type: OpenAI-compatible or Anthropic-compatible;
+- API type;
 - API key.
 
 TL Studio then attempts model discovery automatically. Manual Model ID entry remains an explicit fallback for private or unlisted Models.
 
-Existing OpenAI Responses Provider definitions remain editable for compatibility with saved configurations.
+## Provider connections
 
-## Discover Models
+| Provider | Default setup | Stable v0.6 behavior |
+| --- | --- | --- |
+| **ChatGPT / Codex** | Account sign-in | Official Codex login and plan-backed model access through an isolated provider bridge |
+| **GitHub Copilot** | Reserved account slot | Model integration remains deferred |
+| **Claude / Anthropic** | Account sign-in + API key | Claude account path and manual Anthropic API path stay separate |
+| **Claude Web** | Chrome extension bridge | Uses the authenticated Claude Web session already owned by Chrome |
+| **Google / Gemini** | API key | Gemini preset with native Gemini transport support |
+| **Hugging Face** | API token | Inference Providers preset |
+| **OpenRouter** | API key | OpenAI-compatible OpenRouter preset |
 
-When the Provider exposes a model-list API, TL Studio validates the Base URL, sends the discovery request, normalizes the returned Models, and presents a searchable catalog.
+ChatGPT and Claude account helpers provide authentication/model transport only. TL Studio remains authoritative for Sessions, tools, permissions, project mutations, persistence, and the outer Agent loop.
 
-Normalized metadata can include:
+### Claude Web boundary
 
-- Model ID and name;
-- context/output limits;
-- Tool Calling;
-- Reasoning;
-- Vision;
-- Router kind.
+Claude Web uses the TL Studio Claude Web Bridge extension from the Chrome Web Store. If the extension is missing, TL Studio opens its installation page and automatically rechecks/pairs after installation.
 
-## Discovery safety
-
-Provider discovery:
-
-- accepts valid HTTP(S) Base URLs without embedded credentials;
-- uses a bounded request timeout;
-- limits catalog response size;
-- caps normalized catalog size;
-- blocks unsafe cross-origin redirect behavior;
-- uses bounded pagination where supported.
-
-Authentication failures remain explicit and are not hidden behind stale cache.
-
-## Provider registry
-
-Saved definitions live in:
-
-~~~text
-providers.json
-~~~
-
-The registry stores Provider metadata and Model definitions. It does not contain API keys or OAuth tokens.
+The extension is inference-only. Chrome keeps the authenticated Claude session; TL Studio does not copy Claude cookies or session credentials. Readiness is included in routing/fallback eligibility.
 
 ## Credential vault
 
 Manual API credentials and account credentials use separate vault slots.
 
-A connected account can take precedence while active, but signing out does not delete the user's existing manual API key.
+Connecting an account does not overwrite an existing manual API key, and signing out does not delete it.
 
 Secrets do not appear in Browser storage or normal Provider JSON state.
 
-## Provider connection modes — v0.6 development preview
+## JEV paths
 
-| Provider | Default setup | Integration |
-| --- | --- | --- |
-| **ChatGPT / Codex** | ✅ Account sign-in | Official Codex login, ChatGPT-plan model discovery, isolated Codex provider bridge |
-| **GitHub Copilot** | ⏳ Account sign-in | Account slot is reserved; the model path remains deferred |
-| **Claude / Anthropic** | ✅ Account sign-in + API key | Official Claude Code browser login for Claude.ai subscriptions; Anthropic Messages API remains a separate path |
-| **Google / Gemini** | ✅ API key | Google's documented OpenAI-compatible Gemini API preset |
-| **Hugging Face** | ✅ API token | OpenAI-compatible Inference Providers preset |
-| **OpenRouter** | ✅ API key | OpenAI-compatible OpenRouter preset |
+JEV intentionally has two separate paths:
 
-API-based cards open the existing discovery-first Provider editor with the endpoint and protocol already filled in. They are not disabled just because they do not use consumer-account OAuth.
+- **JEV via OpenRouter** remains the legacy provider/model integration;
+- **JEV Direct** is a global Router plugin using TypeSafe System One with `jev-latest`.
 
-ChatGPT authentication is owned by OpenAI's official Codex client inside a TL Studio-specific isolated `CODEX_HOME`. Claude.ai subscription authentication is owned by the official Claude Code client inside a TL Studio-specific isolated `CLAUDE_CONFIG_DIR`. TL Studio does not read or copy either provider's raw OAuth credential.
-
-For Claude account turns, TL Studio uses the official non-interactive Claude Code surface with safe mode, session persistence off, built-in tools disabled, MCP tools denied, Chrome disabled, and structured JSON output. The account provider is stored separately as `claude-account`, so connecting a Claude.ai subscription never overwrites the manual `claude` API provider. Tool execution and Permission decisions still happen inside TL Studio.
-
-For ChatGPT-plan model turns, TL Studio reuses an official Codex App Server and creates isolated ephemeral structured turns with Codex built-in tools disabled. Tool execution and Permission decisions still happen inside TL Studio.
-
-> **Development preview:** automated Claude CLI and bridge checks are green, but real Claude.ai subscription login/model validation is still required before this path is considered release-validated.
-
-If `codex` is not available on PATH, the alpha can use `npx @openai/codex`, or the user can configure an explicit Codex executable path in Provider Settings.
-
-## Gemini setup
-
-During the current alpha, Gemini account login requires two non-secret setup values:
-
-~~~text
-Google Cloud Project ID
-Desktop OAuth Client ID
-~~~
-
-They can be configured from Provider Settings.
-
-OAuth access and refresh tokens stay only in the TL Studio credential vault.
-
-Each sign-in starts a temporary listener bound to:
-
-~~~text
-127.0.0.1:<random-port>
-~~~
-
-The listener validates OAuth state, completes the PKCE flow, and shuts down after success, cancellation, or expiry.
+JEV Direct receives routing state and returns a model decision. It does not proxy the final model request or own TL Studio tools, files, permissions, sessions, retry logic, or Terminal.

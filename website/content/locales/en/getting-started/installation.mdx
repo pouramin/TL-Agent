@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install stable TL Studio v0.5 with npm or a portable release.
+description: Install stable TL Studio v0.6 with npm or a portable release.
 icon: Download
 ---
 
@@ -32,20 +32,19 @@ macOS:    ./tl-studio
 
 Stable builds are published for Windows x64, Linux x64/ARM64, and macOS Intel x64/Apple Silicon ARM64.
 
-## What is inside the package?
+## What is inside v0.6.0?
 
-A normal v0.5 release contains the TL Studio executable, required licenses/notices, and any version-pinned TL Studio bundled plugins configured for that build.
+A normal v0.6.0 package contains the TL Studio executable, required licenses/notices, configured bundled integration files, and the Claude Web Bridge integration files used by the supported Chrome extension workflow.
 
-The current bundled-plugin catalog is empty, so v0.5.0 does not ship a third-party plugin by default.
-
+Graphify is installed as a reusable global integration when the user adds it; generated graph data stays project-local under `graphify-out/`.
 
 ## Verify a download
 
 Each release publishes `SHA256SUMS.txt`. Compare the archive checksum with the published value if you want to verify the package.
 
-## Local cache used by the npm launcher
+The Windows x64 in-app updater performs the same SHA-256 verification before replacing the executable.
 
-The npm launcher caches downloaded TL Studio releases separately from the normal npm cache:
+## Local cache used by the npm launcher
 
 ```text
 Windows:     %LOCALAPPDATA%\TL-Studio\cache

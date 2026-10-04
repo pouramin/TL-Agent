@@ -1,19 +1,19 @@
 ---
 title: Releases
-description: Understand stable TL Studio releases, development previews, npm distribution, and package validation.
+description: Stable TL Studio releases, development previews, npm distribution, checksums, and in-app updating.
 icon: PackageCheck
 ---
 
 Current release channels:
 
 ~~~text
-Stable:      v0.5.0
-Development: v0.6.0-alpha.1
+Stable:      v0.6.0
+Development: v0.7.0-alpha.1
 ~~~
 
 ## Stable production
 
-The main branch is the stable production line.
+The `main` branch is the stable production line.
 
 Stable quick launch:
 
@@ -23,19 +23,19 @@ npx --yes tl-studio
 
 The npm package is a lightweight launcher pinned to the matching stable GitHub Release. It downloads the correct platform archive, verifies SHA-256, caches it locally, and runs TL Studio in the selected/current Project.
 
-The stable npm workflow publishes only non-prerelease versions from main to the latest dist-tag.
+Stable npm publication uses non-prerelease versions from `main`.
 
 ## Development previews
 
-The dev branch carries the next-version development line.
+The `dev` branch carries the next development line.
 
-Preview Builds are produced separately from stable releases and are intended for validation before promotion. They do not change the stable npm launcher or the stable GitHub Release.
+Preview Builds are produced separately for validation. They do not replace the stable npm launcher or stable GitHub Release.
 
-The current v0.6.0-alpha.1 line includes work such as account-backed Provider integrations and native Gemini transport.
+The current development version is `v0.7.0-alpha.1`. Preview behavior must be labeled as development until promoted.
 
 ## Portable builds
 
-Stable Release builds are produced for:
+Stable releases are produced for:
 
 - Windows x64;
 - Linux x64;
@@ -43,21 +43,30 @@ Stable Release builds are produced for:
 - macOS Intel x64;
 - macOS Apple Silicon ARM64.
 
-A package contains the TL Studio executable, licenses/notices, and any version-pinned bundled Plugins configured for that release.
+Each release publishes `SHA256SUMS.txt` alongside the platform archives.
+
+## In-app updater
+
+About can check GitHub Releases for updates.
+
+- stable builds ignore prereleases;
+- prerelease builds may discover newer prereleases;
+- Windows x64 downloads the official archive and `SHA256SUMS.txt`;
+- SHA-256 is verified before replacement;
+- TL Studio restarts and attempts to reopen the current Project after a successful update.
 
 ## Release validation
 
 Release and preview validation covers, as applicable:
 
-- Browser TypeScript type-check;
-- Browser production build;
+- Browser TypeScript type-check and production build;
 - Go tests and vet;
 - supported platform cross-builds;
 - Native Product Contract;
 - Custom Provider Contract;
 - Browser smoke testing;
 - Agent/runtime E2E;
-- provider-specific regression tests;
+- provider/router/plugin regression tests;
 - Windows review packaging;
 - SHA-256 checksums for stable release artifacts.
 

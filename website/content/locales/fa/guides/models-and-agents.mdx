@@ -1,56 +1,36 @@
 ---
 title: Model و Agent
-description: انتخاب Model و اجرای Native Agent در مسیرهای Stable و Development.
+description: انتخاب Model بومی یا Router در حالی‌که Native Agent خود TL Studio کنترل را حفظ می‌کند.
 icon: Bot
 ---
 
-در TL Studio فقط یک مدل اصلی اجرا وجود دارد: **TL Studio Native Agent**.
+در TL Studio فقط یک Runtime اصلی برای Agent وجود دارد: **TL Studio Native Agent**.
 
 Model انتخاب‌شده باید از طریق Protocol Adapter پیاده‌سازی‌شده در خود TL Studio قابل اجرا باشد.
 
-## Protocolهای Native مدل
+## Protocolهای بومی پایدار
 
-نسخهٔ پایدار v0.5 این Protocolها را پشتیبانی می‌کند:
+نسخهٔ پایدار v0.6 این Protocolها را پشتیبانی می‌کند:
 
 - OpenAI-compatible Chat Completions؛
 - OpenAI Responses؛
-- Anthropic Messages.
+- Anthropic Messages؛
+- Google Gemini `generateContent`.
 
-در Development v0.6، Transport بومی Google Gemini generateContent هم اضافه شده است.
-
-## Model Catalog
+## Model Catalog و Credential
 
 Provider Definition و Modelهای تنظیم‌شده داخل Local Provider Registry خود TL Studio هستند.
 
-Provider UI می‌تواند Remote Model Catalog را Discover کند، Metadata مفید را Normalize کند و اجازه دهد فقط Modelهای موردنظر ذخیره شوند.
+Provider UI می‌تواند Remote Model Catalog را Discover کند و Metadataهایی مثل Context/Output Limit، Tool Calling، Reasoning، Vision و Router Kind را Normalize کند.
 
-Metadata می‌تواند شامل این موارد باشد:
+Credential دستی API و Credential حساب جدا از هم باقی می‌مانند و وارد Agent Transcript نمی‌شوند.
 
-- Context Limit؛
-- Output Limit؛
-- Tool Calling؛
-- Reasoning؛
-- Vision؛
-- Router Kind.
-
-Capability ناشناخته در UI به‌صورت صریح باقی می‌ماند و بدون اطلاع کاربر فرض نمی‌شود.
-
-## Credentialها
-
-Credential دستی API و Credential حساب از هم جدا هستند.
-
-در خط توسعهٔ 0.6، وقتی Account Adapter فعال و متصل باشد، Runtime ابتدا Credential حساب را Resolve می‌کند. API Key دستی جداگانه باقی می‌ماند و بعد از Sign out حساب همچنان قابل استفاده است.
-
-Credential وارد Transcript مربوط به Agent نمی‌شود.
-
-## اجرای Agent
-
-برای Model پشتیبانی‌شده:
+## اجرای Native Agent
 
 ~~~text
 Session Prompt
 → Native Agent
-→ Selected Provider
+→ Selected Provider / Router-selected native model
 → Model Response
 → Tool Calls when requested
 → TL Studio Tool Executor
@@ -58,27 +38,31 @@ Session Prompt
 → Final Response
 ~~~
 
-Agent از Cancellation و Guard برای Maximum Iteration، Tool Round، تعداد Tool در هر Round و تکرار Tool Call یکسان استفاده می‌کند.
+Model Turn مستقیم به‌صورت پیش‌فرض Timeout برابر 2 دقیقه دارد. Agent Routed برای کارهای سنگین‌تر Timeout برابر 4 دقیقه دارد.
 
-## تعامل بومی
+## Model Router
 
-Agent می‌تواند Tool داخلی interaction.question را Call کند تا Pause شود و Structured Input از User بگیرد.
+نسخهٔ پایدار v0.6 این Routerهای سطح بالا را دارد:
 
-Question می‌تواند Choice، Multiple Selection، Custom Text و Default داشته باشد.
+- **Laya Router**؛
+- **JEV Direct**.
 
-## منبع Toolها
+هر دو از این Profileها استفاده می‌کنند:
 
-Agent، Tool Definition را از این منابع می‌گیرد:
+- Balanced؛
+- Lowest cost؛
+- Best quality؛
+- Fastest؛
+- Free only.
 
-1. Toolهای داخلی و بومی TL Studio؛
-2. MCP Pluginهای فعال و سازگار برای Project.
+Metadata هر Model می‌تواند شامل Enabled/Disabled، Cost Group، Quality از 1 تا 5 و Speed از 1 تا 5 باشد.
 
-هر دو وارد همان Tool Model و Permission System می‌شوند.
+حالت **Free only** سخت‌گیرانه است؛ Model پولی قبل از Routing حذف می‌شود و حتی به‌عنوان Fallback استفاده نمی‌شود.
 
-## مسیرهای حسابی در Development
+Failure، Cooldown، Retry و Fallback مربوط به Routing داخل Chat قابل مشاهده می‌مانند.
 
-در خط توسعهٔ 0.6، Model می‌تواند از حساب متصل OpenRouter، Hugging Face، Google/Gemini یا ChatGPT/Codex Resolve شود.
+## مرز مالکیت
 
-OpenRouter، Hugging Face و Gemini، Credential را از Account Adapter خود TL Studio می‌گیرند. برای ChatGPT، Client رسمی OpenAI Codex، OAuth و Model Access مبتنی بر پلن ChatGPT را داخل CODEX_HOME ایزولهٔ مخصوص TL Studio مدیریت می‌کند.
+Router فقط Model بومی مناسب را انتخاب می‌کند.
 
-در Model Turnهای ChatGPT، Codex CLI رسمی فقط نقش Provider Bridge را دارد. Session، چرخهٔ بیرونی مدل/Tool/مدل، Tool Execution، Permission، تغییرات پروژه و Persistence همچنان در اختیار TL Studio هستند.
+Agent Loop، Context، فایل‌ها، Tool، Permission، Session، Retry، Fallback، Terminal، تغییرات Project و تمام ادامه‌های مدل → Tool → مدل همچنان در اختیار TL Studio هستند.
