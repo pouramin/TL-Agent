@@ -30,6 +30,12 @@ import { K } from "./kernel";
   const cancelButton = document.getElementById("pluginCancelButton") as HTMLButtonElement | null;
   const testButton = document.getElementById("pluginTestButton") as HTMLButtonElement | null;
   const saveButton = document.getElementById("pluginSaveButton") as HTMLButtonElement | null;
+  const jevDirectDialog = document.getElementById("jevDirectDialog") as HTMLDialogElement | null;
+  const jevDirectClose = document.getElementById("jevDirectClose") as HTMLButtonElement | null;
+  const jevDirectCancel = document.getElementById("jevDirectCancel") as HTMLButtonElement | null;
+  const jevDirectSave = document.getElementById("jevDirectSave") as HTMLButtonElement | null;
+  const jevDirectApiKey = document.getElementById("jevDirectApiKey") as HTMLInputElement | null;
+  const jevDirectStatus = document.getElementById("jevDirectStatus");
   const layaRoutingDialog = document.getElementById("layaRoutingDialog") as HTMLDialogElement | null;
   const layaRoutingClose = document.getElementById("layaRoutingClose") as HTMLButtonElement | null;
   const layaRoutingCancel = document.getElementById("layaRoutingCancel") as HTMLButtonElement | null;
@@ -119,6 +125,49 @@ import { K } from "./kernel";
   };
 
   const statusClass = (value: string) => "plugin-status-" + String(value || "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+
+  const jevDirectConfigured = (plugin?: TLStudioPluginView | null) =>
+    String(plugin?.integration?.details?.apiKeyConfigured || "").toLowerCase() === "true";
+
+  const setJevDirectStatus = (message = "", kind = "") => {
+    if (!jevDirectStatus) return;
+    jevDirectStatus.textContent = message;
+    jevDirectStatus.className = `plugin-editor-status${kind ? ` ${kind}` : ""}`;
+  };
+
+  const openJevDirectDialog = (plugin?: TLStudioPluginView | null) => {
+    if (!jevDirectDialog || !jevDirectApiKey) return;
+    jevDirectApiKey.value = "";
+    setJevDirectStatus(
+      jevDirectConfigured(plugin)
+        ? "A TypeSafe API key is already stored. Leave the field blank to keep it, or enter a new key to replace it."
+        : "Enter a TypeSafe API key to enable the direct JEV router.",
+    );
+    if (!jevDirectDialog.open) jevDirectDialog.showModal();
+    requestAnimationFrame(() => jevDirectApiKey.focus({ preventScroll: true }));
+  };
+
+  const closeJevDirectDialog = () => {
+    if (jevDirectDialog?.open) jevDirectDialog.close();
+    if (jevDirectApiKey) jevDirectApiKey.value = "";
+    setJevDirectStatus();
+  };
+
+  const pluginConfigForUpdate = (plugin: TLStudioPluginView) => ({
+    id: plugin.id,
+    name: plugin.name,
+    description: plugin.description || "",
+    type: plugin.type,
+    enabled: plugin.enabled,
+    scope: plugin.scope,
+    project: plugin.project || "",
+    transport: plugin.transport || "",
+    command: plugin.command || "",
+    arguments: plugin.arguments || [],
+    workingDirectory: plugin.workingDirectory || "",
+    environment: plugin.environment || [],
+    metadata: plugin.metadata || {},
+  });
 
   const actionButton = (label: string, action: string, pluginID: string, className = "ghost small") => {
     const button = document.createElement("button");
@@ -285,10 +334,17 @@ import { K } from "./kernel";
 
     const actions = document.createElement("div");
     actions.className = "plugin-catalog-actions";
-    actions.append(
-      actionButton(plugin.enabled ? "Disable" : "Enable", "toggle", plugin.id, plugin.enabled ? "ghost small" : "primary small"),
-      actionButton("Test", "test", plugin.id),
-    );
+    if (preset.id === "jev-direct") {
+      actions.append(actionButton("Configure", "jev-direct-config", plugin.id, "ghost small"));
+      if (jevDirectConfigured(plugin)) {
+        actions.append(actionButton(plugin.enabled ? "Disable" : "Enable", "toggle", plugin.id, plugin.enabled ? "ghost small" : "primary small"));
+      }
+    } else {
+      actions.append(
+        actionButton(plugin.enabled ? "Disable" : "Enable", "toggle", plugin.id, plugin.enabled ? "ghost small" : "primary small"),
+        actionButton("Test", "test", plugin.id),
+      );
+    }
     if (preset.id === "laya" && plugin.enabled) {
       actions.append(actionButton("Routing", "laya-routing", plugin.id, "ghost small"));
     }
@@ -691,6 +747,35 @@ import { K } from "./kernel";
     }
   };
 
+  jevDirectClose?.addEventListener("click", closeJevDirectDialog);
+  jevDirectCancel?.addEventListener("click", closeJevDirectDialog);
+  jevDirectDialog?.addEventListener("click", (event) => {
+    if (event.target === jevDirectDialog) closeJevDirectDialog();
+  });
+  jevDirectSave?.addEventListener("click", async () => {
+    const plugin = K.state.plugins.find((item) => item.id === "jev-direct");
+    if (!plugin || !jevDirectApiKey) return;
+    const key = jevDirectApiKey.value.trim();
+    if (!key && !jevDirectConfigured(plugin)) {
+      setJevDirectStatus("Enter a TypeSafe API key.", "error");
+      return;
+    }
+    busy(jevDirectSave, true, "Saving…");
+    setJevDirectStatus("Saving the TypeSafe credential and enabling JEV Direct…");
+    try {
+      await K.api.plugins.update(plugin.id, pluginConfigForUpdate(plugin), { TYPESAFE_API_KEY: key });
+      await K.api.plugins.setEnabled(plugin.id, true);
+      await load();
+      await K.loadCatalog?.().catch(() => {});
+      setJevDirectStatus("JEV Direct Router is enabled.", "success");
+      closeJevDirectDialog();
+    } catch (error) {
+      setJevDirectStatus((error as Error).message || String(error), "error");
+    } finally {
+      busy(jevDirectSave, false);
+    }
+  });
+
   layaRoutingClose?.addEventListener("click", closeLayaRouting);
   layaRoutingCancel?.addEventListener("click", closeLayaRouting);
   layaRoutingProfile?.addEventListener("change", () => {
@@ -803,6 +888,9 @@ import { K } from "./kernel";
         await load();
         await K.loadToolRegistry?.().catch(() => {});
         await K.loadCatalog?.().catch(() => {});
+        if (preset.id === "jev-direct") {
+          openJevDirectDialog(K.state.plugins.find((item) => item.id === "jev-direct"));
+        }
       } catch (error) {
         K.showError((error as Error).message || String(error));
         busy(button, false);
@@ -814,6 +902,10 @@ import { K } from "./kernel";
 
     if (action === "laya-routing") {
       await openLayaRouting();
+      return;
+    }
+    if (action === "jev-direct-config") {
+      openJevDirectDialog(plugin);
       return;
     }
 
@@ -856,8 +948,12 @@ import { K } from "./kernel";
     if (action === "toggle") {
       const enabling = !plugin.enabled;
       if (enabling) {
-        const exact = [plugin.command, ...(plugin.arguments || [])].join(" ");
-        if (!window.confirm(`Enable “${plugin.name}”?\n\nTL Studio will start this local MCP command when the plugin is needed:\n${exact}`)) return;
+        if (plugin.type === "router") {
+          if (!window.confirm(`Enable “${plugin.name}”?\n\nTL Studio will use this router to choose among your connected Agent models.`)) return;
+        } else {
+          const exact = [plugin.command, ...(plugin.arguments || [])].join(" ");
+          if (!window.confirm(`Enable “${plugin.name}”?\n\nTL Studio will start this local MCP command when the plugin is needed:\n${exact}`)) return;
+        }
       }
       busy(button, true, enabling ? "Enabling…" : "Disabling…");
       try {
@@ -922,6 +1018,7 @@ import { K } from "./kernel";
 
   settingsDialog?.addEventListener("close", () => {
     if (pluginDialog.open) pluginDialog.close();
+    closeJevDirectDialog();
     closeLayaRouting();
   });
 
@@ -930,6 +1027,7 @@ import { K } from "./kernel";
     K.afterProjectChange = async (...args: any[]) => {
       const result = await baseAfterProjectChange(...args);
       closeEditor();
+      closeJevDirectDialog();
       closeLayaRouting();
       await load();
       await K.loadCatalog?.().catch(() => {});

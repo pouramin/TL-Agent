@@ -437,6 +437,13 @@ body { font-size: var(--tl-ui-base); }
 
 
 /* Laya Router */
+.jev-direct-dialog-card { width:min(560px,calc(100vw - 36px)); max-height:calc(100vh - 48px); overflow:auto; padding:20px; }
+.jev-direct-body { display:grid; gap:13px; }
+.jev-direct-key-field { display:grid; gap:6px; color:var(--muted); font-size:var(--tl-ui-sm); }
+.jev-direct-key-field input { width:100%; box-sizing:border-box; height:36px; }
+.jev-direct-key-field small { color:var(--muted-2); font-size:var(--tl-ui-xs); line-height:1.45; }
+.jev-direct-note { padding:10px 11px; border:1px solid var(--line-soft); border-radius:9px; background:var(--panel-2); color:var(--muted); font-size:var(--tl-ui-xs); line-height:1.5; }
+
 .laya-routing-dialog-card {
   width: min(900px, calc(100vw - 36px));
   max-height: calc(100vh - 48px);

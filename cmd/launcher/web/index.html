@@ -306,6 +306,34 @@
     </div>
   </dialog>
 
+  <dialog id="jevDirectDialog">
+    <div class="dialog-card jev-direct-dialog-card">
+      <div class="plugin-dialog-head">
+        <div>
+          <div class="laya-routing-kicker">TypeSafe API</div>
+          <h2>JEV Direct Router</h2>
+          <p>Use TypeSafe JEV directly to choose among TL Studio's connected Agent models. This path does not use OpenRouter.</p>
+        </div>
+        <button id="jevDirectClose" class="icon-button" type="button" aria-label="Close JEV Direct settings">×</button>
+      </div>
+      <div class="jev-direct-body">
+        <label class="jev-direct-key-field">
+          <span>TypeSafe API key</span>
+          <input id="jevDirectApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="TYPESAFE_API_KEY" />
+          <small>The key is stored in TL Studio's local credential vault and is never shown again after save.</small>
+        </label>
+        <div class="jev-direct-note">
+          JEV only makes the routing decision. TL Studio still owns the Agent loop, tools, permissions, files, terminal, sessions, and the final model request.
+        </div>
+        <div id="jevDirectStatus" class="plugin-editor-status"></div>
+        <div class="plugin-editor-actions">
+          <button id="jevDirectCancel" class="ghost small" type="button">Cancel</button>
+          <button id="jevDirectSave" class="primary small" type="button">Save &amp; enable</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="layaRoutingDialog">
     <div class="dialog-card laya-routing-dialog-card">
       <div class="plugin-dialog-head">
