@@ -152,6 +152,53 @@ interface TLStudioToolRegistry {
   unknown: TLStudioToolDescriptor | null;
 }
 
+interface TLStudioLayaRouterModel {
+  providerID: string;
+  providerName: string;
+  modelID: string;
+  modelName: string;
+  connected: boolean;
+  enabled: boolean;
+  group: "free" | "included" | "budget" | "standard" | "premium" | string;
+  quality: number;
+  speed: number;
+  reasoning?: boolean;
+  contextLimit?: number;
+  outputLimit?: number;
+}
+
+interface TLStudioLayaRouterStatus {
+  available: boolean;
+  pluginEnabled: boolean;
+  profile: "balanced" | "cost" | "quality" | "speed" | "free" | string;
+  providerID: string;
+  modelID: string;
+  displayName: string;
+  models: TLStudioLayaRouterModel[];
+  message?: string;
+}
+
+interface TLStudioLayaRoutePreview {
+  providerID: string;
+  providerName: string;
+  modelID: string;
+  modelName: string;
+  profile: string;
+  group: string;
+  quality: number;
+  speed: number;
+  reason: string;
+  analysis: {
+    difficulty: number;
+    domain: string;
+    needsTools: number;
+    sensitive: number;
+    checkpoint?: string;
+    layaReason?: string;
+    latencyMs?: number;
+  };
+}
+
 interface TLStudioPluginCatalogEntry {
   id: string;
   name: string;
@@ -347,6 +394,11 @@ interface TLStudioProductAPI {
     status(): Promise<TLStudioDynamicRecord>;
     configure(engine: "off" | "jev"): Promise<TLStudioDynamicRecord>;
     evaluate(input: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
+  };
+  layaRouter: {
+    status(): Promise<TLStudioLayaRouterStatus>;
+    configure(input: TLStudioDynamicRecord): Promise<TLStudioLayaRouterStatus>;
+    preview(prompt: string): Promise<TLStudioLayaRoutePreview>;
   };
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
