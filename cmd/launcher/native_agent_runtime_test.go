@@ -303,6 +303,10 @@ func TestNativeConversationKeepsCancellationBoundary(t *testing.T) {
 func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
 	prompt := nativeAgentSystemPrompt()
 	for _, required := range []string{
+		"project-relative paths",
+		"Never invent or prefix paths with /workspace",
+		"use files.list with an empty path",
+		"perform that work instead of stopping at a plan",
 		"non-interactive",
 		"do not use the timeout command",
 		"Do not blindly retry multiple shell variants",
@@ -629,5 +633,21 @@ func TestNativeAgentFallsBackToNextLayaRouteAfterTransientModelFailure(t *testin
 			t.Fatalf("Laya fallback result was not persisted: %#v", messages)
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+
+func TestNativeAgentLayaRouteUsesLongerDefaultModelTimeout(t *testing.T) {
+	runtime := &nativeAgentRuntime{modelTurnTimeout: nativeAgentModelTurnTimeout}
+	if got := runtime.modelRequestTimeout(false); got != nativeAgentModelTurnTimeout {
+		t.Fatalf("direct model timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
+	}
+	if got := runtime.modelRequestTimeout(true); got != nativeAgentLayaModelTurnTimeout {
+		t.Fatalf("Laya-routed model timeout = %s, want %s", got, nativeAgentLayaModelTurnTimeout)
+	}
+
+	runtime.modelTurnTimeout = 30 * time.Millisecond
+	if got := runtime.modelRequestTimeout(true); got != 30*time.Millisecond {
+		t.Fatalf("explicit test/runtime override must win, got %s", got)
 	}
 }
