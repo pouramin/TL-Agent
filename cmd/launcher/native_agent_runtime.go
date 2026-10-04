@@ -328,10 +328,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 	displayModel := input.Model
 	var routeSelection *nativeRouteSelection
 
+	routingPrompt := nativeRoutingPrompt(input)
 	providerID := input.Model.ProviderID
 	modelID := input.Model.ID
 	if r.requestRouter != nil && r.requestRouter.Handles(input.Model) {
-		selection, routeErr := r.requestRouter.Route(ctx, directory, nativeRoutingPrompt(input))
+		selection, routeErr := r.requestRouter.Route(ctx, directory, routingPrompt)
 		if routeErr != nil {
 			return routeErr
 		}
@@ -355,47 +356,91 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 
 	repeated := map[string]int{}
 	toolRounds := 0
-	routeActivityPending := routeSelection != nil
+	routeActivitiesPending := []sessionActivityView{}
+	if routeSelection != nil {
+		routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteActivity(*routeSelection))
+	}
 	responseActivities := func(response nativeModelResponse) []sessionActivityView {
-		activities := []sessionActivityView{}
-		if routeActivityPending && routeSelection != nil {
-			activities = append(activities, nativeRequestRouteActivity(*routeSelection))
-			routeActivityPending = false
-		}
+		activities := append([]sessionActivityView(nil), routeActivitiesPending...)
+		routeActivitiesPending = nil
 		activities = append(activities, nativeRoutedModelActivity(provider, model, response)...)
 		return activities
 	}
+	fallbackRouter, _ := r.requestRouter.(nativeRequestFallbackRouter)
+	fallbacks := 0
+	const maxRouteFallbacks = 8
+
 	for iteration := 1; iteration <= nativeAgentMaxIterations; iteration++ {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		modelTurnTimeout := r.modelTurnTimeout
-		if modelTurnTimeout <= 0 {
-			modelTurnTimeout = nativeAgentModelTurnTimeout
-		}
-		modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
-		response, err := r.model.Complete(modelCtx, nativeModelRequest{
-			System:   nativeAgentSystemPrompt(),
-			Provider: provider,
-			Model:    model,
-			APIKey:   apiKey,
-			Messages: append([]nativeConversationMessage(nil), conversation...),
-			Tools:    tools,
-		}, func(delta string) {
-			if delta != "" {
-				r.publish(liveEventView{
-					Type:      "message.changed",
-					Action:    "content",
-					SessionID: sessionID,
-				})
+
+		var response nativeModelResponse
+		for {
+			modelTurnTimeout := r.modelTurnTimeout
+			if modelTurnTimeout <= 0 {
+				modelTurnTimeout = nativeAgentModelTurnTimeout
 			}
-		})
-		cancelModel()
-		if err != nil {
+			modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
+			response, err = r.model.Complete(modelCtx, nativeModelRequest{
+				System:   nativeAgentSystemPrompt(),
+				Provider: provider,
+				Model:    model,
+				APIKey:   apiKey,
+				Messages: append([]nativeConversationMessage(nil), conversation...),
+				Tools:    tools,
+			}, func(delta string) {
+				if delta != "" {
+					r.publish(liveEventView{
+						Type:      "message.changed",
+						Action:    "content",
+						SessionID: sessionID,
+					})
+				}
+			})
+			cancelModel()
+			if err == nil {
+				break
+			}
+
+			modelErr := err
 			if errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil {
-				return fmt.Errorf("model request timed out after %s", modelTurnTimeout)
+				modelErr = fmt.Errorf("model request timed out after %s", modelTurnTimeout)
 			}
-			return err
+			if routeSelection == nil || fallbackRouter == nil || fallbacks >= maxRouteFallbacks {
+				if routeSelection != nil {
+					if len(routeActivitiesPending) > 0 {
+						routeActivitiesPending[len(routeActivitiesPending)-1] = nativeRequestRouteFailureActivity(*routeSelection, modelErr)
+					} else {
+						routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteFailureActivity(*routeSelection, modelErr))
+					}
+					return &nativeRoutedRunError{cause: modelErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				}
+				return modelErr
+			}
+
+			failedActivity := nativeRequestRouteFailureActivity(*routeSelection, modelErr)
+			if len(routeActivitiesPending) > 0 {
+				routeActivitiesPending[len(routeActivitiesPending)-1] = failedActivity
+			} else {
+				routeActivitiesPending = append(routeActivitiesPending, failedActivity)
+			}
+			next, ok, fallbackErr := fallbackRouter.Fallback(ctx, directory, routingPrompt, *routeSelection, modelErr)
+			if fallbackErr != nil {
+				return &nativeRoutedRunError{cause: fallbackErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+			}
+			if !ok {
+				return &nativeRoutedRunError{cause: modelErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+			}
+
+			fallbacks++
+			routeSelection = &next
+			routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteActivity(next))
+			provider, model, apiKey, err = r.resolver.resolveNativeModel(ctx, next.ProviderID, next.ModelID)
+			if err != nil {
+				routeActivitiesPending[len(routeActivitiesPending)-1] = nativeRequestRouteFailureActivity(next, err)
+				return &nativeRoutedRunError{cause: err, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+			}
 		}
 		if len(response.ToolCalls) == 0 {
 			if strings.TrimSpace(response.Text) == "" {
