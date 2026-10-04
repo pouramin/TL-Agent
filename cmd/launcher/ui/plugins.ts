@@ -513,7 +513,7 @@ import { K } from "./kernel";
 
     models.sort((a, b) => {
       const readiness = (model: TLStudioLayaRouterModel) =>
-        (model.enabled ? 0 : 2) + (model.connected ? 0 : 1);
+        (model.enabled ? 0 : 2) + (model.ready ? 0 : 1);
       const readyDiff = readiness(a) - readiness(b);
       if (readyDiff !== 0) return readyDiff;
 
@@ -543,7 +543,7 @@ import { K } from "./kernel";
   const updateLayaPoolSummary = (visible: TLStudioLayaRouterModel[]) => {
     if (!layaRoutingPoolSummary) return;
     const total = layaRoutingDraftModels.length;
-    const ready = visible.filter((model) => model.enabled && model.connected).length;
+    const ready = visible.filter((model) => model.enabled && model.ready).length;
     const profile = currentLayaProfile();
     const prefix = profile === "free"
       ? "Free only"
@@ -612,7 +612,7 @@ import { K } from "./kernel";
       const name = document.createElement("strong");
       name.textContent = model.modelName || model.modelID;
       const meta = document.createElement("span");
-      meta.textContent = `${model.providerName || model.providerID} · ${model.connected ? "Connected" : "Not connected"}`;
+      meta.textContent = `${model.providerName || model.providerID} · ${model.availability || (model.ready ? "Ready" : model.connected ? "Unavailable" : "Not connected")}`;
       copy.append(name, meta);
 
       const group = document.createElement("select");
@@ -648,8 +648,9 @@ import { K } from "./kernel";
       });
 
       const connection = document.createElement("span");
-      connection.className = `laya-routing-connection ${model.connected ? "connected" : ""}`;
-      connection.textContent = model.connected ? "Ready" : "Offline";
+      connection.className = `laya-routing-connection ${model.ready ? "connected" : ""}`;
+      connection.textContent = model.ready ? "Ready" : (model.availability || (model.connected ? "Unavailable" : "Offline"));
+      connection.title = model.availability || "";
 
       row.append(enabled, copy, group, quality, speed, connection);
       layaRoutingModels.appendChild(row);
