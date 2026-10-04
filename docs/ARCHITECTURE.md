@@ -40,6 +40,18 @@ The runtime resolves only providers and models that TL Studio can execute direct
 
 All active sessions are TL Studio sessions. The Session domain owns IDs, create/rename/delete, run/abort, status, messages, activity and usage, file changes, and persistence.
 
+## Context management
+
+TL Studio owns model-turn context construction. Persisted Session history remains complete on disk; context management changes only the transient message window sent to the selected model.
+
+The Native Agent derives a conservative input budget from the selected model's advertised `contextLimit` and `outputLimit`, with separate reserves for the system prompt, Tool schemas, output tokens, and safety headroom. When a provider does not advertise a context limit, TL Studio uses a conservative local default rather than delegating context policy to the provider.
+
+If a model request would exceed that budget, TL Studio keeps the newest conversation turns, inserts an explicit context checkpoint describing omitted persisted history, and can compact already-completed Tool result payloads and large resolved Tool-call arguments. The full transcript is not deleted or rewritten by compaction.
+
+Context management is observable through semantic Session activity. When TL Studio windows or compacts a request, the Agent transcript can show the model context limit, message budget, estimated retained tokens, omitted-message count, and compacted Tool payload counts.
+
+This first 0.7 foundation is deterministic and local. It does not introduce vector memory, RAG, a hosted memory service, or provider-owned conversation state.
+
 ## Interactive questions
 
 Interactive questions are native Agent semantics:
