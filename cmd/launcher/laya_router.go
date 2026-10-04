@@ -94,6 +94,10 @@ type nativeRequestRouter interface {
 	Route(context.Context, string, string) (nativeRouteSelection, error)
 }
 
+type nativeRequestFallbackRouter interface {
+	Fallback(context.Context, string, string, nativeRouteSelection, error) (nativeRouteSelection, bool, error)
+}
+
 type layaRouterCooldown struct {
 	Until  time.Time
 	Reason string
