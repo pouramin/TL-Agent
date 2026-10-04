@@ -158,6 +158,8 @@ interface TLStudioLayaRouterModel {
   modelID: string;
   modelName: string;
   connected: boolean;
+  ready: boolean;
+  availability?: string;
   enabled: boolean;
   group: "free" | "included" | "budget" | "standard" | "premium" | string;
   quality: number;
