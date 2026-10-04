@@ -112,7 +112,7 @@ export default function HomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground">Development preview · v0.7.0-alpha.1</p>
+            <p className="text-sm font-medium text-fd-muted-foreground">Stable v0.6.0 highlights</p>
             <h2 className="mt-2 text-3xl font-semibold">Smarter routing, plugins, and safer updates are stable in 0.6.</h2>
             <p className="mt-4 max-w-3xl leading-7 text-fd-muted-foreground">
               TL Studio v0.6 adds Laya Router, JEV Direct, project-local Graphify graphs, Claude Web Bridge support, responsive Plugin cards, stronger fallback visibility, and a checksum-verified Windows updater while keeping the Native Agent and Tool Executor in control.

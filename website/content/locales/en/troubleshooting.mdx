@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-description: Diagnose common TL Studio v0.5 startup, workspace, model connection, Plugin/MCP, Session, Permission, and Agent problems.
+description: Diagnose common TL Studio v0.6 startup, workspace, model connection, Plugin/MCP, Session, Permission, and Agent problems.
 icon: Wrench
 ---
 
@@ -74,9 +74,9 @@ For a previously saved connection, a matching cached catalog may be used only fo
 
 ## An account-based Provider is not shown
 
-That is expected in v0.5.0.
+Stable v0.6 exposes supported account-backed paths such as ChatGPT/Codex and Claude account access. GitHub Copilot remains deferred, while Google/Gemini, Hugging Face, and OpenRouter use their documented API credential paths in the Provider cards.
 
-The generic Provider Account domain exists, but the current stable build registers no account adapter.
+If a supported account path is missing, check the matching Provider helper/connection state in Settings and confirm that the required official client or bridge is available.
 
 ## Plugin is saved but does not run
 

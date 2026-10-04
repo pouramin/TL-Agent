@@ -1,6 +1,6 @@
 ---
 title: رفع مشکل
-description: بررسی مشکل‌های Startup، Workspace، Model Connection، Plugin/MCP، Session، Permission و Agent در TL Studio v0.5.
+description: بررسی مشکل‌های Startup، Workspace، Model Connection، Plugin/MCP، Session، Permission و Agent در TL Studio v0.6.
 icon: Wrench
 ---
 
@@ -74,9 +74,9 @@ TL Studio Redirect ناامن را Block می‌کند و Authentication Failure
 
 ## Account-based Provider دیده نمی‌شود
 
-در v0.5.0 این رفتار طبیعی است.
+در Stable v0.6 مسیرهای حسابی پشتیبانی‌شده مثل ChatGPT/Codex و حساب Claude وجود دارند. GitHub Copilot هنوز Deferred است و کارت‌های Google/Gemini، Hugging Face و OpenRouter از مسیر Credential مستند خودشان استفاده می‌کنند.
 
-Generic Provider Account Domain وجود دارد، ولی Stable Build فعلی هیچ Account Adapter ثبت نمی‌کند.
+اگر مسیر حسابی پشتیبانی‌شده دیده نمی‌شود، Connection State همان Provider را در Settings بررسی کنید و مطمئن شوید Client رسمی یا Bridge موردنیاز در دسترس است.
 
 ## Plugin Save شده ولی اجرا نمی‌شود
 

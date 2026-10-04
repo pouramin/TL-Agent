@@ -112,7 +112,7 @@ export default function PersianHomePage() {
 
         <section className="border-t bg-fd-card/35">
           <div className="mx-auto max-w-6xl px-6 py-14">
-            <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">Development preview · v0.7.0-alpha.1</p>
+            <p className="text-sm font-medium text-fd-muted-foreground" dir="ltr">ویژگی‌های Stable · v0.6.0</p>
             <h2 className="mt-2 text-3xl font-semibold">Routing، Plugin و Update امن‌تر در نسخهٔ 0.6 پایدار شده‌اند.</h2>
             <p className="mt-4 max-w-3xl leading-8 text-fd-muted-foreground">
               نسخهٔ v0.6، Laya Router، JEV Direct، Graphify با دادهٔ Project-local، Claude Web Bridge، کارت‌های Responsive مربوط به Plugin، نمایش بهتر Fallback و Updater با بررسی Checksum در Windows را اضافه می‌کند، در حالی‌که Native Agent و Tool Executor همچنان در اختیار خود TL Studio هستند.
