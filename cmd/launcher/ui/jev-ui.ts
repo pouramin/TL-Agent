@@ -53,7 +53,7 @@ import { K } from "./kernel";
   compact.innerHTML = `
     <div class="jev-compact-copy">
       <strong>JEV via OpenRouter</strong>
-      <span id="jevCompactStatus">Checking TypeSafe Jev…</span>
+      <span id="jevCompactStatus">Checking OpenRouter JEV…</span>
     </div>
     <button id="jevCompactControl" type="button" class="jev-compact-control" aria-haspopup="dialog">
       <span class="jev-switch-track" aria-hidden="true"><span class="jev-switch-knob"></span></span>
@@ -68,8 +68,8 @@ import { K } from "./kernel";
   dialog.innerHTML = `
     <div class="jev-config-head">
       <div>
-        <h3>TypeSafe Jev via OpenRouter</h3>
-        <p>Jev Router is configured automatically through OpenRouter. Direct Jev decisions remain a separate optional capability.</p>
+        <h3>JEV via OpenRouter</h3>
+        <p>This is the existing OpenRouter-backed JEV integration. For TypeSafe's direct API router, use Plugins → JEV Direct.</p>
       </div>
       <button id="jevConfigClose" type="button" class="ghost small">Close</button>
     </div>
@@ -92,7 +92,7 @@ import { K } from "./kernel";
         <div class="jev-config-row">
           <div class="jev-config-copy">
             <strong>Decision Engine</strong>
-            <span>Off by default. Direct Jev Decisions API calls are paid and never run automatically.</span>
+            <span>Off by default. This legacy decision path also runs through OpenRouter, is paid, and never runs automatically.</span>
           </div>
           <select id="jevDecisionEngineSelect">
             <option value="off">Off</option>
