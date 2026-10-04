@@ -37,11 +37,13 @@ import { K } from "./kernel";
   const layaRoutingSave = document.getElementById("layaRoutingSave") as HTMLButtonElement | null;
   const layaRoutingProfile = document.getElementById("layaRoutingProfile") as HTMLSelectElement | null;
   const layaRoutingModels = document.getElementById("layaRoutingModels");
+  const layaRoutingPoolSummary = document.getElementById("layaRoutingPoolSummary");
   const layaRoutingStatus = document.getElementById("layaRoutingStatus");
   const layaRoutingPreviewInput = document.getElementById("layaRoutingPreviewInput") as HTMLTextAreaElement | null;
   const layaRoutingPreviewButton = document.getElementById("layaRoutingPreviewButton") as HTMLButtonElement | null;
   const layaRoutingPreviewResult = document.getElementById("layaRoutingPreviewResult");
   let layaRoutingSnapshot: TLStudioLayaRouterStatus | null = null;
+  let layaRoutingDraftModels: TLStudioLayaRouterModel[] = [];
   if (!panel || !list || !editor || !pluginDialog || !addButton || !nameInput || !commandInput || !argsInput || !transportSelect || !scopeSelect || !cwdInput || !envInput || !editID) return;
 
   const syncPluginWindowMode = () => settingsWindow?.classList.toggle("settings-window-plugins", !panel.classList.contains("hidden"));
@@ -485,18 +487,111 @@ import { K } from "./kernel";
     return select;
   };
 
-  const renderLayaRoutingModels = (status: TLStudioLayaRouterStatus) => {
+  const layaModelKey = (model: Pick<TLStudioLayaRouterModel, "providerID" | "modelID">) =>
+    `${model.providerID}\u0000${model.modelID}`;
+
+  const cloneLayaModels = (models: TLStudioLayaRouterModel[] = []) =>
+    models.map((model) => ({ ...model }));
+
+  const layaGroupRank = (group: string) => {
+    switch (group) {
+      case "free": return 0;
+      case "included": return 1;
+      case "budget": return 2;
+      case "standard": return 3;
+      case "premium": return 4;
+      default: return 3;
+    }
+  };
+
+  const currentLayaProfile = () => layaRoutingProfile?.value || "balanced";
+
+  const visibleLayaRoutingModels = () => {
+    const profile = currentLayaProfile();
+    let models = cloneLayaModels(layaRoutingDraftModels);
+    if (profile === "free") models = models.filter((model) => model.group === "free");
+
+    models.sort((a, b) => {
+      const readiness = (model: TLStudioLayaRouterModel) =>
+        (model.enabled ? 0 : 2) + (model.connected ? 0 : 1);
+      const readyDiff = readiness(a) - readiness(b);
+      if (readyDiff !== 0) return readyDiff;
+
+      if (profile === "cost") {
+        const groupDiff = layaGroupRank(a.group) - layaGroupRank(b.group);
+        if (groupDiff !== 0) return groupDiff;
+        if (a.quality !== b.quality) return b.quality - a.quality;
+        if (a.speed !== b.speed) return b.speed - a.speed;
+      } else if (profile === "quality" || profile === "free") {
+        if (a.quality !== b.quality) return b.quality - a.quality;
+        if (a.speed !== b.speed) return b.speed - a.speed;
+        const groupDiff = layaGroupRank(a.group) - layaGroupRank(b.group);
+        if (groupDiff !== 0) return groupDiff;
+      } else if (profile === "speed") {
+        if (a.speed !== b.speed) return b.speed - a.speed;
+        if (a.quality !== b.quality) return b.quality - a.quality;
+        const groupDiff = layaGroupRank(a.group) - layaGroupRank(b.group);
+        if (groupDiff !== 0) return groupDiff;
+      }
+
+      return `${a.providerName || a.providerID} ${a.modelName || a.modelID}`
+        .localeCompare(`${b.providerName || b.providerID} ${b.modelName || b.modelID}`);
+    });
+    return models;
+  };
+
+  const updateLayaPoolSummary = (visible: TLStudioLayaRouterModel[]) => {
+    if (!layaRoutingPoolSummary) return;
+    const total = layaRoutingDraftModels.length;
+    const ready = visible.filter((model) => model.enabled && model.connected).length;
+    const profile = currentLayaProfile();
+    const prefix = profile === "free"
+      ? "Free only"
+      : profile === "cost"
+        ? "Lowest cost order"
+        : profile === "quality"
+          ? "Best quality order"
+          : profile === "speed"
+            ? "Fastest order"
+            : "Balanced pool";
+    layaRoutingPoolSummary.textContent =
+      `${prefix} · showing ${visible.length} of ${total} models · ${ready} ready`;
+  };
+
+  const patchLayaDraftModel = (
+    providerID: string,
+    modelID: string,
+    patch: Partial<TLStudioLayaRouterModel>,
+  ) => {
+    const key = `${providerID}\u0000${modelID}`;
+    const model = layaRoutingDraftModels.find((item) => layaModelKey(item) === key);
+    if (model) Object.assign(model, patch);
+  };
+
+  const renderLayaRoutingModels = () => {
     if (!layaRoutingModels) return;
     layaRoutingModels.textContent = "";
-    if (!status.models?.length) {
+    const visible = visibleLayaRoutingModels();
+    updateLayaPoolSummary(visible);
+
+    if (!layaRoutingDraftModels.length) {
       const empty = document.createElement("div");
       empty.className = "plugin-empty";
-      empty.textContent = status.message || "No tool-capable models are configured in TL Studio yet.";
+      empty.textContent = layaRoutingSnapshot?.message || "No tool-capable models are configured in TL Studio yet.";
+      layaRoutingModels.appendChild(empty);
+      return;
+    }
+    if (!visible.length) {
+      const empty = document.createElement("div");
+      empty.className = "plugin-empty";
+      empty.textContent = currentLayaProfile() === "free"
+        ? "No models are currently classified as Free. Switch to another profile to change a model's cost group."
+        : "No models match this routing profile.";
       layaRoutingModels.appendChild(empty);
       return;
     }
 
-    for (const model of status.models) {
+    for (const model of visible) {
       const row = document.createElement("div");
       row.className = "laya-routing-model-row";
       row.dataset.providerId = model.providerID;
@@ -507,6 +602,10 @@ import { K } from "./kernel";
       enabled.className = "laya-routing-model-enabled";
       enabled.checked = model.enabled;
       enabled.setAttribute("aria-label", `Use ${model.modelName || model.modelID} in Laya Router`);
+      enabled.addEventListener("change", () => {
+        patchLayaDraftModel(model.providerID, model.modelID, { enabled: enabled.checked });
+        updateLayaPoolSummary(visibleLayaRoutingModels());
+      });
 
       const copy = document.createElement("div");
       copy.className = "laya-routing-model-copy";
@@ -532,9 +631,21 @@ import { K } from "./kernel";
         option.selected = value === model.group;
         group.appendChild(option);
       }
+      group.addEventListener("change", () => {
+        patchLayaDraftModel(model.providerID, model.modelID, { group: group.value });
+        renderLayaRoutingModels();
+      });
 
       const quality = scoreSelect("laya-routing-model-quality", model.quality, `Quality for ${model.modelName || model.modelID}`);
+      quality.addEventListener("change", () => {
+        patchLayaDraftModel(model.providerID, model.modelID, { quality: Number(quality.value || 3) });
+        if (currentLayaProfile() === "quality" || currentLayaProfile() === "free") renderLayaRoutingModels();
+      });
       const speed = scoreSelect("laya-routing-model-speed", model.speed, `Speed for ${model.modelName || model.modelID}`);
+      speed.addEventListener("change", () => {
+        patchLayaDraftModel(model.providerID, model.modelID, { speed: Number(speed.value || 3) });
+        if (currentLayaProfile() === "speed") renderLayaRoutingModels();
+      });
 
       const connection = document.createElement("span");
       connection.className = `laya-routing-connection ${model.connected ? "connected" : ""}`;
@@ -547,20 +658,21 @@ import { K } from "./kernel";
 
   const collectLayaRoutingPolicy = () => ({
     version: 1,
-    profile: layaRoutingProfile?.value || "balanced",
-    models: Array.from(layaRoutingModels?.querySelectorAll<HTMLElement>(".laya-routing-model-row") || []).map((row) => ({
-      providerID: row.dataset.providerId || "",
-      modelID: row.dataset.modelId || "",
-      enabled: !!row.querySelector<HTMLInputElement>(".laya-routing-model-enabled")?.checked,
-      group: row.querySelector<HTMLSelectElement>(".laya-routing-model-group")?.value || "standard",
-      quality: Number(row.querySelector<HTMLSelectElement>(".laya-routing-model-quality")?.value || 3),
-      speed: Number(row.querySelector<HTMLSelectElement>(".laya-routing-model-speed")?.value || 3),
+    profile: currentLayaProfile(),
+    models: layaRoutingDraftModels.map((model) => ({
+      providerID: model.providerID,
+      modelID: model.modelID,
+      enabled: model.enabled,
+      group: model.group || "standard",
+      quality: Number(model.quality || 3),
+      speed: Number(model.speed || 3),
     })),
   });
 
   const closeLayaRouting = () => {
     if (layaRoutingDialog?.open) layaRoutingDialog.close();
     layaRoutingSnapshot = null;
+    layaRoutingDraftModels = [];
     if (layaRoutingPreviewResult) layaRoutingPreviewResult.textContent = "";
     setLayaRoutingStatus();
   };
@@ -574,8 +686,9 @@ import { K } from "./kernel";
     try {
       const status = await K.api.layaRouter.status();
       layaRoutingSnapshot = status;
+      layaRoutingDraftModels = cloneLayaModels(status.models || []);
       layaRoutingProfile.value = status.profile || "balanced";
-      renderLayaRoutingModels(status);
+      renderLayaRoutingModels();
       if (status.message) setLayaRoutingStatus(status.message, status.available ? "" : "error");
     } catch (error) {
       layaRoutingModels.textContent = "";
@@ -585,13 +698,20 @@ import { K } from "./kernel";
 
   layaRoutingClose?.addEventListener("click", closeLayaRouting);
   layaRoutingCancel?.addEventListener("click", closeLayaRouting);
+  layaRoutingProfile?.addEventListener("change", () => {
+    renderLayaRoutingModels();
+    if (layaRoutingPreviewResult) layaRoutingPreviewResult.textContent = "";
+    setLayaRoutingStatus();
+  });
   layaRoutingSave?.addEventListener("click", async () => {
     busy(layaRoutingSave, true, "Saving…");
     setLayaRoutingStatus("Saving routing policy…");
     try {
       const status = await K.api.layaRouter.configure(collectLayaRoutingPolicy());
       layaRoutingSnapshot = status;
-      renderLayaRoutingModels(status);
+      layaRoutingDraftModels = cloneLayaModels(status.models || []);
+      layaRoutingProfile!.value = status.profile || currentLayaProfile();
+      renderLayaRoutingModels();
       setLayaRoutingStatus("Routing policy saved.", "success");
       await K.loadCatalog?.().catch(() => {});
     } catch (error) {
