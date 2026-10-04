@@ -48,7 +48,10 @@ func TestSettingsAboutExposesVerifiedUpdater(t *testing.T) {
 	cssBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "settings.css"))
 	if err != nil { t.Fatal(err) }
 	css := string(cssBytes)
-	if !strings.Contains(css, ".settings-window { width: min(920px, calc(100vw - 36px));") {
+	if !strings.Contains(css, ".settings-window { box-sizing:border-box; width:920px; min-width:920px; max-width:calc(100vw - 36px);") {
 		t.Fatal("Settings must keep one stable desktop width across sections")
+	}
+	if strings.Contains(css, "settings-window-plugins") {
+		t.Fatal("Settings must not change width for the Plugins section")
 	}
 }

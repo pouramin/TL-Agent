@@ -63,6 +63,7 @@ func availablePluginCatalog() []pluginCatalogEntry {
 			Name:        "JEV Direct",
 			Description: "Route requests with TypeSafe JEV directly, using your own TypeSafe API key.",
 			Category:    "Decision router",
+			Icon:        "/plugin-jev.svg",
 			Type:        pluginTypeRouter,
 			Scope:       "global",
 			Upstream:    "https://docs.typesafe.ai",

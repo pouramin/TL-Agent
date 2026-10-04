@@ -6,30 +6,37 @@ import (
 	"testing"
 )
 
-func TestAvailablePluginCatalogIncludesGraphifyAndLaya(t *testing.T) {
+func TestAvailablePluginCatalogIncludesGraphifyJevDirectAndLaya(t *testing.T) {
 	catalog := availablePluginCatalog()
-	if len(catalog) != 2 {
-		t.Fatalf("expected two curated plugin presets, got %#v", catalog)
+	if len(catalog) != 3 {
+		t.Fatalf("expected three curated plugin presets, got %#v", catalog)
 	}
 	byID := map[string]pluginCatalogEntry{}
 	for _, entry := range catalog {
 		byID[entry.ID] = entry
-		if entry.Type != pluginTypeMCP || entry.Transport != pluginTransportStdio {
-			t.Fatalf("catalog entry must stay on the generic stdio MCP path: %#v", entry)
-		}
-		if entry.PackageSpec == "" || entry.Executable == "" || entry.Module == "" || entry.Upstream == "" {
-			t.Fatalf("catalog entry is missing install/runtime metadata: %#v", entry)
-		}
-		if entry.Category == "" || entry.Icon == "" {
+		if entry.Category == "" || entry.Icon == "" || entry.Upstream == "" {
 			t.Fatalf("catalog entry is missing presentation metadata: %#v", entry)
+		}
+		if entry.Type == pluginTypeMCP {
+			if entry.Transport != pluginTransportStdio || entry.PackageSpec == "" || entry.Executable == "" || entry.Module == "" {
+				t.Fatalf("MCP catalog entry is missing install/runtime metadata: %#v", entry)
+			}
 		}
 	}
 
 	graphify := byID["graphify"]
-	if graphify.Scope != "project" || graphify.PackageSpec != "graphifyy[mcp]" ||
+	if graphify.Scope != "global" || graphify.PackageSpec != "graphifyy[mcp]" ||
 		len(graphify.Arguments) != 1 || graphify.Arguments[0] != "graphify-out/graph.json" ||
 		graphify.Metadata["integration"] != "graphify" {
 		t.Fatalf("unexpected Graphify preset: %#v", graphify)
+	}
+
+	jevDirect := byID["jev-direct"]
+	if jevDirect.Scope != "global" || jevDirect.Type != pluginTypeRouter ||
+		jevDirect.Environment[jevDirectAPIKeyEnv] != "" ||
+		jevDirect.Metadata["endpoint"] != jevDirectEndpoint ||
+		jevDirect.Metadata["model"] != jevDirectModel {
+		t.Fatalf("unexpected JEV Direct preset: %#v", jevDirect)
 	}
 
 	laya := byID["laya"]
@@ -50,7 +57,7 @@ func TestPluginCatalogResponseHidesInstallerCommands(t *testing.T) {
 			t.Fatalf("catalog response leaked backend install details %q: %s", forbidden, text)
 		}
 	}
-	for _, required := range []string{"category", "icon", "/plugin-graphify.svg", "/plugin-laya.svg"} {
+	for _, required := range []string{"category", "icon", "/plugin-graphify.svg", "/plugin-jev.svg", "/plugin-laya.svg"} {
 		if !strings.Contains(text, required) {
 			t.Fatalf("catalog response missing presentation field %q: %s", required, text)
 		}
