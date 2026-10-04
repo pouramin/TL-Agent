@@ -215,17 +215,27 @@ import { K } from "./kernel";
   const usageForMessages = (messages: any, { running = false } = {}) => {
     const totals = emptyTokens();
     let requests = 0;
+    let tokenUsageComplete = true;
     for (const message of messages) {
       if (messageRole(message) !== "assistant") continue;
       requests++;
-      addTokens(totals, assistantTokens(message));
+      const tokens = assistantTokens(message);
+      if (tokenTotal(tokens) <= 0) tokenUsageComplete = false;
+      addTokens(totals, tokens);
     }
     return {
       tokens: tokenTotal(totals),
       requests,
       duration: activeWorkMs(messages, { running }),
       breakdown: totals,
+      tokenUsageComplete,
     };
+  };
+
+  const usageTokenText = (stats: any) => {
+    if (!stats.tokenUsageComplete && !stats.tokens) return "token usage unavailable";
+    if (!stats.tokenUsageComplete) return `${compactNumber(stats.tokens)}+ tokens (partial)`;
+    return `${compactNumber(stats.tokens)} tokens`;
   };
 
   const compactNumber = (value: any) => {
@@ -290,14 +300,14 @@ import { K } from "./kernel";
     const line = document.createElement("div");
     line.className = "turn-usage";
     const route = layaRouteForMessages(messages);
-    const usage = `Usage · ${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    const usage = `Usage · ${usageTokenText(stats)} · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
     if (route) {
       const routeText = [`Laya → ${route.model}`, route.provider, route.profile ? `${route.profile} profile` : ""].filter(Boolean).join(" · ");
       line.textContent = `${routeText} · ${usage}`;
-      line.title = `${routeText}\n${usageTitle(stats.breakdown)}`;
+      line.title = `${routeText}\n${stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Token usage was not reported by every model/provider in this turn."}`;
       line.classList.add("turn-usage-laya");
     } else {
-      line.title = usageTitle(stats.breakdown);
+      line.title = stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Token usage was not reported by every model/provider in this turn.";
       line.textContent = usage;
     }
     return line;
@@ -440,12 +450,13 @@ import { K } from "./kernel";
     target.tokens += Number(source.tokens || 0);
     target.requests += Number(source.requests || 0);
     target.duration += Number(source.duration || 0);
+    if (source.tokenUsageComplete === false) target.tokenUsageComplete = false;
     addTokens(target.breakdown, source.breakdown || emptyTokens());
     return target;
   };
 
   const projectUsageSnapshot = () => {
-    const total = { tokens: 0, requests: 0, duration: 0, breakdown: emptyTokens() };
+    const total = { tokens: 0, requests: 0, duration: 0, breakdown: emptyTokens(), tokenUsageComplete: true };
     const sessions = activeProjectSessions();
     const currentID = K.state.session?.id;
     let complete = true;
@@ -484,7 +495,7 @@ import { K } from "./kernel";
     const footer = document.createElement("section");
     footer.className = "project-usage";
     footer.setAttribute("aria-label", "Project usage totals");
-    footer.title = usageTitle(stats.breakdown);
+    footer.title = stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Project token totals are partial because at least one model/provider did not report usage.";
 
     const label = document.createElement("span");
     label.className = "project-usage-label";
@@ -492,7 +503,7 @@ import { K } from "./kernel";
 
     const value = document.createElement("span");
     value.className = "project-usage-value";
-    value.textContent = `${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    value.textContent = `${usageTokenText(stats)} · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
 
     footer.append(label, value);
     view.appendChild(footer);

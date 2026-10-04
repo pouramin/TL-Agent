@@ -1,7 +1,7 @@
 "use strict";
 
 const DEFAULT_MODEL = "claude-sonnet-5-5";
-const BRIDGE_VERSION = "0.6.3-persistent-page";
+const BRIDGE_VERSION = "0.6.4-persistent-page";
 const MAX_PROMPT_BYTES = 8 * 1024 * 1024;
 const MODEL_CATALOG = [
   "claude-fable-5-1",

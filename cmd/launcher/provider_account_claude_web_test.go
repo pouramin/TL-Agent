@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -397,5 +399,49 @@ func TestClaudeWebModelTurnFailureKeepsProviderStatusStable(t *testing.T) {
 	}
 	if !status.Connected || status.State != providerAccountConnected {
 		t.Fatalf("transient model-turn failure destabilized provider status: %#v", status)
+	}
+}
+
+
+func TestClaudeWebPublishedStoreBridgeMetadata(t *testing.T) {
+	uiSource, err := os.ReadFile("ui/provider-account-ui.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	uiText := string(uiSource)
+	for _, required := range []string{
+		"cpellhbmfdhcgkblnmnppndmeiigmjcg",
+		"https://chromewebstore.google.com/detail/cpellhbmfdhcgkblnmnppndmeiigmjcg",
+		"hklkkfhbcohbfpojbcanhgmfanjhnfna",
+		"0.6.4-persistent-page",
+		"Install Bridge",
+	} {
+		if !strings.Contains(uiText, required) {
+			t.Fatalf("Claude Web provider UI missing published bridge metadata %q", required)
+		}
+	}
+
+	statusSource, err := os.ReadFile("ui/status-ui.ts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(statusSource), "token usage unavailable") {
+		t.Fatal("status UI must distinguish unreported token usage from a real zero")
+	}
+
+	manifest, err := os.ReadFile(filepath.Join("..", "..", "integrations", "claude-web-extension", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(manifest), `"version": "0.6.4"`) {
+		t.Fatal("bundled Claude Web extension manifest is not synchronized to 0.6.4")
+	}
+
+	background, err := os.ReadFile(filepath.Join("..", "..", "integrations", "claude-web-extension", "background.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(background), `BRIDGE_VERSION = "0.6.4-persistent-page"`) {
+		t.Fatal("bundled Claude Web extension bridge protocol is not synchronized to 0.6.4")
 	}
 }
