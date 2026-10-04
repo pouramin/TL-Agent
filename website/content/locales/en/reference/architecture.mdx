@@ -92,7 +92,7 @@ JEV has two intentionally separate integration paths. The legacy JEV Router prov
 
 ## Provider Account domain
 
-ProviderAccountAdapter and /local/provider-accounts* define the generic account-backed integration boundary. The lifecycle covers typed login challenges, polling/completion, cancellation, refresh, status, model discovery, and logout. An optional Provider Account setup contract exposes only non-secret configuration fields through /local/provider-accounts/{id}/setup.
+ProviderAccountAdapter and /local/provider-accounts* define the generic account-backed integration boundary. The lifecycle covers typed login challenges, polling/completion, cancellation, refresh, status, model discovery, and logout. An optional Provider Account setup contract exposes only non-secret configuration fields through `/local/provider-accounts/{id}/setup`.
 
 Browser code receives only semantic account state and safe login instructions. OAuth authorization codes, PKCE verifiers, access tokens, refresh tokens, API keys, cookies, and client secrets never enter Browser state. Provider credentials are either stored in the TL Studio credential vault or owned by the provider's official isolated client store for ChatGPT/Codex and Claude Code.
 
