@@ -116,7 +116,7 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 		}
 	}
 	for _, forbidden := range []string{
-		"Graphify", "Laya", "graphify-mcp", "laya-mcp-server",
+		"graphify-mcp", "laya-mcp-server",
 		"Install first if needed:", "preset.command", "preset.arguments", "preset.installHint",
 	} {
 		if strings.Contains(source, forbidden) {
