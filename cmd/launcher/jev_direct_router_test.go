@@ -92,3 +92,40 @@ func TestJevDirectCatalogIsIndependentFromOpenRouter(t *testing.T) {
 		t.Fatalf("direct JEV catalog must not depend on OpenRouter: %s", encoded)
 	}
 }
+
+
+func TestJevDirectPluginTestValidatesCredentialAndModel(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("method = %s, want GET", r.Method)
+		}
+		if got := r.Header.Get("Authorization"); got != "Bearer tsf_valid_key" {
+			t.Fatalf("authorization = %q", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"models":[{"name":"jev-latest","description":"JEV","release_date":"2026-09-15"}]}`))
+	}))
+	defer server.Close()
+
+	credentials := newBundledTestCredentialStore()
+	config := pluginConfig{
+		ID: jevDirectPluginID,
+		Name: "JEV Direct",
+		Type: pluginTypeRouter,
+		Scope: "global",
+		Enabled: true,
+		Environment: []pluginEnvironmentRef{{Name: jevDirectAPIKeyEnv, Configured: true}},
+		Metadata: map[string]string{
+			"integration": "jev-direct",
+			"modelsEndpoint": server.URL,
+			"model": jevDirectModel,
+		},
+	}
+	if err := credentials.Put(pluginCredentialID(config, jevDirectAPIKeyEnv), "tsf_valid_key"); err != nil {
+		t.Fatal(err)
+	}
+	manager := &pluginManager{credentials: credentials}
+	if err := (jevDirectPluginIntegration{}).Test(context.Background(), manager, config, ""); err != nil {
+		t.Fatalf("JEV Direct credential test failed: %v", err)
+	}
+}
