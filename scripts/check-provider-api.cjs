@@ -41,8 +41,11 @@ vm.runInContext(source, context, { filename: "runtime-api.ts" });
 async function main() {
   assert.ok(K.api?.providerAccounts?.list);
   assert.ok(K.api?.providerAccounts?.status);
-  assert.ok(K.api?.providerAccounts?.authorize);
-  assert.ok(K.api?.providerAccounts?.callback);
+  assert.ok(K.api?.providerAccounts?.beginLogin);
+  assert.ok(K.api?.providerAccounts?.pollLogin);
+  assert.ok(K.api?.providerAccounts?.cancelLogin);
+  assert.ok(K.api?.providerAccounts?.refresh);
+  assert.ok(K.api?.providerAccounts?.models);
   assert.ok(K.api?.providerAccounts?.disconnect);
   assert.ok(K.api?.providers?.config);
   assert.ok(K.api?.providers?.upsert);

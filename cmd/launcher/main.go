@@ -132,7 +132,28 @@ func main() {
 
 func newServer(state *appState) (http.Handler, error) {
 	providerManager := newProviderManager(state)
-	providerAccounts := newProviderAccountService()
+	openRouterAccount := newOpenRouterAccountAdapter(state, providerManager)
+	huggingFaceAccount := newHuggingFaceAccountAdapter(state, providerManager)
+	googleGeminiAccount := newGoogleGeminiAccountAdapter(state, providerManager)
+	chatGPTAccount := newChatGPTAccountAdapter(state, providerManager)
+	claudeAccount := newClaudeAccountAdapter(state, providerManager)
+	claudeWebBridge := newClaudeWebExtensionBridge(state)
+	claudeWebAccount := newClaudeWebAccountAdapterWithTransport(state, providerManager, claudeWebBridge)
+	providerManager.registerAccountAdapter(openRouterAccount)
+	providerManager.registerAccountAdapter(huggingFaceAccount)
+	providerManager.registerAccountAdapter(googleGeminiAccount)
+	providerManager.registerAccountAdapter(chatGPTAccount)
+	providerManager.registerAccountAdapter(claudeAccount)
+	providerManager.registerAccountAdapter(claudeWebAccount)
+	providerAccounts := newProviderAccountService(
+		openRouterAccount,
+		huggingFaceAccount,
+		googleGeminiAccount,
+		chatGPTAccount,
+		claudeAccount,
+		claudeWebAccount,
+		newGitHubCopilotAccountBoundaryAdapter(),
+	)
 	jevRouter := newJevRouterService(providerManager)
 	decisionEngines := newDecisionEngineService(providerManager)
 	permissionEngine := newPermissionEngine(state)
@@ -142,12 +163,21 @@ func newServer(state *appState) (http.Handler, error) {
 
 	processes := newProcessManager(state.projectPath)
 	plugins := newPluginManager(state, processes, permissionEngine)
+	layaRouter := newLayaRouterService(providerManager, plugins)
+	jevDirectRouter := newJevDirectRouterService(providerManager, plugins, layaRouter)
+	providerManager.setCatalogDecorator(func(ctx context.Context, directory string, result *providerCatalogResponse) error {
+		if err := layaRouter.decorateCatalog(ctx, directory, result); err != nil {
+			return err
+		}
+		return jevDirectRouter.decorateCatalog(ctx, directory, result)
+	})
 	nativeTools := newNativeToolExecutor(processes, permissionEngine)
 	nativeTools.setPluginManager(plugins)
 	nativeTools.setQuestionManager(questions)
 
 	sessionRead := newSessionReadContract(state)
-	nativeAgent := newNativeAgentRuntime(providerManager, newNativeModelClient(), nativeTools, sessionRead.store, liveEvents.bus)
+	nativeAgent := newNativeAgentRuntime(providerManager, newNativeModelClient(chatGPTAccount, claudeAccount, claudeWebAccount), nativeTools, sessionRead.store, liveEvents.bus)
+	nativeAgent.setRequestRouter(newNativeRequestRouterMux(layaRouter, jevDirectRouter))
 	sessionRead.setNativeStatusProvider(nativeAgent)
 	sessionCommands := newSessionCommandContract(state, sessionRead, nativeAgent)
 
@@ -158,6 +188,7 @@ func newServer(state *appState) (http.Handler, error) {
 	mux.HandleFunc("GET /local/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"healthy": true, "mode": "native"})
 	})
+	registerUpdateRoutes(mux, state)
 	mux.HandleFunc("GET /local/path", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"directory": state.projectPath()})
 	})
@@ -194,10 +225,12 @@ func newServer(state *appState) (http.Handler, error) {
 	registerLocalProcessRoutesWithManager(mux, state, processes)
 	registerProviderRoutes(mux, providerManager)
 	registerProviderAccountRoutes(mux, providerAccounts)
+	registerClaudeWebUIRelayRoutes(mux, claudeWebBridge)
 	registerProviderDiscoveryRoutes(mux, providerManager)
 	registerJevRouterRoutes(mux, jevRouter)
 	registerDecisionEngineRoutes(mux, decisionEngines)
 	registerPluginRoutes(mux, state, plugins)
+	registerLayaRouterRoutes(mux, state, layaRouter)
 	registerToolRegistryRoutesWithPlugins(mux, plugins, state.projectPath)
 	registerSessionReadRoutes(mux, sessionRead)
 	registerSessionCommandRoutes(mux, sessionCommands)

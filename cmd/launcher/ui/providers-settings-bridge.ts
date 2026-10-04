@@ -23,15 +23,6 @@ import { K } from "./kernel";
     panel.classList.add("hidden");
   });
 
-  const style = document.createElement("style");
-  style.id = "tl-providers-settings-bridge-style";
-  style.textContent = `
-    .providers-settings-panel {
-      max-height: min(62vh, 560px);
-      overflow-y: auto;
-      padding-right: 5px;
-      scrollbar-gutter: stable;
-    }
-  `;
-  document.head.appendChild(style);
+  // The shared Settings content owns vertical scrolling. Providers must not
+  // create a second nested scrollbar inside the fixed-size Settings window.
 })();

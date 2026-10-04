@@ -23,9 +23,10 @@ type nativeModelToolDefinition struct {
 }
 
 type nativeModelToolCall struct {
-	ID        string
-	Name      string
-	Arguments json.RawMessage
+	ID            string
+	Name          string
+	Arguments     json.RawMessage
+	ProviderState json.RawMessage
 }
 
 type nativeConversationMessage struct {
@@ -57,15 +58,34 @@ type nativeModelClient interface {
 	Complete(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error)
 }
 
+type nativeModelBridge interface {
+	Protocol() string
+	CompleteModelTurn(ctx context.Context, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error)
+}
+
 type nativeHTTPModelClient struct {
 	httpClient *http.Client
+	bridges    map[string]nativeModelBridge
 }
 
-func newNativeModelClient() nativeModelClient {
-	return &nativeHTTPModelClient{httpClient: &http.Client{Timeout: 0}}
+func newNativeModelClient(bridges ...nativeModelBridge) nativeModelClient {
+	client := &nativeHTTPModelClient{
+		httpClient: &http.Client{Timeout: 0},
+		bridges: map[string]nativeModelBridge{},
+	}
+	for _, bridge := range bridges {
+		if bridge == nil {
+			continue
+		}
+		protocol := strings.TrimSpace(bridge.Protocol())
+		if protocol != "" {
+			client.bridges[protocol] = bridge
+		}
+	}
+	return client
 }
 
-func (m *providerManager) resolveNativeModel(providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+func (m *providerManager) resolveNativeModel(ctx context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
 	providerID = strings.TrimSpace(providerID)
 	modelID = strings.TrimSpace(modelID)
 	if providerID == "" || modelID == "" {
@@ -105,7 +125,7 @@ func (m *providerManager) resolveNativeModel(providerID, modelID string) (tlProv
 	if m.credentials == nil {
 		return tlProviderDefinition{}, tlProviderModel{}, "", errors.New("TL Studio credential store is unavailable")
 	}
-	key, err := m.credentials.Get(providerID)
+	key, err := m.effectiveCredential(ctx, providerID, "")
 	if err != nil {
 		if errors.Is(err, errCredentialNotFound) {
 			return tlProviderDefinition{}, tlProviderModel{}, "", fmt.Errorf("provider %q has no TL Studio-owned credential", providerID)
@@ -148,7 +168,12 @@ func (c *nativeHTTPModelClient) Complete(ctx context.Context, request nativeMode
 		return c.completeOpenAIResponses(ctx, request, onTextDelta)
 	case "anthropic-messages":
 		return c.completeAnthropic(ctx, request, onTextDelta)
+	case "gemini-generate-content":
+		return c.completeGemini(ctx, request, onTextDelta)
 	default:
+		if bridge := c.bridges[strings.TrimSpace(request.Provider.Protocol)]; bridge != nil {
+			return bridge.CompleteModelTurn(ctx, request, onTextDelta)
+		}
 		return nativeModelResponse{}, fmt.Errorf("unsupported native provider protocol %q", request.Provider.Protocol)
 	}
 }

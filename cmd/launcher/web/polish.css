@@ -60,10 +60,10 @@
 .message-error-text { margin-top: 10px; color: #ff9ca6; }
 
 .composer-actions { display:flex; align-items:center; gap:7px; }
-.stop-button { height:31px; padding:0 10px; border-radius:8px; border:1px solid #5c3036; background:#231518; color:#ff9ba4; cursor:pointer; font-size:10px; font-weight:700; }
+.stop-button { height:var(--tl-button-height-small); min-height:var(--tl-button-height-small); padding:0 var(--tl-button-padding-x-small); border-radius:var(--tl-button-radius-small); border:1px solid #5c3036; background:#231518; color:#ff9ba4; cursor:pointer; font-size:var(--tl-control-size,11px); font-weight:700; line-height:1; white-space:nowrap; }
 .stop-button:hover { background:#301a1f; border-color:#7a3942; }
 .stop-button:disabled { opacity:.45; cursor:default; }
-.danger-button { min-height:34px; padding:0 12px; border-radius:8px; border:1px solid #5c3036; background:transparent; color:#ff8994; cursor:pointer; }
+.danger-button { height:var(--tl-button-height); min-height:var(--tl-button-height); padding:0 var(--tl-button-padding-x); border-radius:var(--tl-button-radius); border:1px solid #5c3036; background:transparent; color:#ff8994; cursor:pointer; font-size:var(--tl-control-size,11px); font-weight:650; line-height:1; white-space:nowrap; }
 .danger-button:hover { background:#28161a; }
 .dialog-actions-inline { display:flex; gap:8px; }
 

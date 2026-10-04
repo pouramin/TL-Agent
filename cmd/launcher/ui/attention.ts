@@ -5,8 +5,15 @@ import { K } from "./kernel";
   
 
   K.cancelAuth = () => {
+    const providerID = K.state.authProviderID;
+    const loginID = K.state.authLoginID;
     K.state.authController?.abort();
     K.state.authController = null;
+    K.state.authProviderID = "";
+    K.state.authLoginID = "";
+    if (providerID && loginID) {
+      void K.api.providerAccounts.cancelLogin(providerID, loginID).catch(() => {});
+    }
     if (K.els.authDialog.open) K.els.authDialog.close();
   };
 

@@ -152,6 +152,65 @@ interface TLStudioToolRegistry {
   unknown: TLStudioToolDescriptor | null;
 }
 
+interface TLStudioLayaRouterModel {
+  providerID: string;
+  providerName: string;
+  modelID: string;
+  modelName: string;
+  connected: boolean;
+  ready: boolean;
+  availability?: string;
+  enabled: boolean;
+  group: "free" | "included" | "budget" | "standard" | "premium" | string;
+  quality: number;
+  speed: number;
+  reasoning?: boolean;
+  contextLimit?: number;
+  outputLimit?: number;
+}
+
+interface TLStudioLayaRouterStatus {
+  available: boolean;
+  pluginEnabled: boolean;
+  profile: "balanced" | "cost" | "quality" | "speed" | "free" | string;
+  providerID: string;
+  modelID: string;
+  displayName: string;
+  models: TLStudioLayaRouterModel[];
+  message?: string;
+}
+
+interface TLStudioLayaRoutePreview {
+  providerID: string;
+  providerName: string;
+  modelID: string;
+  modelName: string;
+  profile: string;
+  group: string;
+  quality: number;
+  speed: number;
+  reason: string;
+  analysis: {
+    difficulty: number;
+    domain: string;
+    needsTools: number;
+    sensitive: number;
+    checkpoint?: string;
+    layaReason?: string;
+    latencyMs?: number;
+  };
+}
+
+interface TLStudioPluginCatalogEntry {
+  id: string;
+  name: string;
+  description?: string;
+  category: string;
+  icon?: string;
+  scope: "project" | "global" | string;
+  upstream?: string;
+}
+
 interface TLStudioPluginEnvironmentRef {
   name: string;
   configured?: boolean;
@@ -244,16 +303,57 @@ interface TLStudioLiveEvent {
   path?: string;
 }
 
+interface TLStudioProviderAccountSetupSummary {
+  configurable: boolean;
+  configured: boolean;
+  label?: string;
+}
+
+interface TLStudioProviderAccountSetupField {
+  id: string;
+  label: string;
+  description?: string;
+  placeholder?: string;
+  value?: string;
+  required?: boolean;
+  readOnly?: boolean;
+}
+
+interface TLStudioProviderAccountSetup {
+  title: string;
+  description?: string;
+  fields: TLStudioProviderAccountSetupField[];
+}
+
 interface TLStudioProviderAccount {
   id: string;
   name: string;
   description?: string;
   available: boolean;
   connected: boolean;
+  state: "disconnected" | "connecting" | "connected" | "expired" | "needs_reauthentication" | "error" | string;
   authModes: string[];
   accountType?: string;
+  accountLabel?: string;
   organizationId?: string;
   models?: string[];
+  capabilities?: string[];
+  billingNote?: string;
+  setup?: TLStudioProviderAccountSetupSummary;
+  error?: string;
+}
+
+interface TLStudioProviderAccountLogin {
+  loginId: string;
+  flow: "authorization_code_pkce" | "device_code" | string;
+  authorizationUrl?: string;
+  verificationUrl?: string;
+  userCode?: string;
+  bridgeToken?: string;
+  bridgeOrigin?: string;
+  instructions?: string;
+  expiresAt?: string;
+  pollIntervalSeconds?: number;
 }
 
 interface TLStudioProviderState {
@@ -267,19 +367,37 @@ interface TLStudioProductAPI {
   readonly version: string;
   health(): Promise<any>;
   path(): Promise<any>;
+  updates: {
+    status(): Promise<{
+      currentVersion: string;
+      latestVersion?: string;
+      available: boolean;
+      canAutoUpdate: boolean;
+      releaseURL?: string;
+      channel: string;
+      message?: string;
+    }>;
+    apply(): Promise<{ started: boolean; latestVersion?: string; releaseURL?: string }>;
+  };
   agents(): Promise<any[]>;
   providerState(): Promise<TLStudioProviderState>;
   providerAccounts: {
     list(): Promise<TLStudioProviderAccount[]>;
     status(providerID: string): Promise<TLStudioProviderAccount>;
-    authorize(providerID: string): Promise<TLStudioDynamicRecord>;
-    callback(providerID: string, signal?: AbortSignal): Promise<TLStudioDynamicRecord>;
+    setup(providerID: string): Promise<TLStudioProviderAccountSetup>;
+    configureSetup(providerID: string, values: Record<string, string>): Promise<TLStudioProviderAccount>;
+    beginLogin(providerID: string): Promise<TLStudioProviderAccountLogin>;
+    pollLogin(providerID: string, loginID: string, signal?: AbortSignal): Promise<TLStudioProviderAccount>;
+    cancelLogin(providerID: string, loginID: string): Promise<TLStudioDynamicRecord>;
+    refresh(providerID: string): Promise<TLStudioProviderAccount>;
+    models(providerID: string): Promise<{ models: string[] }>;
     disconnect(providerID: string): Promise<TLStudioDynamicRecord>;
   };
   providers: {
     config(): Promise<{ providers: TLStudioDynamicRecord[] }>;
     upsert(providerID: string, input?: TLStudioDynamicRecord): Promise<any>;
     remove(providerID: string): Promise<any>;
+    disconnectAPI(providerID: string): Promise<any>;
     discover(input?: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
   };
   jevRouter: {
@@ -291,8 +409,15 @@ interface TLStudioProductAPI {
     configure(engine: "off" | "jev"): Promise<TLStudioDynamicRecord>;
     evaluate(input: TLStudioDynamicRecord): Promise<TLStudioDynamicRecord>;
   };
+  layaRouter: {
+    status(): Promise<TLStudioLayaRouterStatus>;
+    configure(input: TLStudioDynamicRecord): Promise<TLStudioLayaRouterStatus>;
+    preview(input: TLStudioDynamicRecord): Promise<TLStudioLayaRoutePreview>;
+  };
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
+    catalog(): Promise<TLStudioPluginCatalogEntry[]>;
+    installCatalog(pluginID: string): Promise<TLStudioPluginView>;
     list(): Promise<TLStudioPluginView[]>;
     saved(): Promise<TLStudioPluginView[]>;
     attach(pluginID: string, sourceProject: string): Promise<TLStudioPluginView>;
@@ -412,6 +537,8 @@ interface TLStudioState {
   revision: number;
   authController: AbortController | null;
   authURL: string;
+  authProviderID: string;
+  authLoginID: string;
   attentionKey: string;
   attachments: TLStudioDynamicRecord[];
   activeEditorPath: string;

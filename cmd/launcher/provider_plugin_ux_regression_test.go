@@ -1,24 +1,28 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestPluginSettingsAlwaysShowBundledAndUserSections(t *testing.T) {
+func TestPluginSettingsKeepCatalogAndUserSectionsVisible(t *testing.T) {
 	source := readBrowserSource(t, "plugins.ts")
 	for _, required := range []string{
-		`Included with TL Studio`,
-		`No bundled plugins in this build`,
+		`Available integrations`,
+		`All curated integrations are added`,
 		`Added by you`,
 		`No plugins added yet`,
+		`if (bundled.length) {`,
+		`Included with TL Studio`,
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("plugins UI must keep section visible when empty; missing %q", required)
+			t.Fatalf("plugins UI is missing section contract %q", required)
 		}
 	}
 	if strings.Contains(source, `if (!plugins.length) return;`) {
-		t.Fatal("empty plugin groups must not disappear from Settings")
+		t.Fatal("generic section renderer must not silently discard empty sections")
 	}
 }
 
@@ -31,6 +35,8 @@ func TestJevSettingsUseCompactControlAndRefreshAfterProviderChanges(t *testing.T
 		`jevConfigDialog`,
 		`tlstudio:providers-changed`,
 		`providerHasRouter`,
+		`JEV via OpenRouter`,
+		`Plugins → JEV Direct`,
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("compact Jev settings contract missing %q", required)
@@ -149,5 +155,380 @@ func TestProviderSettingsUseDedicatedModalEditor(t *testing.T) {
 	}
 	if strings.Contains(source, `<form id="providerForm" class="provider-form hidden">`) {
 		t.Fatal("provider form must not remain as a hidden inline Settings form")
+	}
+}
+
+
+func TestCustomProviderSetupStaysSimpleAndAutoDiscoversModels(t *testing.T) {
+	providers := readBrowserSource(t, "providers-ui.ts")
+	discovery := readBrowserSource(t, "provider-discovery-ui.ts")
+
+	for _, required := range []string{
+		`id="providerIdInput" type="hidden"`,
+		`OpenAI-compatible`,
+		`Anthropic-compatible`,
+		`TL Studio will discover the available models automatically.`,
+		`discoverySelection?.discoverAll?.()`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("simplified provider setup missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`discoverySelection.discoverAll = () => discover()`,
+		`if (!existingModels.length) {`,
+		`for (const model of catalog) selectedIDs.add(model.id)`,
+		`Manual model entry`,
+	} {
+		if !strings.Contains(discovery, required) {
+			t.Fatalf("automatic provider discovery contract missing %q", required)
+		}
+	}
+	if !strings.Contains(providers, `<option value="openai-responses" hidden>OpenAI Responses</option>`) {
+		t.Fatal("existing OpenAI Responses providers must remain editable without exposing the advanced protocol in the new-provider UI")
+	}
+}
+
+
+func TestProviderAccountSettingsUseCompactLogoGrid(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`class="provider-account-grid"`,
+		`provider-account-card`,
+		`provider-account-logo`,
+		`providerAccountLogo`,
+		`provider-account-setup-button`,
+		`configure.textContent = "Configure"`,
+		`accountLoginProviderIDs`,
+		`apiProviderPresets`,
+		`openAPIProviderPreset`,
+		`grid-template-columns:repeat(3,minmax(0,1fr))`,
+		`grid-template-areas:"logo name" "logo state" "details details" "actions actions"`,
+		`grid-template-columns:repeat(auto-fit,minmax(64px,1fr))`,
+		`render();`,
+		`void load().catch(() => {});`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("compact provider account card grid missing %q", required)
+		}
+	}
+	if strings.Contains(source, `meta.textContent = [statusText(account), description, billing]`) {
+		t.Fatal("provider account cards must not render full provider descriptions inline")
+	}
+}
+
+func TestProviderAccountCardsUseBundledBrandMarks(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`logo.dataset.provider = account.id`,
+		`data-provider="chatgpt"`,
+		`background:#D97757`,
+		`background:#FFD21E`,
+		`background:#94A3B8`,
+		`tlGeminiBrandGradient`,
+		`M22.2819 9.8211`,
+		`m4.7144 15.9555`,
+		`M23.922 16.997`,
+		`M12.025 1.13`,
+		`M16.778 1.844`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("provider brand mark contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`https://cdn.`,
+		`<img src=`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("provider brand marks must stay bundled/local; found %q", forbidden)
+		}
+	}
+}
+
+func TestProviderAccountBrowserUsesSemanticLoginLifecycle(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
+	attention := readBrowserSource(t, "attention.ts")
+	for _, required := range []string{
+		`beginLogin(account.id)`,
+		`pollLogin(account.id, login.loginId`,
+		`cancelLogin(providerID, loginID)`,
+		`needs_reauthentication`,
+	} {
+		if !strings.Contains(source+runtimeAPI+attention, required) {
+			t.Fatalf("provider account semantic lifecycle missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`.authorize(account.id)`,
+		`.callback(account.id`,
+		`accessToken`,
+		`refreshToken`,
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("browser provider account UI must not handle provider secrets or raw auth payloads; found %q", forbidden)
+		}
+	}
+}
+
+
+func TestProviderCardsRouteAPIBasedServicesToPresetConfiguration(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	providers := readBrowserSource(t, "providers-ui.ts")
+
+	for _, required := range []string{
+		`claude: {`,
+		`providerID: "claude"`,
+		`protocol: "anthropic-messages"`,
+		`baseURL: "https://api.anthropic.com/v1"`,
+		`gemini: {`,
+		`baseURL: "https://generativelanguage.googleapis.com/v1beta/openai"`,
+		`huggingface: {`,
+		`baseURL: "https://router.huggingface.co/v1"`,
+		`openrouter: {`,
+		`baseURL: "https://openrouter.ai/api/v1"`,
+		`configure.dataset.providerAccountAction = "configure-api"`,
+		`configure.textContent = "Configure"`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("API provider preset contract missing %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		`const openPreset = async (preset: any) =>`,
+		`providerConfig = await K.api.providers.config()`,
+		`K.__providersUi.openPreset = openPreset`,
+		`requestAnimationFrame(() => els.apiKey?.focus?.({ preventScroll: true }))`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("provider preset editor contract missing %q", required)
+		}
+	}
+
+	if strings.Contains(accounts, `if (!account.available) return;
+    K.showError("");
+    K.state.authController`) == false {
+		t.Fatal("account login lifecycle must remain intact for account-based providers")
+	}
+}
+
+
+func TestBrandedAPIProvidersStayOnCardsInsteadOfCustomList(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	providers := readBrowserSource(t, "providers-ui.ts")
+	runtimeAPI := readBrowserSource(t, "runtime-api.ts")
+
+	for _, required := range []string{
+		`BRANDED_API_PROVIDER_IDS = new Set(["claude", "gemini", "huggingface", "openrouter"])`,
+		`!BRANDED_API_PROVIDER_IDS.has(clean(provider?.id))`,
+		`providerConfigEntryByID(providerConfig, providerID)`,
+	} {
+		if !strings.Contains(providers, required) {
+			t.Fatalf("branded API provider list contract missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		`disconnectAPIProviderPreset`,
+		`disconnect.dataset.providerAccountAction = "disconnect-api"`,
+		`disconnect.textContent = "Disconnect"`,
+		`K.api.providers.disconnectAPI(providerID)`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("branded API provider card disconnect contract missing %q", required)
+		}
+	}
+	if !strings.Contains(runtimeAPI, `/api-connection`) {
+		t.Fatal("runtime API must expose the API-only disconnect route")
+	}
+}
+
+
+func TestActionButtonsShareOneVisualGeometryContract(t *testing.T) {
+	styles := readBrowserSource(t, "../web/styles.css")
+	settings := readBrowserSource(t, "../web/settings.css")
+	polish := readBrowserSource(t, "../web/polish.css")
+	status := readBrowserSource(t, "../web/status-ui.css")
+	files := readBrowserSource(t, "../web/files.css")
+	jev := readBrowserSource(t, "jev-ui.ts")
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+
+	for _, required := range []string{
+		`--tl-button-height: 34px`,
+		`--tl-button-height-small: 28px`,
+		`--tl-button-radius: 8px`,
+		`--tl-button-radius-small: 7px`,
+		`height:var(--tl-button-height)`,
+		`height:var(--tl-button-height-small)`,
+		`white-space:nowrap`,
+	} {
+		if !strings.Contains(styles+polish, required) {
+			t.Fatalf("shared button geometry contract missing %q", required)
+		}
+	}
+	if !strings.Contains(settings, `height: var(--tl-button-height);`) {
+		t.Fatal("settings primary actions must use the shared action-button height")
+	}
+	if !strings.Contains(status, `height: var(--tl-button-height-small);`) {
+		t.Fatal("recovery actions must use the shared small-button height")
+	}
+	if strings.Contains(files, `.file-editor-actions .primary.small { min-height: 27px; }`) {
+		t.Fatal("file editor must not override the shared small-button height")
+	}
+	if !strings.Contains(jev, `.jev-config-row>button{flex:none}`) {
+		t.Fatal("JEV row actions must not shrink and wrap inside the settings dialog")
+	}
+	if strings.Contains(accounts, `.provider-account-card-actions .primary,.provider-account-card-actions .ghost{min-height:28px`) {
+		t.Fatal("provider account card actions must inherit the shared small-button geometry")
+	}
+}
+
+
+func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`accountLoginProviderIDs = new Set(["chatgpt", "claude", "claude-web", "github-copilot"])`,
+		`"claude-web": "claude-web-account"`,
+		`providerCardOrder = ["chatgpt", "claude", "gemini"`,
+		`const claudeWebAccount = isClaudeProvider ? accountByID.get("claude-web") : undefined`,
+		`webAction.textContent = claudeWebConnected ? "Web ✓" : "Web"`,
+		`codeAction.textContent = accountConnected ? "Code ✓" : "Code"`,
+		`else void connectAccount(claudeWebAccount)`,
+		`else void connectAccount(account)`,
+		`configure.textContent = "API"`,
+		`const runtimeProviderID = accountRuntimeProviderIDs[account.id] || account.id`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude combined provider card contract missing %q", required)
+		}
+	}
+	if strings.Contains(source, `providerCardOrder = ["chatgpt", "claude", "claude-web"`) {
+		t.Fatal("Claude Web must not render as a second ambiguous standalone card")
+	}
+	for _, required := range []string{
+		`provider-account-mode-active`,
+		`grid-template-columns:repeat(auto-fit,minmax(64px,1fr))`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude provider actions must use compact responsive controls; missing %q", required)
+		}
+	}
+}
+
+
+func TestProviderSettingsUsesSharedSettingsScroll(t *testing.T) {
+	bridge := readBrowserSource(t, "providers-settings-bridge.ts")
+	for _, forbidden := range []string{
+		`settings-window-providers`,
+		`width: min(980px`,
+		`new MutationObserver(syncProviderWindowMode)`,
+		`max-height: min(72vh, 690px)`,
+		`overflow-y: auto`,
+		`scrollbar-gutter: stable`,
+	} {
+		if strings.Contains(bridge, forbidden) {
+			t.Fatalf("Providers must use the shared Settings size and scrollbar; found %q", forbidden)
+		}
+	}
+	if !strings.Contains(bridge, "shared Settings content owns vertical scrolling") {
+		t.Fatal("provider bridge must document that Settings owns the only vertical scrollbar")
+	}
+}
+
+func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
+	accounts := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
+		`CLAUDE_WEB_STORE_EXTENSION_ID = "cpellhbmfdhcgkblnmnppndmeiigmjcg"`,
+		`CLAUDE_WEB_REVIEW_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`,
+		`CLAUDE_WEB_STORE_URL = "https://chromewebstore.google.com/detail/cpellhbmfdhcgkblnmnppndmeiigmjcg"`,
+		`"0.6.4-persistent-page"`,
+		`"0.6.3-persistent-page"`,
+		`Install Bridge`,
+		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
+		`tlstudio-pair-direct`,
+		`tlstudio-execute-direct`,
+		`executeClaudeWebCommandWithRepair(cleanToken, command)`,
+		`token,`,
+		`claude-web-ui/pair`,
+		`claude-web-ui/poll`,
+		`claude-web-ui/result`,
+		`resumeClaudeWebIfNeeded`,
+		`establishClaudeWebBridge`,
+		`executeClaudeWebCommandWithRepair`,
+		`repairClaudeWebExtensionPairing`,
+		`not paired with this TL Studio origin`,
+		`beginLogin(account.id)`,
+		`pollLogin(account.id, login.loginId`,
+	} {
+		if !strings.Contains(accounts, required) {
+			t.Fatalf("Claude Web extension relay UI contract missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		`claude_web_native_chrome`,
+		`dedicated browser profile`,
+		`--remote-debugging-port`,
+		`fpphidfmpfiibpbloeecegdlecfbhcla`,
+	} {
+		if strings.Contains(accounts, forbidden) {
+			t.Fatalf("Claude Web UI must not fall back to the removed cloned/CDP transport; found %q", forbidden)
+		}
+	}
+}
+
+
+func TestClaudeWebMissingBridgeOpensStoreWithoutLeakingRawURLIntoErrorCopy(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`const openClaudeWebStore = () =>`,
+		`presentClaudeWebBridgeInstall`,
+		`K.els.authOpen.textContent = "Install extension"`,
+		`openClaudeWebStore();`,
+		`isClaudeWebBridgeUnavailableError(error)`,
+		`To continue with Claude Web, TL Studio Claude Web Bridge must be installed`,
+		`The Chrome Web Store page opened automatically.`,
+		`TL Studio is waiting for the installation and will connect automatically`,
+		`waitForClaudeWebBridgeInstall`,
+		`K.els.authOpen.textContent = "Extension detected"`,
+		`Finishing the Claude Web connection`,
+		`K.els.authOpen.textContent = "Open sign-in page"`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web missing-bridge install flow missing %q", required)
+		}
+	}
+	if strings.Contains(source, `Install it from the Chrome Web Store: ${CLAUDE_WEB_STORE_URL}`) {
+		t.Fatal("Claude Web bridge failure must not print the raw Chrome Web Store URL into the auth dialog")
+	}
+}
+
+
+func TestJevDirectPluginUsesTypeSafeWithoutOpenRouter(t *testing.T) {
+	plugins := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		`openJevDirectDialog`,
+		`jev-direct-config`,
+		`TYPESAFE_API_KEY`,
+		`JEV Direct Router is enabled.`,
+	} {
+		if !strings.Contains(plugins, required) {
+			t.Fatalf("JEV Direct plugin UX missing %q", required)
+		}
+	}
+	root := releaseRepoRoot(t)
+	indexBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexBytes)
+	for _, required := range []string{
+		`id="jevDirectDialog"`,
+		`id="jevDirectApiKey"`,
+		`Save &amp; enable`,
+		`This path does not use OpenRouter.`,
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("JEV Direct dialog missing %q", required)
+		}
 	}
 }

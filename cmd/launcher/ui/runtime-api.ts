@@ -51,6 +51,10 @@ import { K } from "./kernel";
     health: () => K.request("/local/health"),
     path: () => K.request("/local/path"),
 
+    updates: {
+      status: () => K.request("/local/update"),
+      apply: () => K.request("/local/update", { method: "POST" }),
+    },
 
     agents: async () => {
       const payload = await K.request("/local/agents");
@@ -73,8 +77,16 @@ import { K } from "./kernel";
         return Array.isArray(payload) ? payload : [];
       },
       status: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() })),
-      authorize: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/authorize`, { directory: projectDirectory() }), { method: "POST" }),
-      callback: (providerID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/callback`, { directory: projectDirectory() }), { method: "POST", signal }),
+      setup: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/setup`, { directory: projectDirectory() })),
+      configureSetup: (providerID: string, values: Record<string, string>) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/setup`, { directory: projectDirectory() }), {
+        method: "PUT",
+        ...body({ values }),
+      }),
+      beginLogin: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login`, { directory: projectDirectory() }), { method: "POST" }),
+      pollLogin: (providerID: string, loginID: string, signal?: AbortSignal) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login/${enc(loginID)}`, { directory: projectDirectory() }), { signal }),
+      cancelLogin: (providerID: string, loginID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/login/${enc(loginID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
+      refresh: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/refresh`, { directory: projectDirectory() }), { method: "POST" }),
+      models: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}/models`, { directory: projectDirectory() })),
       disconnect: (providerID: string) => K.request(withQuery(`/local/provider-accounts/${enc(providerID)}`, { directory: projectDirectory() }), { method: "DELETE" }),
     },
 
@@ -88,6 +100,7 @@ import { K } from "./kernel";
         ...body({ provider, ...(apiKey ? { apiKey } : {}) }),
       })),
       remove: async (providerID: any) => unwrapData(await K.request(`/local/providers/config/${enc(providerID)}`, { method: "DELETE" })),
+      disconnectAPI: async (providerID: any) => unwrapData(await K.request(`/local/providers/config/${enc(providerID)}/api-connection`, { method: "DELETE" })),
       discover: async ({ providerID, protocol, baseURL, apiKey }: any = {}) => unwrapData(await K.request("/local/providers/discover", {
         method: "POST",
         ...body({
@@ -119,6 +132,18 @@ import { K } from "./kernel";
       }),
     },
 
+    layaRouter: {
+      status: () => K.request("/local/laya-router"),
+      configure: (input: TLStudioDynamicRecord) => K.request("/local/laya-router", {
+        method: "PUT",
+        ...body(input),
+      }),
+      preview: (input: TLStudioDynamicRecord) => K.request("/local/laya-router/preview", {
+        method: "POST",
+        ...body(input),
+      }),
+    },
+
     tools: {
       registry: async () => {
         const payload = await K.request<any>("/local/tools");
@@ -127,6 +152,14 @@ import { K } from "./kernel";
     },
 
     plugins: {
+      catalog: async () => {
+        const payload = await K.request("/local/plugins/catalog");
+        return Array.isArray(payload) ? payload : [];
+      },
+      installCatalog: (pluginID: string) => K.request(`/local/plugin-catalog/${enc(pluginID)}/install`, {
+        method: "POST",
+        ...body({ confirmed: true }),
+      }),
       list: async () => {
         const payload = await K.request("/local/plugins");
         return Array.isArray(payload) ? payload : [];

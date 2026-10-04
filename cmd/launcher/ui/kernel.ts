@@ -31,6 +31,8 @@ export const K = {
     revision: 0,
     authController: null,
     authURL: "",
+    authProviderID: "",
+    authLoginID: "",
     attentionKey: "",
     attachments: [],
     activeEditorPath: "",

@@ -13,14 +13,19 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 const providerRegistryVersion = 1
 
 var providerProtocolPackages = map[string]string{
-	"openai-compatible":  "@ai-sdk/openai-compatible",
-	"openai-responses":   "@ai-sdk/openai",
-	"anthropic-messages": "@ai-sdk/anthropic",
+	"openai-compatible":      "@ai-sdk/openai-compatible",
+	"openai-responses":       "@ai-sdk/openai",
+	"anthropic-messages":     "@ai-sdk/anthropic",
+	"gemini-generate-content": "@google/genai",
+	"codex-chatgpt":            "@openai/codex",
+	"claude-code-account":       "@anthropic-ai/claude-code",
+	"claude-web-browser":        "claude.ai browser",
 }
 
 type tlProviderModel struct {
@@ -28,8 +33,9 @@ type tlProviderModel struct {
 	Name         string `json:"name"`
 	Kind         string `json:"kind,omitempty"`
 	ToolCall     bool   `json:"toolCall"`
-	Reasoning    bool   `json:"reasoning"`
-	ContextLimit int    `json:"contextLimit,omitempty"`
+	Reasoning       bool   `json:"reasoning"`
+	ReasoningEffort string `json:"reasoningEffort,omitempty"`
+	ContextLimit    int    `json:"contextLimit,omitempty"`
 	OutputLimit  int    `json:"outputLimit,omitempty"`
 }
 
@@ -39,6 +45,7 @@ type tlProviderDefinition struct {
 	Protocol  string            `json:"protocol"`
 	BaseURL   string            `json:"baseURL"`
 	ManagedBy string            `json:"managedBy,omitempty"`
+	ProjectID string            `json:"projectId,omitempty"`
 	Models    []tlProviderModel `json:"models"`
 }
 
@@ -193,7 +200,8 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 	}
 	input.BaseURL = strings.TrimRight(parsed.String(), "/")
 	input.ManagedBy = strings.ToLower(strings.TrimSpace(input.ManagedBy))
-	if input.ManagedBy != "" && input.ManagedBy != "jev" {
+	input.ProjectID = strings.TrimSpace(input.ProjectID)
+	if input.ManagedBy != "" && input.ManagedBy != "jev" && input.ManagedBy != "account" {
 		return tlProviderDefinition{}, fmt.Errorf("unsupported provider manager %q", input.ManagedBy)
 	}
 	if len(input.Models) == 0 { return tlProviderDefinition{}, errors.New("provider must define at least one model") }
@@ -203,8 +211,16 @@ func normalizeProviderDefinition(input tlProviderDefinition) (tlProviderDefiniti
 		model.ID = strings.TrimSpace(model.ID)
 		model.Name = strings.TrimSpace(model.Name)
 		model.Kind = strings.ToLower(strings.TrimSpace(model.Kind))
+		model.ReasoningEffort = strings.ToLower(strings.TrimSpace(model.ReasoningEffort))
 		if model.Kind != "" && model.Kind != "router" {
 			return tlProviderDefinition{}, fmt.Errorf("unsupported model kind %q", model.Kind)
+		}
+		if model.ReasoningEffort != "" {
+			switch model.ReasoningEffort {
+			case "none", "minimal", "low", "medium", "high", "xhigh", "max":
+			default:
+				return tlProviderDefinition{}, fmt.Errorf("unsupported model reasoning effort %q", model.ReasoningEffort)
+			}
 		}
 		if model.ID == "" { return tlProviderDefinition{}, errors.New("model ID is required") }
 		if seen[model.ID] { return tlProviderDefinition{}, fmt.Errorf("duplicate model ID %q", model.ID) }
@@ -245,6 +261,10 @@ type providerManager struct {
 	store       *providerRegistryStore
 	credentials providerCredentialStore
 	registryMu  sync.Mutex
+	accountMu   sync.RWMutex
+	accounts    map[string]providerAccountAdapter
+	catalogMu        sync.RWMutex
+	catalogDecorator func(context.Context, string, *providerCatalogResponse) error
 }
 
 func newProviderManager(state *appState) *providerManager {
@@ -252,6 +272,7 @@ func newProviderManager(state *appState) *providerManager {
 		state: state,
 		store: newProviderRegistryStore(providerRegistryPath()),
 		credentials: newProviderCredentialStore(),
+		accounts: map[string]providerAccountAdapter{},
 	}
 }
 
@@ -270,6 +291,95 @@ func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	_, err := m.ensureRegistryInitialized(ctx)
 	return err
 }
+
+func (m *providerManager) setCatalogDecorator(decorator func(context.Context, string, *providerCatalogResponse) error) {
+	if m == nil {
+		return
+	}
+	m.catalogMu.Lock()
+	m.catalogDecorator = decorator
+	m.catalogMu.Unlock()
+}
+
+func (m *providerManager) decorateCatalog(ctx context.Context, directory string, result *providerCatalogResponse) error {
+	if m == nil || result == nil {
+		return nil
+	}
+	m.catalogMu.RLock()
+	decorator := m.catalogDecorator
+	m.catalogMu.RUnlock()
+	if decorator == nil {
+		return nil
+	}
+	return decorator(ctx, directory, result)
+}
+
+type providerAccountRuntimeProvider interface {
+	RuntimeProviderID() string
+}
+
+func (m *providerManager) registerAccountAdapter(adapter providerAccountAdapter) {
+	if m == nil || adapter == nil {
+		return
+	}
+	id := strings.TrimSpace(adapter.ID())
+	if id == "" {
+		return
+	}
+	m.accountMu.Lock()
+	defer m.accountMu.Unlock()
+	if m.accounts == nil {
+		m.accounts = map[string]providerAccountAdapter{}
+	}
+	if runtimeProvider, ok := adapter.(providerAccountRuntimeProvider); ok {
+		runtimeID := strings.TrimSpace(runtimeProvider.RuntimeProviderID())
+		if runtimeID != "" && runtimeID != id {
+			// Hybrid providers such as Claude keep their branded API provider ID
+			// independent from the account-backed runtime provider.
+			m.accounts[runtimeID] = adapter
+			return
+		}
+	}
+	m.accounts[id] = adapter
+}
+
+func (m *providerManager) accountAdapter(providerID string) providerAccountAdapter {
+	if m == nil {
+		return nil
+	}
+	m.accountMu.RLock()
+	defer m.accountMu.RUnlock()
+	return m.accounts[strings.TrimSpace(providerID)]
+}
+
+func (m *providerManager) effectiveCredential(ctx context.Context, providerID, directory string) (string, error) {
+	if m == nil || m.credentials == nil {
+		return "", errCredentialNotFound
+	}
+	if adapter := m.accountAdapter(providerID); adapter != nil {
+		value, err := adapter.ResolveCredential(ctx, directory)
+		if err == nil && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value), nil
+		}
+		if err != nil && !errors.Is(err, errCredentialNotFound) {
+			return "", err
+		}
+	} else if value, err := getProviderCredentialSlot(m.credentials, providerID, providerCredentialSlotAccount); err == nil {
+		if credential, structured, decodeErr := decodeProviderOAuthCredential(value); decodeErr != nil {
+			return "", decodeErr
+		} else if structured {
+			if !credential.needsRefresh(time.Now()) {
+				return strings.TrimSpace(credential.AccessToken), nil
+			}
+		} else if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value), nil
+		}
+	} else if !errors.Is(err, errCredentialNotFound) {
+		return "", err
+	}
+	return getProviderCredentialSlot(m.credentials, providerID, providerCredentialSlotAPI)
+}
+
 
 type catalogModel struct {
 	Name    string `json:"name"`
@@ -311,7 +421,7 @@ func appendUniqueString(values []string, value string) []string {
 	return append(values, value)
 }
 
-func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalogResponse, error) {
+func (m *providerManager) catalog(ctx context.Context, directory string) (providerCatalogResponse, error) {
 	definitions, err := m.ensureRegistryInitialized(ctx)
 	if err != nil { return providerCatalogResponse{}, err }
 	jevConfig, err := loadJevRouterConfig()
@@ -335,12 +445,15 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 			}
 		}
 		if m.credentials != nil {
-			if key, credentialErr := m.credentials.Get(definition.ID); credentialErr == nil && strings.TrimSpace(key) != "" {
+			if key, credentialErr := m.effectiveCredential(ctx, definition.ID, ""); credentialErr == nil && strings.TrimSpace(key) != "" {
 				result.Connected = appendUniqueString(result.Connected, definition.ID)
 			} else if credentialErr != nil && !errors.Is(credentialErr, errCredentialNotFound) {
 				return providerCatalogResponse{}, credentialErr
 			}
 		}
+	}
+	if err := m.decorateCatalog(ctx, directory, &result); err != nil {
+		return providerCatalogResponse{}, err
 	}
 	sort.Slice(result.All, func(i, j int) bool {
 		return strings.ToLower(result.All[i].Name+"\x00"+result.All[i].ID) < strings.ToLower(result.All[j].Name+"\x00"+result.All[j].ID)
@@ -394,9 +507,26 @@ func registerProviderRoutes(mux *http.ServeMux, manager *providerManager) {
 		if err := manager.store.put(provider); err != nil { writeProviderManagerError(w, err); return }
 		if strings.TrimSpace(input.APIKey) != "" {
 			if manager.credentials == nil { writeProviderManagerError(w, errors.New("TL Studio credential store is unavailable")); return }
-			if err := manager.credentials.Put(provider.ID, input.APIKey); err != nil { writeProviderManagerError(w, err); return }
+			if err := putProviderCredentialSlot(manager.credentials, provider.ID, providerCredentialSlotAPI, input.APIKey); err != nil { writeProviderManagerError(w, err); return }
 		}
 		writeJSON(w, http.StatusOK, provider)
+	})
+	mux.HandleFunc("DELETE /local/providers/config/{id}/api-connection", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil { writeProviderManagerError(w, err); return }
+		id := strings.TrimSpace(r.PathValue("id"))
+		if !validProviderID(id) { writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid provider ID"}); return }
+		provider, found, err := manager.store.get(id)
+		if err != nil { writeProviderManagerError(w, err); return }
+		if manager.credentials != nil {
+			if err := deleteProviderCredentialSlot(manager.credentials, id, providerCredentialSlotAPI); err != nil { writeProviderManagerError(w, err); return }
+		}
+		removedProvider := false
+		if found && provider.ManagedBy != "account" && provider.ManagedBy != "jev" {
+			if err := manager.store.remove(id); err != nil { writeProviderManagerError(w, err); return }
+			if err := removeProviderDiscoveryCache(id); err != nil { writeProviderManagerError(w, err); return }
+			removedProvider = true
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"disconnected": id, "providerRemoved": removedProvider})
 	})
 	mux.HandleFunc("DELETE /local/providers/config/{id}", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := manager.ensureRegistryInitialized(r.Context()); err != nil { writeProviderManagerError(w, err); return }
@@ -405,7 +535,8 @@ func registerProviderRoutes(mux *http.ServeMux, manager *providerManager) {
 		if _, ok, err := manager.store.get(id); err != nil { writeProviderManagerError(w, err); return
 		} else if !ok { writeJSON(w, http.StatusNotFound, jsonError{Error: "provider is not managed by TL Studio"}); return }
 		if manager.credentials != nil {
-			if err := manager.credentials.Delete(id); err != nil { writeProviderManagerError(w, err); return }
+			if err := deleteProviderCredentialSlot(manager.credentials, id, providerCredentialSlotAPI); err != nil { writeProviderManagerError(w, err); return }
+			if err := deleteProviderCredentialSlot(manager.credentials, id, providerCredentialSlotAccount); err != nil { writeProviderManagerError(w, err); return }
 		}
 		if err := manager.store.remove(id); err != nil { writeProviderManagerError(w, err); return }
 		if err := removeProviderDiscoveryCache(id); err != nil { writeProviderManagerError(w, err); return }

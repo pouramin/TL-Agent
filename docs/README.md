@@ -5,3 +5,5 @@
 - design/TL_STUDIO_DESIGN_SYSTEM.md records the implemented visual tokens, density, states, controls, accessibility, and responsive desktop rules.
 
 Product-facing code should use TL Studio-owned /local/* semantic contracts. The historical compatibility-runtime API is no longer a product boundary.
+
+- CLAUDE_WEB.md documents Chrome Web Store installation, Claude Web pairing, automatic re-pair after Manifest V3 service-worker restarts, security boundaries, and troubleshooting. Persian: CLAUDE_WEB.fa_IR.md.

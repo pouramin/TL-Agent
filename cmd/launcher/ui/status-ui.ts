@@ -215,17 +215,27 @@ import { K } from "./kernel";
   const usageForMessages = (messages: any, { running = false } = {}) => {
     const totals = emptyTokens();
     let requests = 0;
+    let tokenUsageComplete = true;
     for (const message of messages) {
       if (messageRole(message) !== "assistant") continue;
       requests++;
-      addTokens(totals, assistantTokens(message));
+      const tokens = assistantTokens(message);
+      if (tokenTotal(tokens) <= 0) tokenUsageComplete = false;
+      addTokens(totals, tokens);
     }
     return {
       tokens: tokenTotal(totals),
       requests,
       duration: activeWorkMs(messages, { running }),
       breakdown: totals,
+      tokenUsageComplete,
     };
+  };
+
+  const usageTokenText = (stats: any) => {
+    if (!stats.tokenUsageComplete && !stats.tokens) return "token usage unavailable";
+    if (!stats.tokenUsageComplete) return `${compactNumber(stats.tokens)}+ tokens (partial)`;
+    return `${compactNumber(stats.tokens)} tokens`;
   };
 
   const compactNumber = (value: any) => {
@@ -267,11 +277,43 @@ import { K } from "./kernel";
     return turns;
   };
 
-  const turnUsageLine = (stats: any) => {
+  const requestRouteForMessages = (messages: any[]) => {
+    let selected = null;
+    for (const message of messages) {
+      for (const part of partsOf(message)) {
+        if (part?.kind !== "model") continue;
+        const metadata = part?.metadata || {};
+        const source = String(metadata.source || "").trim();
+        if (!["laya-model-router", "typesafe-system-one"].includes(source)) continue;
+        if (String(part?.status || "").toLowerCase() === "failed") continue;
+        const modelID = String(part?.model?.id || "").trim();
+        const providerID = String(part?.model?.providerID || "").trim();
+        selected = {
+          router: String(metadata.routerName || (source === "typesafe-system-one" ? "JEV Direct" : "Laya")).trim(),
+          model: String(metadata.modelName || modelID || "Unknown model"),
+          provider: String(metadata.providerName || providerID || "").trim(),
+          profile: String(metadata.profile || "").trim(),
+        };
+      }
+    }
+    return selected;
+  };
+
+  const turnUsageLine = (stats: any, messages: any[]) => {
     const line = document.createElement("div");
     line.className = "turn-usage";
-    line.title = usageTitle(stats.breakdown);
-    line.textContent = `Usage · ${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    const route = requestRouteForMessages(messages);
+    const usage = `Usage · ${usageTokenText(stats)} · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    if (route) {
+      const profile = route.profile && route.profile !== "jev-direct" ? `${route.profile} profile` : "";
+      const routeText = [`${route.router} → ${route.model}`, route.provider, profile].filter(Boolean).join(" · ");
+      line.textContent = `${routeText} · ${usage}`;
+      line.title = `${routeText}\n${stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Token usage was not reported by every model/provider in this turn."}`;
+      line.classList.add("turn-usage-laya");
+    } else {
+      line.title = stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Token usage was not reported by every model/provider in this turn.";
+      line.textContent = usage;
+    }
     return line;
   };
 
@@ -285,7 +327,7 @@ import { K } from "./kernel";
     turns.forEach((messages, index) => {
       const stats = usageForMessages(messages, { running: running && index === turns.length - 1 });
       if (!stats.requests && !stats.tokens) return;
-      const line = turnUsageLine(stats);
+      const line = turnUsageLine(stats, messages);
       const nextUser = userRows[index + 1];
       if (nextUser) {
         view.insertBefore(line, nextUser);
@@ -302,10 +344,16 @@ import { K } from "./kernel";
     .map((part: any) => ({
       providerID: String(part.model?.providerID || ""),
       modelID: String(part.model?.id || part.model?.modelID || ""),
+      providerName: String(part?.metadata?.providerName || ""),
+      modelName: String(part?.metadata?.modelName || ""),
+      source: String(part?.metadata?.source || ""),
       elapsed: Number(part?.elapsed || part?.time?.elapsed || 0),
     }));
 
   const modelLabel = (model: any) => {
+    const friendly = String(model?.modelName || "").trim();
+    const providerName = String(model?.providerName || "").trim();
+    if (friendly) return providerName ? `${friendly} · ${providerName}` : friendly;
     const modelID = String(model?.modelID || "").trim();
     const providerID = String(model?.providerID || "").trim();
     if (!modelID) return "";
@@ -406,12 +454,13 @@ import { K } from "./kernel";
     target.tokens += Number(source.tokens || 0);
     target.requests += Number(source.requests || 0);
     target.duration += Number(source.duration || 0);
+    if (source.tokenUsageComplete === false) target.tokenUsageComplete = false;
     addTokens(target.breakdown, source.breakdown || emptyTokens());
     return target;
   };
 
   const projectUsageSnapshot = () => {
-    const total = { tokens: 0, requests: 0, duration: 0, breakdown: emptyTokens() };
+    const total = { tokens: 0, requests: 0, duration: 0, breakdown: emptyTokens(), tokenUsageComplete: true };
     const sessions = activeProjectSessions();
     const currentID = K.state.session?.id;
     let complete = true;
@@ -450,7 +499,7 @@ import { K } from "./kernel";
     const footer = document.createElement("section");
     footer.className = "project-usage";
     footer.setAttribute("aria-label", "Project usage totals");
-    footer.title = usageTitle(stats.breakdown);
+    footer.title = stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Project token totals are partial because at least one model/provider did not report usage.";
 
     const label = document.createElement("span");
     label.className = "project-usage-label";
@@ -458,7 +507,7 @@ import { K } from "./kernel";
 
     const value = document.createElement("span");
     value.className = "project-usage-value";
-    value.textContent = `${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    value.textContent = `${usageTokenText(stats)} · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
 
     footer.append(label, value);
     view.appendChild(footer);

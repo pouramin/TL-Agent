@@ -36,6 +36,13 @@ func TestMainWorkspaceContract(t *testing.T) {
 		"\"modelSelect\"",
 		"\"settingsButton\"",
 		"K.openWorkspace",
+		"AGENT_COMPACT_MAX_WIDTH = 420",
+		"AGENT_FOCUSED_MIN_WIDTH = 520",
+		"Math.max(layout.agentWidth, AGENT_FOCUSED_MIN_WIDTH)",
+		"Math.min(layout.agentWidth, AGENT_COMPACT_MAX_WIDTH)",
+		"compactAgent.setAttribute(\"aria-pressed\"",
+		"focusAgent.setAttribute(\"aria-pressed\"",
+		"layout.agentWidth = defaults.agentWidth",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("workbench.ts missing %q", required)
@@ -68,7 +75,7 @@ func TestMainWorkspaceContract(t *testing.T) {
 		"--workspace-rail-width: 54px",
 		"padding: 12px 18px 12px 12px",
 		"overflow-wrap: anywhere",
-		"minmax(420px, 1fr)",
+		"minmax(0, 1fr)",
 		".workspace-context-sidebar",
 		".workspace-agent-panel",
 		".workspace-terminal-panel.terminal-panel",
@@ -80,6 +87,10 @@ func TestMainWorkspaceContract(t *testing.T) {
 		"@media (max-width: 1350px)",
 		"@media (max-width: 1120px)",
 		"@media (max-width: 880px)",
+		"flex-wrap: wrap",
+		"flex: 1 1 180px",
+		"max-width: 100%",
+		"minmax(0, 1fr)",
 	} {
 		if !strings.Contains(css, required) {
 			t.Fatalf("workbench.css missing %q", required)
