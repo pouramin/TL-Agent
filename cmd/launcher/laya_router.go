@@ -95,7 +95,11 @@ type nativeRouteSelection struct {
 
 type nativeRequestRouter interface {
 	Handles(*sessionModelRef) bool
-	Route(context.Context, string, string, ...*sessionModelRef) (nativeRouteSelection, error)
+	Route(context.Context, string, string) (nativeRouteSelection, error)
+}
+
+type nativeTargetedRequestRouter interface {
+	RouteFor(context.Context, string, string, *sessionModelRef) (nativeRouteSelection, error)
 }
 
 type nativeRequestFallbackRouter interface {
@@ -906,7 +910,7 @@ func (s *layaRouterService) routeWithConfig(ctx context.Context, project, prompt
 	}, nil
 }
 
-func (s *layaRouterService) Route(ctx context.Context, project, prompt string, _ ...*sessionModelRef) (nativeRouteSelection, error) {
+func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
 	config, err := s.loadConfig()
 	if err != nil {
 		return nativeRouteSelection{}, err

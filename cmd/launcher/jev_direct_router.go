@@ -342,7 +342,7 @@ func (s *jevDirectRouterService) evaluate(ctx context.Context, apiKey, prompt st
 	}, nil
 }
 
-func (s *jevDirectRouterService) Route(ctx context.Context, project, prompt string, _ ...*sessionModelRef) (nativeRouteSelection, error) {
+func (s *jevDirectRouterService) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
 	_, key, err := s.apiKey(project)
 	if err != nil {
 		return nativeRouteSelection{}, err

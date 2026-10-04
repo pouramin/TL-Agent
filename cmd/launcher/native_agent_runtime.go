@@ -408,7 +408,13 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 	providerID := input.Model.ProviderID
 	modelID := input.Model.ID
 	if r.requestRouter != nil && r.requestRouter.Handles(input.Model) {
-		selection, routeErr := r.requestRouter.Route(ctx, directory, routingPrompt, input.Model)
+		var selection nativeRouteSelection
+		var routeErr error
+		if targeted, ok := r.requestRouter.(nativeTargetedRequestRouter); ok {
+			selection, routeErr = targeted.RouteFor(ctx, directory, routingPrompt, input.Model)
+		} else {
+			selection, routeErr = r.requestRouter.Route(ctx, directory, routingPrompt)
+		}
 		if routeErr != nil {
 			return routeErr
 		}

@@ -32,17 +32,20 @@ func (m *nativeRequestRouterMux) Handles(model *sessionModelRef) bool {
 	return false
 }
 
-func (m *nativeRequestRouterMux) Route(ctx context.Context, project, prompt string, requested ...*sessionModelRef) (nativeRouteSelection, error) {
+func (m *nativeRequestRouterMux) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
+	if m == nil || len(m.routers) == 0 {
+		return nativeRouteSelection{}, errors.New("request router is unavailable")
+	}
+	return m.routers[0].Route(ctx, project, prompt)
+}
+
+func (m *nativeRequestRouterMux) RouteFor(ctx context.Context, project, prompt string, target *sessionModelRef) (nativeRouteSelection, error) {
 	if m == nil {
 		return nativeRouteSelection{}, errors.New("request router is unavailable")
 	}
-	var target *sessionModelRef
-	if len(requested) > 0 {
-		target = requested[0]
-	}
 	for _, router := range m.routers {
-		if target == nil || router.Handles(target) {
-			return router.Route(ctx, project, prompt, target)
+		if target != nil && router.Handles(target) {
+			return router.Route(ctx, project, prompt)
 		}
 	}
 	return nativeRouteSelection{}, errors.New("selected request router is unavailable")
