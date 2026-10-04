@@ -227,6 +227,7 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 		"value=\"speed\"",
 		"value=\"free\"",
 		"id=\"layaRoutingModels\"",
+		"id=\"layaRoutingPoolSummary\"",
 		"id=\"layaRoutingPreviewInput\"",
 		"id=\"layaRoutingPreviewButton\"",
 		"id=\"layaRoutingSave\"",
@@ -242,6 +243,9 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 		"K.api.layaRouter.status()",
 		"K.api.layaRouter.configure",
 		"K.api.layaRouter.preview",
+		`layaRoutingProfile?.addEventListener("change"`,
+		"visibleLayaRoutingModels",
+		`profile === "free"`,
 		"laya-routing-model-group",
 		"laya-routing-model-quality",
 		"laya-routing-model-speed",
@@ -261,7 +265,12 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 		".laya-routing-dialog-card",
 		".laya-routing-model-row",
 		".laya-routing-model-group",
+		".laya-routing-pool-summary",
 		".laya-routing-preview",
+		".laya-routing-preview-controls textarea:focus",
+		".laya-routing-preview-controls textarea::placeholder",
+		"background: var(--panel-2);",
+		"color: #606975;",
 	} {
 		if !strings.Contains(css, required) {
 			t.Fatalf("Laya Router styling missing %q", required)
