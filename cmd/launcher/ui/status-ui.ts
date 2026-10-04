@@ -268,20 +268,22 @@ import { K } from "./kernel";
   };
 
   const layaRouteForMessages = (messages: any[]) => {
+    let selected = null;
     for (const message of messages) {
       for (const part of partsOf(message)) {
         if (part?.kind !== "model" || part?.metadata?.source !== "laya-model-router") continue;
+        if (String(part?.status || "").toLowerCase() === "failed") continue;
         const metadata = part.metadata || {};
         const modelID = String(part?.model?.id || "").trim();
         const providerID = String(part?.model?.providerID || "").trim();
-        return {
+        selected = {
           model: String(metadata.modelName || modelID || "Unknown model"),
           provider: String(metadata.providerName || providerID || "").trim(),
           profile: String(metadata.profile || "").trim(),
         };
       }
     }
-    return null;
+    return selected;
   };
 
   const turnUsageLine = (stats: any, messages: any[]) => {
