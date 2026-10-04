@@ -256,6 +256,7 @@ func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityV
 		Model:  &sessionModelRef{ProviderID: selection.ProviderID, ID: selection.ModelID},
 		Metadata: map[string]any{
 			"source":        source,
+			"routerName":     routerName,
 			"routerProviderID": selection.RouterProviderID,
 			"routerModelID": selection.RouterModelID,
 			"providerName":  selection.ProviderName,

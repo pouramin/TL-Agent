@@ -277,16 +277,19 @@ import { K } from "./kernel";
     return turns;
   };
 
-  const layaRouteForMessages = (messages: any[]) => {
+  const requestRouteForMessages = (messages: any[]) => {
     let selected = null;
     for (const message of messages) {
       for (const part of partsOf(message)) {
-        if (part?.kind !== "model" || part?.metadata?.source !== "laya-model-router") continue;
+        if (part?.kind !== "model") continue;
+        const metadata = part?.metadata || {};
+        const source = String(metadata.source || "").trim();
+        if (!["laya-model-router", "typesafe-system-one"].includes(source)) continue;
         if (String(part?.status || "").toLowerCase() === "failed") continue;
-        const metadata = part.metadata || {};
         const modelID = String(part?.model?.id || "").trim();
         const providerID = String(part?.model?.providerID || "").trim();
         selected = {
+          router: String(metadata.routerName || (source === "typesafe-system-one" ? "JEV Direct" : "Laya")).trim(),
           model: String(metadata.modelName || modelID || "Unknown model"),
           provider: String(metadata.providerName || providerID || "").trim(),
           profile: String(metadata.profile || "").trim(),
@@ -299,10 +302,11 @@ import { K } from "./kernel";
   const turnUsageLine = (stats: any, messages: any[]) => {
     const line = document.createElement("div");
     line.className = "turn-usage";
-    const route = layaRouteForMessages(messages);
+    const route = requestRouteForMessages(messages);
     const usage = `Usage · ${usageTokenText(stats)} · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
     if (route) {
-      const routeText = [`Laya → ${route.model}`, route.provider, route.profile ? `${route.profile} profile` : ""].filter(Boolean).join(" · ");
+      const profile = route.profile && route.profile !== "jev-direct" ? `${route.profile} profile` : "";
+      const routeText = [`${route.router} → ${route.model}`, route.provider, profile].filter(Boolean).join(" · ");
       line.textContent = `${routeText} · ${usage}`;
       line.title = `${routeText}\n${stats.tokenUsageComplete ? usageTitle(stats.breakdown) : "Token usage was not reported by every model/provider in this turn."}`;
       line.classList.add("turn-usage-laya");
