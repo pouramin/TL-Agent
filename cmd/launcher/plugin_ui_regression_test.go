@@ -40,15 +40,11 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		"K.api.plugins.update",
 		"K.api.plugins.setEnabled",
 		"K.api.plugins.remove",
-		"K.api.plugins.saved()",
 		"K.api.plugins.catalog()",
 		"K.api.plugins.installCatalog",
-		"K.api.plugins.attach",
 		"Available integrations",
 		"catalog-add",
 		"Installing…",
-		"Saved for another project",
-		"Use in current project",
 		`transport: transportSelect.value || "stdio"`,
 	} {
 		if !strings.Contains(source, expected) {
@@ -109,7 +105,7 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 		"plugin-catalog-logo",
 		"plugin-catalog-category",
 		"plugin-catalog-grid",
-		`body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid"`,
+		`body.className = "plugin-catalog-grid"`,
 		"K.api.plugins.installCatalog",
 	} {
 		if !strings.Contains(source, required) {
@@ -347,6 +343,23 @@ func TestInstalledPluginsUseThreeColumnProviderStyleCards(t *testing.T) {
 	} {
 		if !strings.Contains(css, required) {
 			t.Fatalf("installed Plugin card layout missing %q", required)
+		}
+	}
+}
+
+
+func TestPluginsMainSurfaceDoesNotShowCrossProjectRecoveryList(t *testing.T) {
+	source := readBrowserSource(t, "plugins.ts")
+	for _, forbidden := range []string{
+		"Saved for another project",
+		"Use in current project",
+		"K.api.plugins.saved()",
+		"K.api.plugins.attach",
+		"renderSavedCard",
+		"savedPlugins",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("main Plugins surface must not expose cross-project saved configs; found %q", forbidden)
 		}
 	}
 }

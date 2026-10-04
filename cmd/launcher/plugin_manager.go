@@ -271,6 +271,17 @@ func normalizePluginConfig(input pluginConfig, currentProject string) (pluginCon
 	return input, nil
 }
 
+func isLegacyProjectGraphify(config pluginConfig) bool {
+	if config.Scope != "project" || config.ID != "graphify" {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(config.Metadata["integration"]), "graphify") {
+		return true
+	}
+	command := strings.ToLower(filepath.Base(strings.TrimSpace(config.Command)))
+	return strings.Contains(command, "graphify-mcp")
+}
+
 func (s *pluginStore) loadLocked() error {
 	if s.loaded {
 		return nil
@@ -291,12 +302,20 @@ func (s *pluginStore) loadLocked() error {
 	if stored.Version != 0 && stored.Version != pluginStoreVersion {
 		return fmt.Errorf("unsupported plugin store version %d", stored.Version)
 	}
+	migrated := false
 	for _, plugin := range stored.Plugins {
 		normalized, err := normalizePluginConfig(plugin, plugin.Project)
 		if err != nil {
 			return fmt.Errorf("decode saved plugin %q: %w", plugin.ID, err)
 		}
+		if isLegacyProjectGraphify(normalized) {
+			migrated = true
+			continue
+		}
 		s.plugins = append(s.plugins, normalized)
+	}
+	if migrated {
+		return s.persistLocked()
 	}
 	return nil
 }

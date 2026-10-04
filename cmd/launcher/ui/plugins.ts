@@ -6,7 +6,6 @@ import { K } from "./kernel";
   if (!K || K.__pluginsInstalled) return;
   K.__pluginsInstalled = true;
   K.state.plugins = [];
-  let savedPlugins: TLStudioPluginView[] = [];
   let pluginCatalog: TLStudioPluginCatalogEntry[] = [];
 
   const panel = document.querySelector<HTMLElement>('[data-settings-panel="plugins"]');
@@ -372,43 +371,6 @@ import { K } from "./kernel";
     return card;
   };
 
-  const renderSavedCard = (plugin: TLStudioPluginView) => {
-    const card = document.createElement("article");
-    card.className = "plugin-card plugin-card-saved";
-    card.dataset.pluginId = plugin.id;
-
-    const head = document.createElement("div");
-    head.className = "plugin-card-head";
-    const copy = document.createElement("div");
-    copy.className = "plugin-card-copy";
-    const title = document.createElement("strong");
-    title.textContent = plugin.name;
-    const description = document.createElement("span");
-    description.textContent = plugin.description || "Saved MCP plugin";
-    copy.append(title, description);
-
-    const state = document.createElement("span");
-    state.className = "plugin-status";
-    state.textContent = "Saved";
-    head.append(copy, state);
-
-    const meta = document.createElement("div");
-    meta.className = "plugin-meta plugin-saved-project";
-    meta.textContent = `Saved for: ${plugin.project || "another project"}`;
-    meta.title = plugin.project || "";
-
-    const command = document.createElement("code");
-    command.className = "plugin-command";
-    command.textContent = [plugin.command, ...(plugin.arguments || [])].join(" ");
-
-    const actions = document.createElement("div");
-    actions.className = "plugin-card-actions";
-    actions.append(actionButton("Use in current project", "attach", plugin.id, "primary small"));
-
-    card.append(head, meta, command, actions);
-    return card;
-  };
-
   const appendSection = <T,>(
     titleText: string,
     subtitleText: string,
@@ -429,7 +391,7 @@ import { K } from "./kernel";
     section.appendChild(head);
     if (plugins.length) {
       const body = document.createElement("div");
-      body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid";
+      body.className = "plugin-catalog-grid";
       for (const plugin of plugins) body.appendChild(renderer(plugin));
       section.appendChild(body);
     } else {
@@ -481,27 +443,15 @@ import { K } from "./kernel";
       renderCard,
     );
 
-    if (savedPlugins.length) {
-      appendSection(
-        "Saved for another project",
-        "These project-scoped plugins still exist, but belong to a different project.",
-        savedPlugins,
-        "",
-        "",
-        renderSavedCard,
-      );
-    }
   };
 
   const load = async () => {
     try {
-      const [current, saved, catalog] = await Promise.all([
+      const [current, catalog] = await Promise.all([
         K.api.plugins.list(),
-        K.api.plugins.saved(),
         K.api.plugins.catalog(),
       ]);
       K.state.plugins = current;
-      savedPlugins = saved;
       pluginCatalog = catalog;
       render();
       return K.state.plugins;
@@ -933,7 +883,7 @@ import { K } from "./kernel";
       }
       return;
     }
-    const plugin = (action === "attach" ? savedPlugins : K.state.plugins).find((item) => item.id === button.dataset.pluginId);
+    const plugin = K.state.plugins.find((item) => item.id === button.dataset.pluginId);
     if (!plugin) return;
 
     if (action === "laya-routing") {
@@ -945,22 +895,6 @@ import { K } from "./kernel";
       return;
     }
 
-    if (action === "attach") {
-      const sourceProject = String(plugin.project || "");
-      if (!sourceProject) return;
-      if (!window.confirm(`Use “${plugin.name}” in the current project?\n\nIts saved project scope will move from:\n${sourceProject}`)) return;
-      busy(button, true, "Moving…");
-      try {
-        await K.api.plugins.attach(plugin.id, sourceProject);
-        await load();
-        await K.loadToolRegistry?.().catch(() => {});
-      } catch (error) {
-        K.showError((error as Error).message || String(error));
-      } finally {
-        busy(button, false);
-      }
-      return;
-    }
     if (action === "configure") {
       openEditor(plugin);
       return;
