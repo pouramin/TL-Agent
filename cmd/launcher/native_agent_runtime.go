@@ -439,12 +439,16 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 
 	repeated := map[string]int{}
 	toolRounds := 0
+	contextActivitiesPending := []sessionActivityView{}
+	lastContextManagementSignature := ""
 	routeActivitiesPending := []sessionActivityView{}
 	if routeSelection != nil {
 		routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteActivity(*routeSelection))
 	}
 	responseActivities := func(response nativeModelResponse) []sessionActivityView {
-		activities := append([]sessionActivityView(nil), routeActivitiesPending...)
+		activities := append([]sessionActivityView(nil), contextActivitiesPending...)
+		contextActivitiesPending = nil
+		activities = append(activities, routeActivitiesPending...)
 		routeActivitiesPending = nil
 		activities = append(activities, nativeRoutedModelActivity(provider, model, response)...)
 		return activities
@@ -464,13 +468,22 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		var response nativeModelResponse
 		for {
 			modelTurnTimeout := r.modelRequestTimeout(routeSelection != nil, executionRequired)
+			systemPrompt := nativeAgentTurnSystemPrompt(routingPrompt, executionGuardRetries > 0)
+			contextPlan := buildNativeContextPlan(conversation, systemPrompt, tools, model)
+			if nativeContextPlanChanged(contextPlan) {
+				signature := nativeContextPlanSignature(contextPlan)
+				if signature != lastContextManagementSignature {
+					contextActivitiesPending = append(contextActivitiesPending, nativeContextActivity(contextPlan))
+					lastContextManagementSignature = signature
+				}
+			}
 			modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
 			response, err = r.model.Complete(modelCtx, nativeModelRequest{
-				System:   nativeAgentTurnSystemPrompt(routingPrompt, executionGuardRetries > 0),
+				System:   systemPrompt,
 				Provider: provider,
 				Model:    model,
 				APIKey:   apiKey,
-				Messages: append([]nativeConversationMessage(nil), conversation...),
+				Messages: contextPlan.Messages,
 				Tools:    tools,
 			}, func(delta string) {
 				if delta != "" {
