@@ -54,7 +54,9 @@ func TestSettingsAboutExposesVerifiedUpdater(t *testing.T) {
 	for _, required := range []string{
 		".settings-layout { min-height:0; overflow:hidden;",
 		".settings-content { min-width:0; min-height:0; overflow-y:auto;",
-		".settings-nav { min-height:0; overflow-y:auto;",
+		".settings-content > .settings-panel { min-height:300px; max-height:none !important; overflow:visible !important; scrollbar-gutter:auto !important;",
+		"#settingsDialog { overflow:hidden; max-width:none; max-height:none; }",
+		".settings-nav { min-height:0; overflow:hidden;",
 	} {
 		if !strings.Contains(css, required) {
 			t.Fatalf("Settings fixed-height scrolling contract missing %q", required)
@@ -62,5 +64,14 @@ func TestSettingsAboutExposesVerifiedUpdater(t *testing.T) {
 	}
 	if strings.Contains(css, "settings-window-plugins") {
 		t.Fatal("Settings must not change width for the Plugins section")
+	}
+	for _, forbidden := range []string{
+		".plugins-settings-panel {\n  max-height:",
+		".plugins-settings-panel {\n  overflow-y:",
+		".settings-nav { min-height:0; overflow-y:auto;",
+	} {
+		if strings.Contains(css, forbidden) {
+			t.Fatalf("Settings must have exactly one vertical scrolling owner; found %q", forbidden)
+		}
 	}
 }
