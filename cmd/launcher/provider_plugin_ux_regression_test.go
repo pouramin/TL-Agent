@@ -446,6 +446,9 @@ func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 		`claude-web-ui/result`,
 		`resumeClaudeWebIfNeeded`,
 		`establishClaudeWebBridge`,
+		`executeClaudeWebCommandWithRepair`,
+		`repairClaudeWebExtensionPairing`,
+		`not paired with this TL Studio origin`,
 		`beginLogin(account.id)`,
 		`pollLogin(account.id, login.loginId`,
 	} {
@@ -474,7 +477,8 @@ func TestClaudeWebMissingBridgeOpensStoreWithoutLeakingRawURLIntoErrorCopy(t *te
 		`K.els.authOpen.textContent = "Install extension"`,
 		`openClaudeWebStore();`,
 		`isClaudeWebBridgeUnavailableError(error)`,
-		`The Chrome Web Store install page has been opened.`,
+		`To continue with Claude Web, TL Studio Claude Web Bridge must be installed`,
+		`The Chrome Web Store page opened automatically.`,
 		`K.els.authOpen.textContent = "Open sign-in page"`,
 	} {
 		if !strings.Contains(source, required) {

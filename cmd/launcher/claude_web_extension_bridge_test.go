@@ -172,6 +172,9 @@ func TestClaudeWebExtensionReusesPersistentPageContext(t *testing.T) {
 		`"0.6.4-persistent-page"`,
 		`"0.6.3-persistent-page"`,
 		"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct", "tlstudio-unpair",
+		"executeClaudeWebCommandWithRepair",
+		"repairClaudeWebExtensionPairing",
+		"not paired with this TL Studio origin",
 		"token: cleanToken",
 	} {
 		if !strings.Contains(accounts, required) { t.Fatalf("provider UI missing extension relay contract %q", required) }

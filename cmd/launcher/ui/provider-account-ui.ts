@@ -690,7 +690,7 @@ import { K } from "./kernel";
     if (title) title.textContent = "Install TL Studio Claude Web Bridge";
     K.state.authURL = CLAUDE_WEB_STORE_URL;
     K.els.authInstructions.textContent =
-      "Claude Web needs the TL Studio browser extension. The Chrome Web Store install page has been opened. Install the extension, then return to TL Studio and choose Web again.";
+      "To continue with Claude Web, TL Studio Claude Web Bridge must be installed in this Chrome profile. The Chrome Web Store page opened automatically. After installing it, return to TL Studio and choose Web again.";
     K.els.authCode.textContent = "";
     K.els.authCodeWrap.classList.add("hidden");
     K.els.authOpen.textContent = "Install extension";
@@ -700,6 +700,47 @@ import { K } from "./kernel";
 
   const claudeWebBridgeVersionCompatible = (value: any) =>
     CLAUDE_WEB_COMPATIBLE_BRIDGE_VERSIONS.has(clean(value));
+
+  const claudeWebPairingLost = (result: TLStudioDynamicRecord | undefined) =>
+    !result?.ok && /not paired with this TL Studio origin/i.test(clean(result?.error));
+
+  const repairClaudeWebExtensionPairing = async (token: string) => {
+    const repaired = await sendClaudeWebExtensionMessage({
+      type: "tlstudio-pair-direct",
+      token,
+      origin: window.location.origin,
+    }, 20000);
+    if (!claudeWebBridgeVersionCompatible(repaired.bridgeVersion)) {
+      throw new Error(
+        `TL Studio Claude Web Bridge is outdated or incompatible after automatic re-pair. Received ${clean(repaired.bridgeVersion) || "unknown"}.`,
+      );
+    }
+    if (!repaired.ok || !repaired.connected) {
+      const stage = clean(repaired.stage);
+      const detail = clean(repaired.error) || "Claude Web automatic re-pair failed.";
+      throw new Error(stage ? `${stage}: ${detail}` : detail);
+    }
+  };
+
+  const executeClaudeWebCommandWithRepair = async (
+    token: string,
+    command: TLStudioDynamicRecord,
+  ) => {
+    let result = await sendClaudeWebExtensionMessage({
+      type: "tlstudio-execute-direct",
+      token,
+      command,
+    }, 310000);
+    if (!claudeWebPairingLost(result)) return result;
+
+    await repairClaudeWebExtensionPairing(token);
+    result = await sendClaudeWebExtensionMessage({
+      type: "tlstudio-execute-direct",
+      token,
+      command,
+    }, 310000);
+    return result;
+  };
 
   const stopClaudeWebRelay = () => {
     const token = claudeWebRelayToken;
@@ -752,11 +793,7 @@ import { K } from "./kernel";
           if (command?.id) {
             let result: TLStudioDynamicRecord;
             try {
-              result = await sendClaudeWebExtensionMessage({
-                type: "tlstudio-execute-direct",
-                token: cleanToken,
-                command,
-              }, 310000);
+              result = await executeClaudeWebCommandWithRepair(cleanToken, command);
             } catch (error) {
               result = {
                 id: clean(command.id),
