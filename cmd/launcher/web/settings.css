@@ -535,6 +535,9 @@ body { font-size: var(--tl-ui-base); }
   font-size:var(--tl-ui-xs);
 }
 .laya-routing-model-control select { width:100%; min-width:0; }
+.laya-routing-model-group,
+.laya-routing-model-quality,
+.laya-routing-model-speed { min-width:0; height:32px; }
 .laya-routing-connection {
   justify-self: end;
   padding: 3px 6px;
