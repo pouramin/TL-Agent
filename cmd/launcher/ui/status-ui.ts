@@ -267,11 +267,37 @@ import { K } from "./kernel";
     return turns;
   };
 
-  const turnUsageLine = (stats: any) => {
+  const layaRouteForMessages = (messages: any[]) => {
+    for (const message of messages) {
+      for (const part of partsOf(message)) {
+        if (part?.kind !== "model" || part?.metadata?.source !== "laya-model-router") continue;
+        const metadata = part.metadata || {};
+        const modelID = String(part?.model?.id || "").trim();
+        const providerID = String(part?.model?.providerID || "").trim();
+        return {
+          model: String(metadata.modelName || modelID || "Unknown model"),
+          provider: String(metadata.providerName || providerID || "").trim(),
+          profile: String(metadata.profile || "").trim(),
+        };
+      }
+    }
+    return null;
+  };
+
+  const turnUsageLine = (stats: any, messages: any[]) => {
     const line = document.createElement("div");
     line.className = "turn-usage";
-    line.title = usageTitle(stats.breakdown);
-    line.textContent = `Usage · ${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    const route = layaRouteForMessages(messages);
+    const usage = `Usage · ${compactNumber(stats.tokens)} tokens · ${stats.requests} request${stats.requests === 1 ? "" : "s"} · ${formatDuration(stats.duration)}`;
+    if (route) {
+      const routeText = [`Laya → ${route.model}`, route.provider, route.profile ? `${route.profile} profile` : ""].filter(Boolean).join(" · ");
+      line.textContent = `${routeText} · ${usage}`;
+      line.title = `${routeText}\n${usageTitle(stats.breakdown)}`;
+      line.classList.add("turn-usage-laya");
+    } else {
+      line.title = usageTitle(stats.breakdown);
+      line.textContent = usage;
+    }
     return line;
   };
 
@@ -285,7 +311,7 @@ import { K } from "./kernel";
     turns.forEach((messages, index) => {
       const stats = usageForMessages(messages, { running: running && index === turns.length - 1 });
       if (!stats.requests && !stats.tokens) return;
-      const line = turnUsageLine(stats);
+      const line = turnUsageLine(stats, messages);
       const nextUser = userRows[index + 1];
       if (nextUser) {
         view.insertBefore(line, nextUser);
@@ -302,10 +328,16 @@ import { K } from "./kernel";
     .map((part: any) => ({
       providerID: String(part.model?.providerID || ""),
       modelID: String(part.model?.id || part.model?.modelID || ""),
+      providerName: String(part?.metadata?.providerName || ""),
+      modelName: String(part?.metadata?.modelName || ""),
+      source: String(part?.metadata?.source || ""),
       elapsed: Number(part?.elapsed || part?.time?.elapsed || 0),
     }));
 
   const modelLabel = (model: any) => {
+    const friendly = String(model?.modelName || "").trim();
+    const providerName = String(model?.providerName || "").trim();
+    if (friendly) return providerName ? `${friendly} · ${providerName}` : friendly;
     const modelID = String(model?.modelID || "").trim();
     const providerID = String(model?.providerID || "").trim();
     if (!modelID) return "";
