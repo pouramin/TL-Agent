@@ -476,3 +476,158 @@ func TestNativeAgentUsesLayaRouterSelectionAndPersistsRoutingActivity(t *testing
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+
+type nativeFallbackLayaRouter struct{}
+
+func (nativeFallbackLayaRouter) Handles(model *sessionModelRef) bool {
+	return model != nil && model.ProviderID == layaRouterProviderID && model.ID == layaRouterModelID
+}
+
+func (nativeFallbackLayaRouter) Route(_ context.Context, _ string, _ string) (nativeRouteSelection, error) {
+	return nativeRouteSelection{
+		ProviderID: "first-provider",
+		ProviderName: "First Provider",
+		ModelID: "first-model",
+		ModelName: "First Model",
+		Profile: "cost",
+		Group: "free",
+		Quality: 4,
+		Speed: 4,
+		Reason: "initial route",
+		Analysis: layaRouteAnalysis{Difficulty: 1.2, Domain: "code", NeedsTools: 0.7},
+	}, nil
+}
+
+func (nativeFallbackLayaRouter) Fallback(
+	_ context.Context,
+	_ string,
+	_ string,
+	previous nativeRouteSelection,
+	failure error,
+) (nativeRouteSelection, bool, error) {
+	if previous.ProviderID != "first-provider" || previous.ModelID != "first-model" {
+		return nativeRouteSelection{}, false, nil
+	}
+	if failure == nil || !strings.Contains(strings.ToLower(failure.Error()), "429") {
+		return nativeRouteSelection{}, false, nil
+	}
+	return nativeRouteSelection{
+		ProviderID: "second-provider",
+		ProviderName: "Second Provider",
+		ModelID: "second-model",
+		ModelName: "Second Model",
+		Profile: previous.Profile,
+		Group: "free",
+		Quality: 4,
+		Speed: 3,
+		Reason: "automatic fallback",
+		Analysis: previous.Analysis,
+	}, true, nil
+}
+
+type nativeFallbackRouteModel struct {
+	mu       sync.Mutex
+	calls    int
+	finished chan struct{}
+	t        *testing.T
+}
+
+func (m *nativeFallbackRouteModel) Complete(_ context.Context, request nativeModelRequest, _ func(string)) (nativeModelResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.calls++
+	switch m.calls {
+	case 1:
+		if request.Provider.ID != "first-provider" || request.Model.ID != "first-model" {
+			m.t.Fatalf("first Laya route resolved to %s/%s", request.Provider.ID, request.Model.ID)
+		}
+		return nativeModelResponse{}, errors.New("model request failed with status 429: temporarily rate-limited upstream")
+	case 2:
+		if request.Provider.ID != "second-provider" || request.Model.ID != "second-model" {
+			m.t.Fatalf("fallback Laya route resolved to %s/%s", request.Provider.ID, request.Model.ID)
+		}
+		close(m.finished)
+		return nativeModelResponse{
+			Text: "LAYA_FALLBACK_OK",
+			FinishReason: "stop",
+			Usage: sessionUsage{Input: 6, Output: 2},
+		}, nil
+	default:
+		m.t.Fatalf("unexpected extra routed model call %d", m.calls)
+		return nativeModelResponse{}, nil
+	}
+}
+
+func TestNativeAgentFallsBackToNextLayaRouteAfterTransientModelFailure(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-laya-fallback-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Laya fallback proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resolver := &nativeLayaRouteResolver{}
+	model := &nativeFallbackRouteModel{finished: make(chan struct{}), t: t}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, model, executor, store, newLiveEventBus())
+	runtime.setRequestRouter(nativeFallbackLayaRouter{})
+
+	input := sessionRunInput{
+		Text: "Inspect the project",
+		Agent: "code",
+		Model: &sessionModelRef{ProviderID: layaRouterProviderID, ID: layaRouterModelID},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-model.finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Laya fallback did not reach the second routed model")
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role != "assistant" || message.Text != "LAYA_FALLBACK_OK" {
+					continue
+				}
+				if message.Model == nil || message.Model.ProviderID != layaRouterProviderID || message.Model.ID != layaRouterModelID {
+					t.Fatalf("assistant message should preserve selected Laya Router identity: %#v", message.Model)
+				}
+				if len(message.Activities) < 2 {
+					t.Fatalf("expected failed and fallback route activities, got %#v", message.Activities)
+				}
+				first := message.Activities[0]
+				second := message.Activities[1]
+				if first.Status != "failed" || first.Model == nil ||
+					first.Model.ProviderID != "first-provider" || first.Model.ID != "first-model" ||
+					first.Error == nil || !strings.Contains(strings.ToLower(first.Error.Message), "rate-limited") {
+					t.Fatalf("initial failed route was not preserved: %#v", first)
+				}
+				if second.Status != "completed" || second.Title != "Routed by Laya" || second.Model == nil ||
+					second.Model.ProviderID != "second-provider" || second.Model.ID != "second-model" {
+					t.Fatalf("fallback route was not persisted: %#v", second)
+				}
+				model.mu.Lock()
+				calls := model.calls
+				model.mu.Unlock()
+				if calls != 2 {
+					t.Fatalf("expected exactly two routed model calls, got %d", calls)
+				}
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Laya fallback result was not persisted: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

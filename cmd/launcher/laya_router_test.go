@@ -173,6 +173,9 @@ func TestLayaRouteFailureClassification(t *testing.T) {
 		{name: "rate limit", message: "model request failed with status 429: rate-limited", providerWide: false, ok: true},
 		{name: "model unavailable", message: "model_not_available", providerWide: false, ok: true},
 		{name: "bridge pairing", message: "Claude Web bridge is not paired", providerWide: true, ok: true},
+		{name: "provider unavailable", message: "provider unavailable", providerWide: false, ok: true},
+		{name: "temporary provider failure", message: "provider temporary failure", providerWide: false, ok: true},
+		{name: "service unavailable 500", message: "model request failed with status 500: service unavailable", providerWide: false, ok: true},
 		{name: "ordinary validation", message: "model returned an empty response", providerWide: false, ok: false},
 	}
 	for _, tc := range cases {

@@ -180,9 +180,14 @@ func classifyLayaRouteFailure(err error) (providerWide bool, cooldown time.Durat
 		strings.Contains(text, "rate limit") ||
 		strings.Contains(text, "too many requests"):
 		return false, 90 * time.Second, "Rate limited", true
-	case strings.Contains(text, "status 502") ||
+	case strings.Contains(text, "status 500") ||
+		strings.Contains(text, "status 502") ||
 		strings.Contains(text, "status 503") ||
 		strings.Contains(text, "status 504") ||
+		strings.Contains(text, "provider unavailable") ||
+		strings.Contains(text, "service unavailable") ||
+		strings.Contains(text, "upstream unavailable") ||
+		strings.Contains(text, "temporary failure") ||
 		strings.Contains(text, "overloaded") ||
 		strings.Contains(text, "temporarily unavailable") ||
 		strings.Contains(text, "timed out") ||
