@@ -485,7 +485,7 @@ func (s *layaRouterService) Status(ctx context.Context, project string) (layaRou
 	} else {
 		usable := 0
 		for _, candidate := range models {
-			if candidate.Enabled && candidate.Connected && candidate.Ready {
+			if candidate.Enabled && layaCandidateReady(candidate) {
 				usable++
 			}
 		}
@@ -613,6 +613,10 @@ func layaAnalyzePayload(payload map[string]any) (layaRouteAnalysis, error) {
 	return analysis, nil
 }
 
+func layaCandidateReady(candidate layaRouterCandidate) bool {
+	return candidate.Connected && (candidate.Ready || candidate.Availability == "")
+}
+
 func layaGroupRank(group string) int {
 	switch normalizeLayaModelGroup(group) {
 	case "free":
@@ -656,7 +660,7 @@ func chooseLayaCandidate(profile string, analysis layaRouteAnalysis, candidates 
 	profile = normalizeLayaRouterProfile(profile)
 	eligible := make([]layaRouterCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.Enabled && candidate.Connected && candidate.Ready {
+		if candidate.Enabled && layaCandidateReady(candidate) {
 			eligible = append(eligible, candidate)
 		}
 	}
