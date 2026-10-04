@@ -163,12 +163,15 @@ func newServer(state *appState) (http.Handler, error) {
 
 	processes := newProcessManager(state.projectPath)
 	plugins := newPluginManager(state, processes, permissionEngine)
+	layaRouter := newLayaRouterService(providerManager, plugins)
+	providerManager.setCatalogDecorator(layaRouter.decorateCatalog)
 	nativeTools := newNativeToolExecutor(processes, permissionEngine)
 	nativeTools.setPluginManager(plugins)
 	nativeTools.setQuestionManager(questions)
 
 	sessionRead := newSessionReadContract(state)
 	nativeAgent := newNativeAgentRuntime(providerManager, newNativeModelClient(chatGPTAccount, claudeAccount, claudeWebAccount), nativeTools, sessionRead.store, liveEvents.bus)
+	nativeAgent.setRequestRouter(layaRouter)
 	sessionRead.setNativeStatusProvider(nativeAgent)
 	sessionCommands := newSessionCommandContract(state, sessionRead, nativeAgent)
 
@@ -220,6 +223,7 @@ func newServer(state *appState) (http.Handler, error) {
 	registerJevRouterRoutes(mux, jevRouter)
 	registerDecisionEngineRoutes(mux, decisionEngines)
 	registerPluginRoutes(mux, state, plugins)
+	registerLayaRouterRoutes(mux, state, layaRouter)
 	registerToolRegistryRoutesWithPlugins(mux, plugins, state.projectPath)
 	registerSessionReadRoutes(mux, sessionRead)
 	registerSessionCommandRoutes(mux, sessionCommands)
