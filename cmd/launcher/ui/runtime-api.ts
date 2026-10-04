@@ -128,6 +128,18 @@ import { K } from "./kernel";
       }),
     },
 
+    layaRouter: {
+      status: () => K.request("/local/laya-router"),
+      configure: (input: TLStudioDynamicRecord) => K.request("/local/laya-router", {
+        method: "PUT",
+        ...body(input),
+      }),
+      preview: (prompt: string) => K.request("/local/laya-router/preview", {
+        method: "POST",
+        ...body({ prompt }),
+      }),
+    },
+
     tools: {
       registry: async () => {
         const payload = await K.request<any>("/local/tools");
