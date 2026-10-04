@@ -649,10 +649,13 @@ import { K } from "./kernel";
     }
 
     for (const model of visible) {
-      const row = document.createElement("div");
-      row.className = "laya-routing-model-row";
-      row.dataset.providerId = model.providerID;
-      row.dataset.modelId = model.modelID;
+      const card = document.createElement("article");
+      card.className = "laya-routing-model-card";
+      card.dataset.providerId = model.providerID;
+      card.dataset.modelId = model.modelID;
+
+      const head = document.createElement("div");
+      head.className = "laya-routing-model-head";
 
       const enabled = document.createElement("input");
       enabled.type = "checkbox";
@@ -669,8 +672,14 @@ import { K } from "./kernel";
       const name = document.createElement("strong");
       name.textContent = model.modelName || model.modelID;
       const meta = document.createElement("span");
-      meta.textContent = `${model.providerName || model.providerID} · ${model.availability || (model.ready ? "Ready" : model.connected ? "Unavailable" : "Not connected")}`;
+      meta.textContent = model.providerName || model.providerID;
       copy.append(name, meta);
+
+      const connection = document.createElement("span");
+      connection.className = `laya-routing-connection ${model.ready ? "connected" : ""}`;
+      connection.textContent = model.ready ? "Ready" : (model.availability || (model.connected ? "Unavailable" : "Offline"));
+      connection.title = model.availability || "";
+      head.append(enabled, copy, connection);
 
       const group = document.createElement("select");
       group.className = "laya-routing-model-group";
@@ -698,19 +707,30 @@ import { K } from "./kernel";
         patchLayaDraftModel(model.providerID, model.modelID, { quality: Number(quality.value || 3) });
         if (currentLayaProfile() === "quality" || currentLayaProfile() === "free") renderLayaRoutingModels();
       });
+
       const speed = scoreSelect("laya-routing-model-speed", model.speed, `Speed for ${model.modelName || model.modelID}`);
       speed.addEventListener("change", () => {
         patchLayaDraftModel(model.providerID, model.modelID, { speed: Number(speed.value || 3) });
         if (currentLayaProfile() === "speed") renderLayaRoutingModels();
       });
 
-      const connection = document.createElement("span");
-      connection.className = `laya-routing-connection ${model.ready ? "connected" : ""}`;
-      connection.textContent = model.ready ? "Ready" : (model.availability || (model.connected ? "Unavailable" : "Offline"));
-      connection.title = model.availability || "";
+      const controls = document.createElement("div");
+      controls.className = "laya-routing-model-controls";
+      for (const [label, control] of [
+        ["Cost", group],
+        ["Quality", quality],
+        ["Speed", speed],
+      ] as const) {
+        const field = document.createElement("label");
+        field.className = "laya-routing-model-control";
+        const caption = document.createElement("span");
+        caption.textContent = label;
+        field.append(caption, control);
+        controls.appendChild(field);
+      }
 
-      row.append(enabled, copy, group, quality, speed, connection);
-      layaRoutingModels.appendChild(row);
+      card.append(head, controls);
+      layaRoutingModels.appendChild(card);
     }
   };
 

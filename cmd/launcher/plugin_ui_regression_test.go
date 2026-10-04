@@ -249,6 +249,10 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 		"laya-routing-model-group",
 		"laya-routing-model-quality",
 		"laya-routing-model-speed",
+		"laya-routing-model-controls",
+		`["Cost", group]`,
+		`["Quality", quality]`,
+		`["Speed", speed]`,
 		"[\"free\", \"Free\"]",
 		"[\"included\", \"Included quota\"]",
 		"await K.loadCatalog?.().catch",
@@ -264,7 +268,9 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 	css := string(cssData)
 	for _, required := range []string{
 		".laya-routing-dialog-card",
-		".laya-routing-model-row",
+		".laya-routing-model-card",
+		".laya-routing-model-controls",
+		"grid-template-columns:repeat(3,minmax(0,1fr))",
 		".laya-routing-model-group",
 		".laya-routing-pool-summary",
 		".laya-routing-preview",
