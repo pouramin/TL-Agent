@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -614,7 +615,16 @@ func (m *pluginManager) CallPluginTool(ctx context.Context, project, pluginID, t
 	if err != nil {
 		return nil, err
 	}
-	output, err := client.CallTool(ctx, toolName, arguments)
+	call := func(target mcpPluginClient) (any, error) {
+		if concrete, ok := target.(*mcpClient); ok && pluginID == "laya" {
+			// The first local Laya decision may need to download and load its checkpoint.
+			// Keep normal Agent-facing MCP calls on the short timeout; only this explicit
+			// internal routing inference gets a longer cancellable window.
+			return concrete.callToolWithTimeout(ctx, toolName, arguments, 5*time.Minute)
+		}
+		return target.CallTool(ctx, toolName, arguments)
+	}
+	output, err := call(client)
 	if err == nil {
 		return output, nil
 	}
@@ -626,7 +636,7 @@ func (m *pluginManager) CallPluginTool(ctx context.Context, project, pluginID, t
 	if restartErr != nil {
 		return nil, err
 	}
-	return restarted.CallTool(ctx, toolName, arguments)
+	return call(restarted)
 }
 
 func (s *layaRouterService) Analyze(ctx context.Context, project, prompt string) (layaRouteAnalysis, error) {
