@@ -350,6 +350,7 @@ import { K } from "./kernel";
         blocks: [
           ["Routing decision", analysis],
           ["Reason", String(metadata.reason || "")],
+          ["Failure", errorText(item.error)],
         ],
       });
     }
