@@ -287,6 +287,8 @@ func TestJevDirectPluginSetupValidatesBeforeEnable(t *testing.T) {
 	for _, required := range []string{
 		`id="jevDirectDialog"`,
 		`id="jevDirectApiKey"`,
+		`id="jevDirectProfile"`,
+		`JEV Direct routing profile`,
 		`id="jevDirectSave"`,
 		"This path does not use OpenRouter.",
 	} {
@@ -300,7 +302,8 @@ func TestJevDirectPluginSetupValidatesBeforeEnable(t *testing.T) {
 		`preset.id === "jev-direct"`,
 		`actionButton("Configure", "jev-direct-config"`,
 		`actionButton("Test", "test", plugin.id`,
-		`K.api.plugins.update(plugin.id, pluginConfigForUpdate(plugin), { TYPESAFE_API_KEY: key })`,
+		`nextConfig.metadata = { ...(nextConfig.metadata || {}), profile: jevDirectProfile?.value || "balanced" }`,
+		`K.api.plugins.update(plugin.id, nextConfig, { TYPESAFE_API_KEY: key })`,
 		`setJevDirectStatus("Validating the TypeSafe API key…")`,
 		`await K.api.plugins.test(plugin.id)`,
 		`await K.api.plugins.setEnabled(plugin.id, true)`,

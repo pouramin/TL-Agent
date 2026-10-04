@@ -23,6 +23,7 @@ const (
 
 type jevDirectRouterStatus struct {
 	Available     bool                  `json:"available"`
+	Profile       string                `json:"profile"`
 	PluginEnabled bool                  `json:"pluginEnabled"`
 	KeyConfigured bool                  `json:"keyConfigured"`
 	ProviderID    string                `json:"providerID"`
@@ -139,6 +140,7 @@ func (s *jevDirectRouterService) Status(ctx context.Context, project string) (je
 		return status, nil
 	}
 	status.PluginEnabled = config.Enabled
+	status.Profile = jevDirectRoutingProfile(config)
 	if s.plugins.credentials != nil {
 		if key, keyErr := s.plugins.credentials.Get(pluginCredentialID(config, jevDirectAPIKeyEnv)); keyErr == nil && strings.TrimSpace(key) != "" {
 			status.KeyConfigured = true
@@ -160,12 +162,47 @@ func (s *jevDirectRouterService) Status(ctx context.Context, project string) (je
 	if err != nil {
 		return status, err
 	}
+	models = jevDirectCandidatesForProfile(models, status.Profile)
 	status.Models = models
 	status.Available = len(models) > 0
 	if !status.Available {
 		status.Message = "No connected tool-capable TL Studio models are available for JEV Direct."
 	}
 	return status, nil
+}
+
+func jevDirectRoutingProfile(config pluginConfig) string {
+	if config.Metadata == nil {
+		return "balanced"
+	}
+	return normalizeLayaRouterProfile(config.Metadata["profile"])
+}
+
+func jevDirectProfileInstruction(profile string) string {
+	switch normalizeLayaRouterProfile(profile) {
+	case "cost":
+		return "Optimize for the lowest practical cost. Strongly prefer free, included-quota, and budget models; use more expensive models only when the task clearly needs their extra capability."
+	case "quality":
+		return "Optimize for the highest answer and coding quality. Prefer the strongest capable model even when it costs more."
+	case "speed":
+		return "Optimize for low latency and fast completion while keeping enough quality for the request."
+	case "free":
+		return "Use only free models. Choose the best free candidate for the request and never select a paid model."
+	default:
+		return "Balance capability, speed, and cost. Use stronger or more expensive models only when the request materially benefits from them."
+	}
+}
+
+func jevDirectCandidatesForProfile(candidates []layaRouterCandidate, profile string) []layaRouterCandidate {
+	profile = normalizeLayaRouterProfile(profile)
+	result := make([]layaRouterCandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if profile == "free" && normalizeLayaModelGroup(candidate.Group) != "free" {
+			continue
+		}
+		result = append(result, candidate)
+	}
+	return result
 }
 
 func (s *jevDirectRouterService) Handles(model *sessionModelRef) bool {
@@ -193,7 +230,7 @@ func jevDirectRouteCriteria(candidates []layaRouterCandidate) (map[string]any, m
 	return criteria, lookup
 }
 
-func (s *jevDirectRouterService) evaluate(ctx context.Context, apiKey, prompt string, candidates []layaRouterCandidate) (nativeRouteSelection, error) {
+func (s *jevDirectRouterService) evaluate(ctx context.Context, apiKey, prompt string, candidates []layaRouterCandidate, profile string) (nativeRouteSelection, error) {
 	prompt = strings.TrimSpace(prompt)
 	if prompt == "" {
 		return nativeRouteSelection{}, errors.New("prompt is required for JEV Direct routing")
@@ -211,7 +248,7 @@ func (s *jevDirectRouterService) evaluate(ctx context.Context, apiKey, prompt st
 		"questions": map[string]any{
 			"route": map[string]any{
 				"type": "choice",
-				"instructions": "Choose the best available TL Studio model to execute this coding Agent request. Balance task difficulty, model quality, speed, and cost information in the criteria. Return exactly one candidate.",
+				"instructions": "Choose the best available TL Studio model to execute this coding Agent request. " + jevDirectProfileInstruction(profile) + " Use the cost group, quality, speed, and task difficulty information in the criteria. Return exactly one candidate.",
 				"criteria": routeCriteria,
 			},
 			"difficulty": map[string]any{
@@ -329,7 +366,7 @@ func (s *jevDirectRouterService) evaluate(ctx context.Context, apiKey, prompt st
 		ProviderName: selected.ProviderName,
 		ModelID: selected.ModelID,
 		ModelName: selected.ModelName,
-		Profile: "jev-direct",
+		Profile: normalizeLayaRouterProfile(profile),
 		Group: selected.Group,
 		Quality: selected.Quality,
 		Speed: selected.Speed,
@@ -343,15 +380,23 @@ func (s *jevDirectRouterService) evaluate(ctx context.Context, apiKey, prompt st
 }
 
 func (s *jevDirectRouterService) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
-	_, key, err := s.apiKey(project)
+	config, key, err := s.apiKey(project)
 	if err != nil {
 		return nativeRouteSelection{}, err
 	}
+	profile := jevDirectRoutingProfile(config)
 	candidates, err := s.candidates(ctx, project)
 	if err != nil {
 		return nativeRouteSelection{}, err
 	}
-	return s.evaluate(ctx, key, prompt, candidates)
+	candidates = jevDirectCandidatesForProfile(candidates, profile)
+	if len(candidates) == 0 {
+		if profile == "free" {
+			return nativeRouteSelection{}, errors.New("JEV Direct Free only profile has no ready free models")
+		}
+		return nativeRouteSelection{}, errors.New("JEV Direct has no ready models for the selected routing profile")
+	}
+	return s.evaluate(ctx, key, prompt, candidates, profile)
 }
 
 func (s *jevDirectRouterService) Fallback(
@@ -364,14 +409,20 @@ func (s *jevDirectRouterService) Fallback(
 	if s == nil || s.health == nil || !s.health.markRouteFailure(previous, failure) {
 		return nativeRouteSelection{}, false, nil
 	}
+	config, found, configErr := s.pluginConfig(project)
+	if configErr != nil || !found {
+		return nativeRouteSelection{}, false, configErr
+	}
+	profile := jevDirectRoutingProfile(config)
 	candidates, err := s.candidates(ctx, project)
 	if err != nil {
 		return nativeRouteSelection{}, false, err
 	}
+	candidates = jevDirectCandidatesForProfile(candidates, profile)
 	for index := range candidates {
 		candidates[index].Enabled = true
 	}
-	selected, reason, err := chooseLayaCandidate("balanced", previous.Analysis, candidates)
+	selected, reason, err := chooseLayaCandidate(profile, previous.Analysis, candidates)
 	if err != nil {
 		return nativeRouteSelection{}, false, nil
 	}
@@ -383,7 +434,7 @@ func (s *jevDirectRouterService) Fallback(
 		ProviderName: selected.ProviderName,
 		ModelID: selected.ModelID,
 		ModelName: selected.ModelName,
-		Profile: "jev-direct",
+		Profile: profile,
 		Group: selected.Group,
 		Quality: selected.Quality,
 		Speed: selected.Speed,

@@ -55,7 +55,7 @@ func TestJevDirectEvaluateChoosesTypeSafeRoute(t *testing.T) {
 		{ProviderID:"cheap", ProviderName:"Cheap", ModelID:"mini", ModelName:"Mini", Connected:true, Ready:true, Enabled:true, Group:"budget", Quality:3, Speed:5},
 		{ProviderID:"strong", ProviderName:"Strong", ModelID:"pro", ModelName:"Pro", Connected:true, Ready:true, Enabled:true, Group:"standard", Quality:5, Speed:3},
 	}
-	selection, err := service.evaluate(context.Background(), "tsf_test_key", "inspect and fix the repository", candidates)
+	selection, err := service.evaluate(context.Background(), "tsf_test_key", "inspect and fix the repository", candidates, "balanced")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,5 +127,25 @@ func TestJevDirectPluginTestValidatesCredentialAndModel(t *testing.T) {
 	manager := &pluginManager{credentials: credentials}
 	if err := (jevDirectPluginIntegration{}).Test(context.Background(), manager, config, ""); err != nil {
 		t.Fatalf("JEV Direct credential test failed: %v", err)
+	}
+}
+
+
+func TestJevDirectFreeOnlyProfileExcludesPaidCandidates(t *testing.T) {
+	candidates := []layaRouterCandidate{
+		{ProviderID:"free", ModelID:"f", Ready:true, Group:"free"},
+		{ProviderID:"paid", ModelID:"p", Ready:true, Group:"premium"},
+	}
+	filtered := jevDirectCandidatesForProfile(candidates, "free")
+	if len(filtered) != 1 || filtered[0].ProviderID != "free" {
+		t.Fatalf("Free only candidate pool = %#v", filtered)
+	}
+}
+
+func TestJevDirectProfilesExposeDistinctOptimizationInstructions(t *testing.T) {
+	for _, profile := range []string{"balanced", "cost", "quality", "speed", "free"} {
+		if text := jevDirectProfileInstruction(profile); strings.TrimSpace(text) == "" {
+			t.Fatalf("profile %q has no JEV routing instruction", profile)
+		}
 	}
 }

@@ -42,6 +42,7 @@ func (jevDirectPluginIntegration) Snapshot(config pluginConfig, project string) 
 			"endpoint": firstSessionString(config.Metadata["endpoint"], jevDirectEndpoint),
 			"model": firstSessionString(config.Metadata["model"], jevDirectModel),
 			"apiKeyConfigured": boolText(configured),
+			"profile": jevDirectRoutingProfile(config),
 		},
 	}
 	if configured {

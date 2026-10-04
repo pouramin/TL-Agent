@@ -35,6 +35,7 @@ import { K } from "./kernel";
   const jevDirectCancel = document.getElementById("jevDirectCancel") as HTMLButtonElement | null;
   const jevDirectSave = document.getElementById("jevDirectSave") as HTMLButtonElement | null;
   const jevDirectApiKey = document.getElementById("jevDirectApiKey") as HTMLInputElement | null;
+  const jevDirectProfile = document.getElementById("jevDirectProfile") as HTMLSelectElement | null;
   const jevDirectStatus = document.getElementById("jevDirectStatus");
   const layaRoutingDialog = document.getElementById("layaRoutingDialog") as HTMLDialogElement | null;
   const layaRoutingClose = document.getElementById("layaRoutingClose") as HTMLButtonElement | null;
@@ -138,6 +139,7 @@ import { K } from "./kernel";
   const openJevDirectDialog = (plugin?: TLStudioPluginView | null) => {
     if (!jevDirectDialog || !jevDirectApiKey) return;
     jevDirectApiKey.value = "";
+    if (jevDirectProfile) jevDirectProfile.value = String(plugin?.metadata?.profile || "balanced");
     setJevDirectStatus(
       jevDirectConfigured(plugin)
         ? "A TypeSafe API key is already stored. Leave the field blank to keep it, or enter a new key to replace it."
@@ -768,10 +770,12 @@ import { K } from "./kernel";
     busy(jevDirectSave, true, "Saving…");
     setJevDirectStatus("Saving the TypeSafe credential and enabling JEV Direct…");
     try {
-      if (plugin.enabled && key) {
+      if (plugin.enabled) {
         await K.api.plugins.setEnabled(plugin.id, false);
       }
-      await K.api.plugins.update(plugin.id, pluginConfigForUpdate(plugin), { TYPESAFE_API_KEY: key });
+      const nextConfig = pluginConfigForUpdate(plugin);
+      nextConfig.metadata = { ...(nextConfig.metadata || {}), profile: jevDirectProfile?.value || "balanced" };
+      await K.api.plugins.update(plugin.id, nextConfig, { TYPESAFE_API_KEY: key });
       setJevDirectStatus("Validating the TypeSafe API key…");
       await K.api.plugins.test(plugin.id);
       await K.api.plugins.setEnabled(plugin.id, true);

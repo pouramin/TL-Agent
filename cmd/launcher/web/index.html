@@ -318,6 +318,17 @@
       </div>
       <div class="jev-direct-body">
         <label class="jev-direct-key-field">
+          <span>Routing profile</span>
+          <select id="jevDirectProfile" aria-label="JEV Direct routing profile">
+            <option value="balanced">Balanced</option>
+            <option value="cost">Lowest cost</option>
+            <option value="quality">Best quality</option>
+            <option value="speed">Fastest</option>
+            <option value="free">Free only</option>
+          </select>
+          <small>Controls which trade-off JEV should optimize when choosing from TL Studio's ready models.</small>
+        </label>
+        <label class="jev-direct-key-field">
           <span>TypeSafe API key</span>
           <input id="jevDirectApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="TYPESAFE_API_KEY" />
           <small>The key is stored in TL Studio's local credential vault and is never shown again after save.</small>
