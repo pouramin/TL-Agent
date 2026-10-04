@@ -330,14 +330,19 @@ import { K } from "./kernel";
     const scope = document.createElement("span");
     scope.className = "plugin-catalog-scope";
     const scopeText = plugin.scope === "global" ? "All projects" : "Current project";
-    scope.textContent = `${scopeText} · ${plugin.discoveredTools || 0} tools`;
+    scope.textContent = plugin.type === "router"
+      ? `${scopeText} · Router`
+      : `${scopeText} · ${plugin.discoveredTools || 0} tools`;
 
     const actions = document.createElement("div");
     actions.className = "plugin-catalog-actions";
     if (preset.id === "jev-direct") {
       actions.append(actionButton("Configure", "jev-direct-config", plugin.id, "ghost small"));
       if (jevDirectConfigured(plugin)) {
-        actions.append(actionButton(plugin.enabled ? "Disable" : "Enable", "toggle", plugin.id, plugin.enabled ? "ghost small" : "primary small"));
+        actions.append(
+          actionButton("Test", "test", plugin.id, "ghost small"),
+          actionButton(plugin.enabled ? "Disable" : "Enable", "toggle", plugin.id, plugin.enabled ? "ghost small" : "primary small"),
+        );
       }
     } else {
       actions.append(
@@ -447,7 +452,7 @@ import { K } from "./kernel";
 
     appendSection(
       "Available integrations",
-      "Curated integrations install and enable themselves when you choose Add.",
+      "Curated integrations install themselves when you choose Add. Integrations that need credentials will ask you to finish setup before enabling.",
       available,
       "All curated integrations are added",
       "You can still add any compatible stdio MCP server with Add plugin.",
@@ -763,13 +768,20 @@ import { K } from "./kernel";
     busy(jevDirectSave, true, "Saving…");
     setJevDirectStatus("Saving the TypeSafe credential and enabling JEV Direct…");
     try {
+      if (plugin.enabled && key) {
+        await K.api.plugins.setEnabled(plugin.id, false);
+      }
       await K.api.plugins.update(plugin.id, pluginConfigForUpdate(plugin), { TYPESAFE_API_KEY: key });
+      setJevDirectStatus("Validating the TypeSafe API key…");
+      await K.api.plugins.test(plugin.id);
       await K.api.plugins.setEnabled(plugin.id, true);
       await load();
       await K.loadCatalog?.().catch(() => {});
       setJevDirectStatus("JEV Direct Router is enabled.", "success");
       closeJevDirectDialog();
     } catch (error) {
+      await load().catch(() => {});
+      await K.loadCatalog?.().catch(() => {});
       setJevDirectStatus((error as Error).message || String(error), "error");
     } finally {
       busy(jevDirectSave, false);
