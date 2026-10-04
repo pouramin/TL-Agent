@@ -71,9 +71,10 @@ func availablePluginCatalog() []pluginCatalogEntry {
 				"TYPESAFE_API_KEY": "",
 			},
 			Metadata: map[string]string{
-				"integration": "jev-direct",
-				"endpoint":    "https://api.typesafe.ai/v1/systemone",
-				"model":       "jev-latest",
+				"integration":    "jev-direct",
+				"endpoint":       jevDirectEndpoint,
+				"modelsEndpoint": jevDirectModelsEndpoint,
+				"model":          jevDirectModel,
 			},
 		},
 		{
