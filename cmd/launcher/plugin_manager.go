@@ -852,6 +852,13 @@ func (m *pluginManager) TestSaved(ctx context.Context, project, id string) (plug
 		if err := validatePluginIntegrationStart(config, project); err != nil {
 			return pluginView{pluginConfig: config, Status: "Error", Error: err.Error(), Integration: pluginIntegrationSnapshot(config, project)}, err
 		}
+		if integration := pluginIntegrationFor(config); integration != nil {
+			if tester, ok := integration.(pluginIntegrationTester); ok {
+				if err := tester.Test(ctx, m, config, project); err != nil {
+					return pluginView{pluginConfig: config, Status: "Error", Error: err.Error(), Integration: pluginIntegrationSnapshot(config, project)}, err
+				}
+			}
+		}
 		return pluginView{pluginConfig: config, Status: "Connected", Integration: pluginIntegrationSnapshot(config, project)}, nil
 	}
 	env, err := m.configEnvironment(config)
