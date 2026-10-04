@@ -579,6 +579,11 @@ func (r *nativeAgentRuntime) persistFailure(directory, sessionID string, input s
 	if errors.Is(runErr, context.Canceled) {
 		errorType = "cancelled"
 	}
+	activities := []sessionActivityView{}
+	var routedErr *nativeRoutedRunError
+	if errors.As(runErr, &routedErr) && routedErr != nil {
+		activities = append(activities, routedErr.activities...)
+	}
 	_ = r.store.putNativeMessage(sessionID, directory, sessionMessageView{
 		ID:          "tlsm_" + messageID,
 		SessionID:   sessionID,
@@ -588,7 +593,7 @@ func (r *nativeAgentRuntime) persistFailure(directory, sessionID string, input s
 		CreatedAt:   now,
 		CompletedAt: now,
 		Error:       &sessionErrorView{Type: errorType, Message: runErr.Error()},
-		Activities:  []sessionActivityView{},
+		Activities:  activities,
 		Attachments: []sessionAttachmentView{},
 		Usage:       sessionUsage{},
 		Changes:     []sessionChangeView{},
