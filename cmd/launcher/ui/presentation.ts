@@ -330,7 +330,7 @@ import { K } from "./kernel";
   };
 
   const activityNode = (item: any) => {
-    if (item?.kind === "model" && item?.metadata?.source === "laya-model-router") {
+    if (item?.kind === "model" && ["laya-model-router", "typesafe-system-one"].includes(String(item?.metadata?.source || ""))) {
       const metadata = item.metadata || {};
       const modelName = String(metadata.modelName || item?.model?.id || "").trim();
       const providerName = String(metadata.providerName || item?.model?.providerID || "").trim();
@@ -344,7 +344,7 @@ import { K } from "./kernel";
         metadata.sensitive !== undefined ? `Sensitive: ${Number(metadata.sensitive).toFixed(2)}` : "",
       ].filter(Boolean).join(" · ");
       return activityCard({
-        title: item.title || "Routed by Laya",
+        title: item.title || `Routed by ${String(metadata.routerName || (metadata.source === "typesafe-system-one" ? "JEV Direct" : "Laya"))}`,
         status: item.status || "completed",
         meta: summary,
         blocks: [
