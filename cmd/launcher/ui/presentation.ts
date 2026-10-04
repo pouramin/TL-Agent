@@ -330,6 +330,30 @@ import { K } from "./kernel";
   };
 
   const activityNode = (item: any) => {
+    if (item?.kind === "model" && item?.metadata?.source === "laya-model-router") {
+      const metadata = item.metadata || {};
+      const modelName = String(metadata.modelName || item?.model?.id || "").trim();
+      const providerName = String(metadata.providerName || item?.model?.providerID || "").trim();
+      const profile = String(metadata.profile || "").trim();
+      const group = String(metadata.group || "").trim();
+      const summary = [modelName, providerName, profile ? `${profile} profile` : "", group].filter(Boolean).join(" · ");
+      const analysis = [
+        metadata.domain ? `Domain: ${metadata.domain}` : "",
+        metadata.difficulty !== undefined ? `Difficulty: ${Number(metadata.difficulty).toFixed(2)}/3` : "",
+        metadata.needsTools !== undefined ? `Needs tools: ${Number(metadata.needsTools).toFixed(2)}` : "",
+        metadata.sensitive !== undefined ? `Sensitive: ${Number(metadata.sensitive).toFixed(2)}` : "",
+      ].filter(Boolean).join(" · ");
+      return activityCard({
+        title: item.title || "Routed by Laya",
+        status: item.status || "completed",
+        meta: summary,
+        blocks: [
+          ["Routing decision", analysis],
+          ["Reason", String(metadata.reason || "")],
+        ],
+      });
+    }
+
     if (item?.kind === "reasoning" && item.text) {
       return activityCard({
         title: "Reasoning",
