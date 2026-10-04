@@ -417,19 +417,22 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 }
 
 
-func TestProviderSettingsKeepsSharedFixedWindowWidth(t *testing.T) {
+func TestProviderSettingsUsesSharedSettingsScroll(t *testing.T) {
 	bridge := readBrowserSource(t, "providers-settings-bridge.ts")
-	if !strings.Contains(bridge, `max-height: min(72vh, 690px)`) {
-		t.Fatal("provider panel must retain its internal scrolling height")
-	}
 	for _, forbidden := range []string{
 		`settings-window-providers`,
 		`width: min(980px`,
 		`new MutationObserver(syncProviderWindowMode)`,
+		`max-height: min(72vh, 690px)`,
+		`overflow-y: auto`,
+		`scrollbar-gutter: stable`,
 	} {
 		if strings.Contains(bridge, forbidden) {
-			t.Fatalf("Providers must not change the shared Settings width; found %q", forbidden)
+			t.Fatalf("Providers must use the shared Settings size and scrollbar; found %q", forbidden)
 		}
+	}
+	if !strings.Contains(bridge, "shared Settings content owns vertical scrolling") {
+		t.Fatal("provider bridge must document that Settings owns the only vertical scrollbar")
 	}
 }
 
