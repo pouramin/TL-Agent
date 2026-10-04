@@ -128,8 +128,7 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	css := string(cssData)
 	for _, required := range []string{
-		".settings-window { width: min(920px, calc(100vw - 36px));",
-		".settings-window.settings-window-plugins",
+		".settings-window { box-sizing:border-box; width:920px; min-width:920px; max-width:calc(100vw - 36px);",
 		".plugin-catalog-grid",
 		".plugin-catalog-card",
 		".plugin-catalog-logo",

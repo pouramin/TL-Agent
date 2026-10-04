@@ -45,7 +45,7 @@ func availablePluginCatalog() []pluginCatalogEntry {
 			Category:    "Code intelligence",
 			Icon:        "/plugin-graphify.svg",
 			Type:        pluginTypeMCP,
-			Scope:       "project",
+			Scope:       "global",
 			Transport:   pluginTransportStdio,
 			PackageSpec: "graphifyy[mcp]",
 			Executable:  "graphify-mcp",

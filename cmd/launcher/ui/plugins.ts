@@ -11,7 +11,6 @@ import { K } from "./kernel";
 
   const panel = document.querySelector<HTMLElement>('[data-settings-panel="plugins"]');
   const settingsDialog = document.getElementById("settingsDialog") as HTMLDialogElement | null;
-  const settingsWindow = settingsDialog?.querySelector<HTMLElement>(".settings-window") || null;
   const list = document.getElementById("pluginList");
   const editor = document.getElementById("pluginEditor");
   const pluginDialog = document.getElementById("pluginDialog") as HTMLDialogElement | null;
@@ -45,11 +44,6 @@ import { K } from "./kernel";
   let layaRoutingSnapshot: TLStudioLayaRouterStatus | null = null;
   let layaRoutingDraftModels: TLStudioLayaRouterModel[] = [];
   if (!panel || !list || !editor || !pluginDialog || !addButton || !nameInput || !commandInput || !argsInput || !transportSelect || !scopeSelect || !cwdInput || !envInput || !editID) return;
-
-  const syncPluginWindowMode = () => settingsWindow?.classList.toggle("settings-window-plugins", !panel.classList.contains("hidden"));
-  const pluginPanelObserver = new MutationObserver(syncPluginWindowMode);
-  pluginPanelObserver.observe(panel, { attributes: true, attributeFilter: ["class"] });
-  syncPluginWindowMode();
 
   const setStatus = (message = "", kind = "") => {
     if (!status) return;

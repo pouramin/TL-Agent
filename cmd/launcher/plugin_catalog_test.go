@@ -56,3 +56,35 @@ func TestPluginCatalogResponseHidesInstallerCommands(t *testing.T) {
 		}
 	}
 }
+
+
+func TestGraphifyCatalogInstallsGloballyButKeepsProjectGraph(t *testing.T) {
+	entry, ok := pluginCatalogEntryByID("graphify")
+	if !ok {
+		t.Fatal("Graphify catalog entry missing")
+	}
+	if entry.Scope != "global" {
+		t.Fatalf("Graphify scope = %q, want global", entry.Scope)
+	}
+	if entry.Metadata["graphPath"] != "graphify-out/graph.json" {
+		t.Fatalf("Graphify graph path = %q", entry.Metadata["graphPath"])
+	}
+	config := pluginConfig{
+		ID: "graphify",
+		Name: "Graphify",
+		Type: pluginTypeMCP,
+		Scope: "global",
+		Transport: pluginTransportStdio,
+		Command: "graphify-mcp",
+		Arguments: []string{"graphify-out/graph.json"},
+		Metadata: map[string]string{"integration": "graphify", "graphPath": "graphify-out/graph.json"},
+	}
+	first := t.TempDir()
+	second := t.TempDir()
+	if got, err := pluginWorkingDirectory(config, first); err != nil || got != first {
+		t.Fatalf("global Graphify cwd for first project = %q, %v", got, err)
+	}
+	if got, err := pluginWorkingDirectory(config, second); err != nil || got != second {
+		t.Fatalf("global Graphify cwd for second project = %q, %v", got, err)
+	}
+}
