@@ -278,3 +278,42 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 		}
 	}
 }
+
+
+func TestJevDirectPluginSetupValidatesBeforeEnable(t *testing.T) {
+	indexData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexData)
+	for _, required := range []string{
+		`id="jevDirectDialog"`,
+		`id="jevDirectApiKey"`,
+		`id="jevDirectSave"`,
+		"This path does not use OpenRouter.",
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("JEV Direct setup surface missing %q", required)
+		}
+	}
+
+	source := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		`preset.id === "jev-direct"`,
+		`actionButton("Configure", "jev-direct-config"`,
+		`actionButton("Test", "test", plugin.id`,
+		`K.api.plugins.update(plugin.id, pluginConfigForUpdate(plugin), { TYPESAFE_API_KEY: key })`,
+		`setJevDirectStatus("Validating the TypeSafe API key…")`,
+		`await K.api.plugins.test(plugin.id)`,
+		`await K.api.plugins.setEnabled(plugin.id, true)`,
+		`plugin.type === "router"`,
+		`${scopeText} · Router`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("JEV Direct browser setup missing %q", required)
+		}
+	}
+	testIndex := strings.Index(source, `await K.api.plugins.test(plugin.id)`)
+	enableIndex := strings.Index(source, `await K.api.plugins.setEnabled(plugin.id, true)`)
+	if testIndex < 0 || enableIndex < 0 || testIndex > enableIndex {
+		t.Fatal("JEV Direct must validate the saved TypeSafe credential before enabling the router")
+	}
+}
