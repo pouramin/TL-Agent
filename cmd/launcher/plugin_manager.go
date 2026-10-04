@@ -780,6 +780,16 @@ func (m *pluginManager) SetEnabled(project, id string, enabled bool) (pluginView
 			view := m.viewConfig(project, config, false)
 			return view, err
 		}
+		if config.Type == pluginTypeRouter {
+			if integration := pluginIntegrationFor(config); integration != nil {
+				if tester, ok := integration.(pluginIntegrationTester); ok {
+					if err := tester.Test(context.Background(), m, config, project); err != nil {
+						view := m.viewConfig(project, config, false)
+						return view, err
+					}
+				}
+			}
+		}
 	}
 	config.Enabled = enabled
 	if err := m.store.upsert(config); err != nil {
