@@ -34,6 +34,7 @@ type nativeAgentRuntime struct {
 	tools             *nativeToolExecutor
 	store             *sessionPersistenceStore
 	events            *liveEventBus
+	requestRouter     nativeRequestRouter
 	modelTurnTimeout  time.Duration
 
 	mu   sync.Mutex
@@ -58,6 +59,12 @@ func newNativeAgentRuntime(
 	}
 }
 
+func (r *nativeAgentRuntime) setRequestRouter(router nativeRequestRouter) {
+	if r != nil {
+		r.requestRouter = router
+	}
+}
+
 func (r *nativeAgentRuntime) supports(input sessionRunInput) bool {
 	if r == nil || r.resolver == nil || input.Model == nil {
 		return false
@@ -66,6 +73,9 @@ func (r *nativeAgentRuntime) supports(input sessionRunInput) bool {
 	modelID := strings.TrimSpace(input.Model.ID)
 	if providerID == "" || modelID == "" {
 		return false
+	}
+	if r.requestRouter != nil && r.requestRouter.Handles(input.Model) {
+		return true
 	}
 	_, _, _, err := r.resolver.resolveNativeModel(context.Background(), providerID, modelID)
 	return err == nil
@@ -221,6 +231,46 @@ func nativeRoutedModelActivity(provider tlProviderDefinition, model tlProviderMo
 	}}
 }
 
+func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityView {
+	return sessionActivityView{
+		Kind:   "model",
+		Status: "completed",
+		Title:  "Routed by Laya",
+		Model:  &sessionModelRef{ProviderID: selection.ProviderID, ID: selection.ModelID},
+		Metadata: map[string]any{
+			"source":        "laya-model-router",
+			"profile":       selection.Profile,
+			"group":         selection.Group,
+			"quality":       selection.Quality,
+			"speed":         selection.Speed,
+			"reason":        selection.Reason,
+			"difficulty":    selection.Analysis.Difficulty,
+			"domain":        selection.Analysis.Domain,
+			"needsTools":    selection.Analysis.NeedsTools,
+			"sensitive":     selection.Analysis.Sensitive,
+			"layaCheckpoint": selection.Analysis.Checkpoint,
+			"layaReason":    selection.Analysis.LayaReason,
+			"layaLatencyMs": selection.Analysis.LatencyMS,
+		},
+	}
+}
+
+func nativeRoutingPrompt(input sessionRunInput) string {
+	if text := strings.TrimSpace(input.Text); text != "" {
+		return text
+	}
+	parts := make([]string, 0, len(input.Parts))
+	for _, part := range input.Parts {
+		if !strings.EqualFold(strings.TrimSpace(fmt.Sprint(part["type"])), "text") {
+			continue
+		}
+		if text := strings.TrimSpace(fmt.Sprint(part["text"])); text != "" && text != "<nil>" {
+			parts = append(parts, text)
+		}
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n"))
+}
+
 func nativeToolResultMessage(result nativeToolResult) string {
 	payload := map[string]any{
 		"ok":      result.Error == "",
@@ -241,7 +291,21 @@ func nativeToolResultMessage(result nativeToolResult) string {
 }
 
 func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID string, input sessionRunInput) error {
-	provider, model, apiKey, err := r.resolver.resolveNativeModel(ctx, input.Model.ProviderID, input.Model.ID)
+	displayModel := input.Model
+	var routeSelection *nativeRouteSelection
+
+	providerID := input.Model.ProviderID
+	modelID := input.Model.ID
+	if r.requestRouter != nil && r.requestRouter.Handles(input.Model) {
+		selection, routeErr := r.requestRouter.Route(ctx, directory, nativeRoutingPrompt(input))
+		if routeErr != nil {
+			return routeErr
+		}
+		routeSelection = &selection
+		providerID = selection.ProviderID
+		modelID = selection.ModelID
+	}
+	provider, model, apiKey, err := r.resolver.resolveNativeModel(ctx, providerID, modelID)
 	if err != nil {
 		return err
 	}
@@ -257,6 +321,16 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 
 	repeated := map[string]int{}
 	toolRounds := 0
+	routeActivityPending := routeSelection != nil
+	responseActivities := func(response nativeModelResponse) []sessionActivityView {
+		activities := []sessionActivityView{}
+		if routeActivityPending && routeSelection != nil {
+			activities = append(activities, nativeRequestRouteActivity(*routeSelection))
+			routeActivityPending = false
+		}
+		activities = append(activities, nativeRoutedModelActivity(provider, model, response)...)
+		return activities
+	}
 	for iteration := 1; iteration <= nativeAgentMaxIterations; iteration++ {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -300,11 +374,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				SessionID:   sessionID,
 				Role:        "assistant",
 				Agent:       firstSessionString(input.Agent, "code"),
-				Model:       &sessionModelRef{ProviderID: provider.ID, ID: model.ID},
+				Model:       displayModel,
 				CreatedAt:   now,
 				CompletedAt: now,
 				Text:        strings.TrimSpace(response.Text),
-				Activities:  nativeRoutedModelActivity(provider, model, response),
+				Activities:  responseActivities(response),
 				Attachments: []sessionAttachmentView{},
 				Usage:       response.Usage,
 				Changes:     []sessionChangeView{},
@@ -336,10 +410,10 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			SessionID:   sessionID,
 			Role:        "assistant",
 			Agent:       firstSessionString(input.Agent, "code"),
-			Model:       &sessionModelRef{ProviderID: provider.ID, ID: model.ID},
+			Model:       displayModel,
 			CreatedAt:   now,
 			Text:        strings.TrimSpace(response.Text),
-			Activities:  nativeRoutedModelActivity(provider, model, response),
+			Activities:  responseActivities(response),
 			Attachments: []sessionAttachmentView{},
 			Usage:       response.Usage,
 			Changes:     []sessionChangeView{},
