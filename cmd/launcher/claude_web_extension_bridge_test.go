@@ -175,7 +175,8 @@ func TestClaudeWebExtensionReusesPersistentPageContext(t *testing.T) {
 		"executeClaudeWebCommandWithRepair",
 		"repairClaudeWebExtensionPairing",
 		"not paired with this TL Studio origin",
-		"token: cleanToken",
+		"executeClaudeWebCommandWithRepair(cleanToken, command)",
+		"token,",
 	} {
 		if !strings.Contains(accounts, required) { t.Fatalf("provider UI missing extension relay contract %q", required) }
 	}
