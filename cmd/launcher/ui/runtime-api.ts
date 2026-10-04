@@ -51,6 +51,10 @@ import { K } from "./kernel";
     health: () => K.request("/local/health"),
     path: () => K.request("/local/path"),
 
+    updates: {
+      status: () => K.request("/local/update"),
+      apply: () => K.request("/local/update", { method: "POST" }),
+    },
 
     agents: async () => {
       const payload = await K.request("/local/agents");
@@ -128,6 +132,18 @@ import { K } from "./kernel";
       }),
     },
 
+    layaRouter: {
+      status: () => K.request("/local/laya-router"),
+      configure: (input: TLStudioDynamicRecord) => K.request("/local/laya-router", {
+        method: "PUT",
+        ...body(input),
+      }),
+      preview: (input: TLStudioDynamicRecord) => K.request("/local/laya-router/preview", {
+        method: "POST",
+        ...body(input),
+      }),
+    },
+
     tools: {
       registry: async () => {
         const payload = await K.request<any>("/local/tools");
@@ -136,6 +152,14 @@ import { K } from "./kernel";
     },
 
     plugins: {
+      catalog: async () => {
+        const payload = await K.request("/local/plugins/catalog");
+        return Array.isArray(payload) ? payload : [];
+      },
+      installCatalog: (pluginID: string) => K.request(`/local/plugin-catalog/${enc(pluginID)}/install`, {
+        method: "POST",
+        ...body({ confirmed: true }),
+      }),
       list: async () => {
         const payload = await K.request("/local/plugins");
         return Array.isArray(payload) ? payload : [];

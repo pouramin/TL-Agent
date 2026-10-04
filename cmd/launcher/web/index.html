@@ -230,6 +230,18 @@
               <span id="versionLabel" class="about-version">Local runtime</span>
             </div>
 
+            <div id="aboutUpdateCard" class="about-update-card">
+              <div class="about-update-copy">
+                <strong>Updates</strong>
+                <span id="aboutUpdateStatus">Check GitHub Releases for a newer TL Studio build.</span>
+              </div>
+              <div class="about-update-actions">
+                <a id="aboutUpdateReleaseLink" class="about-update-link hidden" href="https://github.com/pouramin/TL-Studio/releases" target="_blank" rel="noopener noreferrer">Release notes ↗</a>
+                <button id="aboutUpdateCheck" class="ghost small" type="button">Check for updates</button>
+                <button id="aboutUpdateApply" class="primary small hidden" type="button">Update</button>
+              </div>
+            </div>
+
             <div class="about-links" aria-label="TL Studio links">
               <a class="about-link" href="https://github.com/pouramin/TL-Studio" target="_blank" rel="noopener noreferrer">
                 <span class="about-link-icon github-icon" aria-hidden="true">
@@ -290,6 +302,101 @@
           <button id="pluginTestButton" class="ghost small" type="button">Test Connection</button>
           <button id="pluginSaveButton" class="primary small" type="button">Done</button>
         </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="jevDirectDialog">
+    <div class="dialog-card jev-direct-dialog-card">
+      <div class="plugin-dialog-head">
+        <div>
+          <div class="laya-routing-kicker">TypeSafe API</div>
+          <h2>JEV Direct Router</h2>
+          <p>Use TypeSafe JEV directly to choose among TL Studio's connected Agent models. This path does not use OpenRouter.</p>
+        </div>
+        <button id="jevDirectClose" class="icon-button" type="button" aria-label="Close JEV Direct settings">×</button>
+      </div>
+      <div class="jev-direct-body">
+        <label class="jev-direct-key-field">
+          <span>Routing profile</span>
+          <select id="jevDirectProfile" aria-label="JEV Direct routing profile">
+            <option value="balanced">Balanced</option>
+            <option value="cost">Lowest cost</option>
+            <option value="quality">Best quality</option>
+            <option value="speed">Fastest</option>
+            <option value="free">Free only</option>
+          </select>
+          <small>Controls which trade-off JEV should optimize when choosing from TL Studio's ready models.</small>
+        </label>
+        <label class="jev-direct-key-field">
+          <span>TypeSafe API key</span>
+          <input id="jevDirectApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="TYPESAFE_API_KEY" />
+          <small>The key is stored in TL Studio's local credential vault and is never shown again after save.</small>
+        </label>
+        <div class="jev-direct-note">
+          JEV only makes the routing decision. TL Studio still owns the Agent loop, tools, permissions, files, terminal, sessions, and the final model request.
+        </div>
+        <div id="jevDirectStatus" class="plugin-editor-status"></div>
+        <div class="plugin-editor-actions">
+          <button id="jevDirectCancel" class="ghost small" type="button">Cancel</button>
+          <button id="jevDirectSave" class="primary small" type="button">Save &amp; enable</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="layaRoutingDialog">
+    <div class="dialog-card laya-routing-dialog-card">
+      <div class="plugin-dialog-head">
+        <div>
+          <div class="laya-routing-kicker">Laya Router</div>
+          <h2>Model routing</h2>
+          <p>Laya analyzes each request, then TL Studio chooses one of your enabled models using the policy below.</p>
+        </div>
+        <button id="layaRoutingClose" class="icon-button" type="button" aria-label="Close Laya Router settings">×</button>
+      </div>
+
+      <div class="laya-routing-profile-row">
+        <div>
+          <strong>Routing profile</strong>
+          <span>Choose what TL Studio should optimize after Laya classifies the request.</span>
+        </div>
+        <select id="layaRoutingProfile" aria-label="Laya routing profile">
+          <option value="balanced">Balanced</option>
+          <option value="cost">Lowest cost</option>
+          <option value="quality">Best quality</option>
+          <option value="speed">Fastest</option>
+          <option value="free">Free only</option>
+        </select>
+      </div>
+
+      <div class="laya-routing-section-head">
+        <div>
+          <strong>Model pool</strong>
+          <span>Only connected, tool-capable models can be selected at runtime. Classification is editable.</span>
+          <span id="layaRoutingPoolSummary" class="laya-routing-pool-summary"></span>
+        </div>
+      </div>
+      <div id="layaRoutingModels" class="laya-routing-models" aria-live="polite"></div>
+
+      <div class="laya-routing-preview">
+        <div class="laya-routing-section-head">
+          <div>
+            <strong>Preview a route</strong>
+            <span>Run Laya's model-router analysis without starting an Agent turn.</span>
+          </div>
+        </div>
+        <div class="laya-routing-preview-controls">
+          <textarea id="layaRoutingPreviewInput" rows="2" spellcheck="false" placeholder="Example: Refactor this authentication service and keep all tests green."></textarea>
+          <button id="layaRoutingPreviewButton" class="ghost small" type="button">Preview</button>
+        </div>
+        <div id="layaRoutingPreviewResult" class="laya-routing-preview-result" aria-live="polite"></div>
+      </div>
+
+      <div id="layaRoutingStatus" class="plugin-editor-status"></div>
+      <div class="plugin-editor-actions">
+        <button id="layaRoutingCancel" class="ghost small" type="button">Cancel</button>
+        <button id="layaRoutingSave" class="primary small" type="button">Save routing</button>
       </div>
     </div>
   </dialog>

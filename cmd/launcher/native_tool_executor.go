@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	nativeToolDefaultTimeout = 2 * time.Minute
-	nativeToolMaxTimeout     = 5 * time.Minute
+	nativeToolDefaultTimeout      = 2 * time.Minute
+	nativeToolMaxTimeout          = 5 * time.Minute
+	nativeAgentReadDefaultLines   = 400
+	nativeAgentReadMaxLines       = 800
 )
 
 type nativeToolCall struct {
@@ -98,7 +100,19 @@ func nativeToolInputSchema(id string) map[string]any {
 	case "files.read":
 		return map[string]any{
 			"type": "object",
-			"properties": map[string]any{"path": stringProperty("Project-relative file path.")},
+			"properties": map[string]any{
+				"path": stringProperty("Project-relative file path."),
+				"startLine": map[string]any{
+					"type": "integer",
+					"minimum": 1,
+					"description": "Optional 1-based first line to read. Use with large files instead of rereading the whole file.",
+				},
+				"endLine": map[string]any{
+					"type": "integer",
+					"minimum": 1,
+					"description": fmt.Sprintf("Optional inclusive last line. A single read is capped at %d lines.", nativeAgentReadMaxLines),
+				},
+			},
 			"required": []string{"path"},
 			"additionalProperties": false,
 		}
@@ -408,19 +422,76 @@ func nativeReadFile(project string, input map[string]any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	startLine, err := nativeOptionalInt(input, "startLine", 1)
+	if err != nil {
+		return nil, err
+	}
+	endLine, err := nativeOptionalInt(input, "endLine", 0)
+	if err != nil {
+		return nil, err
+	}
+	if startLine < 1 {
+		return nil, errors.New("startLine must be at least 1")
+	}
+	if endLine > 0 && endLine < startLine {
+		return nil, errors.New("endLine must be greater than or equal to startLine")
+	}
+	if endLine > 0 && endLine-startLine+1 > nativeAgentReadMaxLines {
+		return nil, fmt.Errorf("files.read supports at most %d lines per call; request a smaller range", nativeAgentReadMaxLines)
+	}
+
 	preview, _, err := readLocalFilePreview(project, path)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("project-relative file %q does not exist; inspect the project root with files.list path \"\" before guessing another path", filepath.ToSlash(path))
+		}
 		return nil, err
 	}
 	if preview.Binary {
 		return nil, errors.New("binary files are not readable by the coding Agent")
 	}
-	return map[string]any{
-		"path":   preview.Path,
-		"content": preview.Content,
+
+	lines := strings.Split(preview.Content, "\n")
+	totalLines := len(lines)
+	if preview.Content == "" {
+		totalLines = 0
+	}
+	if totalLines == 0 {
+		return map[string]any{
+			"path": preview.Path, "content": "", "sha256": preview.SHA256, "size": preview.Size,
+			"startLine": 0, "endLine": 0, "totalLines": 0, "truncated": false,
+		}, nil
+	}
+	if startLine > totalLines {
+		return nil, fmt.Errorf("startLine %d is beyond end of file (%d lines)", startLine, totalLines)
+	}
+
+	requestedEnd := endLine
+	if requestedEnd == 0 {
+		requestedEnd = startLine + nativeAgentReadDefaultLines - 1
+	}
+	if requestedEnd > totalLines {
+		requestedEnd = totalLines
+	}
+	if requestedEnd-startLine+1 > nativeAgentReadMaxLines {
+		requestedEnd = startLine + nativeAgentReadMaxLines - 1
+	}
+	content := strings.Join(lines[startLine-1:requestedEnd], "\n")
+	truncated := startLine > 1 || requestedEnd < totalLines
+	result := map[string]any{
+		"path": preview.Path,
+		"content": content,
 		"sha256": preview.SHA256,
-		"size":   preview.Size,
-	}, nil
+		"size": preview.Size,
+		"startLine": startLine,
+		"endLine": requestedEnd,
+		"totalLines": totalLines,
+		"truncated": truncated,
+	}
+	if requestedEnd < totalLines {
+		result["nextStartLine"] = requestedEnd + 1
+	}
+	return result, nil
 }
 
 func nativeListFiles(project string, input map[string]any) (any, error) {
@@ -434,6 +505,9 @@ func nativeListFiles(project string, input map[string]any) (any, error) {
 	}
 	info, err := os.Stat(target)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("project-relative directory %q does not exist; inspect the project root with files.list path \"\" before guessing another path", filepath.ToSlash(path))
+		}
 		return nil, err
 	}
 	if !info.IsDir() {

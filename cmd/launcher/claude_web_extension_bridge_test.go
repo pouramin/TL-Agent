@@ -145,7 +145,7 @@ func TestClaudeWebExtensionReusesPersistentPageContext(t *testing.T) {
 		`stopReason === "end_turn"`,
 		`stopReason === "max_tokens"`,
 		"await reader.cancel()",
-		`BRIDGE_VERSION = "0.6.3-persistent-page"`,
+		`BRIDGE_VERSION = "0.6.4-persistent-page"`,
 		`"claude-fable-5-1"`,
 		`"claude-opus-5-5"`,
 		`"claude-sonnet-5-5"`,
@@ -165,12 +165,18 @@ func TestClaudeWebExtensionReusesPersistentPageContext(t *testing.T) {
 	} {
 		if strings.Contains(background, forbidden) { t.Fatalf("Claude Web transport contains forbidden browser/control path %q", forbidden) }
 	}
-	if !strings.Contains(accounts, `CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`) {
-		t.Fatal("TL Studio must target the fixed review Claude Web extension ID")
-	}
 	for _, required := range []string{
+		`CLAUDE_WEB_STORE_EXTENSION_ID = "cpellhbmfdhcgkblnmnppndmeiigmjcg"`,
+		`CLAUDE_WEB_REVIEW_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`,
+		`CLAUDE_WEB_STORE_URL = "https://chromewebstore.google.com/detail/cpellhbmfdhcgkblnmnppndmeiigmjcg"`,
+		`"0.6.4-persistent-page"`,
+		`"0.6.3-persistent-page"`,
 		"tlstudio-ping", "tlstudio-pair-direct", "tlstudio-execute-direct", "tlstudio-unpair",
-		"token: cleanToken", `CLAUDE_WEB_BRIDGE_VERSION = "0.6.3-persistent-page"`,
+		"executeClaudeWebCommandWithRepair",
+		"repairClaudeWebExtensionPairing",
+		"not paired with this TL Studio origin",
+		"executeClaudeWebCommandWithRepair(cleanToken, command)",
+		"token,",
 	} {
 		if !strings.Contains(accounts, required) { t.Fatalf("provider UI missing extension relay contract %q", required) }
 	}

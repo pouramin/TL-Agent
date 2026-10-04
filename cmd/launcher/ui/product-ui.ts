@@ -14,6 +14,11 @@ import { K } from "./kernel";
     settingsPanels: [...document.querySelectorAll("[data-settings-panel]")],
     appearanceSelect: $("appearanceSelect"),
     fontSizeSelect: $("fontSizeSelect"),
+    aboutUpdateCard: $("aboutUpdateCard"),
+    aboutUpdateStatus: $("aboutUpdateStatus"),
+    aboutUpdateCheck: $("aboutUpdateCheck"),
+    aboutUpdateApply: $("aboutUpdateApply"),
+    aboutUpdateReleaseLink: $("aboutUpdateReleaseLink"),
   };
 
   const THEME_KEY = "tl-studio.appearance";
@@ -156,6 +161,48 @@ import { K } from "./kernel";
     }
   };
 
+  let updateCheckPromise: Promise<any> | null = null;
+
+  const renderUpdateStatus = (status: any) => {
+    if (!ui.aboutUpdateStatus || !ui.aboutUpdateCard) return;
+    const current = String(status?.currentVersion || K.state.local?.version || "").trim();
+    const latest = String(status?.latestVersion || "").trim();
+    ui.aboutUpdateCard.classList.toggle("update-available", !!status?.available);
+    ui.aboutUpdateStatus.textContent = status?.available
+      ? (latest ? `TL Studio ${latest} is available. You are running ${current || "an older version"}.` : "A newer TL Studio release is available.")
+      : (status?.message || (current ? `TL Studio ${current} is up to date.` : "No update is available."));
+
+    if (ui.aboutUpdateReleaseLink) {
+      ui.aboutUpdateReleaseLink.href = status?.releaseURL || "https://github.com/pouramin/TL-Studio/releases";
+      ui.aboutUpdateReleaseLink.classList.toggle("hidden", !status?.available);
+    }
+    if (ui.aboutUpdateApply) {
+      ui.aboutUpdateApply.classList.toggle("hidden", !status?.available || !status?.canAutoUpdate);
+      ui.aboutUpdateApply.textContent = latest ? `Update to ${latest}` : "Update";
+      ui.aboutUpdateApply.disabled = false;
+    }
+  };
+
+  const refreshUpdateStatus = async () => {
+    if (!ui.aboutUpdateStatus || updateCheckPromise) return updateCheckPromise;
+    ui.aboutUpdateStatus.textContent = "Checking GitHub Releases…";
+    if (ui.aboutUpdateCheck) ui.aboutUpdateCheck.disabled = true;
+    updateCheckPromise = K.api.updates.status()
+      .then((status: any) => {
+        renderUpdateStatus(status);
+        return status;
+      })
+      .catch((error: any) => {
+        ui.aboutUpdateStatus.textContent = `Could not check for updates: ${error?.message || String(error)}`;
+        return null;
+      })
+      .finally(() => {
+        if (ui.aboutUpdateCheck) ui.aboutUpdateCheck.disabled = false;
+        updateCheckPromise = null;
+      });
+    return updateCheckPromise;
+  };
+
   const activateSettingsSection = (name = "general") => {
     const navItems = [...(ui.settingsDialog?.querySelectorAll("[data-settings-section]") || [])];
     const panels = [...(ui.settingsDialog?.querySelectorAll("[data-settings-panel]") || [])];
@@ -168,6 +215,7 @@ import { K } from "./kernel";
     for (const panel of panels) {
       panel.classList.toggle("hidden", panel.dataset.settingsPanel !== name);
     }
+    if (name === "about") void refreshUpdateStatus();
   };
   K.activateSettingsSection = activateSettingsSection;
 
@@ -193,5 +241,21 @@ import { K } from "./kernel";
   ui.fontSizeSelect?.addEventListener("change", () => {
     writeSetting(FONT_KEY, ui.fontSizeSelect.value);
     applyFontSize(ui.fontSizeSelect.value);
+  });
+  ui.aboutUpdateCheck?.addEventListener("click", () => { void refreshUpdateStatus(); });
+  ui.aboutUpdateApply?.addEventListener("click", async () => {
+    if (!window.confirm("Update TL Studio now? The updater will open PowerShell, verify the official release checksum, close this TL Studio process, replace the application files, and reopen the current project.")) return;
+    ui.aboutUpdateApply.disabled = true;
+    ui.aboutUpdateApply.textContent = "Starting updater…";
+    ui.aboutUpdateStatus.textContent = "Preparing the verified Windows updater…";
+    try {
+      const result = await K.api.updates.apply();
+      ui.aboutUpdateStatus.textContent = `PowerShell updater started for ${result?.latestVersion || "the new release"}. TL Studio will close and reopen automatically.`;
+      if (ui.aboutUpdateCheck) ui.aboutUpdateCheck.disabled = true;
+    } catch (error) {
+      ui.aboutUpdateStatus.textContent = `Could not start the updater: ${(error as Error).message || String(error)}`;
+      ui.aboutUpdateApply.disabled = false;
+      ui.aboutUpdateApply.textContent = "Update";
+    }
   });
 })();

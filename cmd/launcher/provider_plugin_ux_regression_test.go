@@ -1,24 +1,28 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestPluginSettingsAlwaysShowBundledAndUserSections(t *testing.T) {
+func TestPluginSettingsKeepCatalogAndUserSectionsVisible(t *testing.T) {
 	source := readBrowserSource(t, "plugins.ts")
 	for _, required := range []string{
-		`Included with TL Studio`,
-		`No bundled plugins in this build`,
+		`Available integrations`,
+		`All curated integrations are added`,
 		`Added by you`,
 		`No plugins added yet`,
+		`if (bundled.length) {`,
+		`Included with TL Studio`,
 	} {
 		if !strings.Contains(source, required) {
-			t.Fatalf("plugins UI must keep section visible when empty; missing %q", required)
+			t.Fatalf("plugins UI is missing section contract %q", required)
 		}
 	}
 	if strings.Contains(source, `if (!plugins.length) return;`) {
-		t.Fatal("empty plugin groups must not disappear from Settings")
+		t.Fatal("generic section renderer must not silently discard empty sections")
 	}
 }
 
@@ -31,6 +35,8 @@ func TestJevSettingsUseCompactControlAndRefreshAfterProviderChanges(t *testing.T
 		`jevConfigDialog`,
 		`tlstudio:providers-changed`,
 		`providerHasRouter`,
+		`JEV via OpenRouter`,
+		`Plugins → JEV Direct`,
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("compact Jev settings contract missing %q", required)
@@ -411,17 +417,22 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 }
 
 
-func TestProviderSettingsWindowExpandsForProviderGrid(t *testing.T) {
+func TestProviderSettingsUsesSharedSettingsScroll(t *testing.T) {
 	bridge := readBrowserSource(t, "providers-settings-bridge.ts")
-	for _, required := range []string{
+	for _, forbidden := range []string{
 		`settings-window-providers`,
-		`width: min(980px, calc(100vw - 36px))`,
-		`max-height: min(72vh, 690px)`,
+		`width: min(980px`,
 		`new MutationObserver(syncProviderWindowMode)`,
+		`max-height: min(72vh, 690px)`,
+		`overflow-y: auto`,
+		`scrollbar-gutter: stable`,
 	} {
-		if !strings.Contains(bridge, required) {
-			t.Fatalf("provider settings layout contract missing %q", required)
+		if strings.Contains(bridge, forbidden) {
+			t.Fatalf("Providers must use the shared Settings size and scrollbar; found %q", forbidden)
 		}
+	}
+	if !strings.Contains(bridge, "shared Settings content owns vertical scrolling") {
+		t.Fatal("provider bridge must document that Settings owns the only vertical scrollbar")
 	}
 }
 
@@ -429,17 +440,25 @@ func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 	accounts := readBrowserSource(t, "provider-account-ui.ts")
 	for _, required := range []string{
 		`CLAUDE_WEB_MODEL_ID = "claude-sonnet-5-5"`,
-		`CLAUDE_WEB_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`,
-		`CLAUDE_WEB_BRIDGE_VERSION = "0.6.3-persistent-page"`,
+		`CLAUDE_WEB_STORE_EXTENSION_ID = "cpellhbmfdhcgkblnmnppndmeiigmjcg"`,
+		`CLAUDE_WEB_REVIEW_EXTENSION_ID = "hklkkfhbcohbfpojbcanhgmfanjhnfna"`,
+		`CLAUDE_WEB_STORE_URL = "https://chromewebstore.google.com/detail/cpellhbmfdhcgkblnmnppndmeiigmjcg"`,
+		`"0.6.4-persistent-page"`,
+		`"0.6.3-persistent-page"`,
+		`Install Bridge`,
 		`clean(K.state.session.model.id || K.state.session.model.modelID) === "default"`,
 		`tlstudio-pair-direct`,
 		`tlstudio-execute-direct`,
-		`token: cleanToken`,
+		`executeClaudeWebCommandWithRepair(cleanToken, command)`,
+		`token,`,
 		`claude-web-ui/pair`,
 		`claude-web-ui/poll`,
 		`claude-web-ui/result`,
 		`resumeClaudeWebIfNeeded`,
 		`establishClaudeWebBridge`,
+		`executeClaudeWebCommandWithRepair`,
+		`repairClaudeWebExtensionPairing`,
+		`not paired with this TL Studio origin`,
 		`beginLogin(account.id)`,
 		`pollLogin(account.id, login.loginId`,
 	} {
@@ -455,6 +474,61 @@ func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 	} {
 		if strings.Contains(accounts, forbidden) {
 			t.Fatalf("Claude Web UI must not fall back to the removed cloned/CDP transport; found %q", forbidden)
+		}
+	}
+}
+
+
+func TestClaudeWebMissingBridgeOpensStoreWithoutLeakingRawURLIntoErrorCopy(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`const openClaudeWebStore = () =>`,
+		`presentClaudeWebBridgeInstall`,
+		`K.els.authOpen.textContent = "Install extension"`,
+		`openClaudeWebStore();`,
+		`isClaudeWebBridgeUnavailableError(error)`,
+		`To continue with Claude Web, TL Studio Claude Web Bridge must be installed`,
+		`The Chrome Web Store page opened automatically.`,
+		`TL Studio is waiting for the installation and will connect automatically`,
+		`waitForClaudeWebBridgeInstall`,
+		`K.els.authOpen.textContent = "Extension detected"`,
+		`Finishing the Claude Web connection`,
+		`K.els.authOpen.textContent = "Open sign-in page"`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web missing-bridge install flow missing %q", required)
+		}
+	}
+	if strings.Contains(source, `Install it from the Chrome Web Store: ${CLAUDE_WEB_STORE_URL}`) {
+		t.Fatal("Claude Web bridge failure must not print the raw Chrome Web Store URL into the auth dialog")
+	}
+}
+
+
+func TestJevDirectPluginUsesTypeSafeWithoutOpenRouter(t *testing.T) {
+	plugins := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		`openJevDirectDialog`,
+		`jev-direct-config`,
+		`TYPESAFE_API_KEY`,
+		`JEV Direct Router is enabled.`,
+	} {
+		if !strings.Contains(plugins, required) {
+			t.Fatalf("JEV Direct plugin UX missing %q", required)
+		}
+	}
+	root := releaseRepoRoot(t)
+	indexBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexBytes)
+	for _, required := range []string{
+		`id="jevDirectDialog"`,
+		`id="jevDirectApiKey"`,
+		`Save &amp; enable`,
+		`This path does not use OpenRouter.`,
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("JEV Direct dialog missing %q", required)
 		}
 	}
 }

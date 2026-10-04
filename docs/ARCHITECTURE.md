@@ -82,7 +82,9 @@ Manual API credentials and account credentials managed by TL Studio are stored s
 
 For ChatGPT, OpenAI's official Codex client owns the OAuth token persistence and refresh lifecycle inside an isolated TL Studio-specific `CODEX_HOME`. For Claude.ai account login, the official Claude Code client owns the subscription credential inside a TL Studio-specific `CLAUDE_CONFIG_DIR`. TL Studio does not read, copy, serialize, or expose either provider's raw OAuth credential.
 
-Unsupported models remain explicit unsupported capabilities. JEV/OpenRouter uses the same native provider and Agent boundaries.
+Unsupported models remain explicit unsupported capabilities.
+
+JEV has two intentionally separate integration paths. The legacy JEV Router provider uses OpenRouter and remains a provider/model transport. JEV Direct is a global Router plugin that calls TypeSafe's documented System One API directly with a TypeSafe API key from the TL Studio credential vault. JEV Direct sends only the routing state and typed routing questions to TypeSafe, receives a structured decision, and then selects from TL Studio's already-connected native Agent models. It does not proxy the final model request and does not own tools, permissions, files, Terminal, Sessions, retries, or the Agent loop.
 
 ## Provider Account domain
 
@@ -123,6 +125,10 @@ Private or undocumented provider OAuth flows are not reverse-engineered. Deferre
 The Native Tool Executor resolves TL Studio Tool Registry descriptors and enforces project boundaries and permissions before execution.
 
 Core tools cover workspace files, Search, and process execution. Plugins/MCP can contribute tools through the same Agent-facing execution model.
+
+Curated Graphify is installed globally as a reusable executable integration, while its generated graph remains project-local under `graphify-out`. Switching projects restarts global MCP clients in the active project working directory; a project without a graph reports Graph Missing and can build its own graph without reinstalling Graphify.
+
+Router plugins are a separate plugin capability from MCP tools. They can influence model selection but never enter the Tool Registry. Laya is a local MCP-backed decision router; JEV Direct is a remote TypeSafe System One decision router. Both ultimately hand a selected native model back to the same TL Studio Agent runtime.
 
 ## Terminal and Preview
 

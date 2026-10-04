@@ -263,6 +263,8 @@ type providerManager struct {
 	registryMu  sync.Mutex
 	accountMu   sync.RWMutex
 	accounts    map[string]providerAccountAdapter
+	catalogMu        sync.RWMutex
+	catalogDecorator func(context.Context, string, *providerCatalogResponse) error
 }
 
 func newProviderManager(state *appState) *providerManager {
@@ -288,6 +290,28 @@ func (m *providerManager) ensureRegistryInitialized(_ context.Context) ([]tlProv
 func (m *providerManager) ensureBootstrapped(ctx context.Context) error {
 	_, err := m.ensureRegistryInitialized(ctx)
 	return err
+}
+
+func (m *providerManager) setCatalogDecorator(decorator func(context.Context, string, *providerCatalogResponse) error) {
+	if m == nil {
+		return
+	}
+	m.catalogMu.Lock()
+	m.catalogDecorator = decorator
+	m.catalogMu.Unlock()
+}
+
+func (m *providerManager) decorateCatalog(ctx context.Context, directory string, result *providerCatalogResponse) error {
+	if m == nil || result == nil {
+		return nil
+	}
+	m.catalogMu.RLock()
+	decorator := m.catalogDecorator
+	m.catalogMu.RUnlock()
+	if decorator == nil {
+		return nil
+	}
+	return decorator(ctx, directory, result)
 }
 
 type providerAccountRuntimeProvider interface {
@@ -397,7 +421,7 @@ func appendUniqueString(values []string, value string) []string {
 	return append(values, value)
 }
 
-func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalogResponse, error) {
+func (m *providerManager) catalog(ctx context.Context, directory string) (providerCatalogResponse, error) {
 	definitions, err := m.ensureRegistryInitialized(ctx)
 	if err != nil { return providerCatalogResponse{}, err }
 	jevConfig, err := loadJevRouterConfig()
@@ -427,6 +451,9 @@ func (m *providerManager) catalog(ctx context.Context, _ string) (providerCatalo
 				return providerCatalogResponse{}, credentialErr
 			}
 		}
+	}
+	if err := m.decorateCatalog(ctx, directory, &result); err != nil {
+		return providerCatalogResponse{}, err
 	}
 	sort.Slice(result.All, func(i, j int) bool {
 		return strings.ToLower(result.All[i].Name+"\x00"+result.All[i].ID) < strings.ToLower(result.All[j].Name+"\x00"+result.All[j].ID)

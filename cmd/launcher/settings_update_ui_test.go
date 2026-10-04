@@ -1,0 +1,77 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestSettingsAboutExposesVerifiedUpdater(t *testing.T) {
+	root := releaseRepoRoot(t)
+	indexBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexBytes)
+	for _, required := range []string{
+		`id="aboutUpdateCard"`,
+		`id="aboutUpdateStatus"`,
+		`id="aboutUpdateCheck"`,
+		`id="aboutUpdateApply"`,
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("About updater UI missing %q", required)
+		}
+	}
+
+	product := readBrowserSource(t, "product-ui.ts")
+	for _, required := range []string{
+		"K.api.updates.status()",
+		"K.api.updates.apply()",
+		"Checking GitHub Releases",
+		"PowerShell updater started",
+	} {
+		if !strings.Contains(product, required) {
+			t.Fatalf("About updater behavior missing %q", required)
+		}
+	}
+
+	api := readBrowserSource(t, "runtime-api.ts")
+	for _, required := range []string{
+		`status: () => K.request("/local/update")`,
+		`apply: () => K.request("/local/update", { method: "POST" })`,
+	} {
+		if !strings.Contains(api, required) {
+			t.Fatalf("Runtime updater API missing %q", required)
+		}
+	}
+
+	cssBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssBytes)
+	if !strings.Contains(css, ".settings-window { box-sizing:border-box; width:920px; min-width:920px; max-width:calc(100vw - 36px); height:680px; max-height:calc(100vh - 36px); display:grid; grid-template-rows:auto minmax(0,1fr) auto;") {
+		t.Fatal("Settings must keep one stable desktop size across sections")
+	}
+	for _, required := range []string{
+		".settings-layout { min-height:0; overflow:hidden;",
+		".settings-content { min-width:0; min-height:0; overflow-y:auto;",
+		".settings-content > .settings-panel { min-height:300px; max-height:none !important; overflow:visible !important; scrollbar-gutter:auto !important;",
+		"#settingsDialog { overflow:hidden; max-width:none; max-height:none; }",
+		".settings-nav { min-height:0; overflow:hidden;",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("Settings fixed-height scrolling contract missing %q", required)
+		}
+	}
+	if strings.Contains(css, "settings-window-plugins") {
+		t.Fatal("Settings must not change width for the Plugins section")
+	}
+	for _, forbidden := range []string{
+		".plugins-settings-panel {\n  max-height:",
+		".plugins-settings-panel {\n  overflow-y:",
+		".settings-nav { min-height:0; overflow-y:auto;",
+	} {
+		if strings.Contains(css, forbidden) {
+			t.Fatalf("Settings must have exactly one vertical scrolling owner; found %q", forbidden)
+		}
+	}
+}

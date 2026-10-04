@@ -40,10 +40,11 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 		"K.api.plugins.update",
 		"K.api.plugins.setEnabled",
 		"K.api.plugins.remove",
-		"K.api.plugins.saved()",
-		"K.api.plugins.attach",
-		"Saved for another project",
-		"Use in current project",
+		"K.api.plugins.catalog()",
+		"K.api.plugins.installCatalog",
+		"Available integrations",
+		"catalog-add",
+		"Installing…",
 		`transport: transportSelect.value || "stdio"`,
 	} {
 		if !strings.Contains(source, expected) {
@@ -92,6 +93,47 @@ func TestSettingsExposeGenericPluginsSurface(t *testing.T) {
 	} {
 		if strings.Contains(css, forbidden) {
 			t.Fatalf("Arguments field must not keep the rejected double/accent border treatment: %q", forbidden)
+		}
+	}
+}
+
+func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
+	source := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		"Available integrations",
+		"install themselves when you choose Add",
+		"plugin-catalog-logo",
+		"plugin-catalog-category",
+		"plugin-catalog-grid",
+		`body.className = "plugin-catalog-grid"`,
+		"K.api.plugins.installCatalog",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("plugin catalog UI missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"graphify-mcp", "laya-mcp-server",
+		"Install first if needed:", "preset.command", "preset.arguments", "preset.installHint",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("browser catalog presentation must stay data-driven and hide install commands; found %q", forbidden)
+		}
+	}
+
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, required := range []string{
+		".settings-window { box-sizing:border-box; width:920px; min-width:920px; max-width:calc(100vw - 36px);",
+		".plugin-catalog-grid",
+		".plugin-catalog-card",
+		".plugin-catalog-logo",
+		"grid-template-columns:repeat(3,minmax(0,1fr))",
+		`"actions actions actions"`,
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("plugin catalog provider-style layout missing %q", required)
 		}
 	}
 }
@@ -166,5 +208,158 @@ func TestPluginsUIDistinguishesBundledAndUserAddedWithoutForkingExecution(t *tes
 	}
 	if strings.Contains(source, "bundledPluginExecute") || strings.Contains(source, "executeBundled") {
 		t.Fatal("bundled plugins must not gain a browser-side execution path")
+	}
+}
+
+
+func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
+	indexData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexData)
+	for _, required := range []string{
+		"id=\"layaRoutingDialog\"",
+		"id=\"layaRoutingProfile\"",
+		"value=\"balanced\"",
+		"value=\"cost\"",
+		"value=\"quality\"",
+		"value=\"speed\"",
+		"value=\"free\"",
+		"id=\"layaRoutingModels\"",
+		"id=\"layaRoutingPoolSummary\"",
+		"id=\"layaRoutingPreviewInput\"",
+		"id=\"layaRoutingPreviewButton\"",
+		"id=\"layaRoutingSave\"",
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("Laya Router settings dialog missing %q", required)
+		}
+	}
+
+	source := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		"actionButton(\"Routing\", \"laya-routing\"",
+		"K.api.layaRouter.status()",
+		"K.api.layaRouter.configure",
+		"K.api.layaRouter.preview",
+		`layaRoutingProfile?.addEventListener("change"`,
+		"visibleLayaRoutingModels",
+		`profile === "free"`,
+		"laya-routing-model-group",
+		"laya-routing-model-quality",
+		"laya-routing-model-speed",
+		"laya-routing-model-controls",
+		`["Cost", group]`,
+		`["Quality", quality]`,
+		`["Speed", speed]`,
+		"[\"free\", \"Free\"]",
+		"[\"included\", \"Included quota\"]",
+		"await K.loadCatalog?.().catch",
+		"closeLayaRouting();",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Laya Router browser integration missing %q", required)
+		}
+	}
+
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, required := range []string{
+		".laya-routing-dialog-card",
+		".laya-routing-model-card",
+		".laya-routing-model-controls",
+		"grid-template-columns:repeat(3,minmax(0,1fr))",
+		".laya-routing-model-group",
+		".laya-routing-pool-summary",
+		".laya-routing-preview",
+		".laya-routing-preview-controls textarea:focus",
+		".laya-routing-preview-controls textarea::placeholder",
+		"background: var(--panel-2);",
+		"color: #606975;",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("Laya Router styling missing %q", required)
+		}
+	}
+}
+
+
+func TestJevDirectPluginSetupValidatesBeforeEnable(t *testing.T) {
+	indexData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexData)
+	for _, required := range []string{
+		`id="jevDirectDialog"`,
+		`id="jevDirectApiKey"`,
+		`id="jevDirectProfile"`,
+		`JEV Direct routing profile`,
+		`id="jevDirectSave"`,
+		"This path does not use OpenRouter.",
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("JEV Direct setup surface missing %q", required)
+		}
+	}
+
+	source := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		`preset.id === "jev-direct"`,
+		`actionButton("Configure", "jev-direct-config"`,
+		`actionButton("Test", "test", plugin.id`,
+		`nextConfig.metadata = { ...(nextConfig.metadata || {}), profile: jevDirectProfile?.value || "balanced" }`,
+		`K.api.plugins.update(plugin.id, nextConfig, { TYPESAFE_API_KEY: key })`,
+		`setJevDirectStatus("Validating the TypeSafe API key…")`,
+		`await K.api.plugins.test(plugin.id)`,
+		`await K.api.plugins.setEnabled(plugin.id, true)`,
+		`plugin.type === "router"`,
+		`${scopeText} · Router`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("JEV Direct browser setup missing %q", required)
+		}
+	}
+	testIndex := strings.Index(source, `await K.api.plugins.test(plugin.id)`)
+	enableIndex := strings.Index(source, `await K.api.plugins.setEnabled(plugin.id, true)`)
+	if testIndex < 0 || enableIndex < 0 || testIndex > enableIndex {
+		t.Fatal("JEV Direct must validate the saved TypeSafe credential before enabling the router")
+	}
+}
+
+
+func TestInstalledPluginsUseThreeColumnProviderStyleCards(t *testing.T) {
+	source := readBrowserSource(t, "plugins.ts")
+	if !strings.Contains(source, `body.className = "plugin-catalog-grid"`) {
+		t.Fatal("installed Plugins must use the same card grid as curated integrations")
+	}
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, required := range []string{
+		"grid-template-columns:repeat(3,minmax(0,1fr))",
+		`"actions actions actions"`,
+		".plugin-catalog-actions {",
+		"flex-wrap:wrap",
+		"border-top:1px solid var(--line-soft)",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("installed Plugin card layout missing %q", required)
+		}
+	}
+}
+
+
+func TestPluginsMainSurfaceDoesNotShowCrossProjectRecoveryList(t *testing.T) {
+	source := readBrowserSource(t, "plugins.ts")
+	for _, forbidden := range []string{
+		"Saved for another project",
+		"Use in current project",
+		"K.api.plugins.saved()",
+		"K.api.plugins.attach",
+		"renderSavedCard",
+		"savedPlugins",
+	} {
+		if strings.Contains(source, forbidden) {
+			t.Fatalf("main Plugins surface must not expose cross-project saved configs; found %q", forbidden)
+		}
 	}
 }

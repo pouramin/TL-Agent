@@ -126,6 +126,14 @@ The compact Provider cards use the connection method that matches the product:
 
 Providers that use API credentials are **not** shown as unavailable just because they do not use consumer-account OAuth. Their cards open the existing discovery-first API configuration flow with the correct endpoint/protocol preset. Claude is a hybrid card: subscription sign-in and API-key configuration are independent and can coexist.
 
+### Claude Web (Free/Pro)
+
+Claude Web requires the **TL Studio Claude Web Bridge** Chrome extension in the same Chrome profile that is signed in to `claude.ai`. If the extension is missing, choosing **Claude → Web** opens the official unlisted Chrome Web Store install page automatically; no extension URL needs to be copied manually. Keep the TL Studio connection dialog open while installing it: TL Studio watches for the extension and continues pairing automatically as soon as Chrome makes the bridge available.
+
+The bridge is inference-only. Claude session credentials remain browser-owned, while Agent, Tools, Permissions, project access, Terminal, Sessions, and persistence remain owned by TL Studio. If Chrome suspends or restarts the Manifest V3 extension service worker and its in-memory pairing is lost, TL Studio automatically re-pairs the bridge and retries the interrupted transport command once.
+
+See **[Claude Web setup and troubleshooting](./docs/CLAUDE_WEB.md)**.
+
 Claude account login uses Anthropic's official Claude Code CLI: `claude auth login`, `claude auth status`, and `claude auth logout`. TL Studio gives Claude Code an isolated `CLAUDE_CONFIG_DIR` and does not read or serialize the raw Claude.ai OAuth credential. Account-backed model turns use the official non-interactive Claude Code surface with built-in tools and MCP tools disabled; TL Studio remains responsible for Tools, Permissions, Sessions, and project mutations. Manual Anthropic API keys remain separate.
 
 The ChatGPT integration uses OpenAI's official Codex CLI/App Server surface. TL Studio never copies ChatGPT cookies, browser sessions, private OAuth clients, or undocumented backend tokens. Codex authentication is isolated under TL Studio's own `CODEX_HOME`; the Browser sees only semantic account state.

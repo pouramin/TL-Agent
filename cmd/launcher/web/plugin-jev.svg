@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="JEV Direct">
+  <rect width="64" height="64" rx="16" fill="#17233a"/>
+  <circle cx="20" cy="20" r="6" fill="#53a7ff"/>
+  <circle cx="44" cy="20" r="6" fill="#7bd9ff"/>
+  <circle cx="32" cy="44" r="7" fill="#4b7dff"/>
+  <path d="M25 22.5 29.5 38M39 22.5 34.5 38M26 20h12" fill="none" stroke="#b9dcff" stroke-width="3.5" stroke-linecap="round"/>
+</svg>

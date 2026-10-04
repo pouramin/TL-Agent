@@ -26,8 +26,14 @@ cannot reuse the service worker from the older cookie-based review bridge.
 If an older "TL Studio Claude Web Bridge" is still installed, disable or remove
 it in chrome://extensions to avoid confusing the two entries.
 
-Until the extension is published through the Chrome Web Store, a review build can
-be tested manually:
+The production extension is published unlisted in the Chrome Web Store:
+
+https://chromewebstore.google.com/detail/cpellhbmfdhcgkblnmnppndmeiigmjcg
+
+Production Chrome Web Store extension ID:
+cpellhbmfdhcgkblnmnppndmeiigmjcg
+
+The bundled folder remains useful as a review/development fallback:
 
 1. Open chrome://extensions in the SAME normal Chrome profile where Claude is
    already signed in.
@@ -36,15 +42,28 @@ be tested manually:
 4. Select this integrations/claude-web-extension folder.
 5. Keep using TL Studio normally and choose Claude -> Web (Free/Pro).
 
-The fixed review extension ID is:
+The bundled review extension keeps its legacy fixed ID so older review installs
+remain testable:
 hklkkfhbcohbfpojbcanhgmfanjhnfna
 
 Production distribution
 -----------------------
-Normal consumer Windows Chrome installs cannot silently install a self-hosted
-extension. The production path is Chrome Web Store distribution (public or
-unlisted), after which TL Studio can point users to the store install once and
-reuse the normal Chrome session without a separate Claude login.
+Normal consumer Windows Chrome installs should use the unlisted Chrome Web Store
+release above. When Claude Web is selected and the bridge is missing, TL Studio
+opens the Store install page automatically. The auth dialog stays on the same
+connection transaction and polls for the newly installed bridge; as soon as Chrome
+makes it available, TL Studio verifies the Claude session and finishes pairing
+without requiring the user to cancel and choose Web again. The dialog does not
+require the user to copy the extension URL manually. TL Studio tries the production
+Store extension first and retains the bundled review ID only as a backwards-compatible
+development fallback.
+
+Manifest V3 service workers may be suspended between model turns. Pairing is
+therefore treated as recoverable transport state: if the extension wakes without
+its in-memory pairing, TL Studio automatically sends the same local pairing token
+again, verifies the Claude session, and retries the interrupted transport command
+once. Agent, Tool, Permission, filesystem, Terminal, and Session authority never
+moves into the extension.
 
 The extension executes authenticated Claude Web requests in the main-world context
 of claude.ai so the server sees the normal Claude origin. It first reuses any Claude
