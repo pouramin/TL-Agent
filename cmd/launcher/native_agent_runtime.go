@@ -239,6 +239,8 @@ func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityV
 		Model:  &sessionModelRef{ProviderID: selection.ProviderID, ID: selection.ModelID},
 		Metadata: map[string]any{
 			"source":        "laya-model-router",
+			"providerName":  selection.ProviderName,
+			"modelName":     selection.ModelName,
 			"profile":       selection.Profile,
 			"group":         selection.Group,
 			"quality":       selection.Quality,
