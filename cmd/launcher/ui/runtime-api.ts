@@ -134,9 +134,9 @@ import { K } from "./kernel";
         method: "PUT",
         ...body(input),
       }),
-      preview: (prompt: string) => K.request("/local/laya-router/preview", {
+      preview: (input: TLStudioDynamicRecord) => K.request("/local/laya-router/preview", {
         method: "POST",
-        ...body({ prompt }),
+        ...body(input),
       }),
     },
 
