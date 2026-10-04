@@ -464,3 +464,24 @@ func TestClaudeWebUsesInferenceOnlyExtensionRelay(t *testing.T) {
 		}
 	}
 }
+
+
+func TestClaudeWebMissingBridgeOpensStoreWithoutLeakingRawURLIntoErrorCopy(t *testing.T) {
+	source := readBrowserSource(t, "provider-account-ui.ts")
+	for _, required := range []string{
+		`const openClaudeWebStore = () =>`,
+		`presentClaudeWebBridgeInstall`,
+		`K.els.authOpen.textContent = "Install extension"`,
+		`openClaudeWebStore();`,
+		`isClaudeWebBridgeUnavailableError(error)`,
+		`The Chrome Web Store install page has been opened.`,
+		`K.els.authOpen.textContent = "Open sign-in page"`,
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Claude Web missing-bridge install flow missing %q", required)
+		}
+	}
+	if strings.Contains(source, `Install it from the Chrome Web Store: ${CLAUDE_WEB_STORE_URL}`) {
+		t.Fatal("Claude Web bridge failure must not print the raw Chrome Web Store URL into the auth dialog")
+	}
+}
