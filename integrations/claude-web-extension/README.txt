@@ -49,8 +49,18 @@ hklkkfhbcohbfpojbcanhgmfanjhnfna
 Production distribution
 -----------------------
 Normal consumer Windows Chrome installs should use the unlisted Chrome Web Store
-release above. TL Studio tries the production Store extension first and retains
-the bundled review ID only as a backwards-compatible development fallback.
+release above. When Claude Web is selected and the bridge is missing, TL Studio
+opens the Store install page automatically. The auth dialog does not require the
+user to copy the extension URL manually. TL Studio tries the production Store
+extension first and retains the bundled review ID only as a backwards-compatible
+development fallback.
+
+Manifest V3 service workers may be suspended between model turns. Pairing is
+therefore treated as recoverable transport state: if the extension wakes without
+its in-memory pairing, TL Studio automatically sends the same local pairing token
+again, verifies the Claude session, and retries the interrupted transport command
+once. Agent, Tool, Permission, filesystem, Terminal, and Session authority never
+moves into the extension.
 
 The extension executes authenticated Claude Web requests in the main-world context
 of claude.ai so the server sees the normal Claude origin. It first reuses any Claude
