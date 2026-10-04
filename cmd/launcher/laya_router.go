@@ -858,6 +858,46 @@ func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (
 	return s.routeWithConfig(ctx, project, prompt, config)
 }
 
+func (s *layaRouterService) Fallback(
+	ctx context.Context,
+	project string,
+	prompt string,
+	previous nativeRouteSelection,
+	failure error,
+) (nativeRouteSelection, bool, error) {
+	if !s.markRouteFailure(previous, failure) {
+		return nativeRouteSelection{}, false, nil
+	}
+	config, err := s.loadConfig()
+	if err != nil {
+		return nativeRouteSelection{}, false, err
+	}
+	candidates, err := s.candidates(ctx, project)
+	if err != nil {
+		return nativeRouteSelection{}, false, err
+	}
+	candidates = applyLayaRouterPreferences(candidates, config)
+	selected, reason, err := chooseLayaCandidate(config.Profile, previous.Analysis, candidates)
+	if err != nil {
+		return nativeRouteSelection{}, false, nil
+	}
+	if selected.ProviderID == previous.ProviderID && selected.ModelID == previous.ModelID {
+		return nativeRouteSelection{}, false, nil
+	}
+	return nativeRouteSelection{
+		ProviderID: selected.ProviderID,
+		ProviderName: selected.ProviderName,
+		ModelID: selected.ModelID,
+		ModelName: selected.ModelName,
+		Profile: config.Profile,
+		Group: selected.Group,
+		Quality: selected.Quality,
+		Speed: selected.Speed,
+		Reason: "Automatic fallback after " + strings.TrimSpace(failure.Error()) + " · " + reason,
+		Analysis: previous.Analysis,
+	}, true, nil
+}
+
 func (s *layaRouterService) decorateCatalog(ctx context.Context, directory string, result *providerCatalogResponse) error {
 	if result == nil || !s.pluginEnabled(directory) {
 		return nil
