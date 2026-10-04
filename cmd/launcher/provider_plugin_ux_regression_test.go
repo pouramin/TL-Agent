@@ -413,16 +413,18 @@ func TestClaudeProviderCardMakesWebAndCodeLoginUnambiguous(t *testing.T) {
 }
 
 
-func TestProviderSettingsWindowExpandsForProviderGrid(t *testing.T) {
+func TestProviderSettingsKeepsSharedFixedWindowWidth(t *testing.T) {
 	bridge := readBrowserSource(t, "providers-settings-bridge.ts")
-	for _, required := range []string{
+	if !strings.Contains(bridge, `max-height: min(72vh, 690px)`) {
+		t.Fatal("provider panel must retain its internal scrolling height")
+	}
+	for _, forbidden := range []string{
 		`settings-window-providers`,
-		`width: min(980px, calc(100vw - 36px))`,
-		`max-height: min(72vh, 690px)`,
+		`width: min(980px`,
 		`new MutationObserver(syncProviderWindowMode)`,
 	} {
-		if !strings.Contains(bridge, required) {
-			t.Fatalf("provider settings layout contract missing %q", required)
+		if strings.Contains(bridge, forbidden) {
+			t.Fatalf("Providers must not change the shared Settings width; found %q", forbidden)
 		}
 	}
 }
@@ -492,5 +494,34 @@ func TestClaudeWebMissingBridgeOpensStoreWithoutLeakingRawURLIntoErrorCopy(t *te
 	}
 	if strings.Contains(source, `Install it from the Chrome Web Store: ${CLAUDE_WEB_STORE_URL}`) {
 		t.Fatal("Claude Web bridge failure must not print the raw Chrome Web Store URL into the auth dialog")
+	}
+}
+
+
+func TestJevDirectPluginUsesTypeSafeWithoutOpenRouter(t *testing.T) {
+	plugins := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		`openJevDirectDialog`,
+		`jev-direct-config`,
+		`TYPESAFE_API_KEY`,
+		`Save & enable`,
+		`JEV Direct Router is enabled.`,
+	} {
+		if !strings.Contains(plugins, required) {
+			t.Fatalf("JEV Direct plugin UX missing %q", required)
+		}
+	}
+	root := releaseRepoRoot(t)
+	indexBytes, err := os.ReadFile(filepath.Join(root, "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexBytes)
+	for _, required := range []string{
+		`id="jevDirectDialog"`,
+		`id="jevDirectApiKey"`,
+		`This path does not use OpenRouter.`,
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("JEV Direct dialog missing %q", required)
+		}
 	}
 }

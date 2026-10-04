@@ -52,7 +52,7 @@ import { K } from "./kernel";
   compact.className = "jev-compact-row";
   compact.innerHTML = `
     <div class="jev-compact-copy">
-      <strong>JEV</strong>
+      <strong>JEV via OpenRouter</strong>
       <span id="jevCompactStatus">Checking TypeSafe Jev…</span>
     </div>
     <button id="jevCompactControl" type="button" class="jev-compact-control" aria-haspopup="dialog">
@@ -68,7 +68,7 @@ import { K } from "./kernel";
   dialog.innerHTML = `
     <div class="jev-config-head">
       <div>
-        <h3>TypeSafe Jev</h3>
+        <h3>TypeSafe Jev via OpenRouter</h3>
         <p>Jev Router is configured automatically through OpenRouter. Direct Jev decisions remain a separate optional capability.</p>
       </div>
       <button id="jevConfigClose" type="button" class="ghost small">Close</button>
