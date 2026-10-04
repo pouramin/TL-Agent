@@ -307,6 +307,8 @@ func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
 		"Never invent or prefix paths with /workspace",
 		"use files.list with an empty path",
 		"perform that work instead of stopping at a plan",
+		"batch independent read-only tool calls",
+		"avoid rereading files already present in the current tool history",
 		"non-interactive",
 		"do not use the timeout command",
 		"Do not blindly retry multiple shell variants",
@@ -641,17 +643,20 @@ func TestNativeAgentFallsBackToNextLayaRouteAfterTransientModelFailure(t *testin
 }
 
 
-func TestNativeAgentLayaRouteUsesLongerDefaultModelTimeout(t *testing.T) {
+func TestNativeAgentLayaRouteUsesAdaptiveDefaultModelTimeout(t *testing.T) {
 	runtime := &nativeAgentRuntime{modelTurnTimeout: nativeAgentModelTurnTimeout}
-	if got := runtime.modelRequestTimeout(false); got != nativeAgentModelTurnTimeout {
+	if got := runtime.modelRequestTimeout(false, false); got != nativeAgentModelTurnTimeout {
 		t.Fatalf("direct model timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
 	}
-	if got := runtime.modelRequestTimeout(true); got != nativeAgentLayaModelTurnTimeout {
-		t.Fatalf("Laya-routed model timeout = %s, want %s", got, nativeAgentLayaModelTurnTimeout)
+	if got := runtime.modelRequestTimeout(true, false); got != nativeAgentModelTurnTimeout {
+		t.Fatalf("read-only Laya timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
+	}
+	if got := runtime.modelRequestTimeout(true, true); got != nativeAgentLayaModelTurnTimeout {
+		t.Fatalf("execution Laya timeout = %s, want %s", got, nativeAgentLayaModelTurnTimeout)
 	}
 
 	runtime.modelTurnTimeout = 30 * time.Millisecond
-	if got := runtime.modelRequestTimeout(true); got != 30*time.Millisecond {
+	if got := runtime.modelRequestTimeout(true, true); got != 30*time.Millisecond {
 		t.Fatalf("explicit test/runtime override must win, got %s", got)
 	}
 }
