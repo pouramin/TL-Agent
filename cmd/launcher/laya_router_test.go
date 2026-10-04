@@ -126,3 +126,37 @@ func TestLayaRouterDefaultTraitsRecognizeFreeAndIncludedModels(t *testing.T) {
 		t.Fatalf("account-backed model should default to included quota, got %q", group)
 	}
 }
+
+
+func TestLayaToolPayloadPrefersCanonicalTextOverStructuredWrapper(t *testing.T) {
+	output := map[string]any{
+		"structuredContent": map[string]any{"result": "wrapper metadata"},
+		"content": []map[string]any{{
+			"text": `{"answers":{"difficulty":{"score":1.5}},"routing":{"model":"english"}}`,
+		}},
+	}
+	payload, err := layaToolPayload(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answers := mapFromAny(payload["answers"])
+	if answers == nil || mapFromAny(answers["difficulty"]) == nil {
+		t.Fatalf("canonical Laya content text was not decoded: %#v", payload)
+	}
+}
+
+func TestLayaToolPayloadUnwrapsStructuredStringResult(t *testing.T) {
+	output := map[string]any{
+		"structuredContent": map[string]any{
+			"result": `{"answers":{"domain":{"choice":"code"}},"latency_ms":3.2}`,
+		},
+	}
+	payload, err := layaToolPayload(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answers := mapFromAny(payload["answers"])
+	if answers == nil || mapFromAny(answers["domain"]) == nil {
+		t.Fatalf("structured string result was not unwrapped: %#v", payload)
+	}
+}
