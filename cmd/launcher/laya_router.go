@@ -402,36 +402,58 @@ func mapFromAny(value any) map[string]any {
 	return nil
 }
 
+func decodeLayaJSONMap(value any) map[string]any {
+	switch typed := value.(type) {
+	case map[string]any:
+		for _, key := range []string{"result", "value", "text"} {
+			if nested := decodeLayaJSONMap(typed[key]); nested != nil {
+				if _, hasAnswers := nested["answers"]; hasAnswers {
+					return nested
+				}
+			}
+		}
+		return typed
+	case string:
+		text := strings.TrimSpace(typed)
+		if text == "" {
+			return nil
+		}
+		var decoded any
+		if json.Unmarshal([]byte(text), &decoded) == nil {
+			return decodeLayaJSONMap(decoded)
+		}
+	}
+	return nil
+}
+
 func layaToolPayload(output any) (map[string]any, error) {
 	root := mapFromAny(output)
 	if root == nil {
 		return nil, errors.New("Laya returned an invalid MCP result")
 	}
-	if structured := mapFromAny(root["structuredContent"]); structured != nil {
-		return structured, nil
-	}
+
+	// Laya's MCP tools return a JSON string. MCP SDK versions may additionally
+	// synthesize structuredContent for string-returning tools, but that wrapper is
+	// not the Laya payload itself. Prefer the canonical content[].text first.
 	if content, ok := root["content"].([]map[string]any); ok {
 		for _, item := range content {
-			if text, ok := item["text"].(string); ok && strings.TrimSpace(text) != "" {
-				var decoded map[string]any
-				if json.Unmarshal([]byte(text), &decoded) == nil {
-					return decoded, nil
-				}
+			if decoded := decodeLayaJSONMap(item["text"]); decoded != nil {
+				return decoded, nil
 			}
 		}
 	}
 	if content, ok := root["content"].([]any); ok {
 		for _, raw := range content {
 			item := mapFromAny(raw)
-			if text, ok := item["text"].(string); ok && strings.TrimSpace(text) != "" {
-				var decoded map[string]any
-				if json.Unmarshal([]byte(text), &decoded) == nil {
-					return decoded, nil
-				}
+			if decoded := decodeLayaJSONMap(item["text"]); decoded != nil {
+				return decoded, nil
 			}
 		}
 	}
-	return nil, errors.New("Laya MCP result did not contain structured output")
+	if structured := decodeLayaJSONMap(root["structuredContent"]); structured != nil {
+		return structured, nil
+	}
+	return nil, errors.New("Laya MCP result did not contain a JSON payload")
 }
 
 func layaAnswerMap(answers map[string]any, key string) map[string]any {
