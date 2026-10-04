@@ -269,12 +269,6 @@ func (m *pluginManager) InstallCatalogPlugin(ctx context.Context, project, id st
 	}
 	sort.Slice(config.Environment, func(i, j int) bool { return config.Environment[i].Name < config.Environment[j].Name })
 
-	if entry.ID == "graphify" {
-		if _, err := runGraphifyBuild(ctx, config, project); err != nil {
-			return pluginView{}, fmt.Errorf("Graphify installed, but the initial project graph could not be built: %w", err)
-		}
-	}
-
 	environment := map[string]string{}
 	for key, value := range entry.Environment {
 		environment[key] = value
@@ -287,7 +281,7 @@ func (m *pluginManager) InstallCatalogPlugin(ctx context.Context, project, id st
 	if err != nil {
 		return pluginView{}, err
 	}
-	if entry.Type == pluginTypeRouter {
+	if entry.Type == pluginTypeRouter || entry.ID == "graphify" {
 		return view, nil
 	}
 	view, err = m.SetEnabled(project, entry.ID, true)

@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -93,5 +95,36 @@ func TestGraphifyCatalogInstallsGloballyButKeepsProjectGraph(t *testing.T) {
 	}
 	if got, err := pluginWorkingDirectory(config, second); err != nil || got != second {
 		t.Fatalf("global Graphify cwd for second project = %q, %v", got, err)
+	}
+}
+
+
+func TestGraphifyInstallDoesNotBuildProjectGraphImplicitly(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "plugin_catalog.go"))
+	if err != nil { t.Fatal(err) }
+	text := string(source)
+	if strings.Contains(text, `if entry.ID == "graphify" {
+		if _, err := runGraphifyBuild`) {
+		t.Fatal("installing global Graphify must not implicitly build the current project graph")
+	}
+	if !strings.Contains(text, `entry.Type == pluginTypeRouter || entry.ID == "graphify"`) {
+		t.Fatal("Graphify must remain installed but disabled until its project graph is built")
+	}
+}
+
+func TestGraphifyBuildExportsInteractiveHTML(t *testing.T) {
+	source, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "plugin_graphify.go"))
+	if err != nil { t.Fatal(err) }
+	text := string(source)
+	for _, required := range []string{
+		`"extract", ".", "--code-only"`,
+		`"export", "html"`,
+		`Graphify graph was built, but HTML export failed`,
+		`manager.SetEnabled(project, config.ID, true)`,
+		`"graphify-out/graph.html"`,
+	} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("Graphify build/export contract missing %q", required)
+		}
 	}
 }

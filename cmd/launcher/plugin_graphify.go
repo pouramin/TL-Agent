@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -146,7 +147,7 @@ func (graphifyPluginIntegration) Snapshot(config pluginConfig, project string) *
 		}(),
 		Kind: "server",
 		RequiresConfirmation: true,
-		Confirmation: "Run this local command in the current project?\n\ngraphify extract . --code-only",
+		Confirmation: "Build the local code graph and interactive HTML in the current project?\n\ngraphify extract . --code-only\ngraphify export html",
 	})
 	if files.htmlPath != "" {
 		view.Details["htmlPath"] = files.htmlPath
@@ -182,12 +183,17 @@ func runGraphifyBuild(ctx context.Context, config pluginConfig, project string) 
 	if config.Scope == "project" && strings.TrimSpace(config.Project) != "" {
 		root = config.Project
 	}
-	args := append(append([]string(nil), prefix...), "extract", ".", "--code-only")
-	output, err := runPluginCatalogCommand(ctx, root, command, args...)
+	extractArgs := append(append([]string(nil), prefix...), "extract", ".", "--code-only")
+	extractOutput, err := runPluginCatalogCommand(ctx, root, command, extractArgs...)
 	if err != nil {
-		return output, err
+		return extractOutput, err
 	}
-	return output, nil
+	exportArgs := append(append([]string(nil), prefix...), "export", "html")
+	exportOutput, err := runPluginCatalogCommand(ctx, root, command, exportArgs...)
+	if err != nil {
+		return strings.TrimSpace(extractOutput + "\n" + exportOutput), fmt.Errorf("Graphify graph was built, but HTML export failed: %w", err)
+	}
+	return strings.TrimSpace(extractOutput + "\n" + exportOutput), nil
 }
 
 func (graphifyPluginIntegration) RunAction(ctx context.Context, manager *pluginManager, config pluginConfig, project, actionID string) (any, error) {
@@ -198,5 +204,12 @@ func (graphifyPluginIntegration) RunAction(ctx context.Context, manager *pluginM
 	manager.mu.Lock()
 	manager.stopLocked(config)
 	manager.mu.Unlock()
-	return map[string]any{"output": output}, runErr
+	if runErr != nil {
+		return map[string]any{"output": output}, runErr
+	}
+	view, enableErr := manager.SetEnabled(project, config.ID, true)
+	if enableErr != nil {
+		return map[string]any{"output": output}, enableErr
+	}
+	return map[string]any{"output": output, "plugin": view, "enabled": true}, nil
 }
