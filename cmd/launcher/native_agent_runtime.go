@@ -257,6 +257,38 @@ func nativeRequestRouteActivity(selection nativeRouteSelection) sessionActivityV
 	}
 }
 
+func nativeRequestRouteFailureActivity(selection nativeRouteSelection, failure error) sessionActivityView {
+	activity := nativeRequestRouteActivity(selection)
+	activity.Status = "failed"
+	activity.Title = "Laya route unavailable"
+	activity.Error = &sessionErrorView{Type: "provider", Message: strings.TrimSpace(failure.Error())}
+	if activity.Metadata == nil {
+		activity.Metadata = map[string]any{}
+	}
+	activity.Metadata["fallback"] = true
+	activity.Metadata["failure"] = strings.TrimSpace(failure.Error())
+	return activity
+}
+
+type nativeRoutedRunError struct {
+	cause      error
+	activities []sessionActivityView
+}
+
+func (e *nativeRoutedRunError) Error() string {
+	if e == nil || e.cause == nil {
+		return "routed model request failed"
+	}
+	return e.cause.Error()
+}
+
+func (e *nativeRoutedRunError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
 func nativeRoutingPrompt(input sessionRunInput) string {
 	if text := strings.TrimSpace(input.Text); text != "" {
 		return text
