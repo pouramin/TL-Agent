@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -504,7 +506,6 @@ func TestJevDirectPluginUsesTypeSafeWithoutOpenRouter(t *testing.T) {
 		`openJevDirectDialog`,
 		`jev-direct-config`,
 		`TYPESAFE_API_KEY`,
-		`Save & enable`,
 		`JEV Direct Router is enabled.`,
 	} {
 		if !strings.Contains(plugins, required) {
@@ -518,6 +519,7 @@ func TestJevDirectPluginUsesTypeSafeWithoutOpenRouter(t *testing.T) {
 	for _, required := range []string{
 		`id="jevDirectDialog"`,
 		`id="jevDirectApiKey"`,
+		`Save &amp; enable`,
 		`This path does not use OpenRouter.`,
 	} {
 		if !strings.Contains(index, required) {
