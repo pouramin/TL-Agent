@@ -471,6 +471,10 @@ body { font-size: var(--tl-ui-base); }
 .laya-routing-section-head strong { font-size: var(--tl-ui-md); }
 .laya-routing-section-head span,
 .laya-routing-legend { color: var(--muted); font-size: var(--tl-ui-xs); line-height: 1.4; }
+.laya-routing-pool-summary {
+  color: var(--muted-2) !important;
+  font-size: var(--tl-ui-xs) !important;
+}
 .laya-routing-legend { display: flex; gap: 12px; white-space: nowrap; }
 .laya-routing-models {
   display: grid;
@@ -530,11 +534,28 @@ body { font-size: var(--tl-ui-base); }
   align-items: end;
 }
 .laya-routing-preview-controls textarea {
-  min-height: 58px;
+  min-height: 72px;
   width: 100%;
   resize: vertical;
   box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  outline: none;
+  background: var(--panel-2);
+  color: var(--text);
   font: inherit;
+  font-size: var(--tl-ui-sm);
+  line-height: 1.5;
+  transition: border-color .14s ease;
+}
+.laya-routing-preview-controls textarea:focus {
+  border-color: #485260;
+  background: var(--panel-2);
+}
+.laya-routing-preview-controls textarea::placeholder {
+  color: #606975;
+  opacity: 1;
 }
 .laya-routing-preview-controls button { min-width: 86px; height: 34px; }
 .laya-routing-preview-result {
