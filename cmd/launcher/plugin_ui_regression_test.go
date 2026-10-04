@@ -212,3 +212,59 @@ func TestPluginsUIDistinguishesBundledAndUserAddedWithoutForkingExecution(t *tes
 		t.Fatal("bundled plugins must not gain a browser-side execution path")
 	}
 }
+
+
+func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
+	indexData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "index.html"))
+	if err != nil { t.Fatal(err) }
+	index := string(indexData)
+	for _, required := range []string{
+		"id=\"layaRoutingDialog\"",
+		"id=\"layaRoutingProfile\"",
+		"value=\"balanced\"",
+		"value=\"cost\"",
+		"value=\"quality\"",
+		"value=\"speed\"",
+		"value=\"free\"",
+		"id=\"layaRoutingModels\"",
+		"id=\"layaRoutingPreviewInput\"",
+		"id=\"layaRoutingPreviewButton\"",
+		"id=\"layaRoutingSave\"",
+	} {
+		if !strings.Contains(index, required) {
+			t.Fatalf("Laya Router settings dialog missing %q", required)
+		}
+	}
+
+	source := readBrowserSource(t, "plugins.ts")
+	for _, required := range []string{
+		"actionButton(\"Routing\", \"laya-routing\"",
+		"K.api.layaRouter.status()",
+		"K.api.layaRouter.configure",
+		"K.api.layaRouter.preview",
+		"laya-routing-model-group",
+		"laya-routing-model-quality",
+		"laya-routing-model-speed",
+		"[\"free\", \"Free\"]",
+		"[\"included\", \"Included quota\"]",
+		"await K.loadCatalog?.().catch",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("Laya Router browser integration missing %q", required)
+		}
+	}
+
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
+	if err != nil { t.Fatal(err) }
+	css := string(cssData)
+	for _, required := range []string{
+		".laya-routing-dialog-card",
+		".laya-routing-model-row",
+		".laya-routing-model-group",
+		".laya-routing-preview",
+	} {
+		if !strings.Contains(css, required) {
+			t.Fatalf("Laya Router styling missing %q", required)
+		}
+	}
+}
