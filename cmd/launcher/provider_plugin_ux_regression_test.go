@@ -35,6 +35,8 @@ func TestJevSettingsUseCompactControlAndRefreshAfterProviderChanges(t *testing.T
 		`jevConfigDialog`,
 		`tlstudio:providers-changed`,
 		`providerHasRouter`,
+		`JEV via OpenRouter`,
+		`Plugins → JEV Direct`,
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("compact Jev settings contract missing %q", required)
