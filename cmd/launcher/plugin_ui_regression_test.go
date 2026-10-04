@@ -328,7 +328,7 @@ func TestJevDirectPluginSetupValidatesBeforeEnable(t *testing.T) {
 
 func TestInstalledPluginsUseThreeColumnProviderStyleCards(t *testing.T) {
 	source := readBrowserSource(t, "plugins.ts")
-	if !strings.Contains(source, `body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid"`) {
+	if !strings.Contains(source, `body.className = "plugin-catalog-grid"`) {
 		t.Fatal("installed Plugins must use the same card grid as curated integrations")
 	}
 	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "settings.css"))
