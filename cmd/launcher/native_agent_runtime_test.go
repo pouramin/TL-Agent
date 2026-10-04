@@ -813,6 +813,17 @@ func TestNativeAgentRejectsPlanOnlyAnswerForExplicitExecutionTask(t *testing.T) 
 	if string(data) != "done" {
 		t.Fatalf("execution guard did not perform requested work: %q", string(data))
 	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, running := runtime.NativeStatuses(project)[session.ID]; !running {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("execution-guard native run did not finish cleanly")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 func TestNativePromptExecutionDetectionHonorsReadOnlyRequests(t *testing.T) {
