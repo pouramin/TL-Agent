@@ -425,6 +425,7 @@ func (s *layaRouterService) candidates(ctx context.Context, project string) ([]l
 		if key, keyErr := s.providers.effectiveCredential(ctx, provider.ID, project); keyErr == nil && strings.TrimSpace(key) != "" {
 			connected = true
 		}
+		providerReady, providerAvailability := s.providerReady(ctx, provider, connected)
 		for _, model := range provider.Models {
 			if model.Kind == "router" || !model.ToolCall || !providerModelUsesNativeAgent(provider, model) {
 				continue
@@ -437,10 +438,16 @@ func (s *layaRouterService) candidates(ctx context.Context, project string) ([]l
 				quality = clampLayaScore(pref.Quality)
 				speed = clampLayaScore(pref.Speed)
 			}
+			ready := providerReady
+			availability := providerAvailability
+			if cooldown, cooling := s.candidateCooldown(provider.ID, model.ID); cooling {
+				ready = false
+				availability = cooldown.Reason
+			}
 			result = append(result, layaRouterCandidate{
 				ProviderID: provider.ID, ProviderName: provider.Name,
 				ModelID: model.ID, ModelName: model.Name,
-				Connected: connected, Enabled: enabled,
+				Connected: connected, Ready: ready, Availability: availability, Enabled: enabled,
 				Group: group, Quality: quality, Speed: speed,
 				Reasoning: model.Reasoning, ContextLimit: model.ContextLimit, OutputLimit: model.OutputLimit,
 			})
@@ -478,7 +485,7 @@ func (s *layaRouterService) Status(ctx context.Context, project string) (layaRou
 	} else {
 		usable := 0
 		for _, candidate := range models {
-			if candidate.Enabled && candidate.Connected {
+			if candidate.Enabled && candidate.Connected && candidate.Ready {
 				usable++
 			}
 		}
