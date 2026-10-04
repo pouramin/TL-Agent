@@ -398,7 +398,7 @@ interface TLStudioProductAPI {
   layaRouter: {
     status(): Promise<TLStudioLayaRouterStatus>;
     configure(input: TLStudioDynamicRecord): Promise<TLStudioLayaRouterStatus>;
-    preview(prompt: string): Promise<TLStudioLayaRoutePreview>;
+    preview(input: TLStudioDynamicRecord): Promise<TLStudioLayaRoutePreview>;
   };
   tools: { registry(): Promise<TLStudioToolRegistry> };
   plugins: {
