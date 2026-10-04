@@ -10,27 +10,33 @@ Stable main contains only validated stable releases. Ongoing development continu
 
 ## Current milestone
 
-Release candidate version:
+Development version:
 
-0.6.0
+0.7.0-alpha.1
 
-Stable base before promotion:
+Stable base:
 
-v0.5.0 on main
+v0.6.0 on main
 
-Next development generation after the stable release:
+Development status:
 
-0.7.0-alpha.1 on dev
+TL Studio v0.6.0 is published as the stable release from main commit 0bef7774ea1e087cfac1c0b1194b74eca1ff67bc. Stable main must remain on the 0.6 line except for intentional stable bugfix releases.
 
-Release status:
+The 0.7 development generation begins on dev at 0.7.0-alpha.1. Reserve 0.6.x versions for stable bugfix releases rather than new alpha development.
 
-PR #167 merged the validated 0.6 feature work into dev. The exact feature head passed CI #1019 and Custom Provider Contract #879, and the exact dev merge tree passed Preview Build #138. The stable promotion target is v0.6.0.
+The v0.6.0 release includes the Laya Router, JEV Direct through TypeSafe while preserving JEV via OpenRouter, global Graphify installation with project-local graphs, the responsive Plugins redesign, Claude Web Bridge improvements, native routed-Agent fallback/cooldown reliability, the single-scroll Settings redesign, and the verified GitHub Releases updater.
 
-The 0.6 release includes the Laya Router, JEV Direct through TypeSafe while preserving JEV via OpenRouter, global Graphify installation with project-local graphs, the responsive Plugins redesign, Claude Web Bridge improvements, native routed-Agent fallback/cooldown reliability, the single-scroll Settings redesign, and the verified GitHub Releases updater.
+Release validation:
+
+- PR #167 merged the validated feature work into dev.
+- PR #168 promoted the stable release through the protected dev → main path.
+- v0.6.0 tag points to the exact stable main commit.
+- Release workflow #38 succeeded.
+- CI #1021 and Custom Provider Contract #881 succeeded on the exact stable main commit.
 
 Stable promotion rule:
 
-Promote dev to main only through the protected pull-request path after the stable preparation commit passes the required checks. Publish v0.6.0 from the exact final main commit. Only after that release is published should dev advance to 0.7.0-alpha.1.
+Keep main stable. Develop 0.7 work only on dev or branches based on dev. Future stable promotion must again use the protected PR path and pass the required checks.
 
 ## Architecture state
 
