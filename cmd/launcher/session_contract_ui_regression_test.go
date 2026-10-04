@@ -91,3 +91,41 @@ func TestSessionContractSeparatesReadModelFromCommandAndPermissionContracts(t *t
 		}
 	}
 }
+
+
+func TestLayaRoutedModelIsVisibleInConversationPresentation(t *testing.T) {
+	presentation := readBrowserSource(t, "presentation.ts")
+	for _, required := range []string{
+		`item?.kind === "model"`,
+		`item?.metadata?.source === "laya-model-router"`,
+		`item.title || "Routed by Laya"`,
+		`metadata.modelName`,
+		`metadata.providerName`,
+		`Routing decision`,
+	} {
+		if !strings.Contains(presentation, required) {
+			t.Fatalf("conversation presentation is missing Laya route visibility %q", required)
+		}
+	}
+
+	status := readBrowserSource(t, "status-ui.ts")
+	for _, required := range []string{
+		`const layaRouteForMessages =`,
+		`Laya → ${route.model}`,
+		`turn-usage-laya`,
+		`metadata.modelName`,
+		`metadata.providerName`,
+	} {
+		if !strings.Contains(status, required) {
+			t.Fatalf("turn footer is missing Laya route visibility %q", required)
+		}
+	}
+
+	cssData, err := os.ReadFile(filepath.Join(releaseRepoRoot(t), "cmd", "launcher", "web", "status-ui.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cssData), ".turn-usage-laya") {
+		t.Fatal("Laya-routed turn footer styling is missing")
+	}
+}
