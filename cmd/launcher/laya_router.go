@@ -155,6 +155,113 @@ func layaPreferenceKey(providerID, modelID string) string {
 	return strings.TrimSpace(providerID) + "\x00" + strings.TrimSpace(modelID)
 }
 
+func layaProviderCooldownKey(providerID string) string {
+	return layaPreferenceKey(providerID, "*")
+}
+
+func classifyLayaRouteFailure(err error) (providerWide bool, cooldown time.Duration, reason string, ok bool) {
+	if err == nil {
+		return false, 0, "", false
+	}
+	text := strings.ToLower(strings.TrimSpace(err.Error()))
+	switch {
+	case strings.Contains(text, "bridge is not paired") ||
+		strings.Contains(text, "chrome extension is not paired") ||
+		strings.Contains(text, "browser sign-in") ||
+		strings.Contains(text, "reauthenticate") ||
+		strings.Contains(text, "unauthorized"):
+		return true, 2 * time.Minute, "Provider session unavailable", true
+	case strings.Contains(text, "model_not_available") ||
+		strings.Contains(text, "model isn't available right now") ||
+		strings.Contains(text, "model is not available"):
+		return false, 30 * time.Minute, "Model unavailable", true
+	case strings.Contains(text, "status 429") ||
+		strings.Contains(text, "rate-limited") ||
+		strings.Contains(text, "rate limit") ||
+		strings.Contains(text, "too many requests"):
+		return false, 90 * time.Second, "Rate limited", true
+	case strings.Contains(text, "status 502") ||
+		strings.Contains(text, "status 503") ||
+		strings.Contains(text, "status 504") ||
+		strings.Contains(text, "overloaded") ||
+		strings.Contains(text, "temporarily unavailable") ||
+		strings.Contains(text, "timed out") ||
+		strings.Contains(text, "timeout") ||
+		strings.Contains(text, "connection reset") ||
+		strings.Contains(text, "connection closed") ||
+		strings.Contains(text, "fetch failed"):
+		return false, 45 * time.Second, "Temporarily unavailable", true
+	default:
+		return false, 0, "", false
+	}
+}
+
+func (s *layaRouterService) markRouteFailure(selection nativeRouteSelection, err error) bool {
+	providerWide, duration, reason, ok := classifyLayaRouteFailure(err)
+	if !ok || s == nil {
+		return false
+	}
+	key := layaPreferenceKey(selection.ProviderID, selection.ModelID)
+	if providerWide {
+		key = layaProviderCooldownKey(selection.ProviderID)
+	}
+	s.healthMu.Lock()
+	if s.cooldowns == nil {
+		s.cooldowns = map[string]layaRouterCooldown{}
+	}
+	s.cooldowns[key] = layaRouterCooldown{Until: time.Now().Add(duration), Reason: reason}
+	s.healthMu.Unlock()
+	return true
+}
+
+func (s *layaRouterService) candidateCooldown(providerID, modelID string) (layaRouterCooldown, bool) {
+	if s == nil {
+		return layaRouterCooldown{}, false
+	}
+	now := time.Now()
+	keys := []string{layaProviderCooldownKey(providerID), layaPreferenceKey(providerID, modelID)}
+	s.healthMu.Lock()
+	defer s.healthMu.Unlock()
+	for _, key := range keys {
+		entry, ok := s.cooldowns[key]
+		if !ok {
+			continue
+		}
+		if !entry.Until.After(now) {
+			delete(s.cooldowns, key)
+			continue
+		}
+		return entry, true
+	}
+	return layaRouterCooldown{}, false
+}
+
+func (s *layaRouterService) providerReady(ctx context.Context, provider tlProviderDefinition, connected bool) (bool, string) {
+	if !connected {
+		return false, "Not connected"
+	}
+	if provider.Protocol != claudeWebProviderProtocol {
+		return true, "Ready"
+	}
+	adapter, _ := s.providers.accountAdapter(provider.ID).(*claudeWebAccountAdapter)
+	if adapter == nil || adapter.transport == nil {
+		return false, "Claude Web transport unavailable"
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	probe, err := adapter.transport.Probe(probeCtx)
+	if err != nil {
+		if errors.Is(err, errClaudeWebExtensionNotPaired) || strings.Contains(strings.ToLower(err.Error()), "not paired") {
+			return false, "Claude Web not paired"
+		}
+		return false, "Claude Web unavailable"
+	}
+	if !probe.Connected {
+		return false, "Claude Web signed out"
+	}
+	return true, "Ready"
+}
+
 func normalizeLayaRouterConfig(input layaRouterConfig) layaRouterConfig {
 	input.Version = layaRouterConfigVersion
 	input.Profile = normalizeLayaRouterProfile(input.Profile)
