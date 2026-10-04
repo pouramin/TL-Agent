@@ -353,3 +353,125 @@ func TestNativeAgentPromptStopsAfterPermissionRejection(t *testing.T) {
 		}
 	}
 }
+
+
+type nativeLayaRouteResolver struct {
+	mu         sync.Mutex
+	providerID string
+	modelID    string
+}
+
+func (r *nativeLayaRouteResolver) resolveNativeModel(_ context.Context, providerID, modelID string) (tlProviderDefinition, tlProviderModel, string, error) {
+	r.mu.Lock()
+	r.providerID = providerID
+	r.modelID = modelID
+	r.mu.Unlock()
+	return tlProviderDefinition{
+			ID: providerID, Name: "Routed Provider", Protocol: "openai-compatible", BaseURL: "http://127.0.0.1:1/v1",
+	}, tlProviderModel{ID: modelID, Name: "Routed Model", ToolCall: true}, "test-key", nil
+}
+
+type nativeFakeLayaRouter struct{}
+
+func (nativeFakeLayaRouter) Handles(model *sessionModelRef) bool {
+	return model != nil && model.ProviderID == layaRouterProviderID && model.ID == layaRouterModelID
+}
+
+func (nativeFakeLayaRouter) Route(_ context.Context, _ string, prompt string) (nativeRouteSelection, error) {
+	return nativeRouteSelection{
+		ProviderID: "actual-provider",
+		ProviderName: "Actual Provider",
+		ModelID: "actual-model",
+		ModelName: "Actual Model",
+		Profile: "cost",
+		Group: "budget",
+		Quality: 4,
+		Speed: 5,
+		Reason: "test route for " + prompt,
+		Analysis: layaRouteAnalysis{Difficulty: 1.4, Domain: "code", NeedsTools: 0.7, Sensitive: 0.1, LatencyMS: 4.2},
+	}, nil
+}
+
+type nativeLayaRouteModel struct {
+	finished chan struct{}
+}
+
+func (m *nativeLayaRouteModel) Complete(_ context.Context, request nativeModelRequest, _ func(string)) (nativeModelResponse, error) {
+	if request.Provider.ID != "actual-provider" || request.Model.ID != "actual-model" {
+		return nativeModelResponse{}, errors.New("Laya route was not resolved to the selected real model")
+	}
+	close(m.finished)
+	return nativeModelResponse{Text: "LAYA_ROUTER_OK", FinishReason: "stop", Usage: sessionUsage{Input: 4, Output: 2}}, nil
+}
+
+func TestNativeAgentUsesLayaRouterSelectionAndPersistsRoutingActivity(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-laya-router-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Laya routing proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resolver := &nativeLayaRouteResolver{}
+	model := &nativeLayaRouteModel{finished: make(chan struct{})}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, model, executor, store, newLiveEventBus())
+	runtime.setRequestRouter(nativeFakeLayaRouter{})
+
+	input := sessionRunInput{
+		Text: "Refactor the parser",
+		Agent: "code",
+		Model: &sessionModelRef{ProviderID: layaRouterProviderID, ID: layaRouterModelID},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-model.finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("Laya-routed native Agent did not reach the real model")
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role != "assistant" || message.Text != "LAYA_ROUTER_OK" {
+					continue
+				}
+				if message.Model == nil || message.Model.ProviderID != layaRouterProviderID || message.Model.ID != layaRouterModelID {
+					t.Fatalf("assistant message should preserve selected Laya Router identity: %#v", message.Model)
+				}
+				found := false
+				for _, activity := range message.Activities {
+					if activity.Kind == "model" && activity.Title == "Routed by Laya" &&
+						activity.Model != nil && activity.Model.ProviderID == "actual-provider" && activity.Model.ID == "actual-model" {
+						found = true
+						if activity.Metadata["profile"] != "cost" || activity.Metadata["domain"] != "code" {
+							t.Fatalf("Laya routing metadata missing: %#v", activity.Metadata)
+						}
+					}
+				}
+				if !found {
+					t.Fatalf("Routed by Laya activity was not persisted: %#v", message.Activities)
+				}
+				resolver.mu.Lock()
+				gotProvider, gotModel := resolver.providerID, resolver.modelID
+				resolver.mu.Unlock()
+				if gotProvider != "actual-provider" || gotModel != "actual-model" {
+					t.Fatalf("resolver received %s/%s, want actual-provider/actual-model", gotProvider, gotModel)
+				}
+				return
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Laya routed assistant message was not persisted: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
