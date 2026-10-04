@@ -309,6 +309,7 @@ func TestNativeAgentPromptExplainsNonInteractiveShellRetries(t *testing.T) {
 		"perform that work instead of stopping at a plan",
 		"batch independent read-only tool calls",
 		"avoid rereading files already present in the current tool history",
+		"totalLines/nextStartLine",
 		"non-interactive",
 		"do not use the timeout command",
 		"Do not blindly retry multiple shell variants",
@@ -837,5 +838,74 @@ func TestNativePromptExecutionDetectionHonorsReadOnlyRequests(t *testing.T) {
 	}
 	if nativePromptRequiresExecution("Review the project and tell me what you would improve. Do not modify any files.") {
 		t.Fatal("read-only review must not be forced into execution")
+	}
+}
+
+
+func TestNativeFilesReadUsesBoundedLineRanges(t *testing.T) {
+	project := t.TempDir()
+	lines := make([]string, 0, 900)
+	for index := 1; index <= 900; index++ {
+		lines = append(lines, fmt.Sprintf("line-%03d", index))
+	}
+	if err := os.WriteFile(filepath.Join(project, "large.txt"), []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := nativeReadFile(project, map[string]any{"path": "large.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstMap, _ := first.(map[string]any)
+	if got := firstMap["startLine"]; got != 1 {
+		t.Fatalf("default startLine = %#v, want 1", got)
+	}
+	if got := firstMap["endLine"]; got != nativeAgentReadDefaultLines {
+		t.Fatalf("default endLine = %#v, want %d", got, nativeAgentReadDefaultLines)
+	}
+	if got := firstMap["totalLines"]; got != 900 {
+		t.Fatalf("totalLines = %#v, want 900", got)
+	}
+	if got := firstMap["nextStartLine"]; got != nativeAgentReadDefaultLines+1 {
+		t.Fatalf("nextStartLine = %#v, want %d", got, nativeAgentReadDefaultLines+1)
+	}
+	if truncated, _ := firstMap["truncated"].(bool); !truncated {
+		t.Fatal("large default read should be marked truncated")
+	}
+	content, _ := firstMap["content"].(string)
+	if !strings.Contains(content, "line-001") || !strings.Contains(content, "line-400") || strings.Contains(content, "line-401") {
+		t.Fatalf("unexpected first page content")
+	}
+
+	ranged, err := nativeReadFile(project, map[string]any{
+		"path": "large.txt",
+		"startLine": json.Number("401"),
+		"endLine": json.Number("450"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rangeMap, _ := ranged.(map[string]any)
+	if rangeMap["startLine"] != 401 || rangeMap["endLine"] != 450 {
+		t.Fatalf("unexpected explicit range %#v", rangeMap)
+	}
+	rangeContent, _ := rangeMap["content"].(string)
+	if !strings.HasPrefix(rangeContent, "line-401") || !strings.HasSuffix(rangeContent, "line-450") {
+		t.Fatalf("unexpected ranged content")
+	}
+}
+
+func TestNativeFilesReadKeepsSmallFilesComplete(t *testing.T) {
+	project := t.TempDir()
+	if err := os.WriteFile(filepath.Join(project, "small.txt"), []byte("one\ntwo\nthree"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	output, err := nativeReadFile(project, map[string]any{"path": "small.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, _ := output.(map[string]any)
+	if result["content"] != "one\ntwo\nthree" || result["truncated"] != false {
+		t.Fatalf("small file should remain complete: %#v", result)
 	}
 }
