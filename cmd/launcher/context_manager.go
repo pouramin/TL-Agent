@@ -357,6 +357,22 @@ func nativeContextActivity(plan nativeContextPlan) sessionActivityView {
 	}
 }
 
+func nativeContextPlanSignature(plan nativeContextPlan) string {
+	if !nativeContextPlanChanged(plan) {
+		return ""
+	}
+	return fmt.Sprintf(
+		"%d/%d/%d/%d/%d/%t/%t",
+		plan.ContextLimit,
+		plan.MessageBudget,
+		plan.OmittedMessages,
+		plan.CompactedToolResults,
+		plan.CompactedToolCalls,
+		plan.CheckpointInserted,
+		plan.OverBudget,
+	)
+}
+
 func nativeContextPlanChanged(plan nativeContextPlan) bool {
 	return plan.OmittedMessages > 0 ||
 		plan.CompactedToolResults > 0 ||
