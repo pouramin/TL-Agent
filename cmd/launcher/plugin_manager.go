@@ -848,6 +848,12 @@ func (m *pluginManager) TestSaved(ctx context.Context, project, id string) (plug
 		}
 	}
 	config.Enabled = true
+	if config.Type == pluginTypeRouter {
+		if err := validatePluginIntegrationStart(config, project); err != nil {
+			return pluginView{pluginConfig: config, Status: "Error", Error: err.Error(), Integration: pluginIntegrationSnapshot(config, project)}, err
+		}
+		return pluginView{pluginConfig: config, Status: "Connected", Integration: pluginIntegrationSnapshot(config, project)}, nil
+	}
 	env, err := m.configEnvironment(config)
 	if err != nil {
 		return pluginView{}, err

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 )
 
@@ -276,7 +277,11 @@ func (m *pluginManager) InstallCatalogPlugin(ctx context.Context, project, id st
 	for key, value := range entry.Environment {
 		environment[key] = value
 	}
-	view, err := m.Upsert(project, pluginUpsertRequest{Plugin: config, Environment: &environment})
+	request := pluginUpsertRequest{Plugin: config}
+	if entry.Type == pluginTypeMCP {
+		request.Environment = &environment
+	}
+	view, err := m.Upsert(project, request)
 	if err != nil {
 		return pluginView{}, err
 	}
