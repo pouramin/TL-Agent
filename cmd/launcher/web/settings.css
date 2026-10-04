@@ -68,7 +68,7 @@ select,.primary.small,.ghost.small,.sidebar-settings-button,.session-quick-delet
 .composer-bottom { gap: 10px; }
 .composer-hints { margin-left: auto; }
 
-.settings-window { width: min(760px, calc(100vw - 36px)); padding: 0; overflow: hidden; }
+.settings-window { width: min(920px, calc(100vw - 36px)); padding: 0; overflow: hidden; }
 .settings-header { min-height: 76px; display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding: 19px 21px 16px; border-bottom: 1px solid var(--line-soft); }
 .settings-header h2 { margin: 0; }
 .settings-header p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
@@ -193,7 +193,7 @@ html[data-resolved-theme="light"] dialog::backdrop { background: rgba(31,41,55,.
   .composer-context-controls select { max-width: 150px; }
   #agentSelect { max-width: 105px; }
   .composer-hints { display: none; }
-  .settings-window { width: min(680px, calc(100vw - 24px)); }
+  .settings-window { width: min(920px, calc(100vw - 24px)); }
 }
 
 @media (max-width: 760px) {
@@ -425,7 +425,7 @@ body { font-size: var(--tl-ui-base); }
 .plugin-catalog-actions .primary { min-width: 72px; }
 .plugin-catalog-error { grid-column: 1 / -1; margin-top: 4px; }
 @media(max-width:760px){
-  .settings-window.settings-window-plugins { width: min(820px, calc(100vw - 24px)); }
+  .settings-window.settings-window-plugins { width: min(920px, calc(100vw - 24px)); }
   .plugin-catalog-grid { grid-template-columns: 1fr; }
 }
 

@@ -715,6 +715,7 @@ import { K } from "./kernel";
       renderLayaRoutingModels();
       setLayaRoutingStatus("Routing policy saved.", "success");
       await K.loadCatalog?.().catch(() => {});
+      closeLayaRouting();
     } catch (error) {
       setLayaRoutingStatus((error as Error).message || String(error), "error");
     } finally {

@@ -128,6 +128,7 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 	if err != nil { t.Fatal(err) }
 	css := string(cssData)
 	for _, required := range []string{
+		".settings-window { width: min(920px, calc(100vw - 36px));",
 		".settings-window.settings-window-plugins",
 		".plugin-catalog-grid",
 		".plugin-catalog-card",
@@ -252,6 +253,7 @@ func TestLayaRouterSettingsExposePolicyAndModelClassification(t *testing.T) {
 		"[\"free\", \"Free\"]",
 		"[\"included\", \"Included quota\"]",
 		"await K.loadCatalog?.().catch",
+		"closeLayaRouting();",
 	} {
 		if !strings.Contains(source, required) {
 			t.Fatalf("Laya Router browser integration missing %q", required)
