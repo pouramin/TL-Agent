@@ -294,6 +294,64 @@
     </div>
   </dialog>
 
+  <dialog id="layaRoutingDialog">
+    <div class="dialog-card laya-routing-dialog-card">
+      <div class="plugin-dialog-head">
+        <div>
+          <div class="laya-routing-kicker">Laya Router</div>
+          <h2>Model routing</h2>
+          <p>Laya analyzes each request, then TL Studio chooses one of your enabled models using the policy below.</p>
+        </div>
+        <button id="layaRoutingClose" class="icon-button" type="button" aria-label="Close Laya Router settings">×</button>
+      </div>
+
+      <div class="laya-routing-profile-row">
+        <div>
+          <strong>Routing profile</strong>
+          <span>Choose what TL Studio should optimize after Laya classifies the request.</span>
+        </div>
+        <select id="layaRoutingProfile" aria-label="Laya routing profile">
+          <option value="balanced">Balanced</option>
+          <option value="cost">Lowest cost</option>
+          <option value="quality">Best quality</option>
+          <option value="speed">Fastest</option>
+          <option value="free">Free only</option>
+        </select>
+      </div>
+
+      <div class="laya-routing-section-head">
+        <div>
+          <strong>Model pool</strong>
+          <span>Only connected, tool-capable models can be selected at runtime. Classification is editable.</span>
+        </div>
+        <div class="laya-routing-legend">
+          <span>Quality 1–5</span><span>Speed 1–5</span>
+        </div>
+      </div>
+      <div id="layaRoutingModels" class="laya-routing-models" aria-live="polite"></div>
+
+      <div class="laya-routing-preview">
+        <div class="laya-routing-section-head">
+          <div>
+            <strong>Preview a route</strong>
+            <span>Run Laya's model-router analysis without starting an Agent turn.</span>
+          </div>
+        </div>
+        <div class="laya-routing-preview-controls">
+          <textarea id="layaRoutingPreviewInput" rows="2" spellcheck="false" placeholder="Example: Refactor this authentication service and keep all tests green."></textarea>
+          <button id="layaRoutingPreviewButton" class="ghost small" type="button">Preview</button>
+        </div>
+        <div id="layaRoutingPreviewResult" class="laya-routing-preview-result" aria-live="polite"></div>
+      </div>
+
+      <div id="layaRoutingStatus" class="plugin-editor-status"></div>
+      <div class="plugin-editor-actions">
+        <button id="layaRoutingCancel" class="ghost small" type="button">Cancel</button>
+        <button id="layaRoutingSave" class="primary small" type="button">Save routing</button>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="authDialog">
     <div class="dialog-card auth-card">
       <h2>Connect provider account</h2><p id="authInstructions">Starting secure provider authorization…</p>
