@@ -651,11 +651,25 @@ func (s *layaRouterService) Analyze(ctx context.Context, project, prompt string)
 	return layaAnalyzePayload(payload)
 }
 
-func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
-	config, err := s.loadConfig()
-	if err != nil {
-		return nativeRouteSelection{}, err
+func applyLayaRouterPreferences(candidates []layaRouterCandidate, config layaRouterConfig) []layaRouterCandidate {
+	prefs := map[string]layaRouterModelPreference{}
+	for _, item := range normalizeLayaRouterConfig(config).Models {
+		prefs[layaPreferenceKey(item.ProviderID, item.ModelID)] = item
 	}
+	result := append([]layaRouterCandidate(nil), candidates...)
+	for index := range result {
+		if pref, ok := prefs[layaPreferenceKey(result[index].ProviderID, result[index].ModelID)]; ok {
+			result[index].Enabled = pref.Enabled
+			result[index].Group = normalizeLayaModelGroup(pref.Group)
+			result[index].Quality = clampLayaScore(pref.Quality)
+			result[index].Speed = clampLayaScore(pref.Speed)
+		}
+	}
+	return result
+}
+
+func (s *layaRouterService) routeWithConfig(ctx context.Context, project, prompt string, config layaRouterConfig) (nativeRouteSelection, error) {
+	config = normalizeLayaRouterConfig(config)
 	analysis, err := s.Analyze(ctx, project, prompt)
 	if err != nil {
 		return nativeRouteSelection{}, err
@@ -664,6 +678,7 @@ func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (
 	if err != nil {
 		return nativeRouteSelection{}, err
 	}
+	candidates = applyLayaRouterPreferences(candidates, config)
 	selected, reason, err := chooseLayaCandidate(config.Profile, analysis, candidates)
 	if err != nil {
 		return nativeRouteSelection{}, err
@@ -674,6 +689,14 @@ func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (
 		Profile: config.Profile, Group: selected.Group, Quality: selected.Quality, Speed: selected.Speed,
 		Reason: reason, Analysis: analysis,
 	}, nil
+}
+
+func (s *layaRouterService) Route(ctx context.Context, project, prompt string) (nativeRouteSelection, error) {
+	config, err := s.loadConfig()
+	if err != nil {
+		return nativeRouteSelection{}, err
+	}
+	return s.routeWithConfig(ctx, project, prompt, config)
 }
 
 func (s *layaRouterService) decorateCatalog(ctx context.Context, directory string, result *providerCatalogResponse) error {
@@ -728,13 +751,26 @@ func registerLayaRouterRoutes(mux *http.ServeMux, state *appState, service *laya
 	})
 	mux.HandleFunc("POST /local/laya-router/preview", func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
-			Prompt string `json:"prompt"`
+			Prompt  string                      `json:"prompt"`
+			Profile string                      `json:"profile,omitempty"`
+			Models  []layaRouterModelPreference `json:"models,omitempty"`
 		}
-		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 256<<10)).Decode(&input); err != nil {
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&input); err != nil {
 			writeJSON(w, http.StatusBadRequest, jsonError{Error: "invalid JSON body"})
 			return
 		}
-		decision, err := service.Route(r.Context(), state.projectPath(), input.Prompt)
+		config, err := service.loadConfig()
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, jsonError{Error: err.Error()})
+			return
+		}
+		if strings.TrimSpace(input.Profile) != "" {
+			config.Profile = input.Profile
+		}
+		if input.Models != nil {
+			config.Models = input.Models
+		}
+		decision, err := service.routeWithConfig(r.Context(), state.projectPath(), input.Prompt, config)
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, jsonError{Error: err.Error()})
 			return
