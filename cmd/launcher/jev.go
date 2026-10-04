@@ -361,7 +361,7 @@ func (m *providerManager) findOpenRouterProvider() (tlProviderDefinition, string
 		}
 	}
 	for _, provider := range candidates {
-		key, getErr := m.credentials.Get(provider.ID)
+		key, getErr := m.effectiveCredential(context.Background(), provider.ID, "")
 		if getErr == nil && strings.TrimSpace(key) != "" {
 			return provider, strings.TrimSpace(key), nil
 		}
@@ -496,7 +496,7 @@ func (m *providerManager) findJevRouterProvider() (tlProviderDefinition, string,
 		}
 	}
 	for _, provider := range candidates {
-		key, getErr := m.credentials.Get(provider.ID)
+		key, getErr := m.effectiveCredential(context.Background(), provider.ID, "")
 		if getErr == nil && strings.TrimSpace(key) != "" {
 			return provider, strings.TrimSpace(key), nil
 		}

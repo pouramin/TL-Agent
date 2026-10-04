@@ -56,6 +56,10 @@ import { K } from "./kernel";
 
   const LAYOUT_KEY = "tl-studio.workspace-layout.v1";
   const ACTIVITY_RAIL_WIDTH = 54;
+  const EDITOR_MIN_WIDTH = 320;
+  const AGENT_MIN_WIDTH = 280;
+  const AGENT_COMPACT_MAX_WIDTH = 420;
+  const AGENT_FOCUSED_MIN_WIDTH = 520;
   const defaults: WorkspaceLayout = {
     sidebarWidth: 248,
     agentWidth: 360,
@@ -83,7 +87,11 @@ import { K } from "./kernel";
     try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); }
     catch {}
   };
-  const clamp = (value: number, minimum: number, maximum: number) => Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
+  const clamp = (value: number, minimum: number, maximum: number) => {
+    const safeMax = Math.max(0, maximum);
+    const safeMin = Math.min(Math.max(0, minimum), safeMax);
+    return Math.min(Math.max(value, safeMin), safeMax);
+  };
 
   root.classList.add("workspace-v2");
 
@@ -398,33 +406,67 @@ import { K } from "./kernel";
     window.setTimeout(() => searchPanel?.classList.remove("hidden"), 0);
   });
 
+  const workbenchWidth = () => Math.max(0, workbench.clientWidth || window.innerWidth);
+  const autoHideContext = () => window.innerWidth <= 1120;
+  const contextWidthForLayout = () => (
+    layout.sidebarCollapsed || autoHideContext() ? 0 : layout.sidebarWidth
+  );
+  const maxAgentWidth = () => Math.max(
+    48,
+    workbenchWidth() - ACTIVITY_RAIL_WIDTH - contextWidthForLayout() - 12 - EDITOR_MIN_WIDTH,
+  );
+
   const effectiveAgentWidth = () => {
     if (layout.agentMode === "collapsed") return 48;
-    const requested = layout.agentMode === "focused" ? Math.max(layout.agentWidth, 500) : layout.agentWidth;
-    const sidebar = layout.sidebarCollapsed ? 0 : layout.sidebarWidth;
-    const max = window.innerWidth - ACTIVITY_RAIL_WIDTH - sidebar - 12 - 420;
-    return clamp(requested, 280, max);
+    const max = maxAgentWidth();
+    const requested = layout.agentMode === "focused"
+      ? Math.max(layout.agentWidth, AGENT_FOCUSED_MIN_WIDTH)
+      : Math.min(layout.agentWidth, AGENT_COMPACT_MAX_WIDTH);
+    return clamp(requested, Math.min(AGENT_MIN_WIDTH, max), max);
   };
 
   const applyLayout = () => {
-    const maxSidebar = window.innerWidth - ACTIVITY_RAIL_WIDTH - effectiveAgentWidth() - 12 - 420;
-    layout.sidebarWidth = clamp(layout.sidebarWidth, 180, maxSidebar);
-    layout.agentWidth = clamp(layout.agentWidth, 280, window.innerWidth - ACTIVITY_RAIL_WIDTH - (layout.sidebarCollapsed ? 0 : layout.sidebarWidth) - 12 - 420);
+    const benchWidth = workbenchWidth();
+    const contextHidden = layout.sidebarCollapsed || autoHideContext();
+    const maxSidebar = Math.max(
+      0,
+      benchWidth - ACTIVITY_RAIL_WIDTH - AGENT_MIN_WIDTH - 12 - EDITOR_MIN_WIDTH,
+    );
+    if (!contextHidden) {
+      layout.sidebarWidth = clamp(layout.sidebarWidth, Math.min(180, maxSidebar), maxSidebar);
+    }
+
+    const sidebar = contextHidden ? 0 : layout.sidebarWidth;
+    const rawMaxAgent = Math.max(
+      48,
+      benchWidth - ACTIVITY_RAIL_WIDTH - sidebar - 12 - EDITOR_MIN_WIDTH,
+    );
+    layout.agentWidth = clamp(
+      layout.agentWidth,
+      Math.min(AGENT_MIN_WIDTH, rawMaxAgent),
+      rawMaxAgent,
+    );
     layout.terminalHeight = clamp(layout.terminalHeight, 96, Math.max(96, mainPane.clientHeight * 0.58 || 420));
 
-    root.style.setProperty("--workspace-context-width", (layout.sidebarCollapsed ? 0 : layout.sidebarWidth) + "px");
+    root.style.setProperty("--workspace-context-width", (contextHidden ? 0 : layout.sidebarWidth) + "px");
     root.style.setProperty("--workspace-agent-width", effectiveAgentWidth() + "px");
     root.style.setProperty("--workspace-terminal-height", layout.terminalHeight + "px");
-    root.classList.toggle("workspace-context-collapsed", layout.sidebarCollapsed);
+    root.classList.toggle("workspace-context-collapsed", contextHidden);
     root.classList.toggle("workspace-agent-collapsed", layout.agentMode === "collapsed");
     root.classList.toggle("workspace-agent-focused", layout.agentMode === "focused");
     sidebarToggle.textContent = layout.sidebarCollapsed ? "›" : "‹";
     sidebarToggle.title = layout.sidebarCollapsed ? "Expand Context Sidebar" : "Collapse Context Sidebar";
     compactAgent.classList.toggle("active", layout.agentMode === "compact");
     focusAgent.classList.toggle("active", layout.agentMode === "focused");
+    compactAgent.setAttribute("aria-pressed", layout.agentMode === "compact" ? "true" : "false");
+    focusAgent.setAttribute("aria-pressed", layout.agentMode === "focused" ? "true" : "false");
+    collapseAgent.setAttribute("aria-pressed", layout.agentMode === "collapsed" ? "true" : "false");
   };
 
   const setAgentMode = (mode: AgentMode) => {
+    if (mode === "compact" && (layout.agentWidth > AGENT_COMPACT_MAX_WIDTH || layout.agentWidth < AGENT_MIN_WIDTH)) {
+      layout.agentWidth = defaults.agentWidth;
+    }
     layout.agentMode = mode;
     applyLayout();
     persistLayout();

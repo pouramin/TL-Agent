@@ -1,32 +1,58 @@
 package main
 
 import (
-	"context"
+	"errors"
 	"encoding/json"
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type fakeProviderAccountAdapter struct {
-	status        providerAccountStatus
-	authorizeBody json.RawMessage
-	callbackBody  json.RawMessage
-	disconnected  bool
-	mu            sync.Mutex
+	status       providerAccountStatus
+	login        providerAccountLogin
+	pollStatus   providerAccountStatus
+	models       []string
+	cancelled    bool
+	refreshed    bool
+	disconnected bool
+	mu           sync.Mutex
 }
 
 func (a *fakeProviderAccountAdapter) ID() string { return a.status.ID }
 func (a *fakeProviderAccountAdapter) Status(context.Context, string) (providerAccountStatus, error) {
 	return a.status, nil
 }
-func (a *fakeProviderAccountAdapter) Authorize(context.Context, string) (json.RawMessage, error) {
-	return a.authorizeBody, nil
+func (a *fakeProviderAccountAdapter) BeginLogin(context.Context, string) (providerAccountLogin, error) {
+	return a.login, nil
 }
-func (a *fakeProviderAccountAdapter) Callback(context.Context, string) (json.RawMessage, error) {
-	return a.callbackBody, nil
+func (a *fakeProviderAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
+	return nil
+}
+func (a *fakeProviderAccountAdapter) PollLogin(context.Context, string, string) (providerAccountStatus, error) {
+	return a.pollStatus, nil
+}
+func (a *fakeProviderAccountAdapter) CancelLogin(context.Context, string, string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.cancelled = true
+	return nil
+}
+func (a *fakeProviderAccountAdapter) Refresh(context.Context, string) (providerAccountStatus, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.refreshed = true
+	return a.pollStatus, nil
+}
+func (a *fakeProviderAccountAdapter) ResolveCredential(context.Context, string) (string, error) {
+	return "fake-account-credential", nil
+}
+func (a *fakeProviderAccountAdapter) DiscoverModels(context.Context, string) ([]string, error) {
+	return append([]string(nil), a.models...), nil
 }
 func (a *fakeProviderAccountAdapter) Disconnect(context.Context, string) error {
 	a.mu.Lock()
@@ -48,11 +74,18 @@ func TestProviderAccountRoutesAreProviderNeutral(t *testing.T) {
 		status: providerAccountStatus{
 			ID: "example", Name: "Example Account",
 			Description: "Example account-backed provider.",
-			Available: true, AuthModes: []string{"account"},
-			Models: []string{"example/model"},
+			Available: true, AuthModes: []string{"authorization_code_pkce"},
 		},
-		authorizeBody: json.RawMessage(`{"url":"https://example.test/sign-in","instructions":"Use code TEST-CODE"}`),
-		callbackBody:  json.RawMessage(`{"ok":true}`),
+		login: providerAccountLogin{
+			LoginID: "login-1", Flow: "authorization_code_pkce",
+			AuthorizationURL: "https://example.test/sign-in",
+			ExpiresAt: time.Now().Add(5 * time.Minute).UTC().Format(time.RFC3339),
+		},
+		pollStatus: providerAccountStatus{
+			ID: "example", Name: "Example Account", Available: true,
+			State: providerAccountConnected, AccountLabel: "user@example.test",
+		},
+		models: []string{"example/model"},
 	}
 	service := newProviderAccountService(adapter)
 	mux := http.NewServeMux()
@@ -61,41 +94,248 @@ func TestProviderAccountRoutesAreProviderNeutral(t *testing.T) {
 	defer server.Close()
 
 	res, err := http.Get(server.URL + "/local/provider-accounts?directory=/project")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	var list []providerAccountStatus
 	decodeProviderAccountJSON(t, res, &list)
-	if len(list) != 1 || list[0].ID != "example" || list[0].AuthModes[0] != "account" {
+	if len(list) != 1 || list[0].ID != "example" || list[0].State != providerAccountDisconnected {
 		t.Fatalf("unexpected provider account list %#v", list)
 	}
 
-	res, err = http.Post(server.URL+"/local/provider-accounts/example/authorize", "application/json", strings.NewReader("{}"))
-	if err != nil { t.Fatal(err) }
-	var auth map[string]any
-	decodeProviderAccountJSON(t, res, &auth)
-	if auth["url"] != "https://example.test/sign-in" { t.Fatalf("unexpected authorize response %#v", auth) }
+	res, err = http.Post(server.URL+"/local/provider-accounts/example/login", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var login providerAccountLogin
+	decodeProviderAccountJSON(t, res, &login)
+	if login.LoginID != "login-1" || login.AuthorizationURL != "https://example.test/sign-in" {
+		t.Fatalf("unexpected login response %#v", login)
+	}
+
+	res, err = http.Get(server.URL + "/local/provider-accounts/example/login/login-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var connected providerAccountStatus
+	decodeProviderAccountJSON(t, res, &connected)
+	if connected.State != providerAccountConnected || !connected.Connected || connected.AccountLabel != "user@example.test" {
+		t.Fatalf("unexpected connected status %#v", connected)
+	}
+
+	res, err = http.Get(server.URL + "/local/provider-accounts/example/models")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var modelPayload struct {
+		Models []string `json:"models"`
+	}
+	decodeProviderAccountJSON(t, res, &modelPayload)
+	if len(modelPayload.Models) != 1 || modelPayload.Models[0] != "example/model" {
+		t.Fatalf("unexpected models %#v", modelPayload.Models)
+	}
 
 	req, _ := http.NewRequest(http.MethodDelete, server.URL+"/local/provider-accounts/example", nil)
 	res, err = http.DefaultClient.Do(req)
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	res.Body.Close()
-	if res.StatusCode != http.StatusOK { t.Fatalf("disconnect status=%d", res.StatusCode) }
+	if res.StatusCode != http.StatusOK || !adapter.disconnected {
+		t.Fatalf("disconnect status=%d disconnected=%v", res.StatusCode, adapter.disconnected)
+	}
+}
+
+func TestProviderAccountLoginRejectsExpiredChallenge(t *testing.T) {
+	adapter := &fakeProviderAccountAdapter{
+		status: providerAccountStatus{ID: "example", Name: "Example", Available: true},
+		login: providerAccountLogin{
+			LoginID: "expired", Flow: "device_code",
+			ExpiresAt: time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
+		},
+	}
+	mux := http.NewServeMux()
+	registerProviderAccountRoutes(mux, newProviderAccountService(adapter))
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	res, err := http.Post(server.URL+"/local/provider-accounts/example/login", "application/json", strings.NewReader("{}"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusBadGateway {
+		t.Fatalf("expected expired login to fail, got %d", res.StatusCode)
+	}
 }
 
 func TestProviderAccountServiceCanBeEmpty(t *testing.T) {
 	service := newProviderAccountService()
 	items, err := service.list(context.Background(), t.TempDir())
-	if err != nil { t.Fatal(err) }
-	if len(items) != 0 { t.Fatalf("expected no account adapters, got %#v", items) }
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 0 {
+		t.Fatalf("expected no account adapters, got %#v", items)
+	}
 
 	mux := http.NewServeMux()
 	registerProviderAccountRoutes(mux, service)
 	server := httptest.NewServer(mux)
 	defer server.Close()
 	res, err := http.Get(server.URL + "/local/provider-accounts")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK { t.Fatalf("list status=%d", res.StatusCode) }
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("list status=%d", res.StatusCode)
+	}
 	var got []providerAccountStatus
-	if err := json.NewDecoder(res.Body).Decode(&got); err != nil { t.Fatal(err) }
-	if len(got) != 0 { t.Fatalf("expected empty account list, got %#v", got) }
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected empty account list, got %#v", got)
+	}
+}
+
+
+func TestProviderAccountBrowserContractHasNoSecretFields(t *testing.T) {
+	statusJSON, err := json.Marshal(providerAccountStatus{
+		ID: "example", Name: "Example", Available: true,
+		State: providerAccountConnected, Connected: true,
+		AccountLabel: "user@example.test",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loginJSON, err := json.Marshal(providerAccountLogin{
+		LoginID: "login-id",
+		Flow: "authorization_code_pkce",
+		AuthorizationURL: "https://example.test/authorize",
+		UserCode: "SAFE-CODE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	combined := strings.ToLower(string(statusJSON) + string(loginJSON))
+	for _, forbidden := range []string{
+		"access_token", "accesstoken",
+		"refresh_token", "refreshtoken",
+		"client_secret", "clientsecret",
+		"code_verifier", "codeverifier",
+		"authorizationcode",
+	} {
+		if strings.Contains(combined, forbidden) {
+			t.Fatalf("provider account browser contract exposes forbidden secret field %q: %s", forbidden, combined)
+		}
+	}
+}
+
+
+func TestProviderAccountSetupBrowserContract(t *testing.T) {
+	ui := readBrowserSource(t, "provider-account-ui.ts")
+	api := readBrowserSource(t, "runtime-api.ts")
+	types := readBrowserSource(t, "global.d.ts")
+
+	for _, required := range []string{
+		"providerAccountSetupDialog",
+		"data-provider-setup-field",
+		"account.setup?.configurable",
+		"configureAccount",
+		"These fields contain non-secret provider setup only.",
+	} {
+		if !strings.Contains(ui, required) {
+			t.Fatalf("Provider Account setup UI missing %q", required)
+		}
+	}
+	for _, required := range []string{
+		"/setup",
+		"configureSetup",
+	} {
+		if !strings.Contains(api, required) {
+			t.Fatalf("Provider Account runtime API missing setup contract %q", required)
+		}
+	}
+	for _, required := range []string{
+		"TLStudioProviderAccountSetupSummary",
+		"TLStudioProviderAccountSetupField",
+		"TLStudioProviderAccountSetup",
+	} {
+		if !strings.Contains(types, required) {
+			t.Fatalf("Provider Account Browser types missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"clientSecret",
+		"accessToken",
+		"refreshToken",
+		"codeVerifier",
+	} {
+		if strings.Contains(ui+"\n"+api+"\n"+types, forbidden) {
+			t.Fatalf("Provider Account setup Browser contract must not expose %q", forbidden)
+		}
+	}
+}
+
+
+type failingProviderAccountAdapter struct {
+	id string
+}
+
+func (a *failingProviderAccountAdapter) ID() string { return a.id }
+func (a *failingProviderAccountAdapter) Status(context.Context, string) (providerAccountStatus, error) {
+	return providerAccountStatus{}, errors.New("status exploded")
+}
+func (a *failingProviderAccountAdapter) BeginLogin(context.Context, string) (providerAccountLogin, error) {
+	return providerAccountLogin{}, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) CompleteLogin(context.Context, string, providerAccountCallback) error {
+	return errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) PollLogin(context.Context, string, string) (providerAccountStatus, error) {
+	return providerAccountStatus{}, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) CancelLogin(context.Context, string, string) error { return nil }
+func (a *failingProviderAccountAdapter) Refresh(context.Context, string) (providerAccountStatus, error) {
+	return providerAccountStatus{}, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) ResolveCredential(context.Context, string) (string, error) {
+	return "", errCredentialNotFound
+}
+func (a *failingProviderAccountAdapter) DiscoverModels(context.Context, string) ([]string, error) {
+	return nil, errors.New("not used")
+}
+func (a *failingProviderAccountAdapter) Disconnect(context.Context, string) error { return nil }
+
+func TestProviderAccountListIsolatesOneAdapterFailure(t *testing.T) {
+	good := &fakeProviderAccountAdapter{status: providerAccountStatus{
+		ID: "good", Name: "Good", Available: true,
+	}}
+	bad := &failingProviderAccountAdapter{id: "bad"}
+	service := newProviderAccountService(good, bad)
+
+	items, err := service.list(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("one failing provider must not erase the provider list: %#v", items)
+	}
+	var foundBad, foundGood bool
+	for _, item := range items {
+		switch item.ID {
+		case "bad":
+			foundBad = true
+			if item.Available || item.State != providerAccountErrorState || !strings.Contains(item.Error, "status exploded") {
+				t.Fatalf("unexpected isolated failure status: %#v", item)
+			}
+		case "good":
+			foundGood = true
+		}
+	}
+	if !foundBad || !foundGood {
+		t.Fatalf("provider list lost entries: %#v", items)
+	}
 }

@@ -283,7 +283,7 @@ TL Studio remains desktop-first.
 
 The redesign does not change TL Studio's runtime architecture.
 
-The Browser uses TL Studio-owned semantic /local/* product domains. The current workspace does not depend on a secondary local runtime API or reverse-proxy boundary.
+The Browser continues to use existing TL Studio-owned semantic /local/* and /runtime/* boundaries. It does not introduce direct Browser coupling to bundled-engine private APIs.
 
 Filesystem, permission, credential, process and Preview security boundaries remain owned by existing launcher/runtime components.
 

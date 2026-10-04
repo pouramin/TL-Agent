@@ -40,7 +40,7 @@ import { K } from "./kernel";
     .jev-config-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid var(--line-soft)}
     .jev-config-head h3{margin:0;font-size:var(--tl-ui-lg)}.jev-config-head p{margin:4px 0 0;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
     .jev-config-body{display:grid;gap:12px;padding:16px 18px 18px}.jev-config-section{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2)}
-    .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:var(--tl-ui-sm)}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
+    .jev-config-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.jev-config-row>button{flex:none}.jev-config-copy{min-width:0}.jev-config-copy strong{display:block;font-size:var(--tl-ui-sm)}.jev-config-copy span{display:block;margin-top:3px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}
     .jev-key-field{display:grid;gap:5px}.jev-key-field span{color:var(--muted);font-size:var(--tl-ui-xs)}.jev-key-field input{width:100%;height:34px}.jev-api-key{-webkit-text-security:disc}
     .jev-config-status{min-height:12px;color:var(--muted);font-size:var(--tl-ui-xs);line-height:1.45}.jev-config-status.ok{color:color-mix(in srgb,var(--accent),var(--text) 35%)}.jev-config-status.error{color:var(--danger)}
     .jev-config-row select{min-width:190px;height:32px}.jev-config-actions{display:flex;justify-content:flex-end;gap:8px}
@@ -52,8 +52,8 @@ import { K } from "./kernel";
   compact.className = "jev-compact-row";
   compact.innerHTML = `
     <div class="jev-compact-copy">
-      <strong>JEV</strong>
-      <span id="jevCompactStatus">Checking TypeSafe Jev…</span>
+      <strong>JEV via OpenRouter</strong>
+      <span id="jevCompactStatus">Checking OpenRouter JEV…</span>
     </div>
     <button id="jevCompactControl" type="button" class="jev-compact-control" aria-haspopup="dialog">
       <span class="jev-switch-track" aria-hidden="true"><span class="jev-switch-knob"></span></span>
@@ -68,8 +68,8 @@ import { K } from "./kernel";
   dialog.innerHTML = `
     <div class="jev-config-head">
       <div>
-        <h3>TypeSafe Jev</h3>
-        <p>Jev Router is configured automatically through OpenRouter. Direct Jev decisions remain a separate optional capability.</p>
+        <h3>JEV via OpenRouter</h3>
+        <p>This is the existing OpenRouter-backed JEV integration. For TypeSafe's direct API router, use Plugins → JEV Direct.</p>
       </div>
       <button id="jevConfigClose" type="button" class="ghost small">Close</button>
     </div>
@@ -92,7 +92,7 @@ import { K } from "./kernel";
         <div class="jev-config-row">
           <div class="jev-config-copy">
             <strong>Decision Engine</strong>
-            <span>Off by default. Direct Jev Decisions API calls are paid and never run automatically.</span>
+            <span>Off by default. This legacy decision path also runs through OpenRouter, is paid, and never runs automatically.</span>
           </div>
           <select id="jevDecisionEngineSelect">
             <option value="off">Off</option>

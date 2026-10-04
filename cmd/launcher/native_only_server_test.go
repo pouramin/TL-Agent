@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -208,4 +209,81 @@ func TestNativeServerRunsCustomProviderEndToEnd(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("native semantic run did not complete")
+}
+
+
+func TestProviderAPIDisconnectPreservesAccountCredential(t *testing.T) {
+	stateDir := t.TempDir()
+	project := t.TempDir()
+	t.Setenv("TL_STUDIO_STATE_DIR", stateDir)
+
+	state := &appState{
+		project: project,
+		frontendURL: "http://127.0.0.1",
+		ctx: context.Background(),
+	}
+	handler, err := newServer(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	provider := map[string]any{
+		"provider": map[string]any{
+			"id":       "gemini",
+			"name":     "Google / Gemini",
+			"protocol": "openai-compatible",
+			"baseURL":  "https://generativelanguage.googleapis.com/v1beta/openai",
+			"models": []map[string]any{{
+				"id":       "gemini-test",
+				"name":     "Gemini Test",
+				"toolCall": true,
+			}},
+		},
+		"apiKey": "gemini-api-key",
+	}
+	saveRes := nativeOnlyJSONRequest(t, http.MethodPut, server.URL+"/local/providers/config/gemini", provider)
+	if saveRes.StatusCode != http.StatusOK {
+		var failure any
+		decodeNativeOnlyJSON(t, saveRes, &failure)
+		t.Fatalf("provider save failed status=%d body=%#v", saveRes.StatusCode, failure)
+	}
+	saveRes.Body.Close()
+
+	credentials := privateFileCredentialStore{}
+	if err := putProviderCredentialSlot(credentials, "gemini", providerCredentialSlotAccount, "legacy-account-secret"); err != nil {
+		t.Fatal(err)
+	}
+
+	disconnectRes := nativeOnlyJSONRequest(t, http.MethodDelete, server.URL+"/local/providers/config/gemini/api-connection", nil)
+	if disconnectRes.StatusCode != http.StatusOK {
+		var failure any
+		decodeNativeOnlyJSON(t, disconnectRes, &failure)
+		t.Fatalf("API disconnect failed status=%d body=%#v", disconnectRes.StatusCode, failure)
+	}
+	disconnectRes.Body.Close()
+
+	if _, err := getProviderCredentialSlot(credentials, "gemini", providerCredentialSlotAPI); !errors.Is(err, errCredentialNotFound) {
+		t.Fatalf("API credential must be removed, got %v", err)
+	}
+	accountSecret, err := getProviderCredentialSlot(credentials, "gemini", providerCredentialSlotAccount)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accountSecret != "legacy-account-secret" {
+		t.Fatalf("account credential changed during API disconnect: %q", accountSecret)
+	}
+
+	configRes := nativeOnlyJSONRequest(t, http.MethodGet, server.URL+"/local/providers/config", nil)
+	if configRes.StatusCode != http.StatusOK {
+		t.Fatalf("provider config status=%d", configRes.StatusCode)
+	}
+	var config providerConfigResponse
+	decodeNativeOnlyJSON(t, configRes, &config)
+	for _, entry := range config.Providers {
+		if entry.ID == "gemini" {
+			t.Fatalf("API-configured branded provider should be removed from registry on disconnect: %#v", entry)
+		}
+	}
 }

@@ -18,7 +18,8 @@ import (
 
 const (
 	pluginStoreVersion = 1
-	pluginTypeMCP      = "mcp"
+	pluginTypeMCP        = "mcp"
+	pluginTypeRouter     = "router"
 	pluginTransportStdio = "stdio"
 )
 
@@ -193,17 +194,28 @@ func normalizePluginConfig(input pluginConfig, currentProject string) (pluginCon
 	if input.Type == "" {
 		input.Type = pluginTypeMCP
 	}
-	if input.Type != pluginTypeMCP {
-		return pluginConfig{}, errors.New("only MCP plugins are supported in this version")
-	}
-	if input.Transport == "" {
-		input.Transport = pluginTransportStdio
-	}
-	if input.Transport != pluginTransportStdio {
-		return pluginConfig{}, errors.New("only stdio MCP transport is supported in this version")
+	switch input.Type {
+	case pluginTypeMCP:
+		if input.Transport == "" {
+			input.Transport = pluginTransportStdio
+		}
+		if input.Transport != pluginTransportStdio {
+			return pluginConfig{}, errors.New("only stdio MCP transport is supported in this version")
+		}
+	case pluginTypeRouter:
+		input.Transport = ""
+		input.Command = ""
+		input.Arguments = nil
+		input.WorkingDirectory = ""
+	default:
+		return pluginConfig{}, errors.New("plugin type must be mcp or router")
 	}
 	if input.Scope == "" {
-		input.Scope = "project"
+		if input.Type == pluginTypeRouter {
+			input.Scope = "global"
+		} else {
+			input.Scope = "project"
+		}
 	}
 	switch input.Scope {
 	case "project":
@@ -224,7 +236,10 @@ func normalizePluginConfig(input pluginConfig, currentProject string) (pluginCon
 	default:
 		return pluginConfig{}, errors.New("plugin scope must be project or global")
 	}
-	if input.Command == "" {
+	if input.Type == pluginTypeRouter && input.Scope != "global" {
+		return pluginConfig{}, errors.New("router plugins must use global scope")
+	}
+	if input.Type == pluginTypeMCP && input.Command == "" {
 		return pluginConfig{}, errors.New("plugin command is required")
 	}
 	args := make([]string, 0, len(input.Arguments))
@@ -256,6 +271,17 @@ func normalizePluginConfig(input pluginConfig, currentProject string) (pluginCon
 	return input, nil
 }
 
+func isLegacyProjectGraphify(config pluginConfig) bool {
+	if config.Scope != "project" || config.ID != "graphify" {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(config.Metadata["integration"]), "graphify") {
+		return true
+	}
+	command := strings.ToLower(filepath.Base(strings.TrimSpace(config.Command)))
+	return strings.Contains(command, "graphify-mcp")
+}
+
 func (s *pluginStore) loadLocked() error {
 	if s.loaded {
 		return nil
@@ -276,12 +302,20 @@ func (s *pluginStore) loadLocked() error {
 	if stored.Version != 0 && stored.Version != pluginStoreVersion {
 		return fmt.Errorf("unsupported plugin store version %d", stored.Version)
 	}
+	migrated := false
 	for _, plugin := range stored.Plugins {
 		normalized, err := normalizePluginConfig(plugin, plugin.Project)
 		if err != nil {
 			return fmt.Errorf("decode saved plugin %q: %w", plugin.ID, err)
 		}
+		if isLegacyProjectGraphify(normalized) {
+			migrated = true
+			continue
+		}
 		s.plugins = append(s.plugins, normalized)
+	}
+	if migrated {
+		return s.persistLocked()
 	}
 	return nil
 }
@@ -577,6 +611,9 @@ func (m *pluginManager) stopLocked(config pluginConfig) {
 }
 
 func (m *pluginManager) ensureClientLocked(ctx context.Context, config pluginConfig, project string) (mcpPluginClient, error) {
+	if config.Type != pluginTypeMCP {
+		return nil, errors.New("plugin does not expose MCP tools")
+	}
 	key := m.clientKey(config)
 	if existing := m.clients[key]; existing != nil && existing.Healthy() {
 		return existing, nil
@@ -636,7 +673,9 @@ func (m *pluginManager) SwitchProject(project string) {
 
 func (m *pluginManager) saveEnvironment(config pluginConfig, values *map[string]string, previous pluginConfig) (pluginConfig, error) {
 	if values == nil {
-		config.Environment = previous.Environment
+		if len(previous.Environment) > 0 {
+			config.Environment = previous.Environment
+		}
 		return config, nil
 	}
 	previousNames := map[string]pluginEnvironmentRef{}
@@ -760,6 +799,16 @@ func (m *pluginManager) SetEnabled(project, id string, enabled bool) (pluginView
 			view := m.viewConfig(project, config, false)
 			return view, err
 		}
+		if config.Type == pluginTypeRouter {
+			if integration := pluginIntegrationFor(config); integration != nil {
+				if tester, ok := integration.(pluginIntegrationTester); ok {
+					if err := tester.Test(context.Background(), m, config, project); err != nil {
+						view := m.viewConfig(project, config, false)
+						return view, err
+					}
+				}
+			}
+		}
 	}
 	config.Enabled = enabled
 	if err := m.store.upsert(config); err != nil {
@@ -828,6 +877,19 @@ func (m *pluginManager) TestSaved(ctx context.Context, project, id string) (plug
 		}
 	}
 	config.Enabled = true
+	if config.Type == pluginTypeRouter {
+		if err := validatePluginIntegrationStart(config, project); err != nil {
+			return pluginView{pluginConfig: config, Status: "Error", Error: err.Error(), Integration: pluginIntegrationSnapshot(config, project)}, err
+		}
+		if integration := pluginIntegrationFor(config); integration != nil {
+			if tester, ok := integration.(pluginIntegrationTester); ok {
+				if err := tester.Test(ctx, m, config, project); err != nil {
+					return pluginView{pluginConfig: config, Status: "Error", Error: err.Error(), Integration: pluginIntegrationSnapshot(config, project)}, err
+				}
+			}
+		}
+		return pluginView{pluginConfig: config, Status: "Connected", Integration: pluginIntegrationSnapshot(config, project)}, nil
+	}
 	env, err := m.configEnvironment(config)
 	if err != nil {
 		return pluginView{}, err
@@ -869,6 +931,10 @@ func (m *pluginManager) viewConfig(project string, config pluginConfig, start bo
 			view.Status = "Error"
 		}
 		view.Error = err.Error()
+		return view
+	}
+	if config.Type == pluginTypeRouter {
+		view.Status = "Connected"
 		return view
 	}
 	m.mu.Lock()
@@ -1017,7 +1083,7 @@ func (m *pluginManager) ToolDescriptors(project string) []toolDescriptor {
 	}
 	var descriptors []toolDescriptor
 	for _, config := range configs {
-		if !config.Enabled {
+		if !config.Enabled || config.Type != pluginTypeMCP {
 			continue
 		}
 		m.mu.Lock()
@@ -1038,7 +1104,7 @@ func (m *pluginManager) ToolDefinitions(project string) []nativeModelToolDefinit
 	}
 	var definitions []nativeModelToolDefinition
 	for _, config := range configs {
-		if !config.Enabled {
+		if !config.Enabled || config.Type != pluginTypeMCP {
 			continue
 		}
 		m.mu.Lock()
@@ -1070,7 +1136,7 @@ func (m *pluginManager) Execute(ctx context.Context, sessionID, project string, 
 		return nativeToolResult{ToolID: call.ID, CallID: call.CallID, Error: err.Error()}, true
 	}
 	for _, config := range configs {
-		if !config.Enabled {
+		if !config.Enabled || config.Type != pluginTypeMCP {
 			continue
 		}
 		m.mu.Lock()

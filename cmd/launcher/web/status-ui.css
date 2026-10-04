@@ -71,6 +71,12 @@
   letter-spacing: .005em;
   user-select: text;
 }
+.turn-usage-laya {
+  color: var(--muted);
+}
+.turn-usage-laya::first-letter {
+  color: var(--accent);
+}
 
 .project-usage {
   margin: 34px 0 18px 44px;
@@ -123,15 +129,18 @@
 }
 .timeout-resume-button {
   flex: none;
-  min-height: 28px;
-  padding: 0 10px;
+  height: var(--tl-button-height-small);
+  min-height: var(--tl-button-height-small);
+  padding: 0 var(--tl-button-padding-x-small);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--tl-button-radius-small);
   background: var(--panel-2);
   color: var(--text);
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--tl-control-size,11px);
   font-weight: 650;
+  line-height: 1;
+  white-space: nowrap;
 }
 .timeout-resume-button:hover {
   border-color: color-mix(in srgb, var(--accent), var(--line) 55%);

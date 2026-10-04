@@ -261,7 +261,7 @@ for (const [direction, dx, dy] of previewDirections) {
 }
 
 const positionBefore = await rect("#previewPanel");
-await drag("#previewPanel .preview-head", -25, 20);
+await drag("#previewPanel .preview-title-wrap", -25, 20);
 const positionAfter = await rect("#previewPanel");
 assert(positionAfter.left !== positionBefore.left || positionAfter.top !== positionBefore.top, "Preview header drag did not move the window");
 

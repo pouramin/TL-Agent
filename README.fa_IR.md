@@ -21,8 +21,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/stable-v0.5.0-16a34a" alt="Stable v0.5.0">
-  <img src="https://img.shields.io/badge/dev-v0.6.0--alpha.1-f59e0b" alt="Development v0.6.0-alpha.1">
+  <img src="https://img.shields.io/badge/stable-v0.6.0-16a34a" alt="Stable v0.6.0">
+  <img src="https://img.shields.io/badge/dev-v0.7.0--alpha.1-f59e0b" alt="Development v0.7.0-alpha.1">
 </p>
 
 ---
@@ -198,57 +198,69 @@ normal local API responses
 
 <p dir="rtl" align="right">ورود دستی <span dir="ltr">Model</span> فقط به‌عنوان <span dir="ltr">Fallback</span> صریح برای مدل‌های خصوصی یا فهرست‌نشده باقی می‌ماند.</p>
 
-<h3 dir="rtl" align="right"><span dir="ltr">Provider</span>های حسابی</h3>
+<h3 dir="rtl" align="right">روش اتصال <span dir="ltr">Provider</span>ها</h3>
+
+<p dir="rtl" align="right">کارت‌های <span dir="ltr">Provider</span> بر اساس روش واقعی اتصال هر سرویس عمل می‌کنند؛ نداشتن <span dir="ltr">OAuth</span> به معنی <span dir="ltr">Unavailable</span> بودن نیست.</p>
 
 <table dir="rtl">
   <thead>
     <tr>
       <th align="right"><span dir="ltr">Provider</span></th>
-      <th align="right"><span dir="ltr">Account Login</span></th>
-      <th align="right">توضیح</th>
+      <th align="right">روش پیش‌فرض</th>
+      <th align="right">وضعیت</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="right"><strong><span dir="ltr">OpenRouter</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">OAuth</span> + <span dir="ltr">PKCE</span> رسمی، <span dir="ltr">Credential</span> مبتنی بر حساب و <span dir="ltr">Model Discovery.</span></td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">Hugging Face</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">Public-client OAuth</span> + <span dir="ltr">PKCE</span>، <span dir="ltr">Refresh</span> و <span dir="ltr">Model Discovery</span> برای <span dir="ltr">Inference Providers.</span></td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">Google</span> / <span dir="ltr">Gemini</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">Installed-app OAuth</span> + <span dir="ltr">PKCE</span>، <span dir="ltr">Refresh/Revocation</span>، <span dir="ltr">Transport</span> بومی <span dir="ltr">Gemini</span> و پشتیبانی از <span dir="ltr">Google Cloud quota project.</span></td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">ChatGPT</span> / <span dir="ltr">Codex</span></strong></td>
-      <td align="right">✅ فعال</td>
-      <td align="right"><span dir="ltr">Login</span> رسمی <span dir="ltr">Codex</span>، <span dir="ltr">Model Discovery</span> مبتنی بر پلن <span dir="ltr">ChatGPT</span> و یک <span dir="ltr">Bridge</span> ایزوله که چرخهٔ بیرونی <span dir="ltr">Native Agent</span> و <span dir="ltr">Tool Executor</span> را در اختیار <span dir="ltr">TL Studio</span> نگه می‌دارد.</td>
-    </tr>
-    <tr>
-      <td align="right"><strong><span dir="ltr">Claude account</span></strong></td>
-      <td align="right">⏳ <span dir="ltr">Deferred</span></td>
-      <td align="right">پشتیبانی <span dir="ltr">Anthropic</span> با <span dir="ltr">API Key</span> بومی است؛ <span dir="ltr">Login</span> حساب مصرف‌کننده منتظر یک قرارداد عمومی و مستند برای <span dir="ltr">Third-party authorization</span> می‌ماند.</td>
+      <td align="right"><strong><span dir="ltr">ChatGPT / Codex</span></strong></td>
+      <td align="right"><span dir="ltr">Account sign-in</span></td>
+      <td align="right">✅ فعال از مسیر رسمی <span dir="ltr">OpenAI Codex</span></td>
     </tr>
     <tr>
       <td align="right"><strong><span dir="ltr">GitHub Copilot</span></strong></td>
-      <td align="right">⏳ <span dir="ltr">Deferred</span></td>
-      <td align="right">احراز هویت رسمی وجود دارد، اما مسیر مستند <span dir="ltr">Model Access</span> همچنان به <span dir="ltr">Copilot SDK/runtime</span> وابسته است.</td>
+      <td align="right"><span dir="ltr">Account sign-in</span></td>
+      <td align="right">⏳ جایگاه اتصال حساب آماده است، اما مسیر مدل هنوز <span dir="ltr">Deferred</span> است.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">Claude / Anthropic</span></strong></td>
+      <td align="right"><span dir="ltr">Account sign-in + API key</span></td>
+      <td align="right">✅ ورود حساب <span dir="ltr">Claude.ai</span> از مسیر رسمی <span dir="ltr">Claude Code</span> و تنظیم مستقل <span dir="ltr">Anthropic API</span></td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">Google / Gemini</span></strong></td>
+      <td align="right"><span dir="ltr">API key</span></td>
+      <td align="right">✅ از Endpoint رسمی سازگار با <span dir="ltr">OpenAI</span> برای <span dir="ltr">Gemini API</span> استفاده می‌کند.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">Hugging Face</span></strong></td>
+      <td align="right"><span dir="ltr">API token</span></td>
+      <td align="right">✅ از <span dir="ltr">Inference Providers</span> سازگار با <span dir="ltr">OpenAI</span> استفاده می‌کند.</td>
+    </tr>
+    <tr>
+      <td align="right"><strong><span dir="ltr">OpenRouter</span></strong></td>
+      <td align="right"><span dir="ltr">API key</span></td>
+      <td align="right">✅ از <span dir="ltr">OpenRouter API</span> سازگار با <span dir="ltr">OpenAI</span> استفاده می‌کند.</td>
     </tr>
   </tbody>
 </table>
 
+<p dir="rtl" align="right">برای <span dir="ltr">Provider</span>های مبتنی بر <span dir="ltr">API</span>، کارت مستقیماً همان فرم موجود و <span dir="ltr">Discovery-first</span> را با Endpoint و Protocol درست باز می‌کند. کارت <span dir="ltr">Claude</span> دو مسیر مستقل دارد: ورود با حساب اشتراکی و تنظیم <span dir="ltr">API key</span>؛ این دو می‌توانند هم‌زمان وجود داشته باشند و یکدیگر را بازنویسی نمی‌کنند.</p>
+
+<h3 dir="rtl" align="right"><span dir="ltr">Claude Web (Free/Pro)</span></h3>
+
+<p dir="rtl" align="right">برای استفاده از <span dir="ltr">Claude Web</span> باید افزونهٔ <span dir="ltr">TL Studio Claude Web Bridge</span> در همان پروفایل <span dir="ltr">Chrome</span> که داخل <span dir="ltr">claude.ai</span> وارد شده نصب باشد. اگر افزونه نصب نباشد، با انتخاب <span dir="ltr">Claude → Web</span> صفحهٔ رسمی و <span dir="ltr">Unlisted</span> افزونه در <span dir="ltr">Chrome Web Store</span> به‌صورت خودکار باز می‌شود؛ کاربر لازم نیست آدرس افزونه را دستی کپی کند. هنگام نصب، پنجرهٔ اتصال <span dir="ltr">TL Studio</span> را باز نگه دارید؛ برنامه در دسترس‌شدن افزونه را بررسی می‌کند و به‌محض اینکه <span dir="ltr">Chrome</span> افزونه را فعال کند، <span dir="ltr">Pairing</span> را خودکار ادامه می‌دهد.</p>
+
+<p dir="rtl" align="right">این افزونه فقط مسیر انتقال درخواست و پاسخ مدل است. اطلاعات نشست <span dir="ltr">Claude</span> داخل مرورگر باقی می‌ماند و چرخهٔ <span dir="ltr">Agent</span>، <span dir="ltr">Tool</span>ها، <span dir="ltr">Permission</span>ها، فایل‌های پروژه، <span dir="ltr">Terminal</span>، <span dir="ltr">Session</span>ها و <span dir="ltr">Persistence</span> همچنان در اختیار <span dir="ltr">TL Studio</span> هستند. اگر <span dir="ltr">Chrome</span>، <span dir="ltr">Service Worker</span> افزونهٔ <span dir="ltr">Manifest V3</span> را متوقف یا دوباره راه‌اندازی کند و <span dir="ltr">Pairing</span> حافظه‌ای از بین برود، <span dir="ltr">TL Studio</span> به‌صورت خودکار دوباره <span dir="ltr">Pair</span> می‌کند و همان فرمان انتقال را یک بار تکرار می‌کند.</p>
+
+<p dir="rtl" align="right">راهنمای کامل: <strong><a href="./docs/CLAUDE_WEB.fa_IR.md"><span dir="ltr">Claude Web setup and troubleshooting</span></a></strong></p>
+
+<p dir="rtl" align="right">ورود حساب <span dir="ltr">Claude</span> از فرمان‌های رسمی <span dir="ltr">Claude Code</span> برای <span dir="ltr">login/status/logout</span> استفاده می‌کند. دادهٔ احراز هویت داخل <code dir="ltr">CLAUDE_CONFIG_DIR</code> ایزولهٔ مخصوص <span dir="ltr">TL Studio</span> می‌ماند و برنامه Token خام حساب را نمی‌خواند یا Serialize نمی‌کند. برای Turnهای مدل نیز Toolها و <span dir="ltr">MCP</span> داخلی <span dir="ltr">Claude Code</span> غیرفعال هستند و اجرای Tool، Permission، Session و تغییرات پروژه همچنان در اختیار <span dir="ltr">TL Studio</span> باقی می‌مانند.</p>
+
 <p dir="rtl" align="right">اتصال <span dir="ltr">ChatGPT</span> فقط از Surface رسمی <span dir="ltr">OpenAI Codex CLI/App Server</span> استفاده می‌کند. <span dir="ltr">TL Studio</span> هیچ <span dir="ltr">Cookie</span>، <span dir="ltr">Browser Session</span>، <span dir="ltr">Private OAuth Client</span> یا <span dir="ltr">Backend Token</span> مستندنشده را کپی نمی‌کند. احراز هویت <span dir="ltr">Codex</span> داخل <code dir="ltr">CODEX_HOME</code> ایزولهٔ خود <span dir="ltr">TL Studio</span> باقی می‌ماند و <span dir="ltr">Browser</span> فقط وضعیت معنایی حساب را می‌بیند.</p>
 
-<p dir="rtl" align="right">برای Turnهای مدل مبتنی بر پلن <span dir="ltr">ChatGPT</span>، برنامه <span dir="ltr">Codex CLI</span> رسمی را به‌صورت <span dir="ltr">Ephemeral</span>، <span dir="ltr">Read-only</span> و بدون <span dir="ltr">User/Project Codex Config</span> اجرا می‌کند. خروجی ساختاریافته دوباره به متن مدل یا <span dir="ltr">TL Studio Tool Call</span> تبدیل می‌شود؛ بنابراین <span dir="ltr">Permission</span>، اجرای Tool، <span dir="ltr">Session Persistence</span> و چرخهٔ بیرونی مدل → ابزار → مدل همچنان متعلق به خود <span dir="ltr">TL Studio</span> هستند.</p>
+<p dir="rtl" align="right">برای Turnهای مدل مبتنی بر پلن <span dir="ltr">ChatGPT</span>، یک <span dir="ltr">Codex App Server</span> رسمی به‌صورت Warm نگه داشته می‌شود و هر Turn در یک Thread ساختاریافته، ایزوله و <span dir="ltr">Ephemeral</span> اجرا می‌شود. خروجی ساختاریافته دوباره به متن مدل یا <span dir="ltr">TL Studio Tool Call</span> تبدیل می‌شود؛ بنابراین <span dir="ltr">Permission</span>، اجرای Tool، <span dir="ltr">Session Persistence</span> و چرخهٔ بیرونی مدل → ابزار → مدل همچنان متعلق به خود <span dir="ltr">TL Studio</span> هستند.</p>
 
-<p dir="rtl" align="right">اگر فرمان <span dir="ltr">codex</span> روی <span dir="ltr">PATH</span> موجود نباشد، برنامه می‌تواند از <span dir="ltr">npx @openai/codex</span> استفاده کند. در <span dir="ltr">Provider Settings</span> نیز می‌توان مسیر مستقیم Executable را تنظیم کرد.</p>
-
-<p dir="rtl" align="right"><span dir="ltr">Provider</span>های <span dir="ltr">Deferred</span> عمداً در <span dir="ltr">Settings</span> دیده می‌شوند. آن‌ها مرز معماری مشخص هستند، نه قابلیت‌های فراموش‌شده.</p>
+<p dir="rtl" align="right">اگر فرمان <span dir="ltr">codex</span> روی <span dir="ltr">PATH</span> موجود نباشد، برنامه می‌تواند از <span dir="ltr">npx @openai/codex</span> استفاده کند. برای <span dir="ltr">Claude</span> نیز ابتدا فرمان <span dir="ltr">claude</span> شناسایی می‌شود و در صورت نیاز مسیر <span dir="ltr">npx @anthropic-ai/claude-code</span> یا Executable صریح قابل استفاده است.</p>
 
 <h3 dir="rtl" align="right">تنظیمات <span dir="ltr">Gemini</span> در نسخهٔ <span dir="ltr">Alpha</span></h3>
 
@@ -452,12 +464,12 @@ go build -o tl-studio.exe ./cmd/launcher
     <tr>
       <td align="right"><code dir="ltr">main</code></td>
       <td align="right">نسخهٔ پایدار</td>
-      <td align="right"><strong><span dir="ltr">v0.5.0</span></strong></td>
+      <td align="right"><strong><span dir="ltr">v0.6.0</span></strong></td>
     </tr>
     <tr>
       <td align="right"><code dir="ltr">dev</code></td>
       <td align="right">توسعهٔ فعال</td>
-      <td align="right"><strong><span dir="ltr">v0.6.0-alpha.1</span></strong></td>
+      <td align="right"><strong><span dir="ltr">v0.7.0-alpha.1</span></strong></td>
     </tr>
     <tr>
       <td align="right"><span dir="ltr">Feature Branch</span></td>

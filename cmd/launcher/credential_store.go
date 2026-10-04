@@ -27,6 +27,51 @@ type providerCredentialStore interface {
 	Backend() string
 }
 
+const (
+	providerCredentialSlotAPI     = "api"
+	providerCredentialSlotAccount = "account"
+)
+
+func providerCredentialSlotID(providerID, slot string) (string, error) {
+	providerID = strings.TrimSpace(providerID)
+	slot = strings.ToLower(strings.TrimSpace(slot))
+	if !validProviderID(providerID) {
+		return "", errors.New("invalid provider id")
+	}
+	if slot == "" || slot == providerCredentialSlotAPI {
+		// Keep the existing API-key location stable for backwards compatibility.
+		return providerID, nil
+	}
+	if !validProviderID(slot) {
+		return "", errors.New("invalid credential slot")
+	}
+	return providerID + "--" + slot, nil
+}
+
+func putProviderCredentialSlot(store providerCredentialStore, providerID, slot, secret string) error {
+	id, err := providerCredentialSlotID(providerID, slot)
+	if err != nil {
+		return err
+	}
+	return store.Put(id, secret)
+}
+
+func getProviderCredentialSlot(store providerCredentialStore, providerID, slot string) (string, error) {
+	id, err := providerCredentialSlotID(providerID, slot)
+	if err != nil {
+		return "", err
+	}
+	return store.Get(id)
+}
+
+func deleteProviderCredentialSlot(store providerCredentialStore, providerID, slot string) error {
+	id, err := providerCredentialSlotID(providerID, slot)
+	if err != nil {
+		return err
+	}
+	return store.Delete(id)
+}
+
 func tlStudioStateDirectory() string {
 	if dir := strings.TrimSpace(os.Getenv("TL_STUDIO_STATE_DIR")); dir != "" {
 		return dir

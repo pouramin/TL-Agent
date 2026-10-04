@@ -31,9 +31,14 @@ type pluginIntegration interface {
 	RunAction(context.Context, *pluginManager, pluginConfig, string, string) (any, error)
 }
 
+type pluginIntegrationTester interface {
+	Test(context.Context, *pluginManager, pluginConfig, string) error
+}
+
 func pluginIntegrations() []pluginIntegration {
 	return []pluginIntegration{
 		graphifyPluginIntegration{},
+		jevDirectPluginIntegration{},
 	}
 }
 

@@ -501,3 +501,57 @@ func TestNativeToolsRemainAvailableWithoutPlugins(t *testing.T) {
 		}
 	}
 }
+
+
+func TestPluginStoreMigratesLegacyProjectGraphifyRecords(t *testing.T) {
+	temp := t.TempDir()
+	projectA := filepath.Join(temp, "old-a")
+	projectB := filepath.Join(temp, "old-b")
+	if err := os.MkdirAll(projectA, 0o755); err != nil { t.Fatal(err) }
+	if err := os.MkdirAll(projectB, 0o755); err != nil { t.Fatal(err) }
+
+	path := filepath.Join(temp, "plugins.json")
+	stored := pluginStoreFile{
+		Version: pluginStoreVersion,
+		Plugins: []pluginConfig{
+			{
+				ID:"graphify", Name:"Graphify", Type:pluginTypeMCP, Enabled:true,
+				Scope:"project", Project:projectA, Transport:pluginTransportStdio,
+				Command:"C:/Users/Test/.local/bin/graphify-mcp.exe",
+				Arguments:[]string{"graphify-out/graph.json"},
+			},
+			{
+				ID:"graphify", Name:"Graphify", Type:pluginTypeMCP, Enabled:false,
+				Scope:"project", Project:projectB, Transport:pluginTransportStdio,
+				Command:"graphify-mcp",
+				Arguments:[]string{"graphify-out/graph.json"},
+				Metadata:map[string]string{"integration":"graphify"},
+			},
+			{
+				ID:"custom", Name:"Custom", Type:pluginTypeMCP, Enabled:false,
+				Scope:"project", Project:projectA, Transport:pluginTransportStdio,
+				Command:"custom-mcp",
+			},
+		},
+	}
+	data, err := json.MarshalIndent(stored, "", "  ")
+	if err != nil { t.Fatal(err) }
+	if err := os.WriteFile(path, data, 0o600); err != nil { t.Fatal(err) }
+
+	store := newPluginStore(path)
+	items, err := store.list(projectA)
+	if err != nil { t.Fatal(err) }
+	if len(items) != 1 || items[0].ID != "custom" {
+		t.Fatalf("legacy project Graphify records survived migration: %#v", items)
+	}
+
+	reloadedData, err := os.ReadFile(path)
+	if err != nil { t.Fatal(err) }
+	var reloaded pluginStoreFile
+	if err := json.Unmarshal(reloadedData, &reloaded); err != nil { t.Fatal(err) }
+	for _, plugin := range reloaded.Plugins {
+		if plugin.ID == "graphify" && plugin.Scope == "project" {
+			t.Fatalf("legacy Graphify record was not removed from persisted store: %#v", plugin)
+		}
+	}
+}

@@ -471,8 +471,11 @@ func (c *mcpClient) ResolveTool(id string) (toolDescriptor, string, bool) {
 	return c.descriptors[id], name, true
 }
 
-func (c *mcpClient) CallTool(ctx context.Context, name string, arguments map[string]any) (any, error) {
-	callCtx, cancel := context.WithTimeout(ctx, mcpRequestTimeout)
+func (c *mcpClient) callToolWithTimeout(ctx context.Context, name string, arguments map[string]any, timeout time.Duration) (any, error) {
+	if timeout <= 0 {
+		timeout = mcpRequestTimeout
+	}
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var result struct {
 		Content           []map[string]any `json:"content,omitempty"`
@@ -488,6 +491,10 @@ func (c *mcpClient) CallTool(ctx context.Context, name string, arguments map[str
 		return output, errors.New("MCP tool returned an error result")
 	}
 	return output, nil
+}
+
+func (c *mcpClient) CallTool(ctx context.Context, name string, arguments map[string]any) (any, error) {
+	return c.callToolWithTimeout(ctx, name, arguments, mcpRequestTimeout)
 }
 
 func (c *mcpClient) Close() {
