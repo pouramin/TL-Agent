@@ -71,6 +71,12 @@
   letter-spacing: .005em;
   user-select: text;
 }
+.turn-usage-laya {
+  color: var(--muted);
+}
+.turn-usage-laya::first-letter {
+  color: var(--accent);
+}
 
 .project-usage {
   margin: 34px 0 18px 44px;
