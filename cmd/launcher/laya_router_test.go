@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -158,5 +159,44 @@ func TestLayaToolPayloadUnwrapsStructuredStringResult(t *testing.T) {
 	answers := mapFromAny(payload["answers"])
 	if answers == nil || mapFromAny(answers["domain"]) == nil {
 		t.Fatalf("structured string result was not unwrapped: %#v", payload)
+	}
+}
+
+
+func TestLayaRouteFailureClassification(t *testing.T) {
+	cases := []struct {
+		name         string
+		message      string
+		providerWide bool
+		ok           bool
+	}{
+		{name: "rate limit", message: "model request failed with status 429: rate-limited", providerWide: false, ok: true},
+		{name: "model unavailable", message: "model_not_available", providerWide: false, ok: true},
+		{name: "bridge pairing", message: "Claude Web bridge is not paired", providerWide: true, ok: true},
+		{name: "ordinary validation", message: "model returned an empty response", providerWide: false, ok: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			providerWide, cooldown, _, ok := classifyLayaRouteFailure(errors.New(tc.message))
+			if ok != tc.ok || providerWide != tc.providerWide {
+				t.Fatalf("unexpected classification: providerWide=%v ok=%v", providerWide, ok)
+			}
+			if ok && cooldown <= 0 {
+				t.Fatalf("reroutable failure must receive a cooldown")
+			}
+		})
+	}
+}
+
+func TestLayaRouterSkipsCandidateThatIsNotReady(t *testing.T) {
+	selected, _, err := chooseLayaCandidate("balanced", layaRouteAnalysis{Difficulty: 1.0}, []layaRouterCandidate{
+		{ProviderID: "a", ModelID: "unavailable", Connected: true, Ready: false, Availability: "Rate limited", Enabled: true, Group: "free", Quality: 5, Speed: 5},
+		{ProviderID: "b", ModelID: "ready", Connected: true, Ready: true, Availability: "Ready", Enabled: true, Group: "budget", Quality: 3, Speed: 3},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.ModelID != "ready" {
+		t.Fatalf("router selected an unavailable model: %#v", selected)
 	}
 }
