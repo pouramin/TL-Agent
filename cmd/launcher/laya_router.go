@@ -44,6 +44,8 @@ type layaRouterCandidate struct {
 	ModelID      string `json:"modelID"`
 	ModelName    string `json:"modelName"`
 	Connected    bool   `json:"connected"`
+	Ready        bool   `json:"ready"`
+	Availability string `json:"availability,omitempty"`
 	Enabled      bool   `json:"enabled"`
 	Group        string `json:"group"`
 	Quality      int    `json:"quality"`
@@ -92,14 +94,21 @@ type nativeRequestRouter interface {
 	Route(context.Context, string, string) (nativeRouteSelection, error)
 }
 
+type layaRouterCooldown struct {
+	Until  time.Time
+	Reason string
+}
+
 type layaRouterService struct {
 	providers *providerManager
 	plugins   *pluginManager
 	mu        sync.Mutex
+	healthMu  sync.Mutex
+	cooldowns map[string]layaRouterCooldown
 }
 
 func newLayaRouterService(providers *providerManager, plugins *pluginManager) *layaRouterService {
-	return &layaRouterService{providers: providers, plugins: plugins}
+	return &layaRouterService{providers: providers, plugins: plugins, cooldowns: map[string]layaRouterCooldown{}}
 }
 
 func layaRouterConfigPath() string {
