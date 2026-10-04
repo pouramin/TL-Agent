@@ -182,6 +182,7 @@ func newServer(state *appState) (http.Handler, error) {
 	mux.HandleFunc("GET /local/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"healthy": true, "mode": "native"})
 	})
+	registerUpdateRoutes(mux, state)
 	mux.HandleFunc("GET /local/path", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"directory": state.projectPath()})
 	})
