@@ -513,7 +513,11 @@ func (nativeFallbackLayaRouter) Fallback(
 	if previous.ProviderID != "first-provider" || previous.ModelID != "first-model" {
 		return nativeRouteSelection{}, false, nil
 	}
-	if failure == nil || !strings.Contains(strings.ToLower(failure.Error()), "429") {
+	if failure == nil {
+		return nativeRouteSelection{}, false, nil
+	}
+	failureText := strings.ToLower(failure.Error())
+	if !strings.Contains(failureText, "429") && !strings.Contains(failureText, "empty response") {
 		return nativeRouteSelection{}, false, nil
 	}
 	return nativeRouteSelection{
@@ -649,5 +653,173 @@ func TestNativeAgentLayaRouteUsesLongerDefaultModelTimeout(t *testing.T) {
 	runtime.modelTurnTimeout = 30 * time.Millisecond
 	if got := runtime.modelRequestTimeout(true); got != 30*time.Millisecond {
 		t.Fatalf("explicit test/runtime override must win, got %s", got)
+	}
+}
+
+
+type nativeEmptyFallbackRouteModel struct {
+	mu       sync.Mutex
+	calls    int
+	finished chan struct{}
+	t        *testing.T
+}
+
+func (m *nativeEmptyFallbackRouteModel) Complete(_ context.Context, request nativeModelRequest, _ func(string)) (nativeModelResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.calls++
+	switch m.calls {
+	case 1:
+		if request.Provider.ID != "first-provider" || request.Model.ID != "first-model" {
+			m.t.Fatalf("first empty-response route resolved to %s/%s", request.Provider.ID, request.Model.ID)
+		}
+		return nativeModelResponse{FinishReason: "stop"}, nil
+	case 2:
+		if request.Provider.ID != "second-provider" || request.Model.ID != "second-model" {
+			m.t.Fatalf("fallback after empty response resolved to %s/%s", request.Provider.ID, request.Model.ID)
+		}
+		close(m.finished)
+		return nativeModelResponse{Text: "EMPTY_FALLBACK_OK", FinishReason: "stop"}, nil
+	default:
+		m.t.Fatalf("unexpected extra empty-response call %d", m.calls)
+		return nativeModelResponse{}, nil
+	}
+}
+
+func TestNativeAgentFallsBackAfterEmptyRoutedResponse(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-empty-route-fallback-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Empty route fallback proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	model := &nativeEmptyFallbackRouteModel{finished: make(chan struct{}), t: t}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(&nativeLayaRouteResolver{}, model, executor, store, newLiveEventBus())
+	runtime.setRequestRouter(nativeFallbackLayaRouter{})
+
+	input := sessionRunInput{
+		Text: "Explain this project",
+		Agent: "code",
+		Model: &sessionModelRef{ProviderID: layaRouterProviderID, ID: layaRouterModelID},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-model.finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("empty routed response did not fall back")
+	}
+
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		messages, ok, err := store.getMessages(session.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ok {
+			for _, message := range messages {
+				if message.Role == "assistant" && message.Text == "EMPTY_FALLBACK_OK" {
+					if len(message.Activities) < 2 || message.Activities[0].Status != "failed" {
+						t.Fatalf("empty-response fallback activities missing: %#v", message.Activities)
+					}
+					if message.Activities[0].Error == nil || !strings.Contains(message.Activities[0].Error.Message, "empty response") {
+						t.Fatalf("empty-response failure reason missing: %#v", message.Activities[0])
+					}
+					return
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("empty-response fallback result was not persisted: %#v", messages)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+type nativeExecutionGuardModel struct {
+	mu       sync.Mutex
+	calls    int
+	finished chan struct{}
+	t        *testing.T
+}
+
+func (m *nativeExecutionGuardModel) Complete(_ context.Context, request nativeModelRequest, _ func(string)) (nativeModelResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.calls++
+	switch m.calls {
+	case 1:
+		if !strings.Contains(request.System, "This specific turn is an execution task") {
+			m.t.Fatalf("execution-specific system contract missing: %s", request.System)
+		}
+		return nativeModelResponse{Text: "Here is my implementation plan.", FinishReason: "stop"}, nil
+	case 2:
+		if !strings.Contains(request.System, "previous answer was plan-only") {
+			m.t.Fatalf("execution retry guard missing: %s", request.System)
+		}
+		return nativeModelResponse{
+			ToolCalls: []nativeModelToolCall{{
+				ID: "guard-write",
+				Name: "files.write",
+				Arguments: json.RawMessage(`{"path":"guard.txt","content":"done"}`),
+			}},
+			FinishReason: "tool_calls",
+		}, nil
+	case 3:
+		close(m.finished)
+		return nativeModelResponse{Text: "EXECUTION_GUARD_OK", FinishReason: "stop"}, nil
+	default:
+		m.t.Fatalf("unexpected execution-guard model call %d", m.calls)
+		return nativeModelResponse{}, nil
+	}
+}
+
+func TestNativeAgentRejectsPlanOnlyAnswerForExplicitExecutionTask(t *testing.T) {
+	project := t.TempDir()
+	store := newSessionPersistenceStore(filepath.Join(t.TempDir(), "sessions"), "tl-native-execution-guard-test")
+	session, err := store.createNativeSession(project, sessionCreateInput{Title: "Execution guard proof"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	model := &nativeExecutionGuardModel{finished: make(chan struct{}), t: t}
+	resolver := nativeTestResolver{
+		provider: tlProviderDefinition{ID: "test", Protocol: "openai-compatible", BaseURL: "http://127.0.0.1:1/v1"},
+		model: tlProviderModel{ID: "test-model", ToolCall: true},
+	}
+	executor := newNativeToolExecutor(newProcessManager(func() string { return project }), nativeAllowAuthorizer{})
+	runtime := newNativeAgentRuntime(resolver, model, executor, store, newLiveEventBus())
+
+	input := sessionRunInput{
+		Text: "Inspect the project, fix the bug, run tests, and verify it works.",
+		Agent: "code",
+		Model: &sessionModelRef{ProviderID: "test", ID: "test-model"},
+	}
+	if err := runtime.Start(project, session.ID, input); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-model.finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("execution guard did not continue past the plan-only answer")
+	}
+
+	data, err := os.ReadFile(filepath.Join(project, "guard.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "done" {
+		t.Fatalf("execution guard did not perform requested work: %q", string(data))
+	}
+}
+
+func TestNativePromptExecutionDetectionHonorsReadOnlyRequests(t *testing.T) {
+	if !nativePromptRequiresExecution("Inspect the project, fix the bugs, run the relevant tests.") {
+		t.Fatal("explicit implementation request should require execution")
+	}
+	if nativePromptRequiresExecution("Review the project and tell me what you would improve. Do not modify any files.") {
+		t.Fatal("read-only review must not be forced into execution")
 	}
 }

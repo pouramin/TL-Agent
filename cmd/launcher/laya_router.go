@@ -180,6 +180,9 @@ func classifyLayaRouteFailure(err error) (providerWide bool, cooldown time.Durat
 		strings.Contains(text, "rate limit") ||
 		strings.Contains(text, "too many requests"):
 		return false, 90 * time.Second, "Rate limited", true
+	case strings.Contains(text, "model returned an empty response") ||
+		strings.Contains(text, "model stopped without executing requested work"):
+		return false, 30 * time.Second, "Model did not complete the turn", true
 	case strings.Contains(text, "status 500") ||
 		strings.Contains(text, "status 502") ||
 		strings.Contains(text, "status 503") ||

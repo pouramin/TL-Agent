@@ -319,6 +319,63 @@ func nativeRoutingPrompt(input sessionRunInput) string {
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
+func nativePromptRequiresExecution(prompt string) bool {
+	text := strings.ToLower(strings.TrimSpace(prompt))
+	if text == "" {
+		return false
+	}
+	for _, readOnly := range []string{
+		"do not modify",
+		"don't modify",
+		"without modifying",
+		"do not change",
+		"don't change",
+		"read-only",
+		"read only",
+	} {
+		if strings.Contains(text, readOnly) {
+			return false
+		}
+	}
+	for _, action := range []string{
+		"fix ",
+		"fix them",
+		"fix the",
+		"implement ",
+		"modify ",
+		"refactor ",
+		"update ",
+		"change ",
+		"create ",
+		"write ",
+		"edit ",
+		"remove ",
+		"add ",
+		"apply ",
+		"run tests",
+		"run the tests",
+		"run relevant tests",
+		"run the relevant tests",
+	} {
+		if strings.Contains(text, action) {
+			return true
+		}
+	}
+	return false
+}
+
+func nativeAgentTurnSystemPrompt(prompt string, retryExecution bool) string {
+	base := nativeAgentSystemPrompt()
+	if !nativePromptRequiresExecution(prompt) {
+		return base
+	}
+	extra := "This specific turn is an execution task. A plan, recommendation list, or offer to start later is not a valid final answer. Use the available tools to perform the requested changes and verification before you finish."
+	if retryExecution {
+		extra += " Your previous answer was plan-only and was rejected by TL Studio. Continue the task now and use the tools; do not repeat the plan."
+	}
+	return base + "\n" + extra
+}
+
 func nativeToolResultMessage(result nativeToolResult) string {
 	payload := map[string]any{
 		"ok":      result.Error == "",
@@ -382,6 +439,9 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 	}
 	fallbackRouter, _ := r.requestRouter.(nativeRequestFallbackRouter)
 	fallbacks := 0
+	executionRequired := nativePromptRequiresExecution(routingPrompt)
+	executionWorkObserved := false
+	executionGuardRetries := 0
 	const maxRouteFallbacks = 8
 
 	for iteration := 1; iteration <= nativeAgentMaxIterations; iteration++ {
@@ -394,7 +454,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			modelTurnTimeout := r.modelRequestTimeout(routeSelection != nil)
 			modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
 			response, err = r.model.Complete(modelCtx, nativeModelRequest{
-				System:   nativeAgentSystemPrompt(),
+				System:   nativeAgentTurnSystemPrompt(routingPrompt, executionGuardRetries > 0),
 				Provider: provider,
 				Model:    model,
 				APIKey:   apiKey,
@@ -410,6 +470,17 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				}
 			})
 			cancelModel()
+			if err == nil && len(response.ToolCalls) == 0 && strings.TrimSpace(response.Text) == "" {
+				err = errors.New("model returned an empty response")
+			}
+			if err == nil && len(response.ToolCalls) == 0 && executionRequired && !executionWorkObserved {
+				if executionGuardRetries == 0 {
+					conversation = append(conversation, nativeConversationMessage{Role: "assistant", Text: strings.TrimSpace(response.Text)})
+					executionGuardRetries++
+					continue
+				}
+				err = errors.New("model stopped without executing requested work")
+			}
 			if err == nil {
 				break
 			}
@@ -446,6 +517,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 
 			fallbacks++
 			routeSelection = &next
+			executionGuardRetries = 0
 			routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteActivity(next))
 			provider, model, apiKey, err = r.resolver.resolveNativeModel(ctx, next.ProviderID, next.ModelID)
 			if err != nil {
@@ -549,6 +621,8 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			if result.Error != "" {
 				activity.Status = "failed"
 				activity.Error = &sessionErrorView{Type: "tool", Message: result.Error}
+			} else if descriptor.Capabilities.Write || descriptor.Capabilities.Execute {
+				executionWorkObserved = true
 			}
 			semantic.Activities = append(semantic.Activities, activity)
 			semantic.Changes = append(semantic.Changes, result.Changes...)

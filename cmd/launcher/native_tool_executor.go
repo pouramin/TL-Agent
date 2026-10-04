@@ -410,6 +410,9 @@ func nativeReadFile(project string, input map[string]any) (any, error) {
 	}
 	preview, _, err := readLocalFilePreview(project, path)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("project-relative file %q does not exist; inspect the project root with files.list path \"\" before guessing another path", filepath.ToSlash(path))
+		}
 		return nil, err
 	}
 	if preview.Binary {
@@ -434,6 +437,9 @@ func nativeListFiles(project string, input map[string]any) (any, error) {
 	}
 	info, err := os.Stat(target)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("project-relative directory %q does not exist; inspect the project root with files.list path \"\" before guessing another path", filepath.ToSlash(path))
+		}
 		return nil, err
 	}
 	if !info.IsDir() {

@@ -176,7 +176,9 @@ func TestLayaRouteFailureClassification(t *testing.T) {
 		{name: "provider unavailable", message: "provider unavailable", providerWide: false, ok: true},
 		{name: "temporary provider failure", message: "provider temporary failure", providerWide: false, ok: true},
 		{name: "service unavailable 500", message: "model request failed with status 500: service unavailable", providerWide: false, ok: true},
-		{name: "ordinary validation", message: "model returned an empty response", providerWide: false, ok: false},
+		{name: "empty response", message: "model returned an empty response", providerWide: false, ok: true},
+		{name: "plan only", message: "model stopped without executing requested work", providerWide: false, ok: true},
+		{name: "ordinary validation", message: "invalid request schema", providerWide: false, ok: false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
