@@ -105,7 +105,7 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 	source := readBrowserSource(t, "plugins.ts")
 	for _, required := range []string{
 		"Available integrations",
-		"install and enable themselves",
+		"install themselves when you choose Add",
 		"plugin-catalog-logo",
 		"plugin-catalog-category",
 		"plugin-catalog-grid",
