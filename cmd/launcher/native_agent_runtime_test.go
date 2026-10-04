@@ -424,7 +424,7 @@ func TestNativeAgentUsesLayaRouterSelectionAndPersistsRoutingActivity(t *testing
 	runtime.setRequestRouter(nativeFakeLayaRouter{})
 
 	input := sessionRunInput{
-		Text: "Refactor the parser",
+		Text: "Review the parser structure without modifying files.",
 		Agent: "code",
 		Model: &sessionModelRef{ProviderID: layaRouterProviderID, ID: layaRouterModelID},
 	}
