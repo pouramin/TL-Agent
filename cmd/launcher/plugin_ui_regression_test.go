@@ -109,6 +109,7 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 		"plugin-catalog-logo",
 		"plugin-catalog-category",
 		"plugin-catalog-grid",
+		`body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid"`,
 		"K.api.plugins.installCatalog",
 	} {
 		if !strings.Contains(source, required) {
@@ -133,7 +134,6 @@ func TestPluginCatalogPresentationStaysGeneric(t *testing.T) {
 		".plugin-catalog-card",
 		".plugin-catalog-logo",
 		"grid-template-columns:repeat(3,minmax(0,1fr))",
-		`body.className = renderer === renderSavedCard ? "plugin-section-list" : "plugin-catalog-grid"`,
 		`"actions actions actions"`,
 	} {
 		if !strings.Contains(css, required) {
