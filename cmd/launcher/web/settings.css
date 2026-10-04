@@ -127,6 +127,14 @@ select,.primary.small,.ghost.small,.sidebar-settings-button,.session-quick-delet
 .about-product-copy strong { display: block; font-size: 12px; }
 .about-product-copy span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; line-height: 1.4; }
 .about-version { color: var(--muted); font-size: 9px; white-space: nowrap; }
+.about-update-card { margin-top: 12px; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 12px 13px; border: 1px solid var(--line); border-radius: 11px; background: color-mix(in srgb,var(--panel-2),transparent 16%); }
+.about-update-copy { min-width: 0; display: grid; gap: 4px; }
+.about-update-copy strong { font-size: var(--tl-ui-md); }
+.about-update-copy span { color: var(--muted); font-size: var(--tl-ui-sm); line-height: 1.45; }
+.about-update-actions { display: flex; align-items: center; gap: 7px; }
+.about-update-link { color: var(--muted); font-size: var(--tl-ui-xs); text-decoration: none; }
+.about-update-link:hover { color: var(--text); }
+.about-update-card.update-available { border-color: color-mix(in srgb,var(--accent),var(--line) 58%); background: color-mix(in srgb,var(--accent),var(--panel-2) 95%); }
 .about-links { display: grid; gap: 8px; margin-top: 14px; }
 .about-link { min-height: 54px; display: grid; grid-template-columns: 34px minmax(0,1fr) auto; align-items: center; gap: 11px; padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); text-decoration: none; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
 .about-link[href]:hover { border-color: color-mix(in srgb, var(--accent), var(--line) 58%); background: var(--panel-2); transform: translateY(-1px); }
@@ -209,6 +217,8 @@ html[data-resolved-theme="light"] dialog::backdrop { background: rgba(31,41,55,.
   .permission-rules { width: 100%; margin-top: 10px; }
   .about-product-card { grid-template-columns: 40px minmax(0,1fr); }
   .about-version { grid-column: 2; }
+  .about-update-card { grid-template-columns: 1fr; }
+  .about-update-actions { justify-content: flex-start; flex-wrap: wrap; }
 }
 
 

@@ -51,6 +51,10 @@ import { K } from "./kernel";
     health: () => K.request("/local/health"),
     path: () => K.request("/local/path"),
 
+    updates: {
+      status: () => K.request("/local/update"),
+      apply: () => K.request("/local/update", { method: "POST" }),
+    },
 
     agents: async () => {
       const payload = await K.request("/local/agents");
