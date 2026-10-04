@@ -58,6 +58,23 @@ func availablePluginCatalog() []pluginCatalogEntry {
 			},
 		},
 		{
+			ID:          "jev-direct",
+			Name:        "JEV Direct",
+			Description: "Route requests with TypeSafe JEV directly, using your own TypeSafe API key.",
+			Category:    "Decision router",
+			Type:        pluginTypeRouter,
+			Scope:       "global",
+			Upstream:    "https://docs.typesafe.ai",
+			Environment: map[string]string{
+				"TYPESAFE_API_KEY": "",
+			},
+			Metadata: map[string]string{
+				"integration": "jev-direct",
+				"endpoint":    "https://api.typesafe.ai/v1/systemone",
+				"model":       "jev-latest",
+			},
+		},
+		{
 			ID:          "laya",
 			Name:        "Laya",
 			Description: "Run local typed decisions for routing, scoring, yes/no, triage, and guardrails.",
@@ -221,9 +238,17 @@ func (m *pluginManager) InstallCatalogPlugin(ctx context.Context, project, id st
 		return pluginView{}, errors.New("plugin is already added")
 	}
 
-	runtimeConfig, err := installPluginCatalogRuntime(ctx, entry)
-	if err != nil {
-		return pluginView{}, err
+	runtimeConfig := pluginCatalogRuntime{Metadata: map[string]string{}}
+	var err error
+	if entry.Type == pluginTypeMCP {
+		runtimeConfig, err = installPluginCatalogRuntime(ctx, entry)
+		if err != nil {
+			return pluginView{}, err
+		}
+	} else {
+		for key, value := range entry.Metadata {
+			runtimeConfig.Metadata[key] = value
+		}
 	}
 	config := pluginConfig{
 		ID:          entry.ID,
@@ -236,6 +261,10 @@ func (m *pluginManager) InstallCatalogPlugin(ctx context.Context, project, id st
 		Arguments:   runtimeConfig.Arguments,
 		Metadata:    runtimeConfig.Metadata,
 	}
+	for name := range entry.Environment {
+		config.Environment = append(config.Environment, pluginEnvironmentRef{Name: name})
+	}
+	sort.Slice(config.Environment, func(i, j int) bool { return config.Environment[i].Name < config.Environment[j].Name })
 
 	if entry.ID == "graphify" {
 		if _, err := runGraphifyBuild(ctx, config, project); err != nil {
@@ -247,10 +276,14 @@ func (m *pluginManager) InstallCatalogPlugin(ctx context.Context, project, id st
 	for key, value := range entry.Environment {
 		environment[key] = value
 	}
-	if _, err := m.Upsert(project, pluginUpsertRequest{Plugin: config, Environment: &environment}); err != nil {
+	view, err := m.Upsert(project, pluginUpsertRequest{Plugin: config, Environment: &environment})
+	if err != nil {
 		return pluginView{}, err
 	}
-	view, err := m.SetEnabled(project, entry.ID, true)
+	if entry.Type == pluginTypeRouter {
+		return view, nil
+	}
+	view, err = m.SetEnabled(project, entry.ID, true)
 	if err != nil {
 		_ = m.Remove(project, entry.ID)
 		return view, err

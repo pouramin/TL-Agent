@@ -34,6 +34,7 @@ type pluginIntegration interface {
 func pluginIntegrations() []pluginIntegration {
 	return []pluginIntegration{
 		graphifyPluginIntegration{},
+		jevDirectPluginIntegration{},
 	}
 }
 
