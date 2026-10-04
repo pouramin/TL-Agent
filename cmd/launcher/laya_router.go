@@ -656,7 +656,7 @@ func chooseLayaCandidate(profile string, analysis layaRouteAnalysis, candidates 
 	profile = normalizeLayaRouterProfile(profile)
 	eligible := make([]layaRouterCandidate, 0, len(candidates))
 	for _, candidate := range candidates {
-		if candidate.Enabled && candidate.Connected {
+		if candidate.Enabled && candidate.Connected && candidate.Ready {
 			eligible = append(eligible, candidate)
 		}
 	}
