@@ -688,11 +688,20 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			decodedInput, _ := decodeNativeToolArguments(modelCall.Arguments)
 			started := time.Now().UnixMilli()
 			r.publish(liveEventView{Type: "message.changed", Action: "content", SessionID: sessionID})
-			result := r.tools.Execute(ctx, sessionID, directory, nativeToolCall{
-				ID:        modelCall.Name,
-				CallID:    modelCall.ID,
-				Arguments: modelCall.Arguments,
-			})
+			var result nativeToolResult
+			if !executionRequired && (descriptor.Capabilities.Write || descriptor.Capabilities.Execute) {
+				result = nativeToolResult{
+					ToolID: descriptor.ID,
+					CallID: modelCall.ID,
+					Error:  "tool blocked by TL Studio: this turn is read-only; use read/search tools or ask the user for an explicit mutation request",
+				}
+			} else {
+				result = r.tools.Execute(ctx, sessionID, directory, nativeToolCall{
+					ID:        modelCall.Name,
+					CallID:    modelCall.ID,
+					Arguments: modelCall.Arguments,
+				})
+			}
 			ended := time.Now().UnixMilli()
 
 			activity := sessionActivityView{
