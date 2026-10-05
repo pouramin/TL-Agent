@@ -14,6 +14,9 @@ const (
 	nativeContextMinimumMessageBudget = 2048
 	nativeContextToolCompactThreshold = 1024
 	nativeContextToolArgumentThreshold = 2048
+	nativeContextSoftCompactPercent = 70
+	nativeContextMinimumRunTokenBudget = 262144
+	nativeContextMaximumRunTokenBudget = 2000000
 )
 
 type nativeContextPlan struct {
@@ -141,18 +144,33 @@ func nativeCompactedToolResult(text string) (string, bool) {
 	if nativeEstimateTextTokens(text) <= nativeContextToolCompactThreshold {
 		return text, false
 	}
+	const note = "TL Studio omitted an older tool payload from the active model context. If exact content is needed again, re-read only the narrowest missing range; do not blindly repeat the same call."
 	var payload map[string]any
 	if json.Unmarshal([]byte(text), &payload) != nil {
 		encoded, _ := json.Marshal(map[string]any{
 			"compacted": true,
-			"note":      "TL Studio omitted an older tool result payload from the active model context. Re-run the tool if exact output is needed.",
+			"note":      note,
 		})
 		return string(encoded), true
 	}
 
-	delete(payload, "output")
+	if output, ok := payload["output"].(map[string]any); ok {
+		metadata := map[string]any{}
+		for key, value := range output {
+			switch value.(type) {
+			case string, bool, float64, json.Number, nil:
+				if key != "content" {
+					metadata[key] = value
+				}
+			}
+		}
+		metadata["contentCompacted"] = true
+		payload["output"] = metadata
+	} else {
+		delete(payload, "output")
+	}
 	payload["compacted"] = true
-	payload["note"] = "TL Studio omitted an older tool result payload from the active model context. Re-run the tool if exact output is needed."
+	payload["note"] = note
 	encoded, err := json.Marshal(payload)
 	if err != nil {
 		return text, false
@@ -177,9 +195,11 @@ func nativeCompactCompletedToolHistory(messages []nativeConversationMessage, agg
 	compactedCalls := 0
 
 	lastToolIndex := -1
+	lastToolCallID := ""
 	for i := range result {
 		if strings.EqualFold(strings.TrimSpace(result[i].Role), "tool") {
 			lastToolIndex = i
+			lastToolCallID = strings.TrimSpace(result[i].ToolCallID)
 		}
 	}
 
@@ -187,8 +207,9 @@ func nativeCompactCompletedToolHistory(messages []nativeConversationMessage, agg
 		message := &result[i]
 		role := strings.ToLower(strings.TrimSpace(message.Role))
 		if role == "tool" {
-			// Keep the newest completed result verbatim on the first pass.
-			if !aggressive && i == lastToolIndex {
+			// The model must always see the most recent tool result exactly once.
+			// Compacting it before the continuation turn can cause blind retries.
+			if i == lastToolIndex {
 				continue
 			}
 			if compacted, ok := nativeCompactedToolResult(message.Text); ok {
@@ -202,7 +223,11 @@ func nativeCompactCompletedToolHistory(messages []nativeConversationMessage, agg
 		}
 		for callIndex := range message.ToolCalls {
 			call := &message.ToolCalls[callIndex]
-			if _, ok := resolved[strings.TrimSpace(call.ID)]; !ok {
+			callID := strings.TrimSpace(call.ID)
+			if _, ok := resolved[callID]; !ok {
+				continue
+			}
+			if callID != "" && callID == lastToolCallID {
 				continue
 			}
 			if nativeEstimateTextTokens(string(call.Arguments)) <= nativeContextToolArgumentThreshold {
@@ -300,25 +325,38 @@ func buildNativeContextPlan(messages []nativeConversationMessage, system string,
 	contextLimit, messageBudget, fixedTokens := nativeContextMessageBudget(system, tools, model)
 	working := cloneNativeConversation(messages)
 	originalTokens := nativeEstimateConversationTokens(working)
+	outputReserve := nativeContextOutputReserve(model, contextLimit)
 
 	plan := nativeContextPlan{
 		Messages:               working,
 		ContextLimit:           contextLimit,
 		MessageBudget:          messageBudget,
 		EstimatedMessageTokens: originalTokens,
-		EstimatedRequestTokens: fixedTokens + nativeContextOutputReserve(model, contextLimit) + originalTokens,
+		EstimatedRequestTokens: fixedTokens + outputReserve + originalTokens,
 	}
 
-	if originalTokens <= messageBudget {
-		return plan
+	softLimit := messageBudget * nativeContextSoftCompactPercent / 100
+	if softLimit < nativeContextMinimumMessageBudget {
+		softLimit = nativeContextMinimumMessageBudget
+	}
+	if originalTokens > softLimit {
+		working, plan.CompactedToolResults, plan.CompactedToolCalls = nativeCompactCompletedToolHistory(working, false)
 	}
 
-	working, plan.CompactedToolResults, plan.CompactedToolCalls = nativeCompactCompletedToolHistory(working, false)
-	if nativeEstimateConversationTokens(working) > messageBudget {
+	workingTokens := nativeEstimateConversationTokens(working)
+	if workingTokens > messageBudget {
 		var moreResults, moreCalls int
 		working, moreResults, moreCalls = nativeCompactCompletedToolHistory(working, true)
 		plan.CompactedToolResults += moreResults
 		plan.CompactedToolCalls += moreCalls
+		workingTokens = nativeEstimateConversationTokens(working)
+	}
+
+	if workingTokens <= messageBudget {
+		plan.Messages = working
+		plan.EstimatedMessageTokens = workingTokens
+		plan.EstimatedRequestTokens = fixedTokens + outputReserve + workingTokens
+		return plan
 	}
 
 	selected, omittedMessages, omittedTokens, checkpoint := nativeSelectRecentContext(working, messageBudget)
@@ -327,9 +365,28 @@ func buildNativeContextPlan(messages []nativeConversationMessage, system string,
 	plan.OmittedTokens = omittedTokens
 	plan.CheckpointInserted = checkpoint
 	plan.EstimatedMessageTokens = nativeEstimateConversationTokens(selected)
-	plan.EstimatedRequestTokens = fixedTokens + nativeContextOutputReserve(model, contextLimit) + plan.EstimatedMessageTokens
+	plan.EstimatedRequestTokens = fixedTokens + outputReserve + plan.EstimatedMessageTokens
 	plan.OverBudget = plan.EstimatedRequestTokens > contextLimit
 	return plan
+}
+
+func nativeContextRunTokenBudget(model tlProviderModel) int {
+	budget := nativeContextLimitForModel(model) * 4
+	if budget < nativeContextMinimumRunTokenBudget {
+		budget = nativeContextMinimumRunTokenBudget
+	}
+	if budget > nativeContextMaximumRunTokenBudget {
+		budget = nativeContextMaximumRunTokenBudget
+	}
+	return budget
+}
+
+func nativeContextEstimatedInputTokens(plan nativeContextPlan, model tlProviderModel) int {
+	input := plan.EstimatedRequestTokens - nativeContextOutputReserve(model, plan.ContextLimit)
+	if input < 0 {
+		return 0
+	}
+	return input
 }
 
 func nativeContextActivity(plan nativeContextPlan) sessionActivityView {
