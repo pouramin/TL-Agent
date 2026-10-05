@@ -62,46 +62,99 @@ func TestNativeContextPlanWindowsOldTurnsAndKeepsLatestTurn(t *testing.T) {
 	}
 }
 
-func TestNativeContextPlanCompactsCompletedToolPayloads(t *testing.T) {
+func TestNativeContextPlanCompactsOlderCompletedToolPayloadsAndPreservesNewest(t *testing.T) {
 	hugeArguments, _ := json.Marshal(map[string]any{"content": strings.Repeat("A", 9000)})
 	hugeResult, _ := json.Marshal(map[string]any{
 		"ok":     true,
-		"toolID": "files.write",
+		"toolID": "files.read",
 		"callID": "call-1",
-		"output": map[string]any{"content": strings.Repeat("B", 9000)},
-		"changes": []map[string]any{{"file": "big.txt", "additions": 1, "deletions": 0}},
+		"output": map[string]any{
+			"path": "big.txt", "startLine": 1, "endLine": 400, "totalLines": 800,
+			"content": strings.Repeat("B", 9000),
+		},
+	})
+	latestResult, _ := json.Marshal(map[string]any{
+		"ok": true, "toolID": "files.read", "callID": "call-2",
+		"output": map[string]any{"path": "latest.txt", "content": "LATEST_RESULT_MUST_SURVIVE"},
 	})
 	messages := []nativeConversationMessage{
-		{Role: "user", Text: "Write a large generated file and continue."},
+		{Role: "user", Text: "Inspect the files."},
 		{Role: "assistant", ToolCalls: []nativeModelToolCall{{
-			ID: "call-1", Name: "files.write", Arguments: hugeArguments,
+			ID: "call-1", Name: "files.read", Arguments: hugeArguments,
 		}}},
-		{Role: "tool", ToolCallID: "call-1", ToolName: "files.write", Text: string(hugeResult)},
-		{Role: "assistant", Text: "The write completed; now continue with the task."},
+		{Role: "tool", ToolCallID: "call-1", ToolName: "files.read", Text: string(hugeResult)},
+		{Role: "assistant", ToolCalls: []nativeModelToolCall{{
+			ID: "call-2", Name: "files.read", Arguments: json.RawMessage(`{"path":"latest.txt"}`),
+		}}},
+		{Role: "tool", ToolCallID: "call-2", ToolName: "files.read", Text: string(latestResult)},
 	}
 	model := tlProviderModel{ID: "small", ContextLimit: 4096, OutputLimit: 1024}
 	plan := buildNativeContextPlan(messages, "system", nil, model)
 
 	if plan.CompactedToolResults == 0 {
-		t.Fatalf("expected large tool output to be compacted: %#v", plan)
+		t.Fatalf("expected older large tool output to be compacted: %#v", plan)
 	}
 	if plan.CompactedToolCalls == 0 {
-		t.Fatalf("expected completed large tool arguments to be compacted: %#v", plan)
+		t.Fatalf("expected older completed large tool arguments to be compacted: %#v", plan)
 	}
 	var sawCompactedResult bool
-	var sawCompactedCall bool
+	var sawCompactedMetadata bool
+	var sawLatestVerbatim bool
 	for _, message := range plan.Messages {
 		if message.Role == "tool" && strings.Contains(message.Text, "\"compacted\":true") {
 			sawCompactedResult = true
-		}
-		for _, call := range message.ToolCalls {
-			if strings.Contains(string(call.Arguments), "_tlStudioContextCompacted") {
-				sawCompactedCall = true
+			if strings.Contains(message.Text, "\"path\":\"big.txt\"") &&
+				strings.Contains(message.Text, "\"startLine\":1") &&
+				strings.Contains(message.Text, "\"contentCompacted\":true") {
+				sawCompactedMetadata = true
 			}
 		}
+		if message.Role == "tool" && message.ToolCallID == "call-2" &&
+			strings.Contains(message.Text, "LATEST_RESULT_MUST_SURVIVE") {
+			sawLatestVerbatim = true
+		}
 	}
-	if !sawCompactedResult || !sawCompactedCall {
-		t.Fatalf("compacted structures missing from model context: %#v", plan.Messages)
+	if !sawCompactedResult || !sawCompactedMetadata || !sawLatestVerbatim {
+		t.Fatalf("context compaction lost required state: %#v", plan.Messages)
+	}
+}
+
+func TestNativeContextPlanCompactsBeforeHardLimit(t *testing.T) {
+	result, _ := json.Marshal(map[string]any{
+		"ok": true, "toolID": "files.read", "callID": "old-read",
+		"output": map[string]any{"path": "old.txt", "content": strings.Repeat("x", 9000)},
+	})
+	messages := []nativeConversationMessage{
+		{Role: "user", Text: strings.Repeat("history ", 600)},
+		{Role: "assistant", ToolCalls: []nativeModelToolCall{{ID: "old-read", Name: "files.read", Arguments: json.RawMessage(`{"path":"old.txt"}`)}}},
+		{Role: "tool", ToolCallID: "old-read", ToolName: "files.read", Text: string(result)},
+		{Role: "assistant", Text: strings.Repeat("analysis ", 300)},
+		{Role: "assistant", ToolCalls: []nativeModelToolCall{{ID: "latest", Name: "files.read", Arguments: json.RawMessage(`{"path":"latest.txt"}`)}}},
+		{Role: "tool", ToolCallID: "latest", ToolName: "files.read", Text: `{"ok":true,"output":{"path":"latest.txt","content":"latest"}}`},
+	}
+	model := tlProviderModel{ID: "medium", ContextLimit: 12000, OutputLimit: 2000}
+	plan := buildNativeContextPlan(messages, "system", nil, model)
+	if plan.CompactedToolResults == 0 {
+		t.Fatalf("expected proactive compaction above the soft budget: %#v", plan)
+	}
+	if plan.OverBudget {
+		t.Fatalf("proactive compaction should keep this request under budget: %#v", plan)
+	}
+}
+
+func TestNativeContextRunTokenBudgetScalesWithContextLimit(t *testing.T) {
+	cases := []struct {
+		model tlProviderModel
+		want  int
+	}{
+		{model: tlProviderModel{ContextLimit: 32768}, want: nativeContextMinimumRunTokenBudget},
+		{model: tlProviderModel{ContextLimit: 200000}, want: 800000},
+		{model: tlProviderModel{ContextLimit: 1000000}, want: nativeContextMaximumRunTokenBudget},
+	}
+	for _, tc := range cases {
+		if got := nativeContextRunTokenBudget(tc.model); got != tc.want {
+			t.Fatalf("run token budget = %d, want %d for model %#v", got, tc.want, tc.model)
+		}
 	}
 }
 
