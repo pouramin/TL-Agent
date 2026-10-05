@@ -13,7 +13,7 @@ import (
 
 const (
 	nativeAgentMaxIterations      = 24
-	nativeAgentMaxToolRounds      = 16
+	nativeAgentMaxToolRounds      = 24
 	nativeAgentMaxToolsPerRound   = 16
 	nativeAgentMaxRepeatedCalls       = 4
 	nativeAgentModelTurnTimeout       = 2 * time.Minute
@@ -309,6 +309,20 @@ func (e *nativeRoutedRunError) Unwrap() error {
 	return e.cause
 }
 
+func nativeErrorWithActivities(cause error, groups ...[]sessionActivityView) error {
+	if cause == nil {
+		return nil
+	}
+	activities := []sessionActivityView{}
+	for _, group := range groups {
+		activities = append(activities, group...)
+	}
+	if len(activities) == 0 {
+		return cause
+	}
+	return &nativeRoutedRunError{cause: cause, activities: activities}
+}
+
 func nativeRoutingPrompt(input sessionRunInput) string {
 	if text := strings.TrimSpace(input.Text); text != "" {
 		return text
@@ -476,6 +490,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 	executionRequired := nativePromptRequiresExecution(routingPrompt)
 	executionWorkObserved := false
 	executionGuardRetries := 0
+	runTokensUsed := int64(0)
 	const maxRouteFallbacks = 8
 
 	for iteration := 1; iteration <= nativeAgentMaxIterations; iteration++ {
@@ -495,6 +510,25 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 					lastContextManagementSignature = signature
 				}
 			}
+			estimatedInput := int64(nativeContextEstimatedInputTokens(contextPlan, model))
+			runTokenBudget := int64(nativeContextRunTokenBudget(model))
+			if runTokensUsed > 0 && runTokensUsed+estimatedInput > runTokenBudget {
+				budgetActivity := sessionActivityView{
+					Kind: "context", Status: "warning", Title: "Run token budget reached",
+					Metadata: map[string]any{
+						"usedTokens": runTokensUsed,
+						"nextEstimatedInputTokens": estimatedInput,
+						"runTokenBudget": runTokenBudget,
+						"contextLimit": contextPlan.ContextLimit,
+					},
+				}
+				return nativeErrorWithActivities(
+					fmt.Errorf("native Agent reached the per-run token budget (%d estimated tokens); continue the task in a new turn", runTokenBudget),
+					contextActivitiesPending,
+					routeActivitiesPending,
+					[]sessionActivityView{budgetActivity},
+				)
+			}
 			modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
 			response, err = r.model.Complete(modelCtx, nativeModelRequest{
 				System:   systemPrompt,
@@ -513,6 +547,16 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				}
 			})
 			cancelModel()
+			if err == nil {
+				used := response.Usage.Input + response.Usage.Output + response.Usage.Reasoning
+				if used <= 0 {
+					assistantEstimate := nativeEstimateConversationMessageTokens(nativeConversationMessage{
+						Role: "assistant", Text: response.Text, ToolCalls: response.ToolCalls,
+					})
+					used = int64(nativeContextEstimatedInputTokens(contextPlan, model) + assistantEstimate)
+				}
+				runTokensUsed += used
+			}
 			if err == nil && len(response.ToolCalls) == 0 && strings.TrimSpace(response.Text) == "" {
 				err = errors.New("model returned an empty response")
 			}
@@ -539,9 +583,8 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 					} else {
 						routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteFailureActivity(*routeSelection, modelErr))
 					}
-					return &nativeRoutedRunError{cause: modelErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
 				}
-				return modelErr
+				return nativeErrorWithActivities(modelErr, contextActivitiesPending, routeActivitiesPending)
 			}
 
 			failedActivity := nativeRequestRouteFailureActivity(*routeSelection, modelErr)
@@ -552,10 +595,10 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			}
 			next, ok, fallbackErr := fallbackRouter.Fallback(ctx, directory, routingPrompt, *routeSelection, modelErr)
 			if fallbackErr != nil {
-				return &nativeRoutedRunError{cause: fallbackErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				return nativeErrorWithActivities(fallbackErr, contextActivitiesPending, routeActivitiesPending)
 			}
 			if !ok {
-				return &nativeRoutedRunError{cause: modelErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				return nativeErrorWithActivities(modelErr, contextActivitiesPending, routeActivitiesPending)
 			}
 
 			fallbacks++
@@ -565,7 +608,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			provider, model, apiKey, err = r.resolver.resolveNativeModel(ctx, next.ProviderID, next.ModelID)
 			if err != nil {
 				routeActivitiesPending[len(routeActivitiesPending)-1] = nativeRequestRouteFailureActivity(next, err)
-				return &nativeRoutedRunError{cause: err, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				return nativeErrorWithActivities(err, contextActivitiesPending, routeActivitiesPending)
 			}
 		}
 		if len(response.ToolCalls) == 0 {
@@ -596,7 +639,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 
 		toolRounds++
 		if toolRounds > nativeAgentMaxToolRounds {
-			return fmt.Errorf("native Agent exceeded the maximum of %d tool rounds", nativeAgentMaxToolRounds)
+			return nativeErrorWithActivities(
+				fmt.Errorf("native Agent exceeded the maximum of %d tool rounds", nativeAgentMaxToolRounds),
+				contextActivitiesPending,
+				routeActivitiesPending,
+			)
 		}
 		if len(response.ToolCalls) > nativeAgentMaxToolsPerRound {
 			return fmt.Errorf("native Agent requested %d tools in one round; maximum is %d", len(response.ToolCalls), nativeAgentMaxToolsPerRound)
@@ -631,7 +678,10 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			signature := nativeToolSignature(modelCall)
 			repeated[signature]++
 			if repeated[signature] > nativeAgentMaxRepeatedCalls {
-				return fmt.Errorf("native Agent repeated the same tool call more than %d times", nativeAgentMaxRepeatedCalls)
+				return nativeErrorWithActivities(
+					fmt.Errorf("native Agent repeated the same tool call more than %d times; change the read range or continue in a new turn instead of blindly retrying the same call", nativeAgentMaxRepeatedCalls),
+					semantic.Activities,
+				)
 			}
 
 			descriptor, _ := r.tools.Descriptor(directory, modelCall.Name)
