@@ -40,6 +40,24 @@ The runtime resolves only providers and models that TL Studio can execute direct
 
 All active sessions are TL Studio sessions. The Session domain owns IDs, create/rename/delete, run/abort, status, messages, activity and usage, file changes, and persistence.
 
+## Context management
+
+TL Studio owns model-turn context construction. Persisted Session history remains complete on disk; context management changes only the transient message window sent to the selected model.
+
+The Native Agent derives a conservative input budget from the selected model's advertised `contextLimit` and `outputLimit`, with separate reserves for the system prompt, Tool schemas, output tokens, and safety headroom. When a provider does not advertise a context limit, TL Studio uses a conservative local default rather than delegating context policy to the provider.
+
+TL Studio begins compacting older completed Tool payloads before the hard context limit is reached. The most recent Tool result is always kept verbatim for the immediate continuation turn; older compacted file reads retain useful range/path metadata and explicitly tell the model to re-read only the narrowest missing range rather than blindly repeating an identical Tool call.
+
+If a model request would still exceed the hard budget, TL Studio keeps the newest conversation turns and inserts an explicit context checkpoint describing omitted persisted history. The full transcript is not deleted or rewritten by compaction.
+
+Each Agent run also has a model-scaled cumulative token budget. A runaway Tool/model loop stops with a resumable visible failure before one turn can consume an unbounded number of repeated full-context requests. Existing project mutations and persisted Session history remain intact so the user can continue in a new turn.
+
+Tool exposure follows least privilege per turn. Requests that do not explicitly ask to mutate or execute receive read/search-capable tools only; write/execute tools are withheld. The runtime independently enforces the same boundary so a hallucinated `files.write`, `files.edit`, Terminal, or write-capable plugin call cannot mutate the workspace during a read-only turn. English and Persian mutation intent are both recognized.
+
+Context management is observable through semantic Session activity, including failure paths. When TL Studio windows or compacts a request, the Agent transcript can show the model context limit, message budget, estimated retained tokens, omitted-message count, and compacted Tool payload counts. When a run token budget is reached, the failure activity shows the budget and cumulative usage estimate.
+
+This first 0.7 foundation is deterministic and local. It does not introduce vector memory, RAG, a hosted memory service, or provider-owned conversation state.
+
 ## Interactive questions
 
 Interactive questions are native Agent semantics:

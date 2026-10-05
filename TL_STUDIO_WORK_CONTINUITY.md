@@ -24,6 +24,8 @@ TL Studio v0.6.0 is published as the stable release from main commit 0bef7774ea1
 
 The 0.7 development generation begins on dev at 0.7.0-alpha.1. Reserve 0.6.x versions for stable bugfix releases rather than new alpha development.
 
+Current 0.7 feature work is isolated on `feature/context-management-foundation`. The first Context Management stage keeps persisted Session history complete while applying model-aware transient context budgets, proactive completed-Tool compaction, recent-turn windowing, explicit checkpoints, model-scaled per-run token budgets, and least-privilege read-only Tool exposure before inference. The runtime also blocks hallucinated write/execute calls during read-only turns. Do not merge this branch into dev until regression coverage, full CI, a Windows review artifact, and the real stress-session regression are green.
+
 The v0.6.0 release includes the Laya Router, JEV Direct through TypeSafe while preserving JEV via OpenRouter, global Graphify installation with project-local graphs, the responsive Plugins redesign, Claude Web Bridge improvements, native routed-Agent fallback/cooldown reliability, the single-scroll Settings redesign, and the verified GitHub Releases updater.
 
 Release validation:
@@ -54,6 +56,7 @@ Owned by TL Studio:
 - Custom Providers
 - Direct native model clients
 - Native Agent loop
+- Native Context Manager and model-turn budgeting
 - Native Tool Registry and Tool Executor
 - Native Permissions
 - Native semantic Session persistence and execution

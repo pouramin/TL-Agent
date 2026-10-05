@@ -13,7 +13,7 @@ import (
 
 const (
 	nativeAgentMaxIterations      = 24
-	nativeAgentMaxToolRounds      = 16
+	nativeAgentMaxToolRounds      = 24
 	nativeAgentMaxToolsPerRound   = 16
 	nativeAgentMaxRepeatedCalls       = 4
 	nativeAgentModelTurnTimeout       = 2 * time.Minute
@@ -309,6 +309,20 @@ func (e *nativeRoutedRunError) Unwrap() error {
 	return e.cause
 }
 
+func nativeErrorWithActivities(cause error, groups ...[]sessionActivityView) error {
+	if cause == nil {
+		return nil
+	}
+	activities := []sessionActivityView{}
+	for _, group := range groups {
+		activities = append(activities, group...)
+	}
+	if len(activities) == 0 {
+		return cause
+	}
+	return &nativeRoutedRunError{cause: cause, activities: activities}
+}
+
 func nativeRoutingPrompt(input sessionRunInput) string {
 	if text := strings.TrimSpace(input.Text); text != "" {
 		return text
@@ -325,49 +339,67 @@ func nativeRoutingPrompt(input sessionRunInput) string {
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
+func nativePromptContainsAny(text string, phrases ...string) bool {
+	for _, phrase := range phrases {
+		if strings.Contains(text, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
 func nativePromptRequiresExecution(prompt string) bool {
 	text := strings.ToLower(strings.TrimSpace(prompt))
 	if text == "" {
 		return false
 	}
-	for _, readOnly := range []string{
-		"do not modify",
-		"don't modify",
-		"without modifying",
-		"do not change",
-		"don't change",
-		"read-only",
-		"read only",
-	} {
-		if strings.Contains(text, readOnly) {
-			return false
-		}
+
+	if nativePromptContainsAny(text,
+		"do not modify", "don't modify", "without modifying", "do not change", "don't change",
+		"read-only", "read only", "هیچ فایلی را تغییر نده", "هیچ فایلی رو تغییر نده",
+		"فایلی را تغییر نده", "فایلی رو تغییر نده", "بدون تغییر فایل", "فقط بخوان",
+		"فقط بررسی کن", "فقط تحلیل کن",
+	) {
+		return false
 	}
-	for _, action := range []string{
-		"fix ",
-		"fix them",
-		"fix the",
-		"implement ",
-		"modify ",
-		"refactor ",
-		"update ",
-		"change ",
-		"create ",
-		"write ",
-		"edit ",
-		"remove ",
-		"add ",
-		"apply ",
-		"run tests",
-		"run the tests",
-		"run relevant tests",
-		"run the relevant tests",
-	} {
-		if strings.Contains(text, action) {
-			return true
-		}
+
+	if nativePromptContainsAny(text,
+		"fix ", "fix them", "fix the", "implement ", "modify ", "refactor ", "update ",
+		"change ", "create ", "write ", "edit ", "remove ", "add ", "apply ",
+		"run tests", "run the tests", "run relevant tests", "run the relevant tests",
+		"build ", "generate ", "rename ", "move ", "replace ",
+		"بساز", "ایجاد کن", "بنویس", "ویرایش کن", "اصلاح کن", "تغییر بده", "تغییرش بده",
+		"حذف کن", "اضافه کن", "اعمال کن", "جایگزین کن", "منتقل کن", "اجرا کن", "تست کن",
+		"درستش کن", "رفع کن", "فیکس کن", "کامیت کن", "مرج کن",
+	) {
+		return true
 	}
+
+	// Read/review/question turns run with least privilege by default. The Agent
+	// still receives read/search tools, but write/execute tools are withheld.
 	return false
+}
+
+func nativeToolDefinitionsForPrompt(executor *nativeToolExecutor, project, prompt string) []nativeModelToolDefinition {
+	if executor == nil {
+		return nil
+	}
+	definitions := executor.ToolDefinitionsForProject(project)
+	if nativePromptRequiresExecution(prompt) {
+		return definitions
+	}
+	filtered := make([]nativeModelToolDefinition, 0, len(definitions))
+	for _, definition := range definitions {
+		descriptor, ok := executor.Descriptor(project, definition.ID)
+		if !ok {
+			continue
+		}
+		if descriptor.Capabilities.Write || descriptor.Capabilities.Execute {
+			continue
+		}
+		filtered = append(filtered, definition)
+	}
+	return filtered
 }
 
 func nativeAgentTurnSystemPrompt(prompt string, retryExecution bool) string {
@@ -432,19 +464,23 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		return err
 	}
 	conversation := nativeConversationFromMessages(messages)
-	tools := r.tools.ToolDefinitionsForProject(directory)
+	tools := nativeToolDefinitionsForPrompt(r.tools, directory, routingPrompt)
 	if len(tools) == 0 {
-		return errors.New("native Agent runtime has no executable tools")
+		return errors.New("native Agent runtime has no tools allowed for this turn")
 	}
 
 	repeated := map[string]int{}
 	toolRounds := 0
+	contextActivitiesPending := []sessionActivityView{}
+	lastContextManagementSignature := ""
 	routeActivitiesPending := []sessionActivityView{}
 	if routeSelection != nil {
 		routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteActivity(*routeSelection))
 	}
 	responseActivities := func(response nativeModelResponse) []sessionActivityView {
-		activities := append([]sessionActivityView(nil), routeActivitiesPending...)
+		activities := append([]sessionActivityView(nil), contextActivitiesPending...)
+		contextActivitiesPending = nil
+		activities = append(activities, routeActivitiesPending...)
 		routeActivitiesPending = nil
 		activities = append(activities, nativeRoutedModelActivity(provider, model, response)...)
 		return activities
@@ -454,6 +490,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 	executionRequired := nativePromptRequiresExecution(routingPrompt)
 	executionWorkObserved := false
 	executionGuardRetries := 0
+	runTokensUsed := int64(0)
 	const maxRouteFallbacks = 8
 
 	for iteration := 1; iteration <= nativeAgentMaxIterations; iteration++ {
@@ -464,13 +501,41 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		var response nativeModelResponse
 		for {
 			modelTurnTimeout := r.modelRequestTimeout(routeSelection != nil, executionRequired)
+			systemPrompt := nativeAgentTurnSystemPrompt(routingPrompt, executionGuardRetries > 0)
+			contextPlan := buildNativeContextPlan(conversation, systemPrompt, tools, model)
+			if nativeContextPlanChanged(contextPlan) {
+				signature := nativeContextPlanSignature(contextPlan)
+				if signature != lastContextManagementSignature {
+					contextActivitiesPending = append(contextActivitiesPending, nativeContextActivity(contextPlan))
+					lastContextManagementSignature = signature
+				}
+			}
+			estimatedInput := int64(nativeContextEstimatedInputTokens(contextPlan, model))
+			runTokenBudget := int64(nativeContextRunTokenBudget(model))
+			if runTokensUsed > 0 && runTokensUsed+estimatedInput > runTokenBudget {
+				budgetActivity := sessionActivityView{
+					Kind: "context", Status: "warning", Title: "Run token budget reached",
+					Metadata: map[string]any{
+						"usedTokens": runTokensUsed,
+						"nextEstimatedInputTokens": estimatedInput,
+						"runTokenBudget": runTokenBudget,
+						"contextLimit": contextPlan.ContextLimit,
+					},
+				}
+				return nativeErrorWithActivities(
+					fmt.Errorf("native Agent reached the per-run token budget (%d estimated tokens); continue the task in a new turn", runTokenBudget),
+					contextActivitiesPending,
+					routeActivitiesPending,
+					[]sessionActivityView{budgetActivity},
+				)
+			}
 			modelCtx, cancelModel := context.WithTimeout(ctx, modelTurnTimeout)
 			response, err = r.model.Complete(modelCtx, nativeModelRequest{
-				System:   nativeAgentTurnSystemPrompt(routingPrompt, executionGuardRetries > 0),
+				System:   systemPrompt,
 				Provider: provider,
 				Model:    model,
 				APIKey:   apiKey,
-				Messages: append([]nativeConversationMessage(nil), conversation...),
+				Messages: contextPlan.Messages,
 				Tools:    tools,
 			}, func(delta string) {
 				if delta != "" {
@@ -482,6 +547,16 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				}
 			})
 			cancelModel()
+			if err == nil {
+				used := response.Usage.Input + response.Usage.Output + response.Usage.Reasoning
+				if used <= 0 {
+					assistantEstimate := nativeEstimateConversationMessageTokens(nativeConversationMessage{
+						Role: "assistant", Text: response.Text, ToolCalls: response.ToolCalls,
+					})
+					used = int64(nativeContextEstimatedInputTokens(contextPlan, model) + assistantEstimate)
+				}
+				runTokensUsed += used
+			}
 			if err == nil && len(response.ToolCalls) == 0 && strings.TrimSpace(response.Text) == "" {
 				err = errors.New("model returned an empty response")
 			}
@@ -508,9 +583,8 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 					} else {
 						routeActivitiesPending = append(routeActivitiesPending, nativeRequestRouteFailureActivity(*routeSelection, modelErr))
 					}
-					return &nativeRoutedRunError{cause: modelErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
 				}
-				return modelErr
+				return nativeErrorWithActivities(modelErr, contextActivitiesPending, routeActivitiesPending)
 			}
 
 			failedActivity := nativeRequestRouteFailureActivity(*routeSelection, modelErr)
@@ -521,10 +595,10 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			}
 			next, ok, fallbackErr := fallbackRouter.Fallback(ctx, directory, routingPrompt, *routeSelection, modelErr)
 			if fallbackErr != nil {
-				return &nativeRoutedRunError{cause: fallbackErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				return nativeErrorWithActivities(fallbackErr, contextActivitiesPending, routeActivitiesPending)
 			}
 			if !ok {
-				return &nativeRoutedRunError{cause: modelErr, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				return nativeErrorWithActivities(modelErr, contextActivitiesPending, routeActivitiesPending)
 			}
 
 			fallbacks++
@@ -534,7 +608,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			provider, model, apiKey, err = r.resolver.resolveNativeModel(ctx, next.ProviderID, next.ModelID)
 			if err != nil {
 				routeActivitiesPending[len(routeActivitiesPending)-1] = nativeRequestRouteFailureActivity(next, err)
-				return &nativeRoutedRunError{cause: err, activities: append([]sessionActivityView(nil), routeActivitiesPending...)}
+				return nativeErrorWithActivities(err, contextActivitiesPending, routeActivitiesPending)
 			}
 		}
 		if len(response.ToolCalls) == 0 {
@@ -565,7 +639,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 
 		toolRounds++
 		if toolRounds > nativeAgentMaxToolRounds {
-			return fmt.Errorf("native Agent exceeded the maximum of %d tool rounds", nativeAgentMaxToolRounds)
+			return nativeErrorWithActivities(
+				fmt.Errorf("native Agent exceeded the maximum of %d tool rounds", nativeAgentMaxToolRounds),
+				contextActivitiesPending,
+				routeActivitiesPending,
+			)
 		}
 		if len(response.ToolCalls) > nativeAgentMaxToolsPerRound {
 			return fmt.Errorf("native Agent requested %d tools in one round; maximum is %d", len(response.ToolCalls), nativeAgentMaxToolsPerRound)
@@ -600,18 +678,30 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			signature := nativeToolSignature(modelCall)
 			repeated[signature]++
 			if repeated[signature] > nativeAgentMaxRepeatedCalls {
-				return fmt.Errorf("native Agent repeated the same tool call more than %d times", nativeAgentMaxRepeatedCalls)
+				return nativeErrorWithActivities(
+					fmt.Errorf("native Agent repeated the same tool call more than %d times; change the read range or continue in a new turn instead of blindly retrying the same call", nativeAgentMaxRepeatedCalls),
+					semantic.Activities,
+				)
 			}
 
 			descriptor, _ := r.tools.Descriptor(directory, modelCall.Name)
 			decodedInput, _ := decodeNativeToolArguments(modelCall.Arguments)
 			started := time.Now().UnixMilli()
 			r.publish(liveEventView{Type: "message.changed", Action: "content", SessionID: sessionID})
-			result := r.tools.Execute(ctx, sessionID, directory, nativeToolCall{
-				ID:        modelCall.Name,
-				CallID:    modelCall.ID,
-				Arguments: modelCall.Arguments,
-			})
+			var result nativeToolResult
+			if !executionRequired && (descriptor.Capabilities.Write || descriptor.Capabilities.Execute) {
+				result = nativeToolResult{
+					ToolID: descriptor.ID,
+					CallID: modelCall.ID,
+					Error:  "tool blocked by TL Studio: this turn is read-only; use read/search tools or ask the user for an explicit mutation request",
+				}
+			} else {
+				result = r.tools.Execute(ctx, sessionID, directory, nativeToolCall{
+					ID:        modelCall.Name,
+					CallID:    modelCall.ID,
+					Arguments: modelCall.Arguments,
+				})
+			}
 			ended := time.Now().UnixMilli()
 
 			activity := sessionActivityView{
