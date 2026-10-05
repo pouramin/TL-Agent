@@ -325,49 +325,67 @@ func nativeRoutingPrompt(input sessionRunInput) string {
 	return strings.TrimSpace(strings.Join(parts, "\n"))
 }
 
+func nativePromptContainsAny(text string, phrases ...string) bool {
+	for _, phrase := range phrases {
+		if strings.Contains(text, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
 func nativePromptRequiresExecution(prompt string) bool {
 	text := strings.ToLower(strings.TrimSpace(prompt))
 	if text == "" {
 		return false
 	}
-	for _, readOnly := range []string{
-		"do not modify",
-		"don't modify",
-		"without modifying",
-		"do not change",
-		"don't change",
-		"read-only",
-		"read only",
-	} {
-		if strings.Contains(text, readOnly) {
-			return false
-		}
+
+	if nativePromptContainsAny(text,
+		"do not modify", "don't modify", "without modifying", "do not change", "don't change",
+		"read-only", "read only", "هیچ فایلی را تغییر نده", "هیچ فایلی رو تغییر نده",
+		"فایلی را تغییر نده", "فایلی رو تغییر نده", "بدون تغییر فایل", "فقط بخوان",
+		"فقط بررسی کن", "فقط تحلیل کن",
+	) {
+		return false
 	}
-	for _, action := range []string{
-		"fix ",
-		"fix them",
-		"fix the",
-		"implement ",
-		"modify ",
-		"refactor ",
-		"update ",
-		"change ",
-		"create ",
-		"write ",
-		"edit ",
-		"remove ",
-		"add ",
-		"apply ",
-		"run tests",
-		"run the tests",
-		"run relevant tests",
-		"run the relevant tests",
-	} {
-		if strings.Contains(text, action) {
-			return true
-		}
+
+	if nativePromptContainsAny(text,
+		"fix ", "fix them", "fix the", "implement ", "modify ", "refactor ", "update ",
+		"change ", "create ", "write ", "edit ", "remove ", "add ", "apply ",
+		"run tests", "run the tests", "run relevant tests", "run the relevant tests",
+		"build ", "generate ", "rename ", "move ", "replace ",
+		"بساز", "ایجاد کن", "بنویس", "ویرایش کن", "اصلاح کن", "تغییر بده", "تغییرش بده",
+		"حذف کن", "اضافه کن", "اعمال کن", "جایگزین کن", "منتقل کن", "اجرا کن", "تست کن",
+		"درستش کن", "رفع کن", "فیکس کن", "کامیت کن", "مرج کن",
+	) {
+		return true
 	}
+
+	// Read/review/question turns run with least privilege by default. The Agent
+	// still receives read/search tools, but write/execute tools are withheld.
 	return false
+}
+
+func nativeToolDefinitionsForPrompt(executor *nativeToolExecutor, project, prompt string) []nativeModelToolDefinition {
+	if executor == nil {
+		return nil
+	}
+	definitions := executor.ToolDefinitionsForProject(project)
+	if nativePromptRequiresExecution(prompt) {
+		return definitions
+	}
+	filtered := make([]nativeModelToolDefinition, 0, len(definitions))
+	for _, definition := range definitions {
+		descriptor, ok := executor.Descriptor(project, definition.ID)
+		if !ok {
+			continue
+		}
+		if descriptor.Capabilities.Write || descriptor.Capabilities.Execute {
+			continue
+		}
+		filtered = append(filtered, definition)
+	}
+	return filtered
 }
 
 func nativeAgentTurnSystemPrompt(prompt string, retryExecution bool) string {
@@ -432,9 +450,9 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 		return err
 	}
 	conversation := nativeConversationFromMessages(messages)
-	tools := r.tools.ToolDefinitionsForProject(directory)
+	tools := nativeToolDefinitionsForPrompt(r.tools, directory, routingPrompt)
 	if len(tools) == 0 {
-		return errors.New("native Agent runtime has no executable tools")
+		return errors.New("native Agent runtime has no tools allowed for this turn")
 	}
 
 	repeated := map[string]int{}
