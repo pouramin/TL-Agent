@@ -170,7 +170,7 @@ func (fn nativeModelRoundTripFunc) RoundTrip(request *http.Request) (*http.Respo
 	return fn(request)
 }
 
-func TestNativeOfficialMistralStreamingUsesUsageAndPromptCache(t *testing.T) {
+func TestNativeOfficialMistralStreamingUsesPromptCacheAndParsesUsage(t *testing.T) {
 	var received map[string]any
 	client := &nativeHTTPModelClient{
 		httpClient: &http.Client{Transport: nativeModelRoundTripFunc(func(request *http.Request) (*http.Response, error) {
@@ -203,9 +203,8 @@ func TestNativeOfficialMistralStreamingUsesUsageAndPromptCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	streamOptions, _ := received["stream_options"].(map[string]any)
-	if streamOptions == nil || streamOptions["include_usage"] != true {
-		t.Fatalf("Mistral streaming request did not request usage: %#v", received)
+	if _, ok := received["stream_options"]; ok {
+		t.Fatalf("official Mistral does not accept OpenAI stream_options: %#v", received)
 	}
 	if received["prompt_cache_key"] != "tlstudio-session-proof" {
 		t.Fatalf("Mistral prompt cache key missing: %#v", received["prompt_cache_key"])
