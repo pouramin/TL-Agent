@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/stable-v0.6.1-16a34a" alt="Stable v0.6.1">
+  <img src="https://img.shields.io/badge/stable-v0.6.2-16a34a" alt="Stable v0.6.2">
   <img src="https://img.shields.io/badge/dev-v0.7.0--alpha.1-f59e0b" alt="Development v0.7.0-alpha.1">
 </p>
 
