@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	nativeAgentMaxIterations      = 128
-	nativeAgentMaxToolRounds      = 100
-	nativeAgentMaxToolsPerRound   = 16
-	nativeAgentMaxRepeatedCalls       = 4
-	nativeAgentModelTurnTimeout       = 2 * time.Minute
-	nativeAgentLayaModelTurnTimeout   = 4 * time.Minute
+	nativeAgentMaxIterations        = 128
+	nativeAgentMaxToolRounds        = 100
+	nativeAgentMaxToolsPerRound     = 16
+	nativeAgentMaxRepeatedCalls     = 4
+	nativeAgentModelTurnTimeout     = 2 * time.Minute
+	nativeAgentLayaModelTurnTimeout = 4 * time.Minute
 )
 
 type nativeModelResolver interface {
