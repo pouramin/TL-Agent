@@ -987,6 +987,16 @@ func TestNativeAgentPreservesGeneratedToolCallIDInConversation(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("blank Tool-call ID continuation did not complete")
 	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, running := runtime.NativeStatuses(project)[session.ID]; !running {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("blank Tool-call ID run did not become idle")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
 
 type nativeSeparatedRepeatModel struct {
@@ -1057,6 +1067,16 @@ func TestNativeAgentRepeatGuardOnlyCountsConsecutiveRounds(t *testing.T) {
 	case <-model.finished:
 	case <-time.After(3 * time.Second):
 		t.Fatal("non-consecutive repeat sequence was incorrectly blocked")
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, running := runtime.NativeStatuses(project)[session.ID]; !running {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("non-consecutive repeat run did not become idle")
+		}
+		time.Sleep(20 * time.Millisecond)
 	}
 }
 
