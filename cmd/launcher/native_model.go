@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha256"
 	"context"
 	"encoding/json"
 	"errors"
@@ -158,6 +159,24 @@ func isOfficialMistralBaseURL(raw string) bool {
 	return strings.EqualFold(parsed.Hostname(), "api.mistral.ai")
 }
 
+func normalizeMistralToolCallID(raw, seed string) string {
+	raw = strings.TrimSpace(raw)
+	if len(raw) == 9 {
+		valid := true
+		for _, ch := range raw {
+			if (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') {
+				valid = false
+				break
+			}
+		}
+		if valid {
+			return raw
+		}
+	}
+	sum := sha256.Sum256([]byte(raw + "\x00" + seed))
+	return fmt.Sprintf("%x", sum[:])[:9]
+}
+
 func nativeEndpoint(baseURL, suffix string) (string, error) {
 	base, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || base.Scheme == "" || base.Host == "" {
@@ -310,7 +329,7 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 		return nativeModelResponse{}, modelHTTPError(response, request)
 	}
 	if !strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/event-stream") {
-		return parseOpenAIChatJSON(response.Body, request.Tools, onTextDelta)
+		return parseOpenAIChatJSON(response.Body, request, onTextDelta)
 	}
 
 	var result nativeModelResponse
@@ -399,8 +418,12 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 		if part == nil {
 			continue
 		}
+		callID := part.ID
+		if isOfficialMistralBaseURL(request.Provider.BaseURL) {
+			callID = normalizeMistralToolCallID(callID, fmt.Sprintf("%d\x00%s\x00%s", index, part.Name, part.Arguments.String()))
+		}
 		result.ToolCalls = append(result.ToolCalls, nativeModelToolCall{
-			ID:        part.ID,
+			ID:        callID,
 			Name:      nativeToolIDFromWire(part.Name, request.Tools),
 			Arguments: json.RawMessage(part.Arguments.String()),
 		})
@@ -408,7 +431,7 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 	return result, nil
 }
 
-func parseOpenAIChatJSON(reader io.Reader, tools []nativeModelToolDefinition, onTextDelta func(string)) (nativeModelResponse, error) {
+func parseOpenAIChatJSON(reader io.Reader, request nativeModelRequest, onTextDelta func(string)) (nativeModelResponse, error) {
 	data, err := io.ReadAll(io.LimitReader(reader, nativeModelMaxResponseBytes))
 	if err != nil {
 		return nativeModelResponse{}, err
@@ -456,10 +479,14 @@ func parseOpenAIChatJSON(reader io.Reader, tools []nativeModelToolDefinition, on
 	if result.Text != "" && onTextDelta != nil {
 		onTextDelta(result.Text)
 	}
-	for _, call := range choice.Message.ToolCalls {
+	for index, call := range choice.Message.ToolCalls {
+		callID := call.ID
+		if isOfficialMistralBaseURL(request.Provider.BaseURL) {
+			callID = normalizeMistralToolCallID(callID, fmt.Sprintf("%d\x00%s\x00%s", index, call.Function.Name, call.Function.Arguments))
+		}
 		result.ToolCalls = append(result.ToolCalls, nativeModelToolCall{
-			ID: call.ID,
-			Name: nativeToolIDFromWire(call.Function.Name, tools),
+			ID: callID,
+			Name: nativeToolIDFromWire(call.Function.Name, request.Tools),
 			Arguments: json.RawMessage(call.Function.Arguments),
 		})
 	}
