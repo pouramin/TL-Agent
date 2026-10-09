@@ -26,13 +26,13 @@ func TestReleaseWorkflowsNeverBundleCompatibilityRuntime(t *testing.T) {
 	}
 }
 
-func TestReleaseVersionIsStable061(t *testing.T) {
+func TestReleaseVersionIsStable062(t *testing.T) {
 	root := releaseRepoRoot(t)
 	data, err := os.ReadFile(filepath.Join(root, "VERSION"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(string(data)) != "0.6.1" {
+	if strings.TrimSpace(string(data)) != "0.6.2" {
 		t.Fatalf("unexpected milestone version %q", strings.TrimSpace(string(data)))
 	}
 }
