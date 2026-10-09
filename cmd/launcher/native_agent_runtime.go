@@ -16,8 +16,8 @@ const (
 	nativeAgentMaxToolRounds        = 100
 	nativeAgentMaxToolsPerRound     = 16
 	nativeAgentMaxRepeatedCalls     = 4
-	nativeAgentModelTurnTimeout     = 4 * time.Minute
-	nativeAgentLayaModelTurnTimeout = 6 * time.Minute
+	nativeAgentModelTurnTimeout         = 4 * time.Minute
+	nativeAgentExecutionModelTurnTimeout = 6 * time.Minute
 )
 
 type nativeModelResolver interface {
@@ -165,13 +165,13 @@ func (r *nativeAgentRuntime) publish(event liveEventView) {
 	}
 }
 
-func (r *nativeAgentRuntime) modelRequestTimeout(routed, executionRequired bool) time.Duration {
+func (r *nativeAgentRuntime) modelRequestTimeout(_ bool, executionRequired bool) time.Duration {
 	timeout := r.modelTurnTimeout
 	if timeout <= 0 {
 		timeout = nativeAgentModelTurnTimeout
 	}
-	if routed && executionRequired && timeout == nativeAgentModelTurnTimeout && timeout < nativeAgentLayaModelTurnTimeout {
-		return nativeAgentLayaModelTurnTimeout
+	if executionRequired && timeout == nativeAgentModelTurnTimeout && timeout < nativeAgentExecutionModelTurnTimeout {
+		return nativeAgentExecutionModelTurnTimeout
 	}
 	return timeout
 }
@@ -470,6 +470,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				Provider: provider,
 				Model:    model,
 				APIKey:   apiKey,
+				CacheKey: "tlstudio-" + sessionID,
 				Messages: append([]nativeConversationMessage(nil), conversation...),
 				Tools:    tools,
 			}, func(delta string) {
@@ -571,6 +572,11 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			return fmt.Errorf("native Agent requested %d tools in one round; maximum is %d", len(response.ToolCalls), nativeAgentMaxToolsPerRound)
 		}
 
+		for index := range response.ToolCalls {
+			if strings.TrimSpace(response.ToolCalls[index].ID) == "" {
+				response.ToolCalls[index].ID = fmt.Sprintf("native-call-%d-%d", iteration, index+1)
+			}
+		}
 		conversation = append(conversation, nativeConversationMessage{
 			Role:      "assistant",
 			Text:      response.Text,
@@ -593,14 +599,15 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 			Changes:     []sessionChangeView{},
 		}
 
-		for index, modelCall := range response.ToolCalls {
-			if strings.TrimSpace(modelCall.ID) == "" {
-				modelCall.ID = fmt.Sprintf("native-call-%d-%d", iteration, index+1)
-			}
+		currentRoundRepeats := map[string]int{}
+		currentRoundOccurrences := map[string]int{}
+		for _, modelCall := range response.ToolCalls {
 			signature := nativeToolSignature(modelCall)
-			repeated[signature]++
-			if repeated[signature] > nativeAgentMaxRepeatedCalls {
-				return fmt.Errorf("native Agent repeated the same tool call more than %d times", nativeAgentMaxRepeatedCalls)
+			currentRoundOccurrences[signature]++
+			streak := repeated[signature] + currentRoundOccurrences[signature]
+			currentRoundRepeats[signature] = streak
+			if streak > nativeAgentMaxRepeatedCalls {
+				return fmt.Errorf("native Agent repeated the same tool call more than %d consecutive times", nativeAgentMaxRepeatedCalls)
 			}
 
 			descriptor, _ := r.tools.Descriptor(directory, modelCall.Name)
@@ -654,6 +661,7 @@ func (r *nativeAgentRuntime) runLoop(ctx context.Context, directory, sessionID s
 				Text:       nativeToolResultMessage(result),
 			})
 		}
+		repeated = currentRoundRepeats
 
 		semantic.CompletedAt = time.Now().UnixMilli()
 		semantic.Changes = mergeSessionChanges(semantic.Changes)
