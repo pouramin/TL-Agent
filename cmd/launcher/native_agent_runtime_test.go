@@ -837,8 +837,15 @@ func TestNativeAgentRejectsPlanOnlyAnswerForExplicitExecutionTask(t *testing.T) 
 }
 
 func TestNativePromptExecutionDetectionHonorsReadOnlyRequests(t *testing.T) {
-	if !nativePromptRequiresExecution("Inspect the project, fix the bugs, run the relevant tests.") {
-		t.Fatal("explicit implementation request should require execution")
+	for _, prompt := range []string{
+		"Inspect the project, fix the bugs, run the relevant tests.",
+		"Build the requested application and verify it.",
+		"Generate the implementation and test it.",
+		"Develop the feature in this workspace.",
+	} {
+		if !nativePromptRequiresExecution(prompt) {
+			t.Fatalf("explicit implementation request should require execution: %q", prompt)
+		}
 	}
 	if nativePromptRequiresExecution("Review the project and tell me what you would improve. Do not modify any files.") {
 		t.Fatal("read-only review must not be forced into execution")
