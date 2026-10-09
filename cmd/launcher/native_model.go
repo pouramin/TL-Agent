@@ -42,6 +42,7 @@ type nativeModelRequest struct {
 	Provider tlProviderDefinition
 	Model    tlProviderModel
 	APIKey   string
+	CacheKey string
 	Messages []nativeConversationMessage
 	Tools    []nativeModelToolDefinition
 }
@@ -147,6 +148,14 @@ func nativeToolIDFromWire(name string, tools []nativeModelToolDefinition) string
 		}
 	}
 	return strings.TrimSpace(name)
+}
+
+func isOfficialMistralBaseURL(raw string) bool {
+	parsed, err := canonicalProviderURL(raw)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Hostname(), "api.mistral.ai")
 }
 
 func nativeEndpoint(baseURL, suffix string) (string, error) {
@@ -283,6 +292,12 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 		"messages": openAIChatMessages(request),
 		"stream":   true,
 	}
+	if isOfficialMistralBaseURL(request.Provider.BaseURL) {
+		payload["stream_options"] = map[string]any{"include_usage": true}
+		if cacheKey := strings.TrimSpace(request.CacheKey); cacheKey != "" {
+			payload["prompt_cache_key"] = cacheKey
+		}
+	}
 	if len(request.Tools) > 0 {
 		payload["tools"] = openAITools(request.Tools)
 		payload["tool_choice"] = "auto"
@@ -331,13 +346,23 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 			Usage struct {
 				PromptTokens     int64 `json:"prompt_tokens"`
 				CompletionTokens int64 `json:"completion_tokens"`
+				PromptTokensDetails struct {
+					CachedTokens int64 `json:"cached_tokens"`
+				} `json:"prompt_tokens_details"`
 			} `json:"usage"`
 		}
 		if json.Unmarshal([]byte(data), &event) != nil {
 			continue
 		}
-		result.Usage.Input += event.Usage.PromptTokens
-		result.Usage.Output += event.Usage.CompletionTokens
+		if event.Usage.PromptTokens > 0 {
+			result.Usage.Input = event.Usage.PromptTokens
+		}
+		if event.Usage.CompletionTokens > 0 {
+			result.Usage.Output = event.Usage.CompletionTokens
+		}
+		if event.Usage.PromptTokensDetails.CachedTokens > 0 {
+			result.Usage.CacheRead = event.Usage.PromptTokensDetails.CachedTokens
+		}
 		if strings.TrimSpace(event.Model) != "" {
 			result.RoutedModel = strings.TrimSpace(event.Model)
 		}
@@ -407,6 +432,9 @@ func parseOpenAIChatJSON(reader io.Reader, tools []nativeModelToolDefinition, on
 		Usage struct {
 			PromptTokens     int64 `json:"prompt_tokens"`
 			CompletionTokens int64 `json:"completion_tokens"`
+			PromptTokensDetails struct {
+				CachedTokens int64 `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
@@ -414,7 +442,11 @@ func parseOpenAIChatJSON(reader io.Reader, tools []nativeModelToolDefinition, on
 	}
 	result := nativeModelResponse{
 		RoutedModel: strings.TrimSpace(payload.Model),
-		Usage: sessionUsage{Input: payload.Usage.PromptTokens, Output: payload.Usage.CompletionTokens},
+		Usage: sessionUsage{
+			Input: payload.Usage.PromptTokens,
+			Output: payload.Usage.CompletionTokens,
+			CacheRead: payload.Usage.PromptTokensDetails.CachedTokens,
+		},
 	}
 	if len(payload.Choices) == 0 {
 		return result, errors.New("model response contained no choices")
