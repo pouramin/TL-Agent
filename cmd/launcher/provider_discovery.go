@@ -378,6 +378,7 @@ func normalizeProviderDiscoveredModel(record map[string]any) (providerDiscovered
 		record["context_length"],
 		record["contextLength"],
 		record["context_window"],
+		record["max_context_length"],
 		topProvider["context_length"],
 		metadata["context_length"],
 		providerDiscoveryProviderMaxPositive(record, "context_length"),
@@ -395,6 +396,7 @@ func normalizeProviderDiscoveredModel(record map[string]any) (providerDiscovered
 		[]string{"supportsTools"},
 		[]string{"supports_tools"},
 		[]string{"capabilities", "tool_calling"},
+		[]string{"capabilities", "function_calling"},
 		[]string{"capabilities", "tools"},
 		[]string{"capabilities", "tool_use"},
 	)

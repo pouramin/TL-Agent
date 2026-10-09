@@ -215,6 +215,45 @@ func TestDiscoverOpenAICompatibleModelsNormalizesMetadata(t *testing.T) {
 	}
 }
 
+
+
+func TestDiscoverMistralModelMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/models" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"data": [{
+				"id": "mistral-large-4",
+				"name": "Mistral Large 4",
+				"max_context_length": 1000000,
+				"capabilities": {
+					"completion_chat": true,
+					"function_calling": true,
+					"vision": true
+				}
+			}]
+		}`))
+	}))
+	defer server.Close()
+
+	models, err := discoverOpenAICompatibleModels(context.Background(), server.URL+"/v1", "secret-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected one Mistral model, got %#v", models)
+	}
+	model := models[0]
+	if model.ID != "mistral-large-4" || model.ContextLimit != 1000000 {
+		t.Fatalf("Mistral context metadata was not normalized: %#v", model)
+	}
+	if value, ok := boolPointerValue(model.ToolCall); !ok || !value {
+		t.Fatalf("Mistral function_calling capability was not normalized: %#v", model.ToolCall)
+	}
+}
+
 func TestDiscoverAnthropicModelsUsesProviderSpecificAPIAndPagination(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
