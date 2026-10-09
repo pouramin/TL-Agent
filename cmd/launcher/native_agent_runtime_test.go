@@ -645,16 +645,19 @@ func TestNativeAgentFallsBackToNextLayaRouteAfterTransientModelFailure(t *testin
 }
 
 
-func TestNativeAgentLayaRouteUsesAdaptiveDefaultModelTimeout(t *testing.T) {
+func TestNativeAgentUsesLongerTimeoutForExecutionTurns(t *testing.T) {
 	runtime := &nativeAgentRuntime{modelTurnTimeout: nativeAgentModelTurnTimeout}
 	if got := runtime.modelRequestTimeout(false, false); got != nativeAgentModelTurnTimeout {
-		t.Fatalf("direct model timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
+		t.Fatalf("direct read-only model timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
 	}
 	if got := runtime.modelRequestTimeout(true, false); got != nativeAgentModelTurnTimeout {
-		t.Fatalf("read-only Laya timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
+		t.Fatalf("routed read-only timeout = %s, want %s", got, nativeAgentModelTurnTimeout)
 	}
-	if got := runtime.modelRequestTimeout(true, true); got != nativeAgentLayaModelTurnTimeout {
-		t.Fatalf("execution Laya timeout = %s, want %s", got, nativeAgentLayaModelTurnTimeout)
+	if got := runtime.modelRequestTimeout(false, true); got != nativeAgentExecutionModelTurnTimeout {
+		t.Fatalf("direct execution timeout = %s, want %s", got, nativeAgentExecutionModelTurnTimeout)
+	}
+	if got := runtime.modelRequestTimeout(true, true); got != nativeAgentExecutionModelTurnTimeout {
+		t.Fatalf("routed execution timeout = %s, want %s", got, nativeAgentExecutionModelTurnTimeout)
 	}
 
 	runtime.modelTurnTimeout = 30 * time.Millisecond
