@@ -180,7 +180,9 @@ func TestNativeOfficialMistralStreamingUsesPromptCacheAndParsesUsage(t *testing.
 			if err := json.NewDecoder(request.Body).Decode(&received); err != nil {
 				t.Fatal(err)
 			}
-			body := "data: {\"model\":\"mistral-large-4\",\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":896}}}\n\ndata: [DONE]\n\n"
+			body := "data: {\"model\":\"mistral-large-4\",\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":null}],\"usage\":{}}\n\n" +
+				"data: {\"model\":\"mistral-large-4\",\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"ee61e87d-25d8-4bad-8e47-02939eb234c5\",\"function\":{\"name\":\"tl_files__write\",\"arguments\":\"{\\\"path\\\":\\\"x.txt\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":896}}}\n\n" +
+				"data: [DONE]\n\n"
 			return &http.Response{
 				StatusCode: http.StatusOK,
 				Header: http.Header{"Content-Type": []string{"text/event-stream"}},
@@ -214,6 +216,18 @@ func TestNativeOfficialMistralStreamingUsesPromptCacheAndParsesUsage(t *testing.
 	}
 	if response.Usage.Input != 1000 || response.Usage.Output != 20 || response.Usage.CacheRead != 896 {
 		t.Fatalf("unexpected Mistral usage %#v", response.Usage)
+	}
+	if len(response.ToolCalls) != 1 {
+		t.Fatalf("expected one Mistral Tool call, got %#v", response.ToolCalls)
+	}
+	callID := response.ToolCalls[0].ID
+	if len(callID) != 9 {
+		t.Fatalf("Mistral Tool-call ID must be 9 characters, got %q", callID)
+	}
+	for _, ch := range callID {
+		if (ch < 'a' || ch > 'z') && (ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') {
+			t.Fatalf("Mistral Tool-call ID must be alphanumeric, got %q", callID)
+		}
 	}
 }
 
