@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/stable-v0.6.0-16a34a" alt="Stable v0.6.0">
+  <img src="https://img.shields.io/badge/stable-v0.6.1-16a34a" alt="Stable v0.6.1">
   <img src="https://img.shields.io/badge/dev-v0.7.0--alpha.1-f59e0b" alt="Development v0.7.0-alpha.1">
 </p>
 
@@ -464,7 +464,7 @@ go build -o tl-studio.exe ./cmd/launcher
     <tr>
       <td align="right"><code dir="ltr">main</code></td>
       <td align="right">نسخهٔ پایدار</td>
-      <td align="right"><strong><span dir="ltr">v0.6.0</span></strong></td>
+      <td align="right"><strong><span dir="ltr">v0.6.1</span></strong></td>
     </tr>
     <tr>
       <td align="right"><code dir="ltr">dev</code></td>
