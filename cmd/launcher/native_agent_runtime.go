@@ -16,8 +16,8 @@ const (
 	nativeAgentMaxToolRounds        = 100
 	nativeAgentMaxToolsPerRound     = 16
 	nativeAgentMaxRepeatedCalls     = 4
-	nativeAgentModelTurnTimeout     = 2 * time.Minute
-	nativeAgentLayaModelTurnTimeout = 4 * time.Minute
+	nativeAgentModelTurnTimeout     = 4 * time.Minute
+	nativeAgentLayaModelTurnTimeout = 6 * time.Minute
 )
 
 type nativeModelResolver interface {
