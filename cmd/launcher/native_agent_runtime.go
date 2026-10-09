@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	nativeAgentMaxIterations      = 24
-	nativeAgentMaxToolRounds      = 16
+	nativeAgentMaxIterations      = 128
+	nativeAgentMaxToolRounds      = 100
 	nativeAgentMaxToolsPerRound   = 16
 	nativeAgentMaxRepeatedCalls       = 4
 	nativeAgentModelTurnTimeout       = 2 * time.Minute
