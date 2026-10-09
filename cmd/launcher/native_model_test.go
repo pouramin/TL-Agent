@@ -162,3 +162,87 @@ func TestNativeAnthropicTranslation(t *testing.T) {
 		t.Fatalf("unexpected usage %#v", response.Usage)
 	}
 }
+
+
+type nativeModelRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (fn nativeModelRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return fn(request)
+}
+
+func TestNativeOfficialMistralStreamingUsesUsageAndPromptCache(t *testing.T) {
+	var received map[string]any
+	client := &nativeHTTPModelClient{
+		httpClient: &http.Client{Transport: nativeModelRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+			if request.URL.String() != "https://api.mistral.ai/v1/chat/completions" {
+				t.Fatalf("unexpected Mistral endpoint %s", request.URL.String())
+			}
+			if err := json.NewDecoder(request.Body).Decode(&received); err != nil {
+				t.Fatal(err)
+			}
+			body := "data: {\"model\":\"mistral-large-4\",\"choices\":[{\"delta\":{\"content\":\"ok\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":1000,\"completion_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":896}}}\n\ndata: [DONE]\n\n"
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header: http.Header{"Content-Type": []string{"text/event-stream"}},
+				Body: io.NopCloser(strings.NewReader(body)),
+				Request: request,
+			}, nil
+		})},
+		bridges: map[string]nativeModelBridge{},
+	}
+
+	response, err := client.Complete(context.Background(), nativeModelRequest{
+		Provider: tlProviderDefinition{Protocol: "openai-compatible", BaseURL: "https://api.mistral.ai/v1"},
+		Model: tlProviderModel{ID: "mistral-large-4", ToolCall: true},
+		APIKey: "mistral-secret",
+		CacheKey: "tlstudio-session-proof",
+		Messages: []nativeConversationMessage{{Role: "user", Text: "inspect the project"}},
+		Tools: []nativeModelToolDefinition{nativeTestToolDefinition()},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	streamOptions, _ := received["stream_options"].(map[string]any)
+	if streamOptions == nil || streamOptions["include_usage"] != true {
+		t.Fatalf("Mistral streaming request did not request usage: %#v", received)
+	}
+	if received["prompt_cache_key"] != "tlstudio-session-proof" {
+		t.Fatalf("Mistral prompt cache key missing: %#v", received["prompt_cache_key"])
+	}
+	if response.Text != "ok" {
+		t.Fatalf("unexpected Mistral text %q", response.Text)
+	}
+	if response.Usage.Input != 1000 || response.Usage.Output != 20 || response.Usage.CacheRead != 896 {
+		t.Fatalf("unexpected Mistral usage %#v", response.Usage)
+	}
+}
+
+func TestNativeNonMistralOpenAICompatibleDoesNotInjectMistralFields(t *testing.T) {
+	var received map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatal(err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"ok"},"finish_reason":"stop"}],"usage":{"prompt_tokens":2,"completion_tokens":1}}`)
+	}))
+	defer server.Close()
+
+	_, err := newNativeModelClient().Complete(context.Background(), nativeModelRequest{
+		Provider: tlProviderDefinition{Protocol: "openai-compatible", BaseURL: server.URL + "/v1"},
+		Model: tlProviderModel{ID: "generic-model", ToolCall: true},
+		APIKey: "secret",
+		CacheKey: "tlstudio-should-not-leak",
+		Messages: []nativeConversationMessage{{Role: "user", Text: "hello"}},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := received["stream_options"]; ok {
+		t.Fatalf("generic OpenAI-compatible request received Mistral-only stream_options: %#v", received)
+	}
+	if _, ok := received["prompt_cache_key"]; ok {
+		t.Fatalf("generic OpenAI-compatible request received Mistral-only prompt_cache_key: %#v", received)
+	}
+}
