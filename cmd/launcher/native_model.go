@@ -373,13 +373,15 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 			continue
 		}
 		if event.Usage.PromptTokens > 0 {
-			result.Usage.Input = event.Usage.PromptTokens
+			cached := event.Usage.PromptTokensDetails.CachedTokens
+			if cached < 0 || cached > event.Usage.PromptTokens {
+				cached = 0
+			}
+			result.Usage.Input = event.Usage.PromptTokens - cached
+			result.Usage.CacheRead = cached
 		}
 		if event.Usage.CompletionTokens > 0 {
 			result.Usage.Output = event.Usage.CompletionTokens
-		}
-		if event.Usage.PromptTokensDetails.CachedTokens > 0 {
-			result.Usage.CacheRead = event.Usage.PromptTokensDetails.CachedTokens
 		}
 		if strings.TrimSpace(event.Model) != "" {
 			result.RoutedModel = strings.TrimSpace(event.Model)
@@ -462,12 +464,16 @@ func parseOpenAIChatJSON(reader io.Reader, request nativeModelRequest, onTextDel
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return nativeModelResponse{}, fmt.Errorf("decode OpenAI-compatible response: %w", err)
 	}
+	cachedPromptTokens := payload.Usage.PromptTokensDetails.CachedTokens
+	if cachedPromptTokens < 0 || cachedPromptTokens > payload.Usage.PromptTokens {
+		cachedPromptTokens = 0
+	}
 	result := nativeModelResponse{
 		RoutedModel: strings.TrimSpace(payload.Model),
 		Usage: sessionUsage{
-			Input: payload.Usage.PromptTokens,
+			Input: payload.Usage.PromptTokens - cachedPromptTokens,
 			Output: payload.Usage.CompletionTokens,
-			CacheRead: payload.Usage.PromptTokensDetails.CachedTokens,
+			CacheRead: cachedPromptTokens,
 		},
 	}
 	if len(payload.Choices) == 0 {
