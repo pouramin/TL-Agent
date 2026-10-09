@@ -293,7 +293,6 @@ func (c *nativeHTTPModelClient) completeOpenAIChat(ctx context.Context, request 
 		"stream":   true,
 	}
 	if isOfficialMistralBaseURL(request.Provider.BaseURL) {
-		payload["stream_options"] = map[string]any{"include_usage": true}
 		if cacheKey := strings.TrimSpace(request.CacheKey); cacheKey != "" {
 			payload["prompt_cache_key"] = cacheKey
 		}
