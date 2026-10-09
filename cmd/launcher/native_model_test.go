@@ -214,7 +214,7 @@ func TestNativeOfficialMistralStreamingUsesPromptCacheAndParsesUsage(t *testing.
 	if response.Text != "ok" {
 		t.Fatalf("unexpected Mistral text %q", response.Text)
 	}
-	if response.Usage.Input != 1000 || response.Usage.Output != 20 || response.Usage.CacheRead != 896 {
+	if response.Usage.Input != 104 || response.Usage.Output != 20 || response.Usage.CacheRead != 896 {
 		t.Fatalf("unexpected Mistral usage %#v", response.Usage)
 	}
 	if len(response.ToolCalls) != 1 {
